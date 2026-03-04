@@ -1,1 +1,77 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* light mode */
+  --color-bg-app: #f0eff4;
+  --color-bg-shell: #ffffff;
+  --color-bg-sidebar: #f9f9fb;
+  --color-bg-card: #ffffff;
+  --color-bg-card-2: #f9f9fb;
+
+  --color-bg-nav-active: #f3f0ff;
+  --color-bg-nav-hover: #f5f5f8;
+  --color-bg-input: #f5f5f8;
+  --color-bg-badge: #f0edff;
+
+  --color-border-default: #ebebf0;
+  --color-border-light: #f2f2f5;
+
+  --color-text-primary: #0f0f14;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-text-nav-active: #7c3aed;
+
+  --color-accent: #7c3aed;
+  --color-accent-light: #ede9fe;
+
+  --color-success: #10b981;
+  --color-error: #ef4444;
+  --color-warning: #f97316;
+
+  --color-purple-bar: #7c3aed;
+  --color-bar-bg: #ede9fe;
+
+  --color-storage-fill: #ef4444;
+  --color-storage-bg: #fee2e2;
+
+  --shadow-app: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.05);
+
+  /*  dark mode */
+
+  --color-bg-dark-app: #0c0c10;
+  --color-bg-dark-shell: #131318;
+  --color-bg-dark-sidebar: #0f0f14;
+  --color-bg-dark-card: #1a1a22;
+  --color-bg-dark-card-2: #15151c;
+
+  --color-bg-dark-nav-active: #1e1830;
+  --color-bg-dark-nav-hover: #1a1a22;
+  --color-bg-dark-input: #1a1a22;
+  --color-bg-dark-badge: #1e1830;
+
+  --color-border-dark-default: #2a2a35;
+  --color-border-dark-light: #22222c;
+
+  --color-text-dark-primary: #f1f1f5;
+  --color-text-dark-secondary: #8b8fa8;
+  --color-text-dark-muted: #5a5f78;
+  --color-text-dark-nav-active: #a78bfa;
+
+  --color-accent-dark: #a78bfa;
+  --color-accent-dark-light: #1e1830;
+
+  --color-success-dark: #34d399;
+  --color-error-dark: #f87171;
+  --color-warning-dark: #fb923c;
+
+  --color-purple-dark-bar: #8b5cf6;
+  --color-bar-dark-bg: #2a2040;
+
+  --color-storage-dark-fill: #f87171;
+  --color-storage-dark-bg: #3a1a1a;
+
+  --shadow-dark-app: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-dark-card: 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
