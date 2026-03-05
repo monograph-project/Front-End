@@ -1,5 +1,6 @@
 import IC from "./IC";
 import Icon from "./Icon";
+import Dashboard from "./../pages/Dashboard";
 
 export default function StatCard({
   icon,
@@ -11,98 +12,39 @@ export default function StatCard({
 }) {
   const isUp = deltaDir === "up";
   return (
-    <div
-      style={{
-        background: "var(--c-bg-card)",
-        border: "1px solid var(--c-border)",
-        borderRadius: 12,
-        padding: "16px 18px",
-        flex: 1,
-        minWidth: 0,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 10,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 7,
-              background: "var(--c-accent-light)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
+    <div className="bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] flex-1 min-w-0">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-1.75">
+          <div className="w-7 h-7 rounded-lg bg-accent-light dark:bg-accent-dark-light flex items-center justify-center">
             <Icon
               d={icon}
-              size={14}
-              stroke="var(--c-accent)"
-              strokeWidth={1.8}
+              className="text-[14px] stroke-accent dark:stroke-accent-dark stroke-[1.8]"
             />
           </div>
-          <span
-            style={{
-              fontSize: 12,
-              color: "var(--c-text-secondary)",
-              fontWeight: 500,
-            }}
-          >
+          <span className="text-xs text-secondary dark:text-dark-secondary font-medium">
             {label}
           </span>
         </div>
         <Icon
           d={IC.moreH}
-          size={14}
-          stroke="var(--c-text-muted)"
-          strokeWidth={1.5}
+          className="stroke-muted dark:stroke-dark-muted stroke-[1.5]"
         />
       </div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
-        <span
-          style={{
-            fontSize: 28,
-            fontWeight: 800,
-            color: "var(--c-text-primary)",
-            lineHeight: 1,
-            letterSpacing: "-0.03em",
-          }}
-        >
+      <div className="flex items-end gap-2.5">
+        <span className="text-[28px] font-extrabold text-primary dark:text-dark-primary leading-none tracking-tight">
           {value}
         </span>
-        <div
-          style={{
-            marginBottom: 3,
-            display: "flex",
-            flexDirection: "column",
-            gap: 2,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+        <div className="mb-0.75 flex flex-col gap-0.5">
+          <div className="flex items-center gap-0.75">
             <Icon
               d={isUp ? IC.arrowUp : IC.arrowDown}
-              size={11}
-              stroke={isUp ? "var(--c-green)" : "var(--c-red)"}
-              strokeWidth={2.5}
+              className={`${isUp ? "stroke-success" : "stroke-error"} dark:${isUp ? "stroke-success-dark" : "stroke-error-dark"} stroke-[2.5]`}
             />
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: isUp ? "var(--c-green)" : "var(--c-red)",
-              }}
-            >
+            <span className="text-[11px] font-semibold text-success dark:text-success-dark">
               {delta}
             </span>
           </div>
-          <span style={{ fontSize: 10, color: "var(--c-text-muted)" }}>
+          <span className="text-[10px] text-muted dark:text-dark-muted">
             {period}
           </span>
         </div>

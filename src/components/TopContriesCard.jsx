@@ -9,51 +9,24 @@ export default function TopCountryCard() {
     { name: "Singapore", flag: "🇸🇬", pct: 17 },
   ];
   return (
-    <div
-      style={{
-        background: "var(--c-bg-card)",
-        border: "1px solid var(--c-border)",
-        borderRadius: 12,
-        padding: "16px 18px",
-        flex: 1,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 12,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "var(--c-text-primary)",
-          }}
-        >
+    <div className="bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] flex-1">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[13px] font-semibold text-primary dark:text-dark-primary">
           Top Country
         </span>
-        <Icon d={IC.moreV} size={14} stroke="var(--c-text-muted)" />
+        <Icon
+          className="text-muted dark:text-dark-muted"
+          d={IC.moreV}
+          size={14}
+        />
       </div>
       {/* Map placeholder with purple blobs */}
-      <div
-        style={{
-          height: 100,
-          background: "var(--c-bg-card2)",
-          borderRadius: 10,
-          marginBottom: 14,
-          overflow: "hidden",
-          position: "relative",
-          border: "1px solid var(--c-border-light)",
-        }}
-      >
+      <div className="h-[100px] bg-card-2 dark:bg-dark-card-2 rounded-lg mb-3.5 overflow-hidden relative border border-default dark:border-dark-default">
         <svg
           width="100%"
           height="100%"
           viewBox="0 0 300 100"
-          style={{ position: "absolute", inset: 0 }}
+          className="absolute inset-0"
         >
           {/* Simplified world-blob shapes for SE Asia/Pacific */}
           <ellipse
@@ -102,78 +75,36 @@ export default function TopCountryCard() {
           <circle cx="200" cy="62" r="2" fill="#6d28d9" />
         </svg>
         {/* expand icon */}
-        <button
-          style={{
-            position: "absolute",
-            top: 6,
-            right: 6,
-            background: "var(--c-bg-card)",
-            border: "1px solid var(--c-border)",
-            borderRadius: 6,
-            padding: "3px 5px",
-            cursor: "pointer",
-            display: "flex",
-          }}
-        >
+        <button className="absolute top-1.5 right-1.5 bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-md p-0.75 cursor-pointer flex">
           <Icon
+            className="text-muted dark:text-dark-muted"
             d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"
             size={11}
-            stroke="var(--c-text-muted)"
             strokeWidth={1.5}
           />
         </button>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="flex flex-col gap-2">
         {countries.map((c, i) => (
-          <div
-            key={c.name}
-            style={{ display: "flex", alignItems: "center", gap: 8 }}
-          >
-            <span
-              style={{ fontSize: 11, color: "var(--c-text-muted)", width: 14 }}
-            >
+          <div key={c.name} className="flex items-center gap-2">
+            <span className="text-[11px] text-muted dark:text-dark-muted w-3.5">
               {i + 1}
             </span>
-            <span style={{ fontSize: 14 }}>{c.flag}</span>
-            <span
-              style={{
-                fontSize: 12,
-                color: "var(--c-text-secondary)",
-                flex: 1,
-              }}
-            >
+            <span className="text-sm">{c.flag}</span>
+            <span className="text-[12px] text-secondary dark:text-dark-secondary flex-1">
               {c.name}
             </span>
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "var(--c-text-primary)",
-              }}
-            >
+            <span className="text-[12px] font-semibold text-primary dark:text-dark-primary">
               {c.pct}%
             </span>
           </div>
         ))}
-        <button
-          style={{
-            marginTop: 4,
-            fontSize: 11,
-            color: "var(--c-accent)",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            textAlign: "left",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
+        <button className="mt-1 text-[11px] text-accent dark:text-accent-dark bg-transparent border-none cursor-pointer text-left flex items-center gap-1 hover:opacity-80">
           View more{" "}
           <Icon
+            className="text-accent dark:text-accent-dark"
             d={IC.chevRight}
             size={11}
-            stroke="var(--c-accent)"
             strokeWidth={2}
           />
         </button>

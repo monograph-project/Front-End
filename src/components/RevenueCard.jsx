@@ -11,8 +11,12 @@ import {
   YAxis,
 } from "recharts";
 import CustomTooltip from "./CustomTooltip";
+import { useTheme } from "../context/themContext";
 
 export default function RevenueCard() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   const revenueData = [
     { month: "Mar", value: 22000 },
     { month: "Apr", value: 16000 },
@@ -28,87 +32,53 @@ export default function RevenueCard() {
     { month: "Feb", value: 7500 },
   ];
 
+  // Theme-aware colors for recharts
+  const colors = {
+    grid: isDark ? "var(--color-dark-default)" : "var(--color-default)",
+    text: isDark ? "var(--color-dark-muted)" : "var(--color-muted)",
+    barBg: isDark ? "var(--color-bar-dark-bg)" : "var(--color-bar-bg)",
+    purpleBar: isDark
+      ? "var(--color-purple-dark-bar)"
+      : "var(--color-purple-bar)",
+  };
+
   const [period, setPeriod] = useState("1Y");
   const periods = ["1D", "1W", "1M", "6M", "1Y", "ALL"];
   return (
-    <div
-      style={{
-        background: "var(--c-bg-card)",
-        border: "1px solid var(--c-border)",
-        borderRadius: 12,
-        padding: "16px 18px",
-        flex: 1,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 4,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "var(--c-text-primary)",
-            }}
-          >
+    <div className="bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] flex-1">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[13px] font-semibold text-primary dark:text-dark-primary">
             Revenue
           </span>
           <Icon
+            className="text-muted dark:text-dark-muted"
             d={IC.chevDown}
             size={13}
-            stroke="var(--c-text-muted)"
             strokeWidth={2}
           />
         </div>
-        <div style={{ display: "flex", gap: 2 }}>
+        <div className="flex gap-0.5">
           {periods.map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              style={{
-                padding: "3px 8px",
-                borderRadius: 6,
-                border: "none",
-                background:
-                  period === p ? "var(--c-bg-nav-active)" : "transparent",
-                color:
-                  period === p
-                    ? "var(--c-text-nav-active)"
-                    : "var(--c-text-muted)",
-                fontSize: 11,
-                fontWeight: period === p ? 600 : 400,
-                cursor: "pointer",
-              }}
+              className={`px-2 py-0.75 rounded-md border-none text-[11px] cursor-pointer transition-colors ${
+                period === p
+                  ? "bg-nav-main-active dark:bg-dark-nav-main-active text-nav-text-active dark:text-nav-text-active font-semibold"
+                  : "bg-transparent text-muted dark:text-dark-muted font-normal hover:bg-nav-hover dark:hover:bg-dark-nav-hover"
+              }`}
             >
               {p}
             </button>
           ))}
         </div>
       </div>
-      <div style={{ marginBottom: 12 }}>
-        <span
-          style={{
-            fontSize: 22,
-            fontWeight: 800,
-            color: "var(--c-text-primary)",
-            letterSpacing: "-0.02em",
-          }}
-        >
+      <div className="mb-3">
+        <span className="text-[22px] font-extrabold text-primary dark:text-dark-primary tracking-tight">
           $32.209
         </span>
-        <span
-          style={{
-            fontSize: 11,
-            color: "var(--c-green)",
-            marginLeft: 8,
-            fontWeight: 500,
-          }}
-        >
+        <span className="text-[11px] text-success dark:text-success-dark ml-2 font-medium">
           +22% vs last month
         </span>
       </div>
@@ -120,26 +90,26 @@ export default function RevenueCard() {
         >
           <CartesianGrid
             vertical={false}
-            stroke="var(--c-border)"
+            stroke={colors.grid}
             strokeDasharray="3 3"
           />
           <XAxis
             dataKey="month"
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 10, fill: "var(--c-text-muted)" }}
+            tick={{ fontSize: 10, fill: colors.text }}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 10, fill: "var(--c-text-muted)" }}
+            tick={{ fontSize: 10, fill: colors.text }}
             tickFormatter={(v) => `${v / 1000}k`}
           />
           <Tooltip content={<CustomTooltip />} cursor={false} />
           <Bar
             dataKey="value"
             radius={[4, 4, 0, 0]}
-            fill="var(--c-bar-bg)"
+            fill={colors.barBg}
             shape={(props) => {
               const { x, y, width, height, index } = props;
               const isActive = revenueData[index]?.active;
@@ -151,7 +121,7 @@ export default function RevenueCard() {
                   height={height}
                   rx={4}
                   ry={4}
-                  fill={isActive ? "var(--c-purple-bar)" : "var(--c-bar-bg)"}
+                  fill={isActive ? colors.purpleBar : colors.barBg}
                 />
               );
             }}

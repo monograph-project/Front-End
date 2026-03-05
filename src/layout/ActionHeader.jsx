@@ -4,82 +4,52 @@ import Icon from "../components/Icon";
 export default function ActionHeader() {
   return (
     <div
+      className="flex items-center shrink-0  border-b border-default dark:border-dark-default gap-2 bg-card dark:bg-dark-card"
       style={{
-        display: "flex",
-        alignItems: "center",
         padding: "10px 20px",
-        borderBottom: "1px solid var(--c-border)",
-        gap: 10,
-        background: "var(--c-bg-card)",
-        flexShrink: 0,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+      <div className=" flex items-center gap-2 flex-1">
         <Icon
           d={IC.check}
-          size={13}
-          stroke="var(--c-green)"
-          strokeWidth={2.5}
+          className={
+            " dark:stroke-success-dark stroke-success stroke-[2.5] size-[13px]"
+          }
         />
-        <span
-          style={{ fontSize: 11, color: "var(--c-green)", fontWeight: 500 }}
-        >
+        <span className=" text-xs dark:text-success-dark text-success font-medium">
           Last updated now
         </span>
       </div>
       <button
+        className=" flex items-center text-secondary dark:text-dark-secondary gap-[6px] rounded-[8px] border dark:border-dark-default border-default text-xs cursor-pointer"
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
           padding: "6px 12px",
-          borderRadius: 8,
-          border: "1px solid var(--c-border)",
-          background: "var(--c-bg-card)",
-          color: "var(--c-text-secondary)",
-          fontSize: 12,
-          cursor: "pointer",
         }}
       >
-        <Icon d={IC.customize} size={12} strokeWidth={1.5} />
+        <Icon d={IC.customize} className={" size-[12px] stroek-[1.5]"} />
         Customize Widget
       </button>
       <button
+        className=" flex items-center text-secondary dark:text-dark-secondary gap-[6px] rounded-[8px] border dark:border-dark-default border-default text-xs cursor-pointer"
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
           padding: "6px 12px",
-          borderRadius: 8,
-          border: "1px solid var(--c-border)",
-          background: "var(--c-bg-card)",
-          color: "var(--c-text-secondary)",
-          fontSize: 12,
-          cursor: "pointer",
         }}
       >
-        <Icon d={IC.import} size={12} strokeWidth={1.5} />
+        <Icon d={IC.import} className={" size-[12px] stroek-[1.5]"} />
         Imports
         <Icon
           d={IC.chevDown}
-          size={11}
-          stroke="var(--c-text-muted)"
-          strokeWidth={2}
+          className={
+            " stroke-2 stroke-muted dark:stroke-dark-muted size-[11px]"
+          }
         />
       </button>
       <button
+        className="flex text-white cursor-pointer font- items-center items-center gap-[6px] rounded-none rounded-[8px] bg-[linear-gradient(135deg,#7c3aed,#6d28d9)]"
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
           padding: "6px 14px",
           borderRadius: 8,
           border: "none",
-          background: "linear-gradient(135deg,#7c3aed,#6d28d9)",
-          color: "#fff",
-          fontSize: 12,
-          cursor: "pointer",
-          fontWeight: 600,
         }}
       >
         <Icon d={IC.export} size={12} stroke="#fff" strokeWidth={2} />

@@ -12,97 +12,45 @@ export default function LeadsCard() {
     { label: "Won", value: 55, color: "#7c3aed" },
   ];
   return (
-    <div
-      style={{
-        background: "var(--c-bg-card)",
-        border: "1px solid var(--c-border)",
-        borderRadius: 12,
-        padding: "16px 18px",
-        flex: 1,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 12,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "var(--c-text-primary)",
-          }}
-        >
+    <div className="bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] flex-1">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[13px] font-semibold text-primary dark:text-dark-primary">
           Leads Management
         </span>
-        <Icon d={IC.moreV} size={14} stroke="var(--c-text-muted)" />
+        <Icon
+          className="text-muted dark:text-dark-muted"
+          d={IC.moreV}
+          size={14}
+        />
       </div>
-      <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>
+      <div className="flex gap-1 mb-3.5">
         {tabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            style={{
-              padding: "4px 10px",
-              borderRadius: 6,
-              border: tab === t ? "1px solid var(--c-border)" : "none",
-              background: tab === t ? "var(--c-bg-card)" : "transparent",
-              color:
-                tab === t ? "var(--c-text-primary)" : "var(--c-text-muted)",
-              fontSize: 11,
-              fontWeight: tab === t ? 600 : 400,
-              cursor: "pointer",
-            }}
+            className={`px-2.5 py-1 rounded-md text-[11px] cursor-pointer transition-colors ${
+              tab === t
+                ? "bg-card dark:bg-dark-card border border-default dark:border-dark-default text-primary dark:text-dark-primary font-semibold"
+                : "bg-transparent border-none text-muted dark:text-dark-muted font-normal"
+            }`}
           >
             {t}
           </button>
         ))}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="flex flex-col gap-2.5">
         {leadsData.map((l) => (
-          <div
-            key={l.label}
-            style={{ display: "flex", alignItems: "center", gap: 10 }}
-          >
-            <span
-              style={{
-                width: 72,
-                fontSize: 11,
-                color: "var(--c-text-secondary)",
-              }}
-            >
+          <div key={l.label} className="flex items-center gap-2.5">
+            <span className="w-[72px] text-[11px] text-secondary dark:text-dark-secondary">
               {l.label}
             </span>
-            <div
-              style={{
-                flex: 1,
-                height: 8,
-                borderRadius: 99,
-                background: "var(--c-bar-bg)",
-                overflow: "hidden",
-              }}
-            >
+            <div className="flex-1 h-2 rounded-full bg-bar-bg dark:bg-bar-dark-bg overflow-hidden">
               <div
-                style={{
-                  height: "100%",
-                  width: `${l.value}%`,
-                  borderRadius: 99,
-                  background: l.color,
-                  transition: "width 0.4s ease",
-                }}
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${l.value}%`, background: l.color }}
               />
             </div>
-            <span
-              style={{
-                width: 28,
-                fontSize: 11,
-                color: "var(--c-text-muted)",
-                textAlign: "right",
-              }}
-            >
+            <span className="w-7 text-[11px] text-muted dark:text-dark-muted text-right">
               {l.value}%
             </span>
           </div>

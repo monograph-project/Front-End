@@ -8,19 +8,9 @@ import TopCountryCard from "../components/TopContriesCard";
 
 export default function Dashboard() {
   return (
-    <div
-      style={{
-        flex: 1,
-        overflowY: "auto",
-        padding: "16px 20px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-        background: "var(--c-bg-shell)",
-      }}
-    >
+    <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-[14px] bg-shell dark:bg-dark-shell">
       {/* Stat Cards Row */}
-      <div style={{ display: "flex", gap: 12 }}>
+      <div className="flex gap-3">
         <StatCard
           icon={IC.contact}
           label="Leads"
@@ -56,13 +46,13 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Row */}
-      <div style={{ display: "flex", gap: 12 }}>
+      <div className="flex gap-3">
         <RevenueCard />
         <CalendarCard />
       </div>
 
       {/* Bottom Row */}
-      <div style={{ display: "flex", gap: 12 }}>
+      <div className="flex gap-3">
         <LeadsCard />
         <TopCountryCard />
         <RetentionCard />

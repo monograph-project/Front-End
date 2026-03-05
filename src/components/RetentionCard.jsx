@@ -10,8 +10,12 @@ import {
 } from "recharts";
 import IC from "./IC";
 import Icon from "./Icon";
+import { useTheme } from "../context/themContext";
 
 export default function RetentionCard() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   const retentionData = [
     { month: "Jun", sme: 55, start: 40, ent: 25 },
     { month: "Jul", sme: 60, start: 55, ent: 35 },
@@ -21,77 +25,51 @@ export default function RetentionCard() {
     { month: "Nov", sme: 50, start: 45, ent: 32 },
     { month: "Dec", sme: 55, start: 50, ent: 35 },
   ];
+
+  // Theme-aware colors for recharts
+  const colors = {
+    grid: isDark ? "var(--color-dark-default)" : "var(--color-default)",
+    text: isDark ? "var(--color-dark-muted)" : "var(--color-muted)",
+    sme: isDark ? "#8b5cf6" : "#7c3aed",
+    startups: isDark ? "#a78bfa" : "#a78bfa",
+    enterprises: isDark ? "#c4b5fd" : "#c4b5fd",
+  };
+
+  const legendItems = [
+    ["SMEs", colors.sme],
+    ["Startups", colors.startups],
+    ["Enterprises", colors.enterprises],
+  ];
+
   return (
-    <div
-      style={{
-        background: "var(--c-bg-card)",
-        border: "1px solid var(--c-border)",
-        borderRadius: 12,
-        padding: "16px 18px",
-        flex: 1,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 4,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "var(--c-text-primary)",
-          }}
-        >
+    <div className="bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] flex-1">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[13px] font-semibold text-primary dark:text-dark-primary">
           Retention Rate
         </span>
-        <Icon d={IC.moreV} size={14} stroke="var(--c-text-muted)" />
+        <Icon
+          className="text-muted dark:text-dark-muted"
+          d={IC.moreV}
+          size={14}
+        />
       </div>
-      <div style={{ marginBottom: 10 }}>
-        <span
-          style={{
-            fontSize: 24,
-            fontWeight: 800,
-            color: "var(--c-text-primary)",
-            letterSpacing: "-0.02em",
-          }}
-        >
+      <div className="mb-2.5">
+        <span className="text-2xl font-extrabold text-primary dark:text-dark-primary tracking-tight">
           95%
         </span>
-        <span
-          style={{
-            fontSize: 11,
-            color: "var(--c-green)",
-            marginLeft: 8,
-            fontWeight: 500,
-          }}
-        >
+        <span className="text-[11px] text-success dark:text-success-dark ml-2 font-medium">
           +12% vs last month
         </span>
       </div>
       {/* Legend */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 10 }}>
-        {[
-          ["SMEs", "#7c3aed"],
-          ["Startups", "#a78bfa"],
-          ["Enterprises", "#c4b5fd"],
-        ].map(([label, color]) => (
-          <div
-            key={label}
-            style={{ display: "flex", alignItems: "center", gap: 4 }}
-          >
+      <div className="flex gap-3 mb-2.5">
+        {legendItems.map(([label, color]) => (
+          <div key={label} className="flex items-center gap-1">
             <div
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                background: color,
-              }}
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: color }}
             />
-            <span style={{ fontSize: 10, color: "var(--c-text-muted)" }}>
+            <span className="text-[10px] text-muted dark:text-dark-muted">
               {label}
             </span>
           </div>
@@ -104,21 +82,26 @@ export default function RetentionCard() {
           barGap={2}
           margin={{ top: 0, right: 0, left: -25, bottom: 0 }}
         >
+          <CartesianGrid
+            vertical={false}
+            stroke={colors.grid}
+            strokeDasharray="3 3"
+          />
           <XAxis
             dataKey="month"
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 9, fill: "var(--c-text-muted)" }}
+            tick={{ fontSize: 9, fill: colors.text }}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 9, fill: "var(--c-text-muted)" }}
+            tick={{ fontSize: 9, fill: colors.text }}
             domain={[0, 100]}
           />
-          <Bar dataKey="sme" radius={[3, 3, 0, 0]} fill="#7c3aed" />
-          <Bar dataKey="start" radius={[3, 3, 0, 0]} fill="#a78bfa" />
-          <Bar dataKey="ent" radius={[3, 3, 0, 0]} fill="#c4b5fd" />
+          <Bar dataKey="sme" radius={[3, 3, 0, 0]} fill={colors.sme} />
+          <Bar dataKey="start" radius={[3, 3, 0, 0]} fill={colors.startups} />
+          <Bar dataKey="ent" radius={[3, 3, 0, 0]} fill={colors.enterprises} />
         </BarChart>
       </ResponsiveContainer>
     </div>

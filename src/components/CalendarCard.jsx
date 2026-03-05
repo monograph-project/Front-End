@@ -28,77 +28,41 @@ export default function CalendarCard() {
     },
   ];
   return (
-    <div
-      style={{
-        background: "var(--c-bg-card)",
-        border: "1px solid var(--c-border)",
-        borderRadius: 12,
-        padding: "16px 18px",
-        width: 280,
-        flexShrink: 0,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 12,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--c-text-muted)",
-              padding: 2,
-            }}
-          >
-            <Icon d={IC.chevLeft} size={14} strokeWidth={2} />
+    <div className="bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] w-[280px] shrink-0">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <button className="bg-transparent border-none cursor-pointer text-muted dark:text-dark-muted p-0.5 hover:bg-nav-hover dark:hover:bg-dark-nav-hover rounded">
+            <Icon
+              className="text-muted dark:text-dark-muted"
+              d={IC.chevLeft}
+              size={14}
+              strokeWidth={2}
+            />
           </button>
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "var(--c-text-primary)",
-            }}
-          >
+          <span className="text-[13px] font-semibold text-primary dark:text-dark-primary">
             October 2025
           </span>
-          <button
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--c-text-muted)",
-              padding: 2,
-            }}
-          >
-            <Icon d={IC.chevRight} size={14} strokeWidth={2} />
+          <button className="bg-transparent border-none cursor-pointer text-muted dark:text-dark-muted p-0.5 hover:bg-nav-hover dark:hover:bg-dark-nav-hover rounded">
+            <Icon
+              className="text-muted dark:text-dark-muted"
+              d={IC.chevRight}
+              size={14}
+              strokeWidth={2}
+            />
           </button>
         </div>
-        <Icon d={IC.moreV} size={14} stroke="var(--c-text-muted)" />
+        <Icon
+          className="text-muted dark:text-dark-muted"
+          d={IC.moreV}
+          size={14}
+        />
       </div>
       {/* Day headers */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7,1fr)",
-          marginBottom: 4,
-        }}
-      >
+      <div className="grid grid-cols-7 mb-1">
         {days.map((d) => (
           <div
             key={d}
-            style={{
-              textAlign: "center",
-              fontSize: 10,
-              color: "var(--c-text-muted)",
-              fontWeight: 600,
-              padding: "2px 0",
-            }}
+            className="text-center text-[10px] text-muted dark:text-dark-muted font-semibold py-0.5"
           >
             {d}
           </div>
@@ -109,32 +73,16 @@ export default function CalendarCard() {
         [null, null, null, null, 1, 2, 3],
         [4, 5, 6, 7, 8, 9, 10],
       ].map((row, ri) => (
-        <div
-          key={ri}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(7,1fr)",
-            marginBottom: 2,
-          }}
-        >
+        <div key={ri} className="grid grid-cols-7 mb-0.5">
           {row.map((d, di) => (
-            <div key={di} style={{ textAlign: "center", padding: "4px 0" }}>
+            <div key={di} className="text-center py-1">
               {d && (
                 <div
-                  style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: "50%",
-                    margin: "auto",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: d === 8 ? "var(--c-accent)" : "transparent",
-                    color: d === 8 ? "#fff" : "var(--c-text-primary)",
-                    fontSize: 12,
-                    fontWeight: d === 8 ? 700 : 400,
-                    cursor: "pointer",
-                  }}
+                  className={`w-6 h-6 rounded-full mx-auto flex items-center justify-center cursor-pointer text-[12px] ${
+                    d === 8
+                      ? "bg-accent text-white font-bold"
+                      : "text-primary dark:text-dark-primary font-normal hover:bg-nav-hover dark:hover:bg-dark-nav-hover"
+                  }`}
                 >
                   {d}
                 </div>
@@ -144,76 +92,31 @@ export default function CalendarCard() {
         </div>
       ))}
       {/* Events */}
-      <div
-        style={{
-          marginTop: 12,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}
-      >
+      <div className="mt-3 flex flex-col gap-2">
         {calEvents.map((ev, i) => (
           <div
             key={i}
-            style={{
-              background: "var(--c-bg-card2)",
-              borderRadius: 10,
-              padding: "10px 12px",
-              border: "1px solid var(--c-border-light)",
-            }}
+            className="bg-card-2 dark:bg-dark-card-2 rounded-lg p-2.5 border border-default dark:border-dark-default"
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 6,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--c-text-primary)",
-                }}
-              >
+            <div className="flex justify-between mb-1.5">
+              <span className="text-[12px] font-semibold text-primary dark:text-dark-primary">
                 {ev.title}
               </span>
-              <span style={{ fontSize: 10, color: "var(--c-text-muted)" }}>
+              <span className="text-[10px] text-muted dark:text-dark-muted">
                 {ev.time}
               </span>
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div style={{ display: "flex" }}>
+            <div className="flex items-center justify-between">
+              <div className="flex">
                 {ev.avatars.map((c, ai) => (
                   <div
                     key={ai}
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: "50%",
-                      background: c,
-                      border: "2px solid var(--c-bg-card)",
-                      marginLeft: ai === 0 ? 0 : -6,
-                    }}
+                    className="w-5 h-5 rounded-full border-2 border-card dark:border-dark-card -ml-1.5 first:ml-0"
+                    style={{ background: c }}
                   />
                 ))}
               </div>
-              <span
-                style={{
-                  fontSize: 10,
-                  color: "var(--c-text-muted)",
-                  background: "var(--c-bg-input)",
-                  padding: "2px 8px",
-                  borderRadius: 99,
-                  border: "1px solid var(--c-border)",
-                }}
-              >
+              <span className="text-[10px] text-muted dark:text-dark-muted bg-input dark:bg-dark-input px-2 py-0.5 rounded-full border border-default dark:border-dark-default">
                 {ev.platform}
               </span>
             </div>

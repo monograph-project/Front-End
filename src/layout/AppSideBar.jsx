@@ -1,60 +1,52 @@
+import { Link, useLocation } from "react-router";
 import IC from "../components/IC";
 import Icon from "../components/Icon";
 
-export default function Sidebar({ collapsed, onToggle, activeNav, onNav }) {
+export default function Sidebar({ collapsed, onToggle }) {
+  const location = useLocation();
+
   const navItems = [
-    { key: "dashboard", label: "Dashboard", icon: IC.dashboard },
-    { key: "deals", label: "Deals", icon: IC.deals },
-    { key: "notes", label: "Notes", icon: IC.notes },
-    { key: "calendar", label: "Calendar", icon: IC.calendar },
-    { key: "reports", label: "Reports", icon: IC.reports },
-    { key: "projects", label: "Projects", icon: IC.projects },
+    { key: "dashboard", label: "Dashboard", icon: IC.dashboard, path: "/" },
+    { key: "deals", label: "Deals", icon: IC.deals, path: "/deals" },
+    { key: "notes", label: "Notes", icon: IC.notes, path: "/notes" },
+    {
+      key: "calendar",
+      label: "Calendar",
+      icon: IC.calendar,
+      path: "/calendar",
+    },
+    { key: "reports", label: "Reports", icon: IC.reports, path: "/reports" },
+    {
+      key: "projects",
+      label: "Projects",
+      icon: IC.projects,
+      path: "/projects",
+    },
   ];
   const favItems = [
     { key: "companies", label: "Companies", icon: IC.company, count: "1,212" },
     { key: "contacts", label: "Contacts", icon: IC.contact, count: "898" },
     { key: "meetings", label: "Meetings", icon: IC.meeting, count: "32" },
   ];
+
+  const isActive = (path) => {
+    if (path === "/") {
+      return location.pathname === "/";
+    }
+    return location.pathname.startsWith(path);
+  };
+
   return (
     <aside
-      style={{
-        width: collapsed ? 64 : 200,
-        minWidth: collapsed ? 64 : 200,
-        background: "var(--c-bg-sidebar)",
-        borderRight: "1px solid var(--c-border)",
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        flexShrink: 0,
-        transition: "width 0.22s ease, min-width 0.22s ease",
-        overflow: "hidden",
-      }}
+      className={` flex flex-col h-full shrink-0 transition-width  duration-100 ease  overflow-hidden bg-sidebar dark:bg-dark-sidebar border-r border-default dark:border-dark-default  ${collapsed ? "w-16 min-w-16" : "w-50 min-w-50"}`}
     >
       {/* Brand */}
       <div
-        style={{
-          padding: collapsed ? "18px 16px" : "18px 16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: collapsed ? "center" : "space-between",
-          borderBottom: "1px solid var(--c-border)",
-          minHeight: 62,
-        }}
+        className={` ${collapsed ? "px-4 py-4.5" : "px-4 py-4.5"} flex min-h-15.5 items-center border-b border-default dark:border-dark-default ${collapsed ? " justify-center" : " justify-between"}`}
       >
         {!collapsed && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                background: "linear-gradient(135deg,#7c3aed,#ec4899)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
+          <div className=" flex items-center gap-2">
+            <div className=" w-8 h-8 flex items-center justify-center shrink-0 rounded-lg bg-[linear-gradient(135deg,#7c3aed,#ec4899)]">
               <Icon
                 d={IC.zap}
                 size={14}
@@ -64,23 +56,10 @@ export default function Sidebar({ collapsed, onToggle, activeNav, onNav }) {
               />
             </div>
             <div>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "var(--c-text-primary)",
-                  lineHeight: 1,
-                }}
-              >
+              <div className=" text-sm font-bold text-primary  dark:text-dark-primary ">
                 Pivora
               </div>
-              <div
-                style={{
-                  fontSize: 10,
-                  color: "var(--c-text-muted)",
-                  lineHeight: 1.4,
-                }}
-              >
+              <div className=" text-xs text-muted dark:text-dark-muted leading-3">
                 CRM Platform
               </div>
             </div>
@@ -88,15 +67,8 @@ export default function Sidebar({ collapsed, onToggle, activeNav, onNav }) {
         )}
         {collapsed && (
           <div
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              background: "linear-gradient(135deg,#7c3aed,#ec4899)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            onClick={onToggle}
+            className=" cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg bg-[linear-gradient(135deg,#7c3aed,#ec4899)]"
           >
             <Icon
               d={IC.zap}
@@ -110,15 +82,7 @@ export default function Sidebar({ collapsed, onToggle, activeNav, onNav }) {
         {!collapsed && (
           <button
             onClick={onToggle}
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--c-text-muted)",
-              cursor: "pointer",
-              padding: 4,
-              borderRadius: 6,
-              display: "flex",
-            }}
+            className=" flex bg-none border-none text-muted dark:text-dark-muted cursor-pointer p-1 rounded-[6px]"
           >
             <Icon d={IC.collapse} size={15} strokeWidth={1.5} />
           </button>
@@ -129,56 +93,28 @@ export default function Sidebar({ collapsed, onToggle, activeNav, onNav }) {
       <div
         style={{
           padding: collapsed ? "12px 8px" : "12px 14px",
-          borderBottom: "1px solid var(--c-border)",
         }}
+        className=" border-b border-default dark:border-dark-default"
       >
         <div
+          className=" cursor-pointer  flex items-center gap-2 bg-nav-hover dark:bg-dark-nav-hover rounded[8px]"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            background: "var(--c-bg-nav-hover)",
-            borderRadius: 8,
             padding: collapsed ? "7px" : "7px 10px",
-            cursor: "pointer",
           }}
         >
-          <div
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              fontSize: 10,
-              fontWeight: 700,
-              color: "#fff",
-            }}
-          >
+          <div className=" flex items-center justify-center shrink-0 text-xs font-bold text-white  w-7 h-7 rounded-full bg-[linear-gradient(135deg,#6366f1,#8b5cf6)]">
             W
           </div>
           {!collapsed && (
             <>
-              <span
-                style={{
-                  fontSize: 11,
-                  color: "var(--c-text-secondary)",
-                  flex: 1,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
+              <span className=" text-xs text-secondary dark:text-dark-secondary flex-1 overflow-hidden whitespace-nowrap">
                 williams@mesh.com
               </span>
               <Icon
                 d={IC.chevDown}
-                size={12}
-                stroke="var(--c-text-muted)"
-                strokeWidth={2}
+                className={
+                  " size-3 stroke-muted dark:stroke-dark-muted stroke-2"
+                }
               />
             </>
           )}
@@ -188,139 +124,61 @@ export default function Sidebar({ collapsed, onToggle, activeNav, onNav }) {
       {/* Nav */}
       <nav
         style={{
-          flex: 1,
           padding: collapsed ? "10px 8px" : "10px 10px",
-          overflowY: "auto",
-          overflowX: "hidden",
         }}
+        className={`  flex-1 overflow-y-auto overflow-x-hidden`}
       >
         {navItems.map((item) => {
-          const isActive = activeNav === item.key;
+          const active = isActive(item.path);
           return (
-            <button
+            <Link
+              to={item.path}
+              className={` relative text-left ${active ? " font-bold" : " font-normal"} ${collapsed ? "p-2.25" : " py-2.25 px-2.5"} mb-0.5 text-xs relative transition-all duration-150 ${collapsed ? " justify-center" : " justify-start"}  ${active ? " bg-nav-main-active dark:bg-dark-nav-main-active text-nav-text-active dark:text-dark-nav-text-active  " : " text-secondary  bg-transparent"}  cursor-pointer  flex items-center gap-2.25 w-full rounded-lg border-none no-underline`}
               key={item.key}
-              onClick={() => onNav(item.key)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 9,
-                width: "100%",
-                padding: collapsed ? "9px" : "9px 10px",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                marginBottom: 2,
-                background: isActive ? "var(--c-bg-nav-active)" : "transparent",
-                color: isActive
-                  ? "var(--c-text-nav-active)"
-                  : "var(--c-text-secondary)",
-                fontWeight: isActive ? 600 : 400,
-                fontSize: 13,
-                textAlign: "left",
-                transition: "background 0.12s, color 0.12s",
-                justifyContent: collapsed ? "center" : "flex-start",
-                position: "relative",
-              }}
             >
-              {isActive && !collapsed && (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: -2,
-                    top: "20%",
-                    bottom: "20%",
-                    width: 3,
-                    borderRadius: 4,
-                    background: "var(--c-accent)",
-                  }}
-                />
+              {active && !collapsed && (
+                <div className=" absolute -left-0.5 top-[20%] bottom-[20%]  border-2 bg-accent dark:bg-accent-dark" />
               )}
               <Icon
                 d={item.icon}
-                size={15}
-                stroke={
-                  isActive ? "var(--c-text-nav-active)" : "var(--c-text-muted)"
-                }
-                strokeWidth={isActive ? 2 : 1.5}
+                className={`  size-4 ${active ? " text-nav-text-active stroke-2 " : " text-muted stroke-[1.5]"}`}
               />
               {!collapsed && item.label}
-            </button>
+            </Link>
           );
         })}
 
         {/* Favorites */}
         {!collapsed && (
           <>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "14px 10px 6px",
-                marginTop: 4,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: "var(--c-text-muted)",
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                }}
-              >
+            <div className="flex items-center justify-between mt-1 pt-3.5 pr-2.5 pb-1.5 ">
+              <span className=" text-[10px] font-semibold tracking-[0.08em] text-muted dark:text-dark-muted  uppercase">
                 Favorites
               </span>
-              <div style={{ display: "flex", gap: 4 }}>
-                <button
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--c-text-muted)",
-                    cursor: "pointer",
-                    padding: 2,
-                    fontSize: 16,
-                    lineHeight: 1,
-                  }}
-                >
+              <div className=" flex gap-1">
+                <button className=" p-2 text-[16px] leading-px bg-none border-none text-muted dark:text-dark-muted cursor-pointer">
                   ···
                 </button>
-                <button
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--c-text-muted)",
-                    cursor: "pointer",
-                    padding: 2,
-                  }}
-                >
-                  <Icon d={IC.plus} size={12} />
+                <button className="bg-none border-none text-muted dark:text-dark-muted p-2 cursor-pointer">
+                  <Icon
+                    d={IC.plus}
+                    className={
+                      " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
+                    }
+                  />
                 </button>
               </div>
             </div>
             {favItems.map((f) => (
               <button
                 key={f.key}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 9,
-                  width: "100%",
-                  padding: "7px 10px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: "transparent",
-                  color: "var(--c-text-secondary)",
-                  fontSize: 12,
-                  cursor: "pointer",
-                  marginBottom: 1,
-                }}
+                className=" text-secondary dark:text-dark-secondary text-xs cursor-pointer mb-0.5  flex items-center gap-2 w-full py-2.25 px-2.5 rounded-lg border-none bg-transparent"
               >
                 <Icon
                   d={f.icon}
-                  size={13}
-                  stroke="var(--c-text-muted)"
-                  strokeWidth={1.5}
+                  className={
+                    " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
+                  }
                 />
                 <span style={{ flex: 1, textAlign: "left" }}>{f.label}</span>
                 <span style={{ fontSize: 10, color: "var(--c-text-muted)" }}>
@@ -330,48 +188,15 @@ export default function Sidebar({ collapsed, onToggle, activeNav, onNav }) {
             ))}
 
             {/* Projects */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "12px 10px 6px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: "var(--c-text-muted)",
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                }}
-              >
+            <div className=" flex items-center justify-between pt-3 pr-2.5 pb-1.5">
+              <span className=" text-[10px] tracking-[0.08em] font-semibold text-muted dark:text-dark-muted uppercase l">
                 Projects
               </span>
-              <div style={{ display: "flex", gap: 4 }}>
-                <button
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--c-text-muted)",
-                    cursor: "pointer",
-                    padding: 2,
-                    fontSize: 16,
-                    lineHeight: 1,
-                  }}
-                >
+              <div className=" flex gap-1">
+                <button className=" bg-none border-none text-muted dark:bg-dark-muted cursor-pointer p-0.5 text-[16px] leading-1">
                   ···
                 </button>
-                <button
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--c-text-muted)",
-                    cursor: "pointer",
-                    padding: 2,
-                  }}
-                >
+                <button className=" bg-none border-none text-muted dark:text-dark-muted cursor-pointer p-0.5">
                   <Icon d={IC.plus} size={12} />
                 </button>
               </div>
@@ -386,137 +211,59 @@ export default function Sidebar({ collapsed, onToggle, activeNav, onNav }) {
           padding: collapsed ? "12px 8px" : "12px 14px",
           borderTop: "1px solid var(--c-border)",
         }}
+        className={`${collapsed ? " py-3 px-2" : " py-3 px-3.5"}`}
       >
         {!collapsed && (
           <>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginBottom: 6,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 11,
-                  color: "var(--c-text-secondary)",
-                  fontWeight: 500,
-                }}
-              >
+            <div className=" flex justify-between mb-1.5">
+              <span className=" text-xs text-secondary dark:text-dark-secondary font-medium">
                 Cloud Storage
               </span>
-              <span
-                style={{
-                  fontSize: 11,
-                  color: "var(--c-text-secondary)",
-                  fontWeight: 600,
-                }}
-              >
+              <span className=" text-[11px] font-semibold text-secondary dark:text-dark-secondary">
                 90%
               </span>
             </div>
-            <div
-              style={{
-                height: 5,
-                borderRadius: 99,
-                background: "var(--c-storage-bg)",
-                marginBottom: 8,
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  height: "100%",
-                  width: "90%",
-                  borderRadius: 99,
-                  background: "var(--c-storage-fill)",
-                }}
-              />
+            <div className=" bg-storage-bg dark:bg-storage-dark-bg rounded-[99px] overflow-hidden mb-2 h-1.25">
+              <div className=" h-full w-[90%] rounded-[99px] bg-storage-fill dark:bg-storage-dark-fill" />
             </div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "var(--c-text-muted)",
-                marginBottom: 8,
-              }}
-            >
+            <div className=" text-[10px] text-muted dark:text-dark-muted mb-2">
               1.8 GB of 2 GB used
             </div>
-            <button
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                width: "100%",
-                padding: "7px 10px",
-                borderRadius: 8,
-                border: "1px solid var(--c-border)",
-                background: "var(--c-bg-card)",
-                color: "var(--c-text-secondary)",
-                fontSize: 11,
-                cursor: "pointer",
-              }}
-            >
-              <Icon d={IC.upload} size={12} stroke="var(--c-text-muted)" />
+            <button className=" bg-card text-[11px] cursor-pointer  dark:bg-dark-card text-secondary dark:text-dark-secondary  flex items-center gap-1.5 w-full py-1.75 px-2.5 rounded-lg border border-default dark:border-dark-default">
+              <Icon
+                d={IC.upload}
+                className={" stroke-muted dark:stroke-dark-muted size-3"}
+              />
               Upgrade Storage
-              <span
-                style={{
-                  marginLeft: "auto",
-                  fontSize: 10,
-                  color: "var(--c-text-muted)",
-                }}
-              >
+              <span className=" ml-auto text-[10px] text-muted dark:text-dark-muted">
                 (up to 25GB)
               </span>
             </button>
           </>
         )}
-        <div style={{ marginTop: collapsed ? 0 : 8 }}>
+        <div
+          style={{ marginTop: collapsed ? 0 : 8 }}
+          className={`${collapsed ? " mt-0" : " mt-2"}`}
+        >
           <button
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              width: "100%",
-              padding: collapsed ? 9 : "8px 10px",
-              borderRadius: 8,
-              border: "none",
-              background: "transparent",
-              color: "var(--c-text-secondary)",
-              fontSize: 12,
-              cursor: "pointer",
-              justifyContent: collapsed ? "center" : "flex-start",
-            }}
+            className={` text-xs cursor-pointer   border-8 border-none bg-transparent  text-secondary dark:text-dark-secondary  flex items-center gap-2 w-full ${collapsed ? " p-2 justify-center" : " justify-start  px-2.5 py-2"}`}
           >
             <Icon
               d={IC.settings}
-              size={14}
-              stroke="var(--c-text-muted)"
-              strokeWidth={1.5}
+              className={
+                " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
+              }
             />
             {!collapsed && "Settings"}
           </button>
           <button
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              width: "100%",
-              padding: collapsed ? 9 : "8px 10px",
-              borderRadius: 8,
-              border: "none",
-              background: "transparent",
-              color: "var(--c-text-secondary)",
-              fontSize: 12,
-              cursor: "pointer",
-              justifyContent: collapsed ? "center" : "flex-start",
-            }}
+            className={` text-xs cursor-pointer   border-8 border-none bg-transparent  text-secondary dark:text-dark-secondary  flex items-center gap-2 w-full ${collapsed ? " p-2 justify-center" : " justify-start  px-2.5 py-2"}`}
           >
             <Icon
               d={IC.help}
-              size={14}
-              stroke="var(--c-text-muted)"
-              strokeWidth={1.5}
+              className={
+                " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
+              }
             />
             {!collapsed && "Help Center"}
           </button>
