@@ -1,1 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* light mode */
+  --color-app: #f0eff4;
+  --color-shell: #ffffff;
+  --color-sidebar: #f9f9fb;
+  --color-card: #ffffff;
+  --color-card-2: #f9f9fb;
+
+  --color-nav-main-active: #f3f0ff;
+  --color-nav-hover: #f5f5f8;
+  --color-input: #f5f5f8;
+  --color-badge: #f0edff;
+
+  --color-default: #ebebf0;
+  --color-light: #f2f2f5;
+
+  --color-primary: #0f0f14;
+  --color-secondary: #6b7280;
+  --color-muted: #9ca3af;
+  --color-nav-text-active: #7c3aed;
+
+  --color-accent: #7c3aed;
+  --color-accent-light: #ede9fe;
+
+  --color-success: #10b981;
+  --color-error: #ef4444;
+  --color-warning: #f97316;
+
+  --color-purple-bar: #7c3aed;
+  --color-bar-bg: #ede9fe;
+
+  --color-storage-fill: #ef4444;
+  --color-storage-bg: #fee2e2;
+
+  --shadow-app: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.05);
+
+  /*  dark mode */
+
+  --color-dark-app: #0c0c10;
+  --color-dark-shell: #131318;
+  --color-dark-sidebar: #0f0f14;
+  --color-dark-card: #1a1a22;
+  --color-dark-card-2: #15151c;
+
+  --color-dark-nav-main-active: #1e1830;
+  --color-dark-nav-hover: #1a1a22;
+  --color-dark-input: #1a1a22;
+  --color-dark-badge: #1e1830;
+
+  --color-dark-default: #2a2a35;
+  --color-dark-light: #22222c;
+
+  --color-dark-primary: #f1f1f5;
+  --color-dark-secondary: #8b8fa8;
+  --color-dark-muted: #5a5f78;
+  --color-dark-nav-text-active: #a78bfa;
+
+  --color-accent-dark: #a78bfa;
+  --color-accent-dark-light: #1e1830;
+
+  --color-success-dark: #34d399;
+  --color-error-dark: #f87171;
+  --color-warning-dark: #fb923c;
+
+  --color-purple-dark-bar: #8b5cf6;
+  --color-bar-dark-bg: #2a2040;
+
+  --color-storage-dark-fill: #f87171;
+  --color-storage-dark-bg: #3a1a1a;
+
+  --shadow-dark-app: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-dark-card: 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --font-app: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply box-border font-app
+  }
+
+  /* body {
+    @apply
+  } */
+
+  ::-webkit-scrollbar {
+    @apply w-1 h-1
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-default dark:bg-dark-default rounded-[99px]
+  }
+
+  button {
+    font-family: inherit;
+  }
+}
