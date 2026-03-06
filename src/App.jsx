@@ -7,6 +7,9 @@ import Notes from "./pages/Notes";
 import Calendar from "./pages/Calendar";
 import Reports from "./pages/Reports";
 import Projects from "./pages/Projects";
+import "./i18n";
+import Login from "./pages/Login";
+import { GooeyToaster } from "goey-toast";
 
 export default function App() {
   return (
@@ -21,8 +24,10 @@ export default function App() {
             <Route path="reports" element={<Reports />} />
             <Route path="projects" element={<Projects />} />
           </Route>
+          <Route path="/login" element={<Login />} />
         </Routes>
       </BrowserRouter>
+      <GooeyToaster position="top-right" />
     </ThemeProvider>
   );
 }
