@@ -1,32 +1,69 @@
+import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import IC from "../components/IC";
 import Icon from "../components/Icon";
 
 export default function Sidebar({ collapsed, onToggle }) {
+  const { t } = useTranslation();
   const location = useLocation();
 
   const navItems = [
-    { key: "dashboard", label: "Dashboard", icon: IC.dashboard, path: "/" },
-    { key: "deals", label: "Deals", icon: IC.deals, path: "/deals" },
-    { key: "notes", label: "Notes", icon: IC.notes, path: "/notes" },
     {
-      key: "calendar",
-      label: "Calendar",
+      key: "dashboard",
+      labelKey: "sidebar.dashboard",
+      icon: IC.dashboard,
+      path: "/",
+    },
+    {
+      key: "students",
+      labelKey: "sidebar.students",
+      icon: IC.deals,
+      path: "/deals",
+    },
+    {
+      key: "researchNotes",
+      labelKey: "sidebar.researchNotes",
+      icon: IC.notes,
+      path: "/notes",
+    },
+    {
+      key: "academicCalendar",
+      labelKey: "sidebar.academicCalendar",
       icon: IC.calendar,
       path: "/calendar",
     },
-    { key: "reports", label: "Reports", icon: IC.reports, path: "/reports" },
     {
-      key: "projects",
-      label: "Projects",
+      key: "academicReports",
+      labelKey: "sidebar.academicReports",
+      icon: IC.reports,
+      path: "/reports",
+    },
+    {
+      key: "researchProjects",
+      labelKey: "sidebar.researchProjects",
       icon: IC.projects,
       path: "/projects",
     },
   ];
   const favItems = [
-    { key: "companies", label: "Companies", icon: IC.company, count: "1,212" },
-    { key: "contacts", label: "Contacts", icon: IC.contact, count: "898" },
-    { key: "meetings", label: "Meetings", icon: IC.meeting, count: "32" },
+    {
+      key: "departments",
+      labelKey: "sidebar.departments",
+      icon: IC.company,
+      count: "1,212",
+    },
+    {
+      key: "facultyMembers",
+      labelKey: "sidebar.facultyMembers",
+      icon: IC.contact,
+      count: "898",
+    },
+    {
+      key: "meetings",
+      labelKey: "sidebar.meetings",
+      icon: IC.meeting,
+      count: "32",
+    },
   ];
 
   const isActive = (path) => {
@@ -46,37 +83,223 @@ export default function Sidebar({ collapsed, onToggle }) {
       >
         {!collapsed && (
           <div className=" flex items-center gap-2">
-            <div className=" w-8 h-8 flex items-center justify-center shrink-0 rounded-lg bg-[linear-gradient(135deg,#7c3aed,#ec4899)]">
-              <Icon
-                d={IC.zap}
-                size={14}
-                stroke="#fff"
-                fill="#fff"
-                strokeWidth={1}
-              />
+            <div className=" w-8 h-8 flex items-center justify-center shrink-0 rounded-md ]">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 100 100"
+                width="100"
+                height="100"
+              >
+                <rect
+                  x="15"
+                  y="50"
+                  width="70"
+                  height="38"
+                  fill="#e8e4dc"
+                  stroke="#4a4a4a"
+                  stroke-width="1.5"
+                />
+
+                <polygon points="10,50 50,20 90,50" fill="#4a4a4a" />
+
+                <rect x="22" y="40" width="4" height="10" fill="#c8c2b4" />
+                <rect x="34" y="40" width="4" height="10" fill="#c8c2b4" />
+                <rect x="46" y="40" width="4" height="10" fill="#c8c2b4" />
+                <rect x="58" y="40" width="4" height="10" fill="#c8c2b4" />
+                <rect x="70" y="40" width="4" height="10" fill="#c8c2b4" />
+
+                <rect x="15" y="49" width="70" height="3" fill="#6b6560" />
+
+                <rect
+                  x="20"
+                  y="57"
+                  width="10"
+                  height="13"
+                  rx="1"
+                  fill="#4a4a4a"
+                  opacity="0.15"
+                  stroke="#4a4a4a"
+                  stroke-width="1"
+                />
+                <rect
+                  x="38"
+                  y="57"
+                  width="10"
+                  height="13"
+                  rx="1"
+                  fill="#4a4a4a"
+                  opacity="0.15"
+                  stroke="#4a4a4a"
+                  stroke-width="1"
+                />
+                <rect
+                  x="62"
+                  y="57"
+                  width="10"
+                  height="13"
+                  rx="1"
+                  fill="#4a4a4a"
+                  opacity="0.15"
+                  stroke="#4a4a4a"
+                  stroke-width="1"
+                />
+                <rect
+                  x="70"
+                  y="57"
+                  width="10"
+                  height="13"
+                  rx="1"
+                  fill="#4a4a4a"
+                  opacity="0.15"
+                  stroke="#4a4a4a"
+                  stroke-width="1"
+                />
+
+                <rect
+                  x="43"
+                  y="68"
+                  width="14"
+                  height="20"
+                  rx="7 7 1 1"
+                  fill="#4a4a4a"
+                  opacity="0.25"
+                  stroke="#4a4a4a"
+                  stroke-width="1"
+                />
+
+                <rect
+                  x="10"
+                  y="88"
+                  width="80"
+                  height="4"
+                  rx="1"
+                  fill="#c8c2b4"
+                />
+                <rect
+                  x="6"
+                  y="91"
+                  width="88"
+                  height="4"
+                  rx="1"
+                  fill="#b0aa9e"
+                />
+
+                <line
+                  x1="50"
+                  y1="8"
+                  x2="50"
+                  y2="20"
+                  stroke="#4a4a4a"
+                  stroke-width="1.2"
+                />
+                <polygon points="50,8 60,11 50,14" fill="#4a4a4a" />
+              </svg>
             </div>
             <div>
               <div className=" text-sm font-bold text-primary  dark:text-dark-primary ">
-                Pivora
-              </div>
-              <div className=" text-xs text-muted dark:text-dark-muted leading-3">
-                CRM Platform
+                {t("sidebar.brand")}
               </div>
             </div>
           </div>
         )}
         {collapsed && (
-          <div
-            onClick={onToggle}
-            className=" cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg bg-[linear-gradient(135deg,#7c3aed,#ec4899)]"
-          >
-            <Icon
-              d={IC.zap}
-              size={14}
-              stroke="#fff"
-              fill="#fff"
-              strokeWidth={1}
-            />
+          <div className=" w-8 h-8 flex items-center justify-center shrink-0 rounded-md ]">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 100 100"
+              width="100"
+              height="100"
+            >
+              <rect
+                x="15"
+                y="50"
+                width="70"
+                height="38"
+                fill="#e8e4dc"
+                stroke="#4a4a4a"
+                stroke-width="1.5"
+              />
+
+              <polygon points="10,50 50,20 90,50" fill="#4a4a4a" />
+
+              <rect x="22" y="40" width="4" height="10" fill="#c8c2b4" />
+              <rect x="34" y="40" width="4" height="10" fill="#c8c2b4" />
+              <rect x="46" y="40" width="4" height="10" fill="#c8c2b4" />
+              <rect x="58" y="40" width="4" height="10" fill="#c8c2b4" />
+              <rect x="70" y="40" width="4" height="10" fill="#c8c2b4" />
+
+              <rect x="15" y="49" width="70" height="3" fill="#6b6560" />
+
+              <rect
+                x="20"
+                y="57"
+                width="10"
+                height="13"
+                rx="1"
+                fill="#4a4a4a"
+                opacity="0.15"
+                stroke="#4a4a4a"
+                stroke-width="1"
+              />
+              <rect
+                x="38"
+                y="57"
+                width="10"
+                height="13"
+                rx="1"
+                fill="#4a4a4a"
+                opacity="0.15"
+                stroke="#4a4a4a"
+                stroke-width="1"
+              />
+              <rect
+                x="62"
+                y="57"
+                width="10"
+                height="13"
+                rx="1"
+                fill="#4a4a4a"
+                opacity="0.15"
+                stroke="#4a4a4a"
+                stroke-width="1"
+              />
+              <rect
+                x="70"
+                y="57"
+                width="10"
+                height="13"
+                rx="1"
+                fill="#4a4a4a"
+                opacity="0.15"
+                stroke="#4a4a4a"
+                stroke-width="1"
+              />
+
+              <rect
+                x="43"
+                y="68"
+                width="14"
+                height="20"
+                rx="7 7 1 1"
+                fill="#4a4a4a"
+                opacity="0.25"
+                stroke="#4a4a4a"
+                stroke-width="1"
+              />
+
+              <rect x="10" y="88" width="80" height="4" rx="1" fill="#c8c2b4" />
+              <rect x="6" y="91" width="88" height="4" rx="1" fill="#b0aa9e" />
+
+              <line
+                x1="50"
+                y1="8"
+                x2="50"
+                y2="20"
+                stroke="#4a4a4a"
+                stroke-width="1.2"
+              />
+              <polygon points="50,8 60,11 50,14" fill="#4a4a4a" />
+            </svg>
           </div>
         )}
         {!collapsed && (
@@ -87,38 +310,6 @@ export default function Sidebar({ collapsed, onToggle }) {
             <Icon d={IC.collapse} size={15} strokeWidth={1.5} />
           </button>
         )}
-      </div>
-
-      {/* User */}
-      <div
-        style={{
-          padding: collapsed ? "12px 8px" : "12px 14px",
-        }}
-        className=" border-b border-default dark:border-dark-default"
-      >
-        <div
-          className=" cursor-pointer  flex items-center gap-2 bg-nav-hover dark:bg-dark-nav-hover rounded[8px]"
-          style={{
-            padding: collapsed ? "7px" : "7px 10px",
-          }}
-        >
-          <div className=" flex items-center justify-center shrink-0 text-xs font-bold text-white  w-7 h-7 rounded-full bg-[linear-gradient(135deg,#6366f1,#8b5cf6)]">
-            W
-          </div>
-          {!collapsed && (
-            <>
-              <span className=" text-xs text-secondary dark:text-dark-secondary flex-1 overflow-hidden whitespace-nowrap">
-                williams@mesh.com
-              </span>
-              <Icon
-                d={IC.chevDown}
-                className={
-                  " size-3 stroke-muted dark:stroke-dark-muted stroke-2"
-                }
-              />
-            </>
-          )}
-        </div>
       </div>
 
       {/* Nav */}
@@ -137,13 +328,13 @@ export default function Sidebar({ collapsed, onToggle }) {
               key={item.key}
             >
               {active && !collapsed && (
-                <div className=" absolute -left-0.5 top-[20%] bottom-[20%]  border-2 bg-accent dark:bg-accent-dark" />
+                <div className=" absolute ltr:-left-0.5  rtl:-right-0.5 top-[20%] bottom-[20%]  border-2 bg-accent dark:bg-accent-dark rounded-3xl" />
               )}
               <Icon
                 d={item.icon}
                 className={`  size-4 ${active ? " text-nav-text-active stroke-2 " : " text-muted stroke-[1.5]"}`}
               />
-              {!collapsed && item.label}
+              {!collapsed && t(item.labelKey)}
             </Link>
           );
         })}
@@ -153,7 +344,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           <>
             <div className="flex items-center justify-between mt-1 pt-3.5 pr-2.5 pb-1.5 ">
               <span className=" text-[10px] font-semibold tracking-[0.08em] text-muted dark:text-dark-muted  uppercase">
-                Favorites
+                {t("sidebar.favorites")}
               </span>
               <div className=" flex gap-1">
                 <button className=" p-2 text-[16px] leading-px bg-none border-none text-muted dark:text-dark-muted cursor-pointer">
@@ -180,7 +371,9 @@ export default function Sidebar({ collapsed, onToggle }) {
                     " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
                   }
                 />
-                <span style={{ flex: 1, textAlign: "left" }}>{f.label}</span>
+                <span style={{ flex: 1, textAlign: "left" }}>
+                  {t(f.labelKey)}
+                </span>
                 <span style={{ fontSize: 10, color: "var(--c-text-muted)" }}>
                   {f.count}
                 </span>
@@ -190,7 +383,7 @@ export default function Sidebar({ collapsed, onToggle }) {
             {/* Projects */}
             <div className=" flex items-center justify-between pt-3 pr-2.5 pb-1.5">
               <span className=" text-[10px] tracking-[0.08em] font-semibold text-muted dark:text-dark-muted uppercase l">
-                Projects
+                {t("sidebar.projectsSection")}
               </span>
               <div className=" flex gap-1">
                 <button className=" bg-none border-none text-muted dark:bg-dark-muted cursor-pointer p-0.5 text-[16px] leading-1">
@@ -217,7 +410,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           <>
             <div className=" flex justify-between mb-1.5">
               <span className=" text-xs text-secondary dark:text-dark-secondary font-medium">
-                Cloud Storage
+                {t("sidebar.cloudStorage")}
               </span>
               <span className=" text-[11px] font-semibold text-secondary dark:text-dark-secondary">
                 90%
@@ -227,18 +420,8 @@ export default function Sidebar({ collapsed, onToggle }) {
               <div className=" h-full w-[90%] rounded-[99px] bg-storage-fill dark:bg-storage-dark-fill" />
             </div>
             <div className=" text-[10px] text-muted dark:text-dark-muted mb-2">
-              1.8 GB of 2 GB used
+              {t("sidebar.storageUsed")}
             </div>
-            <button className=" bg-card text-[11px] cursor-pointer  dark:bg-dark-card text-secondary dark:text-dark-secondary  flex items-center gap-1.5 w-full py-1.75 px-2.5 rounded-lg border border-default dark:border-dark-default">
-              <Icon
-                d={IC.upload}
-                className={" stroke-muted dark:stroke-dark-muted size-3"}
-              />
-              Upgrade Storage
-              <span className=" ml-auto text-[10px] text-muted dark:text-dark-muted">
-                (up to 25GB)
-              </span>
-            </button>
           </>
         )}
         <div
@@ -254,18 +437,7 @@ export default function Sidebar({ collapsed, onToggle }) {
                 " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
               }
             />
-            {!collapsed && "Settings"}
-          </button>
-          <button
-            className={` text-xs cursor-pointer   border-8 border-none bg-transparent  text-secondary dark:text-dark-secondary  flex items-center gap-2 w-full ${collapsed ? " p-2 justify-center" : " justify-start  px-2.5 py-2"}`}
-          >
-            <Icon
-              d={IC.help}
-              className={
-                " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
-              }
-            />
-            {!collapsed && "Help Center"}
+            {!collapsed && t("sidebar.settings")}
           </button>
         </div>
       </div>
