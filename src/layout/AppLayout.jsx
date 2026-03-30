@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
-import Sidebar from "./AppSideBar";
-import AppHeader from "./AppHeader";
-import ActionHeader from "./ActionHeader";
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router";
+import AppHeader from "./AppHeader";
+import Sidebar from "./AppSideBar";
 
 export default function Applayout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -65,7 +64,7 @@ export default function Applayout() {
           {/* Main area */}
           <div className="flex-1 flex flex-col overflow-hidden bg-shell dark:bg-dark-shell min-w-0">
             <AppHeader onMenuToggle={() => setMobileMenuOpen(true)} />
-            <ActionHeader />
+
             <Outlet />
           </div>
         </div>
