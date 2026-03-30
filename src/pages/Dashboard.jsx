@@ -13,34 +13,34 @@ export default function Dashboard() {
       <div className="flex gap-3">
         <StatCard
           icon={IC.contact}
-          label="Leads"
-          value="129"
-          delta="2%"
+          label="Total Students"
+          value="1,245"
+          delta="5%"
           deltaDir="up"
-          period="vs last week"
+          period="vs last month"
         />
         <StatCard
-          icon={IC.zap}
-          label="CLV"
-          value="14d"
-          delta="4%"
-          deltaDir="down"
-          period="vs last week"
-        />
-        <StatCard
-          icon={IC.globe}
-          label="Convertion Rate"
-          value="24%"
-          delta="2%"
+          icon={IC.projects}
+          label="Total Projects"
+          value="87"
+          delta="12%"
           deltaDir="up"
-          period="vs last week"
+          period="vs last month"
         />
         <StatCard
-          icon={IC.reports}
-          label="Revenue"
-          value="$1.4K"
-          delta="4%"
-          deltaDir="down"
+          icon={IC.meeting}
+          label="Total Teachers"
+          value="56"
+          delta="3%"
+          deltaDir="up"
+          period="vs last month"
+        />
+        <StatCard
+          icon={IC.company}
+          label="Active Users"
+          value="342"
+          delta="8%"
+          deltaDir="up"
           period="vs last month"
         />
       </div>

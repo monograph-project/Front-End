@@ -10,6 +10,7 @@ import Projects from "./pages/Projects";
 import "./i18n";
 import Login from "./pages/Login";
 import { GooeyToaster } from "goey-toast";
+import Menu from "./components/Menu";
 
 export default function App() {
   return (
@@ -21,7 +22,7 @@ export default function App() {
             <Route path="deals" element={<Deals />} />
             <Route path="notes" element={<Notes />} />
             <Route path="calendar" element={<Calendar />} />
-            <Route path="reports" element={<Reports />} />
+            <Route path="reports" element={<Menu />} />
             <Route path="projects" element={<Projects />} />
           </Route>
           <Route path="/login" element={<Login />} />

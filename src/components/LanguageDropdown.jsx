@@ -1,82 +1,98 @@
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Dropdown from "./Dropdown";
-import IC from "./IC";
-import Icon from "./Icon";
 import { setDocumentDirection } from "../i18n";
-import { useClickOutSide } from "../hooks/useClickOutside";
 
-export default function LanguageDropdown({ current, onChange, onClose }) {
+export default function LanguageMenu({ current, onChange, onClose }) {
   const { t } = useTranslation();
-  const ref = useClickOutSide(onClose);
+  const ref = useRef(null);
 
   const LANGUAGES = [
-    { code: "en", label: "English", flag: "🇬🇧", native: "English" },
-    { code: "ps", label: "Pashto", flag: "🇦🇫", native: "پښتو" },
-    { code: "prs", label: "Dari", flag: "🇦🇫", native: "دری" },
+    { code: "en", label: "English", native: "English", flag: "🇬🇧" },
+    { code: "ps", label: "Pashto", native: "پښتو", flag: "🇦🇫" },
+    { code: "prs", label: "Dari", native: "دری", flag: "🇦🇫" },
   ];
 
-  const handleLanguageChange = (langCode) => {
-    setDocumentDirection(langCode);
-    onChange(langCode);
+  const [direction, setDirection] = useState(
+    () => document.documentElement.dir || "ltr",
+  );
+
+  const activeIndex = LANGUAGES.findIndex((l) => l.code === current);
+
+  // watch direction changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setDirection(document.documentElement.dir || "ltr");
+    });
+
+    observer.observe(document.documentElement, { attributes: true });
+
+    return () => observer.disconnect();
+  }, []);
+
+  // click outside
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        onClose?.();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [onClose]);
+
+  const changeLanguage = (lang) => {
+    setDocumentDirection(lang.code);
+    onChange(lang.code);
+    onClose?.();
   };
 
   return (
-    <Dropdown className="w-55 overflow-hidden" ref={ref}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-2.5 border-b border-default dark:border-dark-default">
-        <span className="text-sm font-semibold text-primary dark:text-dark-primary">
+    <div
+      ref={ref}
+      className={`absolute ${
+        direction === "rtl" ? "left-0" : "right-0"
+      } top-full mt-2 z-50`}
+    >
+      <div
+        className="flex flex-col w-[200px] rounded-md overflow-hidden shadow-lg"
+        style={{ backgroundColor: "#0D1117" }}
+      >
+        {/* Header */}
+        <div className="px-3 py-2 text-xs text-gray-400 border-b border-[#21262C]">
           {t("common.language") || "Language"}
-        </span>
-        <button
-          onClick={onClose}
-          className="w-6 h-6 cursor-pointer flex items-center justify-center rounded-lg hover:bg-hover dark:hover:bg-dark-hover text-muted dark:text-dark-muted"
-        >
-          <Icon
-            d={IC.close ?? "M18 6L6 18M6 6l12 12"}
-            className="size-3.5 stroke-2 hover:text-accent dark:hover:text-accent-dark"
-          />
-        </button>
-      </div>
+        </div>
 
-      {/* List */}
-      <ul className="py-1.5">
-        {LANGUAGES.map((lang) => {
-          const isActive = current === lang.code;
-          return (
-            <li key={lang.code}>
-              <button
-                onClick={() => {
-                  handleLanguageChange(lang.code);
-                  onClose();
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-accent/90 dark:hover:bg-accent-dark cursor-pointer group ${
-                  isActive ? "bg-nav-active dark:bg-dark-nav-active" : ""
-                }`}
-              >
-                <span className="text-lg leading-none group-hover:text-white ">
-                  {lang.flag}
-                </span>
-                <div className="flex-1 min-w-0 ">
-                  <p
-                    className={`text-xs font-medium ${isActive ? "text-accent dark:text-dark-accent" : "text-primary dark:text-dark-primary"}`}
-                  >
-                    {lang.label}
-                  </p>
-                  <p className="text-[10px] group-hover:text-white   text-muted dark:text-dark-muted">
-                    {lang.native}
-                  </p>
-                </div>
-                {isActive && (
-                  <Icon
-                    d={IC.check ?? "M20 6L9 17l-5-5"}
-                    className="size-3.5 stroke-accent dark:stroke-dark-accent stroke-[2.5]"
-                  />
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </Dropdown>
+        {LANGUAGES.map((lang, index) => (
+          <button
+            key={lang.code}
+            onClick={() => changeLanguage(lang)}
+            className={`
+              relative flex items-center gap-2 px-3 py-[10px]
+              text-sm text-white cursor-pointer rounded-[4px]
+              transition-colors duration-150
+              ${activeIndex === index ? "bg-[#1A1F24]" : "hover:bg-[#21262C]"}
+            `}
+          >
+            {/* Accent bar */}
+            <span
+              className={`absolute ${
+                direction === "rtl" ? "right-[-10px]" : "left-[-10px]"
+              } top-[10%] w-[5px] rounded-md bg-[#2F81F7] transition-opacity duration-150`}
+              style={{
+                height: "80%",
+                opacity: activeIndex === index ? 1 : 0,
+              }}
+            />
+
+            <span className="text-base">{lang.flag}</span>
+
+            <div className="flex flex-col items-start">
+              <span className="text-sm">{lang.label}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

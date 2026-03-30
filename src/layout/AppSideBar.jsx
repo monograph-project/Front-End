@@ -324,15 +324,15 @@ export default function Sidebar({ collapsed, onToggle }) {
           return (
             <Link
               to={item.path}
-              className={` relative text-left ${active ? " font-bold" : " font-normal"} ${collapsed ? "p-2.25" : " py-2.25 px-2.5"} mb-0.5 text-xs relative transition-all duration-150 ${collapsed ? " justify-center" : " justify-start"}  ${active ? " bg-nav-main-active dark:bg-dark-nav-main-active text-nav-text-active dark:text-dark-nav-text-active  " : " text-secondary  bg-transparent"}  cursor-pointer  flex items-center gap-2.25 w-full rounded-lg border-none no-underline`}
+              className={` relative text-left ${active ? " font-bold dark:text-white dark:bg-accent-light/10 bg-accent/10" : "dark:text-white/60  font-normal"} ${collapsed ? "p-2.25" : " py-2.25 px-2.5"} mb-0.5 text-xs relative transition-all duration-150 ${collapsed ? " justify-center" : " justify-start"}  cursor-pointer    flex items-center gap-2.25 w-full rounded-lg border-none no-underline`}
               key={item.key}
             >
               {active && !collapsed && (
-                <div className=" absolute ltr:-left-0.5  rtl:-right-0.5 top-[20%] bottom-[20%]  border-2 bg-accent dark:bg-accent-dark rounded-3xl" />
+                <div className=" absolute ltr:-left-0.5  rtl:-right-0.5 top-[20%] bottom-[20%]  border-2 bg-accent   rounded-3xl" />
               )}
               <Icon
                 d={item.icon}
-                className={`  size-4 ${active ? " text-nav-text-active stroke-2 " : " text-muted stroke-[1.5]"}`}
+                className={` dark:text-white  size-4 ${active ? " text-nav-text-active stroke-2 " : " text-muted stroke-[1.5]"}`}
               />
               {!collapsed && t(item.labelKey)}
             </Link>
@@ -363,17 +363,19 @@ export default function Sidebar({ collapsed, onToggle }) {
             {favItems.map((f) => (
               <button
                 key={f.key}
-                className=" text-secondary dark:text-dark-secondary text-xs cursor-pointer mb-0.5  flex items-center gap-2 w-full py-2.25 px-2.5 rounded-lg border-none bg-transparent"
+                className=" text-secondary dark:text-dark-secondary text-xs cursor-pointer mb-0.5  flex items-center justify-between gap-2 w-full py-2.25 px-2.5 rounded-lg border-none bg-transparent"
               >
-                <Icon
-                  d={f.icon}
-                  className={
-                    " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
-                  }
-                />
-                <span style={{ flex: 1, textAlign: "left" }}>
-                  {t(f.labelKey)}
-                </span>
+                <div className="flex items-center gap-x-1">
+                  <Icon
+                    d={f.icon}
+                    className={
+                      " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
+                    }
+                  />
+                  <span style={{ flex: 1, textAlign: "left" }}>
+                    {t(f.labelKey)}
+                  </span>
+                </div>
                 <span style={{ fontSize: 10, color: "var(--c-text-muted)" }}>
                   {f.count}
                 </span>

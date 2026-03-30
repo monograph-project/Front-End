@@ -3,138 +3,157 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* light mode */
-  --color-app: #f0eff4;
-  --color-shell: #ffffff;
-  --color-sidebar: #f9f9fb;
-  --color-card: #ffffff;
-  --color-card-2: #f9f9fb;
-
-  --color-nav-main-active: #f3f0ff;
-  --color-nav-hover: #f5f5f8;
-  --color-input: #f5f5f8;
-  --color-badge: #f0edff;
-
-  --color-default: #ebebf0;
-  --color-light: #f2f2f5;
-
-  --color-primary: #0f0f14;
-  --color-secondary: #6b7280;
-  --color-muted: #9ca3af;
-  --color-nav-text-active: #7c3aed;
-
-  --color-accent: #7c3aed;
-  --color-accent-light: #ede9fe;
-
-  --color-success: #10b981;
-  --color-error: #ef4444;
-  --color-warning: #f97316;
-
-  --color-purple-bar: #7c3aed;
-  --color-bar-bg: #ede9fe;
-
-  --color-storage-fill: #ef4444;
-  --color-storage-bg: #fee2e2;
-
-  --shadow-app: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.05);
-
-  /*  dark mode */
-
-  --color-dark-app: #0c0c10;
-  --color-dark-shell: #131318;
-  --color-dark-sidebar: #0f0f14;
-  --color-dark-card: #1a1a22;
-  --color-dark-card-2: #15151c;
-
-  --color-dark-nav-main-active: #1e1830;
-  --color-dark-nav-hover: #1a1a22;
-  --color-dark-input: #1a1a22;
-  --color-dark-badge: #1e1830;
-
-  --color-dark-default: #2a2a35;
-  --color-dark-light: #22222c;
-
-  --color-dark-primary: #f1f1f5;
-  --color-dark-secondary: #8b8fa8;
-  --color-dark-muted: #5a5f78;
-  --color-dark-nav-text-active: #a78bfa;
-
-  --color-accent-dark: #a78bfa;
-  --color-accent-dark-light: #1e1830;
-
-  --color-success-dark: #34d399;
-  --color-error-dark: #f87171;
-  --color-warning-dark: #fb923c;
-
-  --color-purple-dark-bar: #8b5cf6;
-  --color-bar-dark-bg: #2a2040;
-
-  --color-storage-dark-fill: #f87171;
-  --color-storage-dark-bg: #3a1a1a;
-
-  --shadow-dark-app: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-dark-card: 0 0 0 1px rgba(255, 255, 255, 0.04);
   --font-app: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* ── Surfaces ─────────────────────────────────────────── */
+  /* Light: pure white layering with very faint grey lifts  */
+  --color-app: #f0f0f0;
+  /* outer page background — warm off-white */
+  --color-shell: #ffffff;
+  /* topbar / main content bg               */
+  --color-sidebar: #fafafa;
+  /* sidebar — barely-there lift            */
+  --color-card: #ffffff;
+  /* cards                                   */
+  --color-card-2: #f7f7f7;
+  /* secondary card / zebra row             */
+
+  /* Dark: deep blacks, no blue tint                        */
+  --color-dark-app: #0a0a0a;
+  --color-dark-shell: #111111;
+  --color-dark-sidebar: #0d0d0d;
+  --color-dark-card: #1a1a1a;
+  --color-dark-card-2: #141414;
+
+  /* ── Borders ──────────────────────────────────────────── */
+  --color-default: #e8e8e8;
+  /* standard divider / input border        */
+  --color-light: #f2f2f2;
+  /* very subtle separator                  */
+
+  --color-dark-default: #2a2a2a;
+  --color-dark-light: #1f1f1f;
+
+  /* ── Text ─────────────────────────────────────────────── */
+  --color-primary: #0a0a0a;
+  /* near-black — headings, labels          */
+  --color-secondary: #555555;
+  /* secondary labels                       */
+  --color-muted: #999999;
+  /* timestamps, placeholders               */
+
+  --color-dark-primary: #f2f2f2;
+  --color-dark-secondary: #888888;
+  --color-dark-muted: #555555;
+
+  /* ── Navigation ───────────────────────────────────────── */
+  /* Active nav item: light grey pill (as seen in image)    */
+  --color-nav-active: #f0f0f0;
+  --color-nav-hover: #f5f5f5;
+  --color-nav-text-active: #0a0a0a;
+  /* black text, not purple             */
+
+  --color-dark-nav-active: #1f1f1f;
+  --color-dark-nav-hover: #1a1a1a;
+  --color-dark-nav-text-active: #f2f2f2;
+
+  /* ── Accent ───────────────────────────────────────────── */
+  /* Accent is now black (logo pill, "Add Event" CTA, etc.) */
+  --color-accent: #0a0a0a;
+  --color-accent-light: #f0f0f0;
+  --color-badge: #ececec;
+
+  --color-dark-accent: #f2f2f2;
+  --color-dark-accent-light: #1f1f1f;
+  --color-dark-badge: #1f1f1f;
+
+  /* ── Inputs ───────────────────────────────────────────── */
+  --color-input: #f5f5f5;
+  --color-dark-input: #1a1a1a;
+
+  /* ── Semantic: Status ─────────────────────────────────── */
+  /* Keep status colours — they appear on "Confirmed" chips */
+  --color-success: #16a34a;
+  --color-success-light: #dcfce7;
+  --color-error: #dc2626;
+  --color-error-light: #fee2e2;
+  --color-warning: #d97706;
+  --color-warning-light: #fef3c7;
+
+  --color-dark-success: #4ade80;
+  --color-dark-success-light: #052e16;
+  --color-dark-error: #f87171;
+  --color-dark-error-light: #3a1a1a;
+  --color-dark-warning: #fbbf24;
+  --color-dark-warning-light: #3a1a0a;
+
+
+  /* ── Shadows ──────────────────────────────────────────── */
+  --shadow-app: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.06);
+
+  --shadow-dark-app: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-dark-card: 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 @layer base {
   * {
-    @apply box-border font-app
+    @apply box-border font-app;
   }
 
-  /* body {
-    @apply
-  } */
+  /* ── Scrollbar: Firefox ───────────────────────────────── */
+  /* Uses the standard CSS property — thin track, themed thumb */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(10, 10, 10, 0.15) transparent;
+  }
 
+  .dark * {
+    scrollbar-color: rgba(242, 242, 242, 0.15) transparent;
+  }
+
+  /* ── Scrollbar: Chrome, Edge, Safari (WebKit) ─────────── */
   ::-webkit-scrollbar {
-    @apply w-1 h-1
+    @apply w-1 h-1;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-transparent
+    @apply bg-transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-default dark:bg-dark-default rounded-[99px]
+    @apply bg-primary/15 dark:bg-dark-primary/15 rounded-full;
+    /* Fallback for browsers that support webkit but not Tailwind opacity modifier */
+    background-color: rgba(10, 10, 10, 0.15);
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background-color: rgba(242, 242, 242, 0.15);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(10, 10, 10, 0.25);
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(242, 242, 242, 0.25);
+  }
+
+  /* ── Scrollbar: IE / legacy Edge (EdgeHTML) ───────────── */
+  /* Only supports color, not width/shape — best effort      */
+  * {
+    -ms-overflow-style: -ms-autohiding-scrollbar;
+    scrollbar-face-color: rgba(10, 10, 10, 0.15);
+    scrollbar-track-color: transparent;
+    scrollbar-arrow-color: transparent;
+    scrollbar-shadow-color: transparent;
   }
 
   button {
     font-family: inherit;
   }
 
-  /* RTL Support */
   [dir="rtl"] {
     direction: rtl;
-  }
-
-  [dir="rtl"] .flex-row {
-    flex-direction: row-reverse;
-  }
-
-  [dir="rtl"] .flex-row-reverse {
-    flex-direction: row;
-  }
-
-  [dir="rtl"] .space-x-2> :not([hidden])~ :not([hidden]) {
-    --tw-space-x-reverse: 1;
-  }
-
-  [dir="rtl"] .ml-auto {
-    margin-left: 0;
-    margin-right: auto;
-  }
-
-  [dir="rtl"] .mr-auto {
-    margin-right: 0;
-    margin-left: auto;
-  }
-
-  [dir="rtl"] .text-left {
-    text-align: right;
-  }
-
-  [dir="rtl"] .text-right {
-    text-align: left;
   }
 }

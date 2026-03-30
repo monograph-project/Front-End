@@ -17,19 +17,12 @@ export default function RevenueCard() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const revenueData = [
-    { month: "Mar", value: 22000 },
-    { month: "Apr", value: 16000 },
-    { month: "May", value: 19000 },
-    { month: "Jun", value: 13000 },
-    { month: "Jul", value: 6000 },
-    { month: "Aug", value: 11000 },
-    { month: "Sept", value: 18500, active: true },
-    { month: "Oct", value: 15000 },
-    { month: "Nov", value: 8000 },
-    { month: "Des", value: 7000 },
-    { month: "Jan", value: 6000 },
-    { month: "Feb", value: 7500 },
+  const projectStatusData = [
+    { status: "Ongoing", value: 32, color: "#3B82F6" },
+    { status: "Completed", value: 28, color: "#22C55E" },
+    { status: "Pending", value: 15, color: "#F59E0B" },
+    { status: "In Review", value: 8, color: "#8B5CF6" },
+    { status: "Cancelled", value: 4, color: "#EF4444" },
   ];
 
   // Theme-aware colors for recharts
@@ -42,14 +35,14 @@ export default function RevenueCard() {
       : "var(--color-purple-bar)",
   };
 
-  const [period, setPeriod] = useState("1Y");
-  const periods = ["1D", "1W", "1M", "6M", "1Y", "ALL"];
+  const [period, setPeriod] = useState("All");
+  const periods = ["All", "This Month", "This Week"];
   return (
     <div className="bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] flex-1">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5">
           <span className="text-[13px] font-semibold text-primary dark:text-dark-primary">
-            Revenue
+            Project Status
           </span>
           <Icon
             className="text-muted dark:text-dark-muted"
@@ -76,16 +69,16 @@ export default function RevenueCard() {
       </div>
       <div className="mb-3">
         <span className="text-[22px] font-extrabold text-primary dark:text-dark-primary tracking-tight">
-          $32.209
+          87
         </span>
         <span className="text-[11px] text-success dark:text-success-dark ml-2 font-medium">
-          +22% vs last month
+          Total Projects
         </span>
       </div>
       <ResponsiveContainer width="100%" height={160}>
         <BarChart
-          data={revenueData}
-          barSize={18}
+          data={projectStatusData}
+          barSize={28}
           margin={{ top: 5, right: 0, left: -20, bottom: 0 }}
         >
           <CartesianGrid
@@ -94,25 +87,24 @@ export default function RevenueCard() {
             strokeDasharray="3 3"
           />
           <XAxis
-            dataKey="month"
+            dataKey="status"
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 10, fill: colors.text }}
+            tick={{ fontSize: 9, fill: colors.text }}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 10, fill: colors.text }}
-            tickFormatter={(v) => `${v / 1000}k`}
           />
           <Tooltip content={<CustomTooltip />} cursor={false} />
           <Bar
             dataKey="value"
+            name="Projects"
             radius={[4, 4, 0, 0]}
-            fill={colors.barBg}
             shape={(props) => {
               const { x, y, width, height, index } = props;
-              const isActive = revenueData[index]?.active;
+              const barColor = projectStatusData[index]?.color;
               return (
                 <rect
                   x={x}
@@ -121,7 +113,7 @@ export default function RevenueCard() {
                   height={height}
                   rx={4}
                   ry={4}
-                  fill={isActive ? colors.purpleBar : colors.barBg}
+                  fill={barColor || colors.barBg}
                 />
               );
             }}

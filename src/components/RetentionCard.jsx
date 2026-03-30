@@ -6,11 +6,40 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  BarChart as BC,
 } from "recharts";
 import IC from "./IC";
 import Icon from "./Icon";
 import { useTheme } from "../context/themContext";
+
+const CustomTooltip = ({ active, payload, label }) => {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
+  if (active && payload && payload.length) {
+    return (
+      <div
+        className="rounded-lg p-2 border"
+        style={{
+          backgroundColor: isDark ? "#1f2937" : "#ffffff",
+          borderColor: isDark ? "#374151" : "#e5e7eb",
+        }}
+      >
+        <p
+          className="text-xs font-semibold mb-1"
+          style={{ color: isDark ? "#f3f4f6" : "#111827" }}
+        >
+          {label}
+        </p>
+        {payload.map((entry, index) => (
+          <p key={index} className="text-xs" style={{ color: entry.color }}>
+            {entry.name}: {entry.value}%
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function RetentionCard() {
   const { theme } = useTheme();
@@ -99,9 +128,30 @@ export default function RetentionCard() {
             tick={{ fontSize: 9, fill: colors.text }}
             domain={[0, 100]}
           />
-          <Bar dataKey="sme" radius={[3, 3, 0, 0]} fill={colors.sme} />
-          <Bar dataKey="start" radius={[3, 3, 0, 0]} fill={colors.startups} />
-          <Bar dataKey="ent" radius={[3, 3, 0, 0]} fill={colors.enterprises} />
+          <Bar
+            dataKey="sme"
+            name="SMEs"
+            radius={[3, 3, 0, 0]}
+            fill={colors.sme}
+          />
+          <Bar
+            dataKey="start"
+            name="Startups"
+            radius={[3, 3, 0, 0]}
+            fill={colors.startups}
+          />
+          <Bar
+            dataKey="ent"
+            name="Enterprises"
+            radius={[3, 3, 0, 0]}
+            fill={colors.enterprises}
+          />
+          <Tooltip
+            content={<CustomTooltip />}
+            cursor={{
+              fill: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+            }}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
