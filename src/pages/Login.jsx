@@ -7,7 +7,6 @@ import Icon from "../components/Icon";
 import { useForm } from "react-hook-form";
 import Field from "../components/Field";
 import Checkbox from "../components/Checkbox";
-import DropdownMenuDemo from "../components/DropdownMenu";
 
 // ─── Google SVG logo ─────────────────────────────────────────────────────────
 function GoogleLogo({ className = "text-accent dark:text-dark-accent" }) {
@@ -81,9 +80,7 @@ export default function Login() {
 
   const { login } = useAuth();
   const navigate = useNavigate();
-  const submit = (data) => {
- 
-  };
+  const submit = (data) => {};
 
   const switchView = (v) => {
     // setView(v);
@@ -125,8 +122,6 @@ export default function Login() {
             className="size-3.5 stroke-[1.5]"
           />
         </button>
-
-        <DropdownMenuDemo />
 
         {/* card */}
         <div className="anim-up w-full max-w-112.5 flex overflow-hidden rounded-2xl border border-default dark:border-dark-default bg-bg-shell dark:bg-dark-shell shadow-sm">

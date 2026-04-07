@@ -1,12 +1,12 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+import { Theme, ThemePanel } from "@radix-ui/themes/dist/cjs/index.js";
 import "@radix-ui/themes/styles.css";
-import "./index.css";
-import App from "./App.jsx";
-import { AuthProvider } from "./context/AuthContext.jsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { Theme, ThemePanel } from "@radix-ui/themes/dist/cjs/index.js";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App.jsx";
+import { AuthProvider } from "./context/AuthContext.jsx";
+import "./index.css";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
