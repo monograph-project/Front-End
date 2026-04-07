@@ -18,12 +18,17 @@
   --color-card-2: #f7f7f7;
   /* secondary card / zebra row             */
 
-  /* Dark: deep blacks, no blue tint                        */
-  --color-dark-app: #0a0a0a;
-  --color-dark-shell: #111111;
-  --color-dark-sidebar: #0d0d0d;
-  --color-dark-card: #1a1a1a;
-  --color-dark-card-2: #141414;
+  /* Dark: MD2 dark theme surfaces                          */
+  --color-dark-app: #121212;
+  /* MD2 background — base layer            */
+  --color-dark-shell: #1d1d1d;
+  /* MD2 surface at 1dp (5% white overlay)  */
+  --color-dark-sidebar: #121212;
+  /* MD2 surface at 0dp — same as bg       */
+  --color-dark-card: #252525;
+  /* MD2 surface at 4dp (9% white overlay)  */
+  --color-dark-card-2: #212121;
+  /* MD2 surface at 2dp (7% white overlay)  */
 
   /* ── Borders ──────────────────────────────────────────── */
   --color-default: #e8e8e8;
@@ -31,8 +36,10 @@
   --color-light: #f2f2f2;
   /* very subtle separator                  */
 
-  --color-dark-default: #2a2a2a;
-  --color-dark-light: #1f1f1f;
+  --color-dark-default: #2c2c2c;
+  /* MD2 surface at 6dp — used as divider   */
+  --color-dark-light: #1d1d1d;
+  /* MD2 surface at 1dp — subtle separator  */
 
   /* ── Text ─────────────────────────────────────────────── */
   --color-primary: #0a0a0a;
@@ -42,37 +49,43 @@
   --color-muted: #999999;
   /* timestamps, placeholders               */
 
-  --color-dark-primary: #f2f2f2;
+  --color-dark-primary: #ffffff;
+  /* MD2 on-surface — 87% white → use opacity in usage */
   --color-dark-secondary: #888888;
+  /* MD2 medium emphasis — ~60% white       */
   --color-dark-muted: #555555;
+  /* MD2 disabled text — ~38% white         */
 
   /* ── Navigation ───────────────────────────────────────── */
-  /* Active nav item: light grey pill (as seen in image)    */
   --color-nav-active: #f0f0f0;
   --color-nav-hover: #f5f5f5;
   --color-nav-text-active: #0a0a0a;
-  /* black text, not purple             */
 
-  --color-dark-nav-active: #1f1f1f;
-  --color-dark-nav-hover: #1a1a1a;
-  --color-dark-nav-text-active: #f2f2f2;
+  --color-dark-nav-active: #2c2c2c;
+  /* MD2 surface at 6dp — active pill       */
+  --color-dark-nav-hover: #252525;
+  /* MD2 surface at 4dp — hover state       */
+  --color-dark-nav-text-active: #ffffff;
+  /* MD2 on-surface                         */
 
   /* ── Accent ───────────────────────────────────────────── */
-  /* Accent is now black (logo pill, "Add Event" CTA, etc.) */
   --color-accent: #0a0a0a;
   --color-accent-light: #f0f0f0;
   --color-badge: #ececec;
 
-  --color-dark-accent: #f2f2f2;
-  --color-dark-accent-light: #1f1f1f;
-  --color-dark-badge: #1f1f1f;
+  --color-dark-accent: #bb86fc;
+  /* MD2 primary — Purple 200               */
+  --color-dark-accent-light: #1d1d1d;
+  /* MD2 surface at 1dp — subtle bg         */
+  --color-dark-badge: #2c2c2c;
+  /* MD2 surface at 6dp — badge bg          */
 
   /* ── Inputs ───────────────────────────────────────────── */
   --color-input: #f5f5f5;
-  --color-dark-input: #1a1a1a;
+  --color-dark-input: #252525;
+  /* MD2 surface at 4dp — input bg          */
 
   /* ── Semantic: Status ─────────────────────────────────── */
-  /* Keep status colours — they appear on "Confirmed" chips */
   --color-success: #16a34a;
   --color-success-light: #dcfce7;
   --color-error: #dc2626;
@@ -82,11 +95,15 @@
 
   --color-dark-success: #4ade80;
   --color-dark-success-light: #052e16;
-  --color-dark-error: #f87171;
+  --color-dark-error: #cf6679;
+  /* MD2 dark error — desaturated red       */
   --color-dark-error-light: #3a1a1a;
   --color-dark-warning: #fbbf24;
   --color-dark-warning-light: #3a1a0a;
 
+  /* ── MD2 Brand Accent (secondary teal) ───────────────── */
+  --color-dark-secondary-accent: #03dac6;
+  /* MD2 secondary — Teal 200               */
 
   /* ── Shadows ──────────────────────────────────────────── */
   --shadow-app: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -102,7 +119,6 @@
   }
 
   /* ── Scrollbar: Firefox ───────────────────────────────── */
-  /* Uses the standard CSS property — thin track, themed thumb */
   * {
     scrollbar-width: thin;
     scrollbar-color: rgba(10, 10, 10, 0.15) transparent;
@@ -123,7 +139,6 @@
 
   ::-webkit-scrollbar-thumb {
     @apply bg-primary/15 dark:bg-dark-primary/15 rounded-full;
-    /* Fallback for browsers that support webkit but not Tailwind opacity modifier */
     background-color: rgba(10, 10, 10, 0.15);
   }
 
@@ -140,7 +155,6 @@
   }
 
   /* ── Scrollbar: IE / legacy Edge (EdgeHTML) ───────────── */
-  /* Only supports color, not width/shape — best effort      */
   * {
     -ms-overflow-style: -ms-autohiding-scrollbar;
     scrollbar-face-color: rgba(10, 10, 10, 0.15);

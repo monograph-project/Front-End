@@ -194,6 +194,8 @@ export default function AppHeader({ onMenuToggle }) {
         <Icon d={IC.collapse} className="size-5 stroke-[1.5] rotate-90" />
       </button>
 
+
+      
       {/* Page title */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <Icon

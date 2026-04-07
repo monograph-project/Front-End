@@ -1,50 +1,61 @@
 import { useTranslation } from "react-i18next";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import IC from "../components/IC";
 import Icon from "../components/Icon";
 
 export default function Sidebar({ collapsed, onToggle }) {
   const { t } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const basePath = user?.role === "admin" ? "/admin" : `/${user?.role}`;
 
   const navItems = [
     {
       key: "dashboard",
       labelKey: "sidebar.dashboard",
       icon: IC.dashboard,
-      path: "/",
+      path: `${basePath}/dashboard`,
     },
     {
       key: "students",
       labelKey: "sidebar.students",
       icon: IC.deals,
-      path: "/deals",
+      path: `${basePath}/deals`,
     },
     {
       key: "researchNotes",
       labelKey: "sidebar.researchNotes",
       icon: IC.notes,
-      path: "/notes",
+      path: `${basePath}/notes`,
     },
     {
       key: "academicCalendar",
       labelKey: "sidebar.academicCalendar",
       icon: IC.calendar,
-      path: "/calendar",
+      path: `${basePath}/calendar`,
     },
     {
       key: "academicReports",
       labelKey: "sidebar.academicReports",
       icon: IC.reports,
-      path: "/reports",
+      path: `${basePath}/reports`,
     },
     {
       key: "researchProjects",
       labelKey: "sidebar.researchProjects",
       icon: IC.projects,
-      path: "/projects",
+      path: `${basePath}/projects`,
     },
   ];
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   const favItems = [
     {
       key: "departments",
@@ -79,238 +90,8 @@ export default function Sidebar({ collapsed, onToggle }) {
     >
       {/* Brand */}
       <div
-        className={` ${collapsed ? "px-4 py-4.5" : "px-4 py-4.5"} flex min-h-15.5 items-center border-b border-default dark:border-dark-default ${collapsed ? " justify-center" : " justify-between"}`}
-      >
-        {!collapsed && (
-          <div className=" flex items-center gap-2">
-            <div className=" w-8 h-8 flex items-center justify-center shrink-0 rounded-md ]">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 100 100"
-                width="100"
-                height="100"
-              >
-                <rect
-                  x="15"
-                  y="50"
-                  width="70"
-                  height="38"
-                  fill="#e8e4dc"
-                  stroke="#4a4a4a"
-                  stroke-width="1.5"
-                />
-
-                <polygon points="10,50 50,20 90,50" fill="#4a4a4a" />
-
-                <rect x="22" y="40" width="4" height="10" fill="#c8c2b4" />
-                <rect x="34" y="40" width="4" height="10" fill="#c8c2b4" />
-                <rect x="46" y="40" width="4" height="10" fill="#c8c2b4" />
-                <rect x="58" y="40" width="4" height="10" fill="#c8c2b4" />
-                <rect x="70" y="40" width="4" height="10" fill="#c8c2b4" />
-
-                <rect x="15" y="49" width="70" height="3" fill="#6b6560" />
-
-                <rect
-                  x="20"
-                  y="57"
-                  width="10"
-                  height="13"
-                  rx="1"
-                  fill="#4a4a4a"
-                  opacity="0.15"
-                  stroke="#4a4a4a"
-                  stroke-width="1"
-                />
-                <rect
-                  x="38"
-                  y="57"
-                  width="10"
-                  height="13"
-                  rx="1"
-                  fill="#4a4a4a"
-                  opacity="0.15"
-                  stroke="#4a4a4a"
-                  stroke-width="1"
-                />
-                <rect
-                  x="62"
-                  y="57"
-                  width="10"
-                  height="13"
-                  rx="1"
-                  fill="#4a4a4a"
-                  opacity="0.15"
-                  stroke="#4a4a4a"
-                  stroke-width="1"
-                />
-                <rect
-                  x="70"
-                  y="57"
-                  width="10"
-                  height="13"
-                  rx="1"
-                  fill="#4a4a4a"
-                  opacity="0.15"
-                  stroke="#4a4a4a"
-                  stroke-width="1"
-                />
-
-                <rect
-                  x="43"
-                  y="68"
-                  width="14"
-                  height="20"
-                  rx="7 7 1 1"
-                  fill="#4a4a4a"
-                  opacity="0.25"
-                  stroke="#4a4a4a"
-                  stroke-width="1"
-                />
-
-                <rect
-                  x="10"
-                  y="88"
-                  width="80"
-                  height="4"
-                  rx="1"
-                  fill="#c8c2b4"
-                />
-                <rect
-                  x="6"
-                  y="91"
-                  width="88"
-                  height="4"
-                  rx="1"
-                  fill="#b0aa9e"
-                />
-
-                <line
-                  x1="50"
-                  y1="8"
-                  x2="50"
-                  y2="20"
-                  stroke="#4a4a4a"
-                  stroke-width="1.2"
-                />
-                <polygon points="50,8 60,11 50,14" fill="#4a4a4a" />
-              </svg>
-            </div>
-            <div>
-              <div className=" text-sm font-bold text-primary  dark:text-dark-primary ">
-                {t("sidebar.brand")}
-              </div>
-            </div>
-          </div>
-        )}
-        {collapsed && (
-          <div className=" w-8 h-8 flex items-center justify-center shrink-0 rounded-md ]">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 100 100"
-              width="100"
-              height="100"
-            >
-              <rect
-                x="15"
-                y="50"
-                width="70"
-                height="38"
-                fill="#e8e4dc"
-                stroke="#4a4a4a"
-                stroke-width="1.5"
-              />
-
-              <polygon points="10,50 50,20 90,50" fill="#4a4a4a" />
-
-              <rect x="22" y="40" width="4" height="10" fill="#c8c2b4" />
-              <rect x="34" y="40" width="4" height="10" fill="#c8c2b4" />
-              <rect x="46" y="40" width="4" height="10" fill="#c8c2b4" />
-              <rect x="58" y="40" width="4" height="10" fill="#c8c2b4" />
-              <rect x="70" y="40" width="4" height="10" fill="#c8c2b4" />
-
-              <rect x="15" y="49" width="70" height="3" fill="#6b6560" />
-
-              <rect
-                x="20"
-                y="57"
-                width="10"
-                height="13"
-                rx="1"
-                fill="#4a4a4a"
-                opacity="0.15"
-                stroke="#4a4a4a"
-                stroke-width="1"
-              />
-              <rect
-                x="38"
-                y="57"
-                width="10"
-                height="13"
-                rx="1"
-                fill="#4a4a4a"
-                opacity="0.15"
-                stroke="#4a4a4a"
-                stroke-width="1"
-              />
-              <rect
-                x="62"
-                y="57"
-                width="10"
-                height="13"
-                rx="1"
-                fill="#4a4a4a"
-                opacity="0.15"
-                stroke="#4a4a4a"
-                stroke-width="1"
-              />
-              <rect
-                x="70"
-                y="57"
-                width="10"
-                height="13"
-                rx="1"
-                fill="#4a4a4a"
-                opacity="0.15"
-                stroke="#4a4a4a"
-                stroke-width="1"
-              />
-
-              <rect
-                x="43"
-                y="68"
-                width="14"
-                height="20"
-                rx="7 7 1 1"
-                fill="#4a4a4a"
-                opacity="0.25"
-                stroke="#4a4a4a"
-                stroke-width="1"
-              />
-
-              <rect x="10" y="88" width="80" height="4" rx="1" fill="#c8c2b4" />
-              <rect x="6" y="91" width="88" height="4" rx="1" fill="#b0aa9e" />
-
-              <line
-                x1="50"
-                y1="8"
-                x2="50"
-                y2="20"
-                stroke="#4a4a4a"
-                stroke-width="1.2"
-              />
-              <polygon points="50,8 60,11 50,14" fill="#4a4a4a" />
-            </svg>
-          </div>
-        )}
-        {!collapsed && (
-          <button
-            onClick={onToggle}
-            className=" flex bg-none border-none text-muted dark:text-dark-muted cursor-pointer p-1 rounded-[6px]"
-          >
-            <Icon d={IC.collapse} size={15} strokeWidth={1.5} />
-          </button>
-        )}
-      </div>
+        className={` ${collapsed ? "px-4 py-4.5" : "px-2.5 py-4"} flex min-h-14 items-center border-b border-default dark:border-dark-default ${collapsed ? " justify-center" : " justify-between"}`}
+      ></div>
 
       {/* Nav */}
       <nav
@@ -400,7 +181,7 @@ export default function Sidebar({ collapsed, onToggle }) {
         )}
       </nav>
 
-      {/* Storage */}
+      {/* Storage & Logout */}
       <div
         style={{
           padding: collapsed ? "12px 8px" : "12px 14px",
@@ -408,6 +189,16 @@ export default function Sidebar({ collapsed, onToggle }) {
         }}
         className={`${collapsed ? " py-3 px-2" : " py-3 px-3.5"}`}
       >
+        {!collapsed && user && (
+          <div className="mb-4 p-3 bg-input dark:bg-dark-input rounded-lg">
+            <div className="text-xs font-semibold text-primary dark:text-dark-primary capitalize mb-1">
+              {user.role}
+            </div>
+            <div className="text-[10px] text-muted dark:text-dark-muted truncate">
+              {user.email}
+            </div>
+          </div>
+        )}
         {!collapsed && (
           <>
             <div className=" flex justify-between mb-1.5">
@@ -421,7 +212,7 @@ export default function Sidebar({ collapsed, onToggle }) {
             <div className=" bg-storage-bg dark:bg-storage-dark-bg rounded-[99px] overflow-hidden mb-2 h-1.25">
               <div className=" h-full w-[90%] rounded-[99px] bg-storage-fill dark:bg-storage-dark-fill" />
             </div>
-            <div className=" text-[10px] text-muted dark:text-dark-muted mb-2">
+            <div className=" text-[10px] text-muted dark:text-dark-muted mb-4">
               {t("sidebar.storageUsed")}
             </div>
           </>
@@ -431,15 +222,14 @@ export default function Sidebar({ collapsed, onToggle }) {
           className={`${collapsed ? " mt-0" : " mt-2"}`}
         >
           <button
-            className={` text-xs cursor-pointer   border-8 border-none bg-transparent  text-secondary dark:text-dark-secondary  flex items-center gap-2 w-full ${collapsed ? " p-2 justify-center" : " justify-start  px-2.5 py-2"}`}
+            onClick={handleLogout}
+            className={` text-xs cursor-pointer border-none bg-transparent text-error dark:text-dark-error flex items-center gap-2 w-full ${collapsed ? " p-2 justify-center" : " justify-start px-2.5 py-2"} hover:bg-input dark:hover:bg-dark-input rounded-lg transition-colors`}
           >
             <Icon
-              d={IC.settings}
-              className={
-                " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
-              }
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+              className="size-3.5 stroke-[1.5]"
             />
-            {!collapsed && t("sidebar.settings")}
+            {!collapsed && "Logout"}
           </button>
         </div>
       </div>

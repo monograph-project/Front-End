@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router";
+import { Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import AppHeader from "./AppHeader";
 import Sidebar from "./AppSideBar";
 
 export default function Applayout() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
