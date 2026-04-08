@@ -28,7 +28,7 @@ export default function CalendarCard() {
     },
   ];
   return (
-    <div className="bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] w-[280px] shrink-0">
+    <div className="bg-card dark:bg-dark-accent-light border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] w-[280px] shrink-0">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <button className="bg-transparent border-none cursor-pointer text-muted dark:text-dark-muted p-0.5 hover:bg-nav-hover dark:hover:bg-dark-nav-hover rounded">

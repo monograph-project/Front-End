@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/themContext";
 import IC from "../components/IC";
 import Icon from "../components/Icon";
 import { useForm } from "react-hook-form";
 import Field from "../components/Field";
-import Checkbox from "../components/Checkbox";
+import { useSignup } from "../services/useApi";
 
 // ─── Google SVG logo ─────────────────────────────────────────────────────────
 function GoogleLogo({ className = "text-accent dark:text-dark-accent" }) {
@@ -70,37 +69,33 @@ function Spinner() {
   );
 }
 
-export default function Login() {
+export default function Signup() {
   const { theme, toggleTheme } = useTheme();
-  const [remember, setRemember] = useState(false);
-  const { handleSubmit, register, watch, formState: errors } = useForm();
-  const [view, setView] = useState("login");
-  const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm();
+
+  const [role, setRole] = useState("teacher");
   const [done, setDone] = useState(false);
-
-  const { login } = useAuth();
+  const { mutate: sigup } = useSignup();
   const navigate = useNavigate();
-  const submit = (data) => {};
 
-  const switchView = (v) => {
-    // setView(v);
-    // setErrors({});
-    // setDone(false);
+  const submit = (data) => {
+    console.log(data);
+    sigup(data);
   };
 
-  const HEADING = {
-    login: "Welcome back",
-    forgot: "Reset your password",
-  };
-  const SUBTEXT = {
-    login: "Sign in to your workspace",
-    forgot: "We'll email you a reset link",
-  };
+  const HEADING = "Create your account";
+  const SUBTEXT = "Start your 14-day free trial";
 
   const MAIL_ICON =
     "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6";
-  const CHECK_ICON = "M20 6L9 17l-5-5";
+  const USER_ICON =
+    "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z";
   const ARROW_ICON = "M5 12h14M12 5l7 7-7 7";
+  const CHECK_ICON = "M20 6L9 17l-5-5";
 
   return (
     <>
@@ -112,7 +107,6 @@ export default function Login() {
       `}</style>
 
       <div className="min-h-screen bg-bg-app dark:bg-dark-app flex items-center justify-center p-4">
-        {/* theme toggle */}
         <button
           onClick={toggleTheme}
           className="fixed top-4 right-4 z-50 w-8 h-8 flex items-center justify-center rounded-lg border border-default dark:border-dark-default bg-bg-shell dark:bg-dark-shell text-secondary dark:text-dark-secondary hover:bg-input dark:hover:bg-dark-input transition-colors cursor-pointer"
@@ -123,11 +117,8 @@ export default function Login() {
           />
         </button>
 
-        {/* card */}
         <div className="anim-up w-full max-w-112.5 flex overflow-hidden rounded-2xl border border-default dark:border-dark-default bg-bg-shell dark:bg-dark-shell shadow-sm">
-          {/* right */}
           <div className="flex-1 flex flex-col justify-center px-7 py-8 border-l border-default dark:border-dark-default">
-            {/* ── success state ── */}
             {done ? (
               <div className="anim-pop flex flex-col items-center text-center gap-3 py-4">
                 <div className="w-10 h-10 rounded-full bg-input dark:bg-dark-input border border-default dark:border-dark-default flex items-center justify-center">
@@ -138,12 +129,10 @@ export default function Login() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-primary dark:text-dark-primary mb-1">
-                    {view === "forgot" ? "Reset link sent!" : "Signed in!"}
+                    Account created!
                   </p>
                   <p className="text-xs text-muted dark:text-dark-muted">
-                    {view === "forgot"
-                      ? "Check your inbox."
-                      : "Redirecting to your dashboard…"}
+                    Redirecting to your dashboard…
                   </p>
                 </div>
                 <button
@@ -154,146 +143,132 @@ export default function Login() {
                 </button>
               </div>
             ) : (
-              /* ── form state ── */
-              <div className="anim-up" key={view}>
-                {/* heading */}
+              <div className="anim-up">
                 <div className="mb-5">
                   <h1 className="text-sm font-bold text-primary dark:text-dark-primary tracking-tight mb-1">
-                    {HEADING[view]}
+                    Create your account
                   </h1>
                   <p className="text-xs text-muted dark:text-dark-muted">
-                    {SUBTEXT[view]}
+                    Start your 14-day free trial
                   </p>
                 </div>
 
-                {/* oauth */}
-                {view !== "forgot" && (
-                  <>
-                    <div className="flex gap-2 mb-4">
-                      <button
-                        type="button"
-                        className="flex-1 h-8 flex items-center justify-center gap-2 rounded-lg border border-default dark:border-dark-default bg-input dark:bg-dark-input text-primary dark:text-dark-primary text-xs font-semibold hover:bg-bg-shell dark:hover:bg-dark-shell transition-colors cursor-pointer"
-                      >
-                        <GoogleLogo /> Google
-                      </button>
-                      <button
-                        type="button"
-                        className="flex-1 h-8 flex items-center justify-center gap-2 rounded-lg border border-default dark:border-dark-default bg-input dark:bg-dark-input text-primary dark:text-dark-primary text-xs font-semibold hover:bg-bg-shell dark:hover:bg-dark-shell transition-colors cursor-pointer"
-                      >
-                        <MicrosoftLogo /> Microsoft
-                      </button>
-                    </div>
+                <div className="flex gap-2 mb-4">
+                  <button
+                    type="button"
+                    className="flex-1 h-8 flex items-center justify-center gap-2 rounded-lg border border-default dark:border-dark-default bg-input dark:bg-dark-input text-primary dark:text-dark-primary text-xs font-semibold hover:bg-bg-shell dark:hover:bg-dark-shell transition-colors cursor-pointer"
+                  >
+                    <GoogleLogo /> Google
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-1 h-8 flex items-center justify-center gap-2 rounded-lg border border-default dark:border-dark-default bg-input dark:bg-dark-input text-primary dark:text-dark-primary text-xs font-semibold hover:bg-bg-shell dark:hover:bg-dark-shell transition-colors cursor-pointer"
+                  >
+                    <MicrosoftLogo /> Microsoft
+                  </button>
+                </div>
 
-                    {/* divider */}
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="flex-1 h-px bg-default dark:bg-dark-default" />
-                      <span className="text-[10px] text-muted dark:text-dark-muted font-medium whitespace-nowrap">
-                        or continue with email
-                      </span>
-                      <div className="flex-1 h-px bg-default dark:bg-dark-default" />
-                    </div>
-                  </>
-                )}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex-1 h-px bg-default dark:bg-dark-default" />
+                  <span className="text-[10px] text-muted dark:text-dark-muted font-medium whitespace-nowrap">
+                    or continue with email
+                  </span>
+                  <div className="flex-1 h-px bg-default dark:bg-dark-default" />
+                </div>
 
-                {/* fields */}
                 <form
                   onSubmit={handleSubmit(submit)}
                   noValidate
                   className="flex flex-col gap-3"
                 >
                   <Field
+                    register={register("fullName")}
+                    label="Full name"
+                    placeholder="Amirbaqian"
+                    error={errors.fullName?.message}
+                    autoComplete="name"
+                    iconD={USER_ICON}
+                  />
+
+                  <Field
                     label="Email address"
                     type="email"
+                    register={register("email")}
                     placeholder="you@school.edu"
-                    register={register("email", {
-                      required: "email required",
-                    })}
                     error={errors.email?.message}
                     autoComplete="email"
                     iconD={MAIL_ICON}
                   />
 
-                  {view !== "forgot" && (
-                    <Field
-                      label="Password"
-                      type="password"
-                      placeholder="••••••••"
-                      register={register("password", {
-                        required: "password required",
-                      })}
-                      error={errors?.password?.message}
-                      autoComplete={
-                        view === "login"
-                          ? "current-password"
-                          : "current-password"
-                      }
-                    />
-                  )}
+                  <Field
+                    label="Password"
+                    type="password"
+                    placeholder="••••••••"
+                    register={register("password")}
+                    error={errors.password?.message}
+                    autoComplete="new-password"
+                  />
 
-                  {/* remember + forgot */}
-                  {view === "login" && (
-                    <div className="flex items-center justify-between">
-                      <Checkbox
-                        label="Remember me"
-                        checked={remember}
-                        id={"remember"}
-                        onChange={(e) => {
-                          setRemember(!e.target.checked);
-                          console.log(remember);
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => switchView("forgot")}
-                        className="text-[11px] font-semibold text-secondary dark:text-dark-secondary hover:text-primary dark:hover:text-dark-primary underline underline-offset-2 transition-colors bg-transparent border-none cursor-pointer"
-                      >
-                        Forgot password?
-                      </button>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-semibold text-primary dark:text-dark-primary">
+                      I am a
+                    </span>
+                    <div className="flex gap-1.5">
+                      {["teacher", "student", "admin"].map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setRole(r)}
+                          className={`flex-1 h-8 rounded-lg text-[11px] font-semibold border capitalize transition-colors cursor-pointer
+                            ${
+                              role === r
+                                ? "border-primary dark:border-dark-primary bg-input dark:bg-dark-input text-primary dark:text-dark-primary"
+                                : "border-default dark:border-dark-default bg-transparent text-muted dark:text-dark-muted hover:text-secondary dark:hover:text-dark-secondary"
+                            }`}
+                        >
+                          {role === r && "✓ "}
+                          {r}
+                        </button>
+                      ))}
                     </div>
-                  )}
+                  </div>
 
-                  {/* submit */}
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={isSubmitting}
                     className="mt-0.5 h-8 w-full rounded-lg flex items-center justify-center gap-2 bg-primary text-white dark:bg-dark-primary text-bg-shell dark:text-dark-shell text-xs font-bold border-none cursor-pointer hover:opacity-90 active:scale-[.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? (
+                    {isSubmitting ? (
                       <Spinner />
                     ) : (
                       <>
-                        {view === "login" && "Sign in"}
-                        {view === "forgot" && "Send reset link"}
+                        Create account
                         <Icon d={ARROW_ICON} className="size-3 stroke-[2.5]" />
                       </>
                     )}
                   </button>
                 </form>
 
-                {/* switch view */}
                 <p className="mt-4 text-center text-[11px] text-muted dark:text-dark-muted">
-                  {view === "login" && (
-                    <>
-                      Don't have an account?{" "}
-                      <button
-                        onClick={() => navigate("/signup")}
-                        className="font-semibold text-secondary dark:text-dark-secondary hover:text-primary dark:hover:text-dark-primary underline underline-offset-2 bg-transparent border-none cursor-pointer text-[11px]"
-                      >
-                        Sign up free
-                      </button>
-                    </>
-                  )}
-                  {view === "forgot" && (
-                    <>
-                      Remembered it?{" "}
-                      <button
-                        onClick={() => switchView("login")}
-                        className="font-semibold text-secondary dark:text-dark-secondary hover:text-primary dark:hover:text-dark-primary underline underline-offset-2 bg-transparent border-none cursor-pointer text-[11px]"
-                      >
-                        Back to sign in
-                      </button>
-                    </>
-                  )}
+                  Already have an account?{" "}
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="font-semibold text-secondary dark:text-dark-secondary hover:text-primary dark:hover:text-dark-primary underline underline-offset-2 bg-transparent border-none cursor-pointer text-[11px]"
+                  >
+                    Sign in
+                  </button>
+                </p>
+
+                <p className="mt-2.5 text-[10px] text-muted dark:text-dark-muted text-center leading-relaxed">
+                  By signing up you agree to our{" "}
+                  <span className="text-secondary dark:text-dark-secondary font-medium cursor-pointer hover:underline underline-offset-2">
+                    Terms
+                  </span>{" "}
+                  and{" "}
+                  <span className="text-secondary dark:text-dark-secondary font-medium cursor-pointer hover:underline underline-offset-2">
+                    Privacy Policy
+                  </span>
+                  .
                 </p>
               </div>
             )}

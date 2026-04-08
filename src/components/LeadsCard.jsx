@@ -12,7 +12,7 @@ export default function LeadsCard() {
     { label: "Won", value: 55, color: "#7c3aed" },
   ];
   return (
-    <div className="bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] flex-1">
+    <div className="bg-card dark:bg-dark-accent-light border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] flex-1">
       <div className="flex items-center justify-between mb-3">
         <span className="text-[13px] font-semibold text-primary dark:text-dark-primary">
           Leads Management

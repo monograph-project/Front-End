@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router";
+import { Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import AppHeader from "./AppHeader";
 import Sidebar from "./AppSideBar";
 
 export default function Applayout() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -43,7 +46,7 @@ export default function Applayout() {
         )}
 
         {/* Unified card */}
-        <div className="flex-1 flex rounded-2xl overflow-hidden shadow-badge">
+        <div className="flex-1 flex  overflow-hidden shadow-badge">
           {/* Sidebar - hidden on mobile when closed */}
           <div
             className={`
@@ -54,6 +57,7 @@ export default function Applayout() {
           >
             <Sidebar
               collapsed={isMobile ? false : collapsed}
+              small={collapsed}
               onToggle={handleSidebarToggle}
               isMobile={isMobile}
               mobileMenuOpen={mobileMenuOpen}
@@ -63,7 +67,12 @@ export default function Applayout() {
 
           {/* Main area */}
           <div className="flex-1 flex flex-col overflow-hidden bg-shell dark:bg-dark-shell min-w-0">
-            <AppHeader onMenuToggle={() => setMobileMenuOpen(true)} />
+            <AppHeader
+              collapsed={collapsed}
+              isMobile={isMobile}
+              handleSidebarToggle={handleSidebarToggle}
+              onMenuToggle={() => setMobileMenuOpen(true)}
+            />
 
             <Outlet />
           </div>
