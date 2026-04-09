@@ -1,538 +1,486 @@
-// import { useEffect, useState, useRef } from "react";
-// import {
-//   RiArrowDownSLine,
-//   RiArrowLeftSLine,
-//   RiArrowRightSLine,
-// } from "react-icons/ri";
-// import { useClickOutSide } from "../hook/useClickOutSide";
-
-// const PAGE_SIZE = 9; // items per page — pagination appears when total > 9
-
-// function SearchableSelect({
-//   label,
-//   error,
-//   id,
-//   options = [],
-//   defaultSelected,
-//   onChange,
-//   value,
-//   name,
-//   disabled = false,
-// }) {
-//   const [isOpen, setIsOpen] = useState(false);
-//   const [search, setSearch] = useState("");
-//   const [selected, setSelected] = useState(value || defaultSelected || "");
-//   const [position, setPosition] = useState("bottom");
-//   const [currentPage, setCurrentPage] = useState(1);
-
-//   const containerRef = useClickOutSide(() => setIsOpen(false));
-//   const listRef = useRef(null);
-
-//   // ── Filter ────────────────────────────────────────────────────────
-//   const filteredOptions = options.filter((opt) => {
-//     const lbl = opt?.label || opt?.value || "";
-//     return (
-//       typeof lbl === "string" &&
-//       lbl.toLowerCase().includes(search.toLowerCase())
-//     );
-//   });
-
-//   // ── Pagination ────────────────────────────────────────────────────
-//   const totalPages = Math.ceil(filteredOptions.length / PAGE_SIZE);
-//   const showPagination = totalPages > 1;
-//   const paginatedOptions = filteredOptions.slice(
-//     (currentPage - 1) * PAGE_SIZE,
-//     currentPage * PAGE_SIZE,
-//   );
-
-//   // ── Effects ───────────────────────────────────────────────────────
-//   useEffect(() => {
-//     setSelected(value || "");
-//   }, [value]);
-//   useEffect(() => {
-//     if (disabled) setIsOpen(false);
-//   }, [disabled]);
-
-//   // Reset on close
-//   useEffect(() => {
-//     if (!isOpen) {
-//       setSearch("");
-//       setCurrentPage(1);
-//     }
-//   }, [isOpen]);
-
-//   // Reset page when search changes
-//   useEffect(() => {
-//     setCurrentPage(1);
-//   }, [search]);
-
-//   // Scroll list to top on page change
-//   useEffect(() => {
-//     if (listRef.current) listRef.current.scrollTop = 0;
-//   }, [currentPage]);
-
-//   // Auto-detect open direction
-//   useEffect(() => {
-//     if (isOpen && containerRef?.current) {
-//       const rect = containerRef.current.getBoundingClientRect();
-//       const spaceBelow = window.innerHeight - rect.bottom;
-//       const spaceAbove = rect.top;
-//       setPosition(spaceBelow < 280 && spaceAbove > 280 ? "top" : "bottom");
-//     }
-//   }, [isOpen]);
-
-//   // ── Handlers ──────────────────────────────────────────────────────
-//   const handleSelect = (optValue) => {
-//     setSelected(optValue);
-//     setIsOpen(false);
-//     if (onChange) {
-//       name
-//         ? onChange({ target: { name, value: optValue } })
-//         : onChange(optValue);
-//     }
-//   };
-
-//   const handlePage = (p) => {
-//     if (p < 1 || p > totalPages) return;
-//     setCurrentPage(p);
-//   };
-
-//   const getSelectedLabel = () => {
-//     if (!selected) return defaultSelected || "انتخاب نکردید";
-//     const opt = options.find((o) => o.value === selected);
-//     return opt ? opt.label || opt.value : selected;
-//   };
-
-//   // Smart page number list with ellipsis
-//   const pageNumbers = () => {
-//     if (totalPages <= 5)
-//       return Array.from({ length: totalPages }, (_, i) => i + 1);
-//     const set = new Set([1, totalPages, currentPage]);
-//     if (currentPage > 1) set.add(currentPage - 1);
-//     if (currentPage < totalPages) set.add(currentPage + 1);
-//     return [...set].sort((a, b) => a - b);
-//   };
-
-//   // ── Render ────────────────────────────────────────────────────────
-//   return (
-//     <div className="relative w-full" ref={containerRef}>
-//       {label && (
-//         <label
-//           htmlFor={id}
-//           className="block text-[12px] font-medium text-gray-500 dark:text-gray-300 mb-2"
-//         >
-//           {label}
-//         </label>
-//       )}
-
-//       {/* Trigger */}
-//       <div
-//         onClick={() => {
-//           if (!disabled) setIsOpen((o) => !o);
-//         }}
-//         className={`w-full truncate rounded-sm pr-3 pl-4 py-[10px] transition flex justify-between items-center border
-//           ${
-//             disabled
-//               ? "bg-gray-100 dark:bg-transparent cursor-not-allowed text-gray-400 dark:text-gray-200 border-gray-200 dark:border-gray-800"
-//               : "bg-transparent cursor-pointer text-slate-700 border-slate-200 dark:border-gray-800 dark:hover:border-gray-700 hover:border-brand-500"
-//           }`}
-//       >
-//         <span className="text-sm font-normal text-slate-600 dark:text-gray-200">
-//           {getSelectedLabel()}
-//         </span>
-//         <RiArrowDownSLine
-//           className={`flex-shrink-0 transition-all duration-200 ${isOpen ? "rotate-180" : ""}`}
-//         />
-//       </div>
-
-//       {/* Dropdown */}
-//       {isOpen && (
-//         <div
-//           className={`absolute z-50 w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-sm shadow-lg p-2
-//             ${position === "top" ? "bottom-full mb-2" : "top-full mt-2"}`}
-//         >
-//           {/* Search */}
-//           <input
-//             autoFocus
-//             type="text"
-//             placeholder="جستجو..."
-//             value={search}
-//             onChange={(e) => setSearch(e.target.value)}
-//             className="w-full mb-2 px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-800 rounded-sm focus:outline-none focus:border-slate-300 dark:placeholder:text-gray-500 dark:text-white bg-transparent"
-//           />
-
-//           {/* Scrollable options list — always shows ~4 rows, scrollable */}
-//           <div
-//             ref={listRef}
-//             className="overflow-y-auto scrollbar-theme"
-//             style={{ maxHeight: "9.75rem" }} /* ~4 items × ~2.44rem */
-//           >
-//             {paginatedOptions.length > 0 ? (
-//               paginatedOptions.map((option, index) => (
-//                 <div
-//                   key={index}
-//                   onClick={() => handleSelect(option.value)}
-//                   className={`cursor-pointer px-3 py-2 text-sm capitalize rounded-sm dark:text-gray-100 dark:hover:bg-gray-800/90 hover:bg-brand-100 transition-colors
-//                     ${selected === option.value ? "bg-slate-100 dark:bg-gray-800/90" : ""}`}
-//                 >
-//                   {option.label || option.value}
-//                 </div>
-//               ))
-//             ) : (
-//               <p className="text-sm text-slate-400 dark:text-gray-500 text-center py-3">
-//                 هیچ نتیجه‌ای یافت نشد
-//               </p>
-//             )}
-//           </div>
-
-//           {/* Pagination — only when options > PAGE_SIZE (9) */}
-//           {showPagination && (
-//             <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-gray-800">
-//               {/* Prev */}
-//               <button
-//                 onClick={() => handlePage(currentPage - 1)}
-//                 disabled={currentPage === 1}
-//                 className="p-1 rounded-sm text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
-//               >
-//                 <RiArrowRightSLine size={15} />
-//               </button>
-
-//               {/* Page numbers */}
-//               <div className="flex items-center gap-0.5">
-//                 {pageNumbers().map((page, idx, arr) => (
-//                   <span key={page} className="flex items-center gap-0.5">
-//                     {idx > 0 && arr[idx - 1] !== page - 1 && (
-//                       <span className="w-5 text-center text-xs text-slate-300 dark:text-gray-600 select-none">
-//                         ···
-//                       </span>
-//                     )}
-//                     <button
-//                       onClick={() => handlePage(page)}
-//                       className={`min-w-[1.5rem] h-6 px-1 text-xs rounded-sm transition font-medium
-//                         ${
-//                           currentPage === page
-//                             ? "bg-brand-500 text-white dark:bg-brand-600"
-//                             : "text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800"
-//                         }`}
-//                     >
-//                       {page}
-//                     </button>
-//                   </span>
-//                 ))}
-//               </div>
-
-//               {/* Next */}
-//               <button
-//                 onClick={() => handlePage(currentPage + 1)}
-//                 disabled={currentPage === totalPages}
-//                 className="p-1 rounded-sm text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
-//               >
-//                 <RiArrowLeftSLine size={15} />
-//               </button>
-//             </div>
-//           )}
-//         </div>
-//       )}
-
-//       {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-//     </div>
-//   );
-// }
-
-// export default SearchableSelect;
-import { useEffect, useState, useRef } from "react";
+import * as React from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
-  RiArrowDownSLine,
-  RiArrowLeftSLine,
-  RiArrowRightSLine,
-} from "react-icons/ri";
-import { useClickOutSide } from "../hook/useClickOutSide";
+  CheckIcon,
+  Cross2Icon,
+  MagnifyingGlassIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+} from "@radix-ui/react-icons";
+import { cn } from "../lib/utils"; // adjust path to your cn utility
 
-const PAGE_SIZE = 9;
+/** Normalise flat options OR grouped options into always-grouped shape */
+function normaliseOptions(options) {
+  if (!options?.length) return [];
+  if ("options" in options[0]) return options; // already grouped
+  return [{ label: "", options }]; // wrap flat in one unnamed group
+}
 
-/**
- * SearchableSelect
- *
- * ─── Client-only (no pagination props) ──────────────────────────────
- *   <SearchableSelect options={options} onChange={handleChange} />
- *   → Filters locally, pagination activates automatically if items > 9
- *
- * ─── Server-side (pagination from API) ──────────────────────────────
- *   <SearchableSelect
- *     options={data}           ← current page items from API
- *     totalPages={totalPages}  ← e.g. Math.ceil(total / limit)
- *     currentPage={page}       ← controlled by parent
- *     onPageChange={setPage}   ← parent updates page & re-fetches
- *     onSearch={setSearch}     ← parent updates search & re-fetches
- *     onChange={handleChange}
- *   />
- *
- * Props
- * ───────────────────────────────────────────────────────────────────
- * label            string
- * error            string
- * id               string
- * name             string
- * disabled         bool
- * defaultSelected  string
- * value            string
- * onChange         fn(value) | fn({ target: { name, value } })
- * options          { value, label }[]
- * totalPages       number   (server) total pages
- * currentPage      number   (server) active page — controlled by parent
- * onPageChange     fn       (server) called with new page number
- * onSearch         fn       (server) called with search string on change
- */
-function SearchableSelect({
-  label,
-  error,
-  id,
-  options = [],
-  defaultSelected,
-  onChange,
-  value,
-  name,
-  disabled = false,
-  // ── server-side pagination props ──
-  totalPages: externalTotalPages,
-  currentPage: externalPage,
-  onPageChange,
-  onSearch,
-}) {
-  // If all three server props are supplied → server mode
-  const isServerMode = !!(externalTotalPages && externalPage && onPageChange);
+/** Flatten all options from groups */
+function flattenOptions(groups) {
+  return groups.flatMap((g) => g.options);
+}
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState(value || defaultSelected || "");
-  const [position, setPosition] = useState("bottom");
-  const [clientPage, setClientPage] = useState(1);
-
-  const containerRef = useClickOutSide(() => setIsOpen(false));
-  const listRef = useRef(null);
-
-  // ── Derived (client mode only) ────────────────────────────────────
-  const filteredOptions = isServerMode
-    ? options
-    : options.filter((opt) => {
-        const lbl = opt?.label || opt?.value || "";
-        return (
-          typeof lbl === "string" &&
-          lbl.toLowerCase().includes(search.toLowerCase())
-        );
-      });
-
-  const clientTotalPages = Math.ceil(filteredOptions.length / PAGE_SIZE);
-  const useClientPagination =
-    !isServerMode && filteredOptions.length > PAGE_SIZE;
-
-  // Unified values regardless of mode
-  const activePage = isServerMode ? externalPage : clientPage;
-  const totalPages = isServerMode ? externalTotalPages : clientTotalPages;
-  const showPagination =
-    (isServerMode && externalTotalPages > 1) ||
-    (useClientPagination && clientTotalPages > 1);
-
-  const visibleOptions = useClientPagination
-    ? filteredOptions.slice(
-        (clientPage - 1) * PAGE_SIZE,
-        clientPage * PAGE_SIZE,
-      )
-    : filteredOptions;
-
-  // ── Effects ───────────────────────────────────────────────────────
-  useEffect(() => {
-    setSelected(value || "");
-  }, [value]);
-  useEffect(() => {
-    if (disabled) setIsOpen(false);
-  }, [disabled]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setSearch("");
-      setClientPage(1);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isServerMode) setClientPage(1);
-  }, [search]);
-
-  useEffect(() => {
-    if (listRef.current) listRef.current.scrollTop = 0;
-  }, [activePage]);
-
-  useEffect(() => {
-    if (isOpen && containerRef?.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      setPosition(spaceBelow < 280 && spaceAbove > 280 ? "top" : "bottom");
-    }
-  }, [isOpen]);
-
-  // ── Handlers ──────────────────────────────────────────────────────
-  const handleSearchChange = (e) => {
-    const val = e.target.value;
-    setSearch(val);
-    if (isServerMode && onSearch) onSearch(val);
-  };
-
-  const handlePageChange = (page) => {
-    if (page < 1 || page > totalPages) return;
-    isServerMode ? onPageChange(page) : setClientPage(page);
-  };
-
-  const handleSelect = (optValue) => {
-    setSelected(optValue);
-    setIsOpen(false);
-    if (onChange) {
-      name
-        ? onChange({ target: { name, value: optValue } })
-        : onChange(optValue);
-    }
-  };
-
-  const getSelectedLabel = () => {
-    if (!selected) return defaultSelected || "انتخاب نکردید";
-    const opt = options.find((o) => o.value === selected);
-    return opt ? opt.label || opt.value : selected;
-  };
-
-  // Smart page list — first, last, active ±1, with ellipsis gaps
-  const getPageNumbers = () => {
-    if (totalPages <= 5)
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    const set = new Set([1, totalPages, activePage]);
-    if (activePage > 1) set.add(activePage - 1);
-    if (activePage < totalPages) set.add(activePage + 1);
-    return [...set].sort((a, b) => a - b);
-  };
-
-  // ── Render ────────────────────────────────────────────────────────
+/** Highlight matching substring in label */
+function Highlighted({ text = "", query = "" }) {
+  if (!query.trim()) return <span>{text}</span>;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <span>{text}</span>;
   return (
-    <div className="relative w-full" ref={containerRef}>
-      {label && (
-        <label
-          htmlFor={id}
-          className="block text-[12px] font-medium text-gray-500 dark:text-gray-300 mb-2"
-        >
-          {label}
-        </label>
-      )}
-
-      {/* Trigger */}
-      <div
-        onClick={() => {
-          if (!disabled) setIsOpen((o) => !o);
-        }}
-        className={`w-full truncate rounded-sm pr-3 pl-4 py-[8px] transition flex justify-between items-center border
-          ${
-            disabled
-              ? "bg-gray-100 dark:bg-transparent cursor-not-allowed text-gray-400 dark:text-gray-200 border-gray-200 dark:border-gray-800"
-              : "bg-transparent cursor-pointer text-slate-700 border-slate-200 dark:border-gray-800 dark:hover:border-gray-700 hover:border-brand-500"
-          }`}
-      >
-        <span className="font-normal text-sm text-slate-600 dark:text-gray-200">
-          {getSelectedLabel()}
-        </span>
-        <RiArrowDownSLine
-          className={`flex-shrink-0 transition-all duration-200 ${isOpen ? "rotate-180" : ""}`}
-        />
-      </div>
-
-      {/* Dropdown */}
-      {isOpen && (
-        <div
-          className={`absolute z-50 w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-sm shadow-lg p-2
-            ${position === "top" ? "bottom-full mb-2" : "top-full mt-2"}`}
-        >
-          {/* Search */}
-          <input
-            autoFocus
-            type="text"
-            placeholder="جستجو..."
-            value={search}
-            onChange={handleSearchChange}
-            className="w-full mb-2 px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-800 rounded-sm focus:outline-none focus:border-slate-200 dark:focus:border-gray-700 dark:placeholder:text-gray-500 dark:text-white bg-transparent"
-          />
-
-          {/* Scrollable options — ~4 rows visible */}
-          <div
-            ref={listRef}
-            className="overflow-y-auto scrollbar-theme"
-            style={{ maxHeight: "9.75rem" }}
-          >
-            {visibleOptions.length > 0 ? (
-              visibleOptions.map((option, index) => (
-                <div
-                  key={index}
-                  onClick={() => handleSelect(option.value)}
-                  className={`cursor-pointer px-3 py-2 text-sm capitalize rounded-sm dark:text-gray-100 dark:hover:bg-gray-800/90 hover:bg-brand-100 transition-colors
-                    ${selected === option.value ? "bg-slate-100 dark:bg-gray-800/90" : ""}`}
-                >
-                  {option.label || option.value}
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-slate-400 dark:text-gray-500 text-center py-3">
-                هیچ نتیجه‌ای یافت نشد
-              </p>
-            )}
-          </div>
-
-          {/* Pagination — only appears when totalPages > 1 */}
-          {showPagination && (
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-gray-800">
-              <button
-                type="button"
-                onClick={() => handlePageChange(activePage - 1)}
-                disabled={activePage === 1}
-                className="p-1 rounded-sm text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
-              >
-                <RiArrowRightSLine size={15} />
-              </button>
-
-              <div className="flex items-center gap-0.5">
-                {getPageNumbers().map((page, idx, arr) => (
-                  <span key={page} className="flex items-center gap-0.5">
-                    {idx > 0 && arr[idx - 1] !== page - 1 && (
-                      <span className="w-5 text-center text-xs text-slate-300 dark:text-gray-600 select-none">
-                        ···
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handlePageChange(page)}
-                      className={`min-w-[1.5rem] h-6 px-1 text-xs rounded-sm transition font-medium
-                        ${
-                          activePage === page
-                            ? "bg-brand-500 text-white dark:bg-brand-600"
-                            : "text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800"
-                        }`}
-                    >
-                      {page}
-                    </button>
-                  </span>
-                ))}
-              </div>
-
-              <button
-                onClick={() => handlePageChange(activePage + 1)}
-                disabled={activePage === totalPages}
-                className="p-1 rounded-sm text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
-              >
-                <RiArrowLeftSLine size={15} />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
-    </div>
+    <span>
+      {text.slice(0, idx)}
+      <mark className="bg-accent-light dark:bg-dark-accent-light text-primary dark:text-white rounded-[2px] px-[1px]">
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {text.slice(idx + query.length)}
+    </span>
   );
 }
 
-export default SearchableSelect;
+// ─── Chip (multi-select tag) ──────────────────────────────────────────────────
+function Chip({ label, onRemove }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md border border-default dark:border-dark-light bg-accent-light dark:bg-dark-accent-light px-2 py-0.5 text-xs font-medium text-primary dark:text-white max-w-[120px]">
+      <span className="truncate">{label}</span>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        className="flex-shrink-0 rounded-sm text-muted dark:text-gray-400 hover:text-primary dark:hover:text-white transition-colors"
+        aria-label={`Remove ${label}`}
+      >
+        <Cross2Icon className="h-3 w-3" />
+      </button>
+    </span>
+  );
+}
+export default function SearchableSelect({
+  options = [],
+  value: controlledValue,
+  defaultValue,
+  onChange,
+  multiple = false,
+  placeholder = "Select…",
+  searchPlaceholder = "Search…",
+  clearable = true,
+  disabled = false,
+  loading = false,
+  renderOption,
+  className,
+  contentClassName,
+  name,
+  maxHeight = 300,
+}) {
+  // ── State ──────────────────────────────────────────────────────────────
+  const isControlled = controlledValue !== undefined;
+  const [internalValue, setInternalValue] = React.useState(
+    defaultValue ?? (multiple ? [] : null),
+  );
+  const selected = isControlled ? controlledValue : internalValue;
+
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const [focusedIndex, setFocusedIndex] = React.useState(-1);
+  const searchRef = React.useRef(null);
+  const listRef = React.useRef(null);
+
+  // ── Derived ─────────────────────────────────────────────────────────────
+  const groups = React.useMemo(() => normaliseOptions(options), [options]);
+  const allFlat = React.useMemo(() => flattenOptions(groups), [groups]);
+
+  const filteredGroups = React.useMemo(() => {
+    if (!query.trim()) return groups;
+    const q = query.toLowerCase();
+    return groups
+      .map((g) => ({
+        ...g,
+        options: g.options.filter(
+          (o) =>
+            o.label.toLowerCase().includes(q) ||
+            o.description?.toLowerCase().includes(q),
+        ),
+      }))
+      .filter((g) => g.options.length > 0);
+  }, [groups, query]);
+
+  const filteredFlat = React.useMemo(
+    () => flattenOptions(filteredGroups),
+    [filteredGroups],
+  );
+
+  const isSelected = (val) =>
+    multiple
+      ? Array.isArray(selected) && selected.includes(val)
+      : selected === val;
+
+  // label shown in trigger (single mode)
+  const triggerLabel =
+    !multiple && selected
+      ? allFlat.find((o) => o.value === selected)?.label
+      : null;
+
+  // ── Handlers ────────────────────────────────────────────────────────────
+  function commit(val) {
+    let next;
+    if (multiple) {
+      const arr = Array.isArray(selected) ? selected : [];
+      next = arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
+    } else {
+      next = val;
+      setOpen(false);
+    }
+    if (!isControlled) setInternalValue(next);
+    onChange?.(next);
+  }
+
+  function removeValue(val) {
+    if (multiple) {
+      const next = (Array.isArray(selected) ? selected : []).filter(
+        (v) => v !== val,
+      );
+      if (!isControlled) setInternalValue(next);
+      onChange?.(next);
+    } else {
+      if (!isControlled) setInternalValue(null);
+      onChange?.(null);
+    }
+  }
+
+  function clearAll(e) {
+    e.stopPropagation();
+    const next = multiple ? [] : null;
+    if (!isControlled) setInternalValue(next);
+    onChange?.(next);
+  }
+
+  // ── Keyboard ────────────────────────────────────────────────────────────
+  function handleSearchKeyDown(e) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setFocusedIndex((i) => Math.min(i + 1, filteredFlat.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setFocusedIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (focusedIndex >= 0 && filteredFlat[focusedIndex]) {
+        const opt = filteredFlat[focusedIndex];
+        if (!opt.disabled) commit(opt.value);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  // reset focus & search when opening
+  React.useEffect(() => {
+    if (open) {
+      setQuery("");
+      setFocusedIndex(-1);
+      // autofocus search after portal mounts
+      setTimeout(() => searchRef.current?.focus(), 10);
+    }
+  }, [open]);
+
+  // scroll focused item into view
+  React.useEffect(() => {
+    if (focusedIndex >= 0 && listRef.current) {
+      const items = listRef.current.querySelectorAll("[data-option]");
+      items[focusedIndex]?.scrollIntoView({ block: "nearest" });
+    }
+  }, [focusedIndex]);
+
+  // hasValue
+  const hasValue = multiple
+    ? Array.isArray(selected) && selected.length > 0
+    : !!selected;
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  return (
+    <DropdownMenu.Root open={open} onOpenChange={setOpen} modal={false}>
+      {/* ── Hidden form input ── */}
+      {name && (
+        <input
+          type="hidden"
+          name={name}
+          value={multiple ? JSON.stringify(selected ?? []) : (selected ?? "")}
+          readOnly
+        />
+      )}
+
+      {/* ────────────────────────── TRIGGER ────────────────────────────── */}
+      <DropdownMenu.Trigger asChild disabled={disabled}>
+        <button
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label={placeholder}
+          className={cn(
+            // base layout
+            "group relative flex w-full min-h-[38px] items-center gap-2",
+            "rounded-md border px-3 py-1.5 text-sm font-medium",
+            "transition-colors duration-150 outline-none",
+            // light
+            "bg-card border-default text-secondary",
+            "hover:bg-card-2 hover:text-primary",
+            // dark
+            "dark:bg-dark-accent-light dark:border-dark-light dark:text-white",
+            "dark:hover:bg-dark-card",
+            // open state
+            "data-[state=open]:bg-accent-light data-[state=open]:border-primary/30",
+            "dark:data-[state=open]:bg-dark-card dark:data-[state=open]:text-white",
+            // disabled
+            "disabled:opacity-50 disabled:cursor-not-allowed",
+            // focus ring
+            "focus-visible:ring-2 focus-visible:ring-primary/30",
+            className,
+          )}
+        >
+          {/* Left content: chips (multi) or label (single) */}
+          <span className="flex min-w-0 flex-1 flex-wrap gap-1">
+            {multiple && Array.isArray(selected) && selected.length > 0 ? (
+              selected.map((val) => {
+                const opt = allFlat.find((o) => o.value === val);
+                return opt ? (
+                  <Chip
+                    key={val}
+                    label={opt.label}
+                    onRemove={() => removeValue(val)}
+                  />
+                ) : null;
+              })
+            ) : triggerLabel ? (
+              <span className="truncate text-primary dark:text-white">
+                {triggerLabel}
+              </span>
+            ) : (
+              <span className="truncate text-muted dark:text-gray-400">
+                {placeholder}
+              </span>
+            )}
+          </span>
+
+          {/* Right side: clear button + chevron */}
+          <span className="ml-auto flex flex-shrink-0 items-center gap-1">
+            {clearable && hasValue && !disabled && (
+              <span
+                role="button"
+                tabIndex={-1}
+                onClick={clearAll}
+                className="flex h-4 w-4 items-center justify-center rounded-sm text-muted dark:text-gray-400 hover:text-primary dark:hover:text-white transition-colors"
+                aria-label="Clear selection"
+              >
+                <Cross2Icon className="h-3.5 w-3.5" />
+              </span>
+            )}
+            <ChevronDownIcon
+              className={cn(
+                "h-4 w-4 text-muted dark:text-gray-400 transition-transform duration-200",
+                "group-data-[state=open]:rotate-180",
+              )}
+            />
+          </span>
+        </button>
+      </DropdownMenu.Trigger>
+
+      {/* ────────────────────────── DROPDOWN ───────────────────────────── */}
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="start"
+          sideOffset={4}
+          // width matches trigger
+          style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          // prevent closing when clicking inside the search input
+          onPointerDownOutside={(e) => {
+            if (e.target === searchRef.current) e.preventDefault();
+          }}
+          className={cn(
+            "z-50 overflow-hidden rounded-md border p-1",
+            "bg-card dark:bg-dark-card dark:border-none border-default",
+            "shadow-card",
+            // entrance animation
+            "data-[state=open]:animate-in data-[state=closed]:animate-out",
+            "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
+            "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
+            "data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1",
+            contentClassName,
+          )}
+        >
+          {/* ── Search input ── */}
+          <div className="flex items-center gap-2 border-b border-default dark:border-dark-light px-2 pb-1 pt-0.5 mb-1">
+            <MagnifyingGlassIcon className="h-3.5 w-3.5 flex-shrink-0 text-muted dark:text-gray-400" />
+            <input
+              ref={searchRef}
+              type="text"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setFocusedIndex(0);
+              }}
+              onKeyDown={handleSearchKeyDown}
+              placeholder={searchPlaceholder}
+              autoComplete="off"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={open}
+              className={cn(
+                "w-full bg-transparent text-sm outline-none",
+                "placeholder:text-muted dark:placeholder:text-gray-500",
+                "text-primary dark:text-white",
+                "py-1",
+              )}
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  searchRef.current?.focus();
+                }}
+                className="flex-shrink-0 text-muted dark:text-gray-400 hover:text-primary dark:hover:text-white"
+                aria-label="Clear search"
+              >
+                <Cross2Icon className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          {/* ── Options list ── */}
+          <div
+            ref={listRef}
+            role="listbox"
+            aria-multiselectable={multiple}
+            style={{ maxHeight, overflowY: "auto" }}
+            className="overflow-y-auto scrollbar-thin"
+          >
+            {/* Loading state */}
+            {loading && (
+              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted dark:text-gray-400">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Loading…
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!loading && filteredFlat.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-1 py-6 text-center">
+                <span className="text-sm font-medium text-secondary dark:text-gray-300">
+                  No results
+                </span>
+                {query && (
+                  <span className="text-xs text-muted dark:text-gray-500">
+                    No match for &ldquo;{query}&rdquo;
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Groups + Options */}
+            {!loading &&
+              filteredGroups.map((group, gi) => (
+                <div key={gi}>
+                  {/* Group label */}
+                  {group.label && (
+                    <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted dark:text-secondary">
+                      {group.label}
+                    </div>
+                  )}
+
+                  {group.options.map((opt) => {
+                    const globalIndex = filteredFlat.findIndex(
+                      (o) => o.value === opt.value,
+                    );
+                    const selected_ = isSelected(opt.value);
+                    const focused = focusedIndex === globalIndex;
+
+                    return (
+                      <div
+                        key={opt.value}
+                        data-option
+                        role="option"
+                        aria-selected={selected_}
+                        aria-disabled={opt.disabled}
+                        onClick={() => !opt.disabled && commit(opt.value)}
+                        onMouseEnter={() => setFocusedIndex(globalIndex)}
+                        className={cn(
+                          // base
+                          "relative flex w-full cursor-pointer select-none items-center gap-3",
+                          "rounded-md px-3 py-2 text-sm transition-colors duration-100",
+                          // normal
+                          "text-primary dark:text-white",
+                          // hover / focus
+                          "hover:bg-accent-light dark:hover:bg-dark-accent-light",
+                          focused &&
+                            "bg-accent-light dark:bg-dark-accent-light",
+                          // selected
+                          selected_ &&
+                            "bg-accent-light dark:bg-dark-accent-light font-medium",
+                          // disabled
+                          opt.disabled &&
+                            "cursor-not-allowed opacity-40 hover:bg-transparent dark:hover:bg-transparent",
+                        )}
+                      >
+                        {/* Leading icon */}
+                        {opt.icon && (
+                          <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-muted dark:text-gray-400">
+                            {opt.icon}
+                          </span>
+                        )}
+
+                        {/* Custom render OR default */}
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          {renderOption ? (
+                            renderOption(opt)
+                          ) : (
+                            <>
+                              <span className="truncate">
+                                <Highlighted text={opt.label} query={query} />
+                              </span>
+                              {opt.description && (
+                                <span className="truncate text-xs text-muted dark:text-gray-400">
+                                  {opt.description}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </span>
+
+                        {/* Check indicator */}
+                        {selected_ && (
+                          <CheckIcon className="ml-auto h-4 w-4 flex-shrink-0 text-primary dark:text-white" />
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Group separator (except last) */}
+                  {gi < filteredGroups.length - 1 && group.label && (
+                    <div className="my-1 h-px bg-default dark:bg-dark-badge mx-1" />
+                  )}
+                </div>
+              ))}
+          </div>
+
+          {/* ── Footer: multi count + clear all ── */}
+          {multiple && Array.isArray(selected) && selected.length > 0 && (
+            <div className="mt-1 flex items-center justify-between border-t border-default dark:border-dark-light px-3 pt-1.5 pb-1">
+              <span className="text-xs text-muted dark:text-gray-400">
+                {selected.length} selected
+              </span>
+              <button
+                type="button"
+                onClick={clearAll}
+                className="text-xs text-error dark:text-red-400 hover:underline transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}

@@ -1,3 +1,107 @@
 {
-  "user": []
+  "users": [
+    {
+      "id": "1",
+      "fullName": "Test User",
+      "email": "test@example.com",
+      "password": "password123",
+      "role": "admin"
+    },
+    {
+      "fullName": "elyas",
+      "email": "elyas@gmail.com",
+      "password": "test1234",
+      "role": "admin",
+      "id": "HkasXHdeUvs"
+    },
+    {
+      "fullName": "me",
+      "email": "me@gmail.com",
+      "password": "test1234",
+      "role": "teacher",
+      "id": "_5aOxF0cFF0"
+    }
+  ],
+  "students": [
+    {
+      "id": "ST001",
+      "firstName": "احمد",
+      "fatherName": "محمد",
+      "grandFatherName": "عبدالله",
+      "lastName": "خیل",
+      "nationality": "افغان",
+      "gender": "Male",
+      "dateOfBirth": "2002-05-15",
+      "address": {
+        "street": "شار ولسي",
+        "city": "کابل",
+        "province": "کابل"
+      },
+      "code": "STU-2023-001",
+      "email": "ahmad@example.com",
+      "phone": "+93 700 123 456",
+      "enrollmentDate": "2023-09-01",
+      "kankorId": "KANKOR-2023-45678",
+      "profilePicture": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3",
+      "semester": "Fall 2023",
+      "department": "Computer Science",
+      "status": "Active"
+    },
+    {
+      "id": "ST002",
+      "firstName": "فاطمه",
+      "fatherName": "عبدالرحمن",
+      "grandFatherName": "غلام محمد",
+      "lastName": "احمدي",
+      "nationality": "افغان",
+      "gender": "Female",
+      "dateOfBirth": "2003-08-22",
+      "address": {
+        "street": "دروازې مرادخاني",
+        "city": "هرات",
+        "province": "هرات"
+      },
+      "code": "STU-2023-002",
+      "email": "fatema@example.com",
+      "phone": "+93 799 987 654",
+      "enrollmentDate": "2023-09-01",
+      "kankorId": "KANKOR-2023-12345",
+      "profilePicture": "https://images.unsplash.com/photo-1494790108755-2616b612b786?ixlib=rb-4.0.3",
+      "semester": "Fall 2023",
+      "department": "Medicine",
+      "status": "Active"
+    },
+    {
+      "id": "ST003",
+      "firstName": "خلیل",
+      "fatherName": "عثمان",
+      "grandFatherName": "قادر",
+      "lastName": "رحماني",
+      "nationality": "افغان",
+      "gender": "Male",
+      "dateOfBirth": "2001-12-10",
+      "address": {
+        "street": "باغ شربات",
+        "city": "کندهار",
+        "province": "کندهار"
+      },
+      "code": "STU-2023-003",
+      "email": "khalil@example.com",
+      "phone": "+93 777 456 789",
+      "enrollmentDate": "2023-09-01",
+      "kankorId": "KANKOR-2023-98765",
+      "profilePicture": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3",
+      "semester": "Spring 2024",
+      "department": "Engineering",
+      "status": "Suspended"
+    }
+  ],
+  "login": [
+    {
+      "email": "elyas@gmail.com",
+      "password": "test1234",
+      "id": "SRHjCbRnsGQ"
+    }
+  ],
+  "$schema": "./node_modules/json-server/schema.json"
 }

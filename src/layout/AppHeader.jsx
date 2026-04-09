@@ -1,7 +1,9 @@
-import { TbLayoutSidebarRightCollapse } from "react-icons/tb";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { TbLayoutSidebarLeftCollapse } from "react-icons/tb";
+import {
+  TbLayoutSidebarLeftCollapse,
+  TbLayoutSidebarRightCollapse,
+} from "react-icons/tb";
 import {
   DropdownContent,
   DropdownLabel,
@@ -14,6 +16,7 @@ import IC from "../components/IC";
 import Icon from "../components/Icon";
 import NotificationDropdown from "../components/NotificationDropdown";
 import { useTheme } from "../context/themContext";
+import SearchableSelect from "../components/SearchableSelect";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -172,7 +175,7 @@ function LanguageMenu({ current, onChange }) {
           </svg>
         }
       >
-        {current.toUpperCase()}
+        {current?.toUpperCase()}
       </DropdownTrigger>
 
       <DropdownContent align="end" className="w-44">
@@ -180,8 +183,8 @@ function LanguageMenu({ current, onChange }) {
 
         <DropdownRadioGroup value={current} onValueChange={onChange}>
           <DropdownRadioItem value="en">English</DropdownRadioItem>
-          <DropdownRadioItem value="fr">Français</DropdownRadioItem>
-          <DropdownRadioItem value="ar">العربية</DropdownRadioItem>
+          <DropdownRadioItem value="ps">پښتو</DropdownRadioItem>
+          <DropdownRadioItem value="fa">فارسی</DropdownRadioItem>
         </DropdownRadioGroup>
       </DropdownContent>
     </DropdownMenuRoot>
@@ -198,15 +201,18 @@ export default function AppHeader({
   const { t, i18n } = useTranslation();
   const { toggleTheme, theme } = useTheme();
   const [openPanel, setOpenPanel] = useState(null);
-
+  const [search, setSearch] = useState();
+  const FRAMEWORK_OPTIONS = [
+    { value: "react", label: "React" },
+    { value: "vue", label: "Vue" },
+    { value: "svelte", label: "Svelte" },
+  ];
   // Memoised so child components that receive this as a prop don't re-render
   // unnecessarily when unrelated state changes.
   const toggle = useCallback(
     (panel) => setOpenPanel((prev) => (prev === panel ? null : panel)),
     [],
   );
-
-  const closePanel = useCallback(() => setOpenPanel(null), []);
 
   const handleLanguageChange = useCallback(
     (langCode) => i18n.changeLanguage(langCode),
@@ -259,8 +265,13 @@ export default function AppHeader({
       </div>
 
       {/* Search */}
-      <SearchInput placeholder={t("common.search")} />
-
+      <div className="space-y-2 w-70">
+        <SearchableSelect
+          options={FRAMEWORK_OPTIONS}
+          searchPlaceholder="select"
+          value={search}
+        />
+      </div>
       {/* Actions */}
       <div className="flex items-center gap-1 sm:gap-1.5">
         {/* Mobile search toggle */}

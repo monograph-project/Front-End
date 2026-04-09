@@ -2,7 +2,7 @@ import React from "react";
 
 function TableHeader({ headerData }) {
   return (
-    <thead className="bg-gray-50 dark:border-gray-800 dark:hover:border-gray-800 dark:bg-gray-900">
+    <thead className=" bg-shell dark:bg-dark-shell border-default dark:border-dark-default dark:hover:border-dark-default">
       <tr>
         {headerData?.map((header, index) => (
           <th

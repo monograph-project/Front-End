@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/themContext";
+import { useLogin } from "../services/useApi";
 import IC from "../components/IC";
 import Icon from "../components/Icon";
 import { useForm } from "react-hook-form";
 import Field from "../components/Field";
 import Checkbox from "../components/Checkbox";
+import HoverCardComponent from "../components/CardHover";
 
 // ─── Google SVG logo ─────────────────────────────────────────────────────────
 function GoogleLogo({ className = "text-accent dark:text-dark-accent" }) {
@@ -75,12 +77,21 @@ export default function Login() {
   const [remember, setRemember] = useState(false);
   const { handleSubmit, register, watch, formState: errors } = useForm();
   const [view, setView] = useState("login");
-  const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
   const { login } = useAuth();
+  const { mutate: apiLogin, isPending: loading } = useLogin();
   const navigate = useNavigate();
-  const submit = (data) => {};
+  const submit = (data) => {
+    apiLogin(data, {
+      onSuccess: (response) => {
+        localStorage.setItem("userId", response.user.id);
+        login(response);
+        setDone(true);
+        setTimeout(() => navigate("/dashboard", { replace: true }), 1500);
+      },
+    });
+  };
 
   const switchView = (v) => {
     // setView(v);

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/themContext";
 import IC from "../components/IC";
@@ -79,12 +80,20 @@ export default function Signup() {
 
   const [role, setRole] = useState("teacher");
   const [done, setDone] = useState(false);
-  const { mutate: sigup } = useSignup();
+  const { mutate: signupMutate } = useSignup();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const submit = (data) => {
-    console.log(data);
-    sigup(data);
+    const dataWithRole = { ...data, role };
+    signupMutate(dataWithRole, {
+      onSuccess: (response) => {
+        localStorage.setItem("userId", response.id);
+        login(response);
+        setDone(true);
+        setTimeout(() => navigate("/dashboard", { replace: true }), 1500);
+      },
+    });
   };
 
   const HEADING = "Create your account";
