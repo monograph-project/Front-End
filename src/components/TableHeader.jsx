@@ -7,7 +7,7 @@ function TableHeader({ headerData }) {
         {headerData?.map((header, index) => (
           <th
             key={index}
-            className="px-5  leading-snug py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-100 uppercase whitespace-nowrap"
+            className="px-5  leading-snug py-2.5 ltr:text-left rtl:text-right text-xs font-medium text-gray-500 dark:text-gray-100 uppercase whitespace-nowrap"
           >
             {header.title}
           </th>

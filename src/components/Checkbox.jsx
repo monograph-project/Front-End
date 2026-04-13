@@ -1,63 +1,69 @@
+import * as RadixCheckbox from "@radix-ui/react-checkbox";
+
 const Checkbox = ({
   id,
-  label = "Checkbox",
+  label = "",
   checked,
+  defaultChecked,
   onChange,
   className = "",
   disabled = false,
+  children,
+  ...props
 }) => {
-  
+  const handleCheckedChange = (val) => {
+    const isChecked = val === "indeterminate" ? false : !!val;
+    if (typeof onChange === "function") {
+      onChange({ target: { checked: isChecked } });
+    }
+  };
 
   return (
-    <div className={`flex items-center ${className}`}>
-      <input
+    <div className={`flex items-center gap-2 ${className}`}>
+      <RadixCheckbox.Root
         id={id}
-        type="checkbox"
-        disabled={disabled}
-        className="peer hidden"
         checked={checked}
-        onChange={onChange}
-      />
-
-      <label
-        htmlFor={id}
-        className={`flex items-center cursor-pointer ${
-          disabled ? "opacity-50 cursor-not-allowed" : ""
-        }`}
+        defaultChecked={defaultChecked}
+        onCheckedChange={handleCheckedChange}
+        disabled={disabled}
+        className={`w-5 h-5 rounded-md border flex items-center justify-center
+          border-default dark:border-dark-default
+          bg-white dark:bg-dark-shell
+          data-[state=checked]:bg-primary
+          data-[state=checked]:border-primary
+          ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+        `}
+        {...props}
       >
-        <svg viewBox="0 0 200 200" className="w-6 h-6" fill="none">
-          <rect
-            width="200"
-            height="200"
-            className="
-              fill-gray-200/40 dark:fill-gray-700
-              stroke-purple-600
-              stroke-[20]
-              [stroke-dasharray:800]
-              [stroke-dashoffset:800]
-              transition-all duration-500
-              peer-checked:[stroke-dashoffset:0]
-            "
-          />
+        <RadixCheckbox.Indicator>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+        </RadixCheckbox.Indicator>
+      </RadixCheckbox.Root>
 
-          <path
-            d="M52 111.018L76.9867 136L149 64"
-            className="
-              stroke-purple-600
-              stroke-[15]
-              fill-none
-              [stroke-dasharray:172]
-              [stroke-dashoffset:172]
-              transition-all duration-500
-              peer-checked:[stroke-dashoffset:0]
-            "
-          />
-        </svg>
-
-        <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 select-none">
+      {/* Label */}
+      {(label || children) && (
+        <label
+          htmlFor={id}
+          className={`text-sm select-none cursor-pointer
+            text-gray-700 dark:text-gray-300
+            ${disabled ? "cursor-not-allowed" : ""}
+          `}
+        >
           {label}
-        </span>
-      </label>
+          {children}
+        </label>
+      )}
     </div>
   );
 };

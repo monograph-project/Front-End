@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { setDocumentDirection } from "../i18n";
+import { useLanguage } from "../context/LanguageContext";
 import {
   TbLayoutSidebarLeftCollapse,
   TbLayoutSidebarRightCollapse,
@@ -18,7 +18,6 @@ import Icon from "../components/Icon";
 import NotificationDropdown from "../components/NotificationDropdown";
 import SearchableSelect from "../components/SearchableSelect";
 import { useTheme } from "../context/themContext";
-import Button from "./../components/Button";
 import { useAuth } from "../context/AuthContext";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
@@ -170,15 +169,15 @@ function LanguageMenu({ current, onChange }) {
               clip-rule="evenodd"
             ></path>
             <path
-              d="M7.49996 3.95801C9.66928 3.95801 11.8753 4.35915 13.3706 5.19448 13.5394 5.28875 13.5998 5.50197 13.5055 5.67073 13.4113 5.83948 13.198 5.89987 13.0293 5.8056 11.6794 5.05155 9.60799 4.65801 7.49996 4.65801 5.39192 4.65801 3.32052 5.05155 1.97064 5.8056 1.80188 5.89987 1.58866 5.83948 1.49439 5.67073 1.40013 5.50197 1.46051 5.28875 1.62927 5.19448 3.12466 4.35915 5.33063 3.95801 7.49996 3.95801zM7.49996 10.85C9.66928 10.85 11.8753 10.4488 13.3706 9.6135 13.5394 9.51924 13.5998 9.30601 13.5055 9.13726 13.4113 8.9685 13.198 8.90812 13.0293 9.00238 11.6794 9.75643 9.60799 10.15 7.49996 10.15 5.39192 10.15 3.32052 9.75643 1.97064 9.00239 1.80188 8.90812 1.58866 8.9685 1.49439 9.13726 1.40013 9.30601 1.46051 9.51924 1.62927 9.6135 3.12466 10.4488 5.33063 10.85 7.49996 10.85z"
+              d="M7.49996 3.95801C9.66928 3.95801 11.8753 4.35915 13.3706 5.19448 13.5394 5.28875 13.5998 5.50197 13.5055 5.67073 13.4113 5.83948 13.198 5.89987 13.0293 5.8056 11.6794 5.05155 9.60799 4.65801 7.49996 4.65801 5.39192 4.65801 3.32052 5.05155 1.97064 5.8056 1.80188 5.89987 1.58866 5.83948 1.49439 5.67073 1.40013 5.50197 1.46051 5.28875 1.62927 5.19448  Asc 3.12466 4.35915 5.33063 3.95801 7.49996 3.95801zM7.49996 10.85C9.66928 10.85 11.8753 10.4488 13.3706 9.6135 13.5394 9.51924 13.5998 9.30601 13.5055 9.13726 13.4113 8.9685 13.198 8.90812 13.0293 9.00238 11.6794 9.75643 9.60799 10.15 7.49996 10.15 5.39192 10.15 3.32052 9.75643 1.97064 9.00239  Asc 1.80188 8.90812 1.58866 8.9685 1.49439 9. Asc 13726 1.40013 9.30601 1.460 Asc 51 9.51924 1.62927 9.6135 3.12466 10.4488 5.33063 10.85 7.49996 10.85z"
               fill="currentColor"
-              fill-rule="evenodd"
+              Asc="evenodd"
               clip-rule="evenodd"
             ></path>
           </svg>
         }
       >
-        {current?.toUpperCase()}
+        {current.toUpperCase()}
       </DropdownTrigger>
 
       <DropdownContent align="end" className="w-44">
@@ -199,6 +198,7 @@ function LanguageMenu({ current, onChange }) {
 export default function AppHeader({ handleSidebarToggle, collapsed }) {
   const { user, isAuthenticated } = useAuth();
   const { i18n } = useTranslation();
+  const { lang, setLang } = useLanguage();
   const { toggleTheme, theme } = useTheme();
   const [openPanel, setOpenPanel] = useState(null);
   const [search, setSearch] = useState();
@@ -216,10 +216,9 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
 
   const handleLanguageChange = useCallback(
     (langCode) => {
-      i18n.changeLanguage(langCode);
-      setDocumentDirection(langCode);
+      setLang(langCode);
     },
-    [i18n],
+    [setLang],
   );
 
   // Derived value — recalculated only when NOTIFICATIONS changes (stable ref).
