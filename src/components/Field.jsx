@@ -44,14 +44,15 @@ function Field({
             autoComplete={autoComplete}
             className={`
             w-full h-8 text-xs rounded-lg outline-none transition-colors
-            bg-input dark:bg-dark-input
+           
+            bg-white dark:bg-dark-shell 
             text-primary dark:text-dark-primary
             placeholder:text-muted dark:placeholder:text-dark-muted
-            border
+            border 
             ${
               error
                 ? "border-error dark:border-error"
-                : "border-default dark:border-dark-default focus:border-primary dark:focus:border-dark-primary"
+                : "border-default dark:border-dark-default focus:border-app"
             }
             ${iconD ? "pl-7 pr-3" : "pl-3 pr-3"}
             ${isPassword ? "!pr-8" : ""}

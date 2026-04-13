@@ -48,6 +48,20 @@
       "password": "test1234",
       "role": "user",
       "id": "user-demo-1"
+    },
+    {
+      "fullName": "mohammad",
+      "email": "mohammad@gmail.com",
+      "password": "moh123123",
+      "role": "student",
+      "id": "IC0cAM9UGIc"
+    },
+    {
+      "fullName": "ksjdf",
+      "email": "sfkjdf@gkjdf.com",
+      "password": "sdfjksfjsdfj",
+      "role": "student",
+      "id": "g5jJscIShtE"
     }
   ],
   "students": [

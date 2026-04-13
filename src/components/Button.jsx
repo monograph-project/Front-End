@@ -1,13 +1,14 @@
 import React from "react";
 
-function Button({ onClick, label, icon }) {
+function Button({ onClick, children, icon, type }) {
   return (
     <button
       onClick={onClick}
-      className="font-semibold text-secondary dark:text-dark-secondary hover:text-primary dark:hover:text-dark-primary underline underline-offset-2 bg-transparent border-none cursor-pointer text-[11px]"
+      type={type}
+      className="flex items-center gap-2 px-4 py-2 bg-primary cursor-pointer text-white rounded-md font-semibold hover:opacity-90"
     >
-      <span>{label}</span>
-      <span>{icon}</span>
+      {icon && <span>{icon}</span>}
+      <span>{children}</span>
     </button>
   );
 }

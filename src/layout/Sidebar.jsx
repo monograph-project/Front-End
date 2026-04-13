@@ -116,7 +116,7 @@ export default function Sidebar({ mobileSidebarOpen, setMobileSidebarOpen }) {
 
   return (
     <aside
-      className={` flex flex-col h-full shrink-0 transition-width  duration-100 ease  overflow-hidden bg-shell dark:bg-dark-shell  border-r border-default dark:border-dark-default ${isMobile ? "border-none" : ""}  ${collapsed ? "w-16 min-w-18" : "w-70 min-w-70"}`}
+      className={` flex flex-col h-full shrink-0 transition-width  duration-100 ease  overflow-hidden bg-shell dark:bg-dark-shell rtl:border-l  ltr:border-r border-default dark:border-dark-default ${isMobile ? "border-none" : ""}  ${collapsed ? "w-16 min-w-18" : "w-70 min-w-70"}`}
     >
       <div className="h-full relative">
         <div

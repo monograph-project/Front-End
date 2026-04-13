@@ -19,7 +19,7 @@ export const DropdownTrigger = React.forwardRef(
       <button
         ref={ref}
         className={cn(
-          "flex  w-full group items-center  gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
+          `flex ${icon || showArrow ? "w-full" : "w-fit"} group items-center  gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors`,
           "bg-card dark:focus:outline-none dark:bg-dark-accent-light dark:border-dark-light border-default  text-secondary dark:text-white",
           "hover:bg-card-2  dark:hover:bg-dark-card hover:text-primary",
           "data-[state=open]:bg-accent-light data-[state=open]:dark:bg-dark-card data-[state=open]:dark:text-white  data-[state=open]:text-primary",
