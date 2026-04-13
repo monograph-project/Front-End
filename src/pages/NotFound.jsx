@@ -16,7 +16,7 @@ export default function NotFound() {
           404
         </h1>
         <p className="text-muted mb-6">
-          Page not found. Redirecting to dashboard...
+          Page not found. Redirecting home…
         </p>
         <button
           onClick={() => navigate("/")}

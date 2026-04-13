@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { postLoginPath } from "../lib/roles";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/themContext";
 import IC from "../components/IC";
@@ -75,23 +76,37 @@ export default function Signup() {
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm();
 
-  const [role, setRole] = useState("teacher");
+  const [role, setRole] = useState("student");
   const [done, setDone] = useState(false);
-  const { mutate: signupMutate } = useSignup();
+  const [serverError, setServerError] = useState("");
+  const { mutate: signupMutate, isPending: signingUp } = useSignup();
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const ROLE_OPTIONS = [
+    "student",
+    "teacher",
+    "staff",
+    "dean",
+    "admin",
+    "user",
+  ];
+
   const submit = (data) => {
+    setServerError("");
     const dataWithRole = { ...data, role };
     signupMutate(dataWithRole, {
-      onSuccess: (response) => {
-        localStorage.setItem("userId", response.id);
-        login(response);
+      onSuccess: (createdUser) => {
+        login(createdUser);
         setDone(true);
-        setTimeout(() => navigate("/dashboard", { replace: true }), 1500);
+        const dest = postLoginPath(createdUser);
+        setTimeout(() => navigate(dest, { replace: true }), 1500);
+      },
+      onError: (err) => {
+        setServerError(err.message || "Could not create account.");
       },
     });
   };
@@ -117,6 +132,14 @@ export default function Signup() {
 
       <div className="min-h-screen bg-bg-app dark:bg-dark-app flex items-center justify-center p-4">
         <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="fixed top-4 left-4 z-50 text-xs font-semibold text-secondary dark:text-dark-secondary underline-offset-4 hover:underline bg-transparent border-none cursor-pointer"
+        >
+          ← Public stories
+        </button>
+        <button
+          type="button"
           onClick={toggleTheme}
           className="fixed top-4 right-4 z-50 w-8 h-8 flex items-center justify-center rounded-lg border border-default dark:border-dark-default bg-bg-shell dark:bg-dark-shell text-secondary dark:text-dark-secondary hover:bg-input dark:hover:bg-dark-input transition-colors cursor-pointer"
         >
@@ -185,13 +208,24 @@ export default function Signup() {
                   <div className="flex-1 h-px bg-default dark:bg-dark-default" />
                 </div>
 
+                {serverError && (
+                  <p
+                    className="mb-3 rounded-lg border border-error/40 bg-error/10 px-3 py-2 text-[11px] font-medium text-error dark:text-error"
+                    role="alert"
+                  >
+                    {serverError}
+                  </p>
+                )}
+
                 <form
                   onSubmit={handleSubmit(submit)}
                   noValidate
                   className="flex flex-col gap-3"
                 >
                   <Field
-                    register={register("fullName")}
+                    register={register("fullName", {
+                      required: "Full name is required",
+                    })}
                     label="Full name"
                     placeholder="Amirbaqian"
                     error={errors.fullName?.message}
@@ -202,7 +236,9 @@ export default function Signup() {
                   <Field
                     label="Email address"
                     type="email"
-                    register={register("email")}
+                    register={register("email", {
+                      required: "Email is required",
+                    })}
                     placeholder="you@school.edu"
                     error={errors.email?.message}
                     autoComplete="email"
@@ -213,7 +249,13 @@ export default function Signup() {
                     label="Password"
                     type="password"
                     placeholder="••••••••"
-                    register={register("password")}
+                    register={register("password", {
+                      required: "Password is required",
+                      minLength: {
+                        value: 6,
+                        message: "At least 6 characters",
+                      },
+                    })}
                     error={errors.password?.message}
                     autoComplete="new-password"
                   />
@@ -222,13 +264,13 @@ export default function Signup() {
                     <span className="text-[11px] font-semibold text-primary dark:text-dark-primary">
                       I am a
                     </span>
-                    <div className="flex gap-1.5">
-                      {["teacher", "student", "admin"].map((r) => (
+                    <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                      {ROLE_OPTIONS.map((r) => (
                         <button
                           key={r}
                           type="button"
                           onClick={() => setRole(r)}
-                          className={`flex-1 h-8 rounded-lg text-[11px] font-semibold border capitalize transition-colors cursor-pointer
+                          className={`h-8 rounded-lg text-[10px] font-semibold border capitalize transition-colors cursor-pointer px-0.5
                             ${
                               role === r
                                 ? "border-primary dark:border-dark-primary bg-input dark:bg-dark-input text-primary dark:text-dark-primary"
@@ -244,10 +286,10 @@ export default function Signup() {
 
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={signingUp}
                     className="mt-0.5 h-8 w-full rounded-lg flex items-center justify-center gap-2 bg-primary text-white dark:bg-dark-primary text-bg-shell dark:text-dark-shell text-xs font-bold border-none cursor-pointer hover:opacity-90 active:scale-[.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isSubmitting ? (
+                    {signingUp ? (
                       <Spinner />
                     ) : (
                       <>

@@ -3,13 +3,15 @@ import { Bookmark, Heart } from "lucide-react";
 import { format } from "date-fns";
 
 export default function StoryCard({ story, variant = "default" }) {
-  const date = story.created_date ? format(new Date(story.created_date), "MMM d, yyyy") : "";
+  const date = story.created_date
+    ? format(new Date(story.created_date), "MMM d, yyyy")
+    : "";
   const readTime = story.reading_time || 1;
 
   if (variant === "featured") {
     return (
       <Link to={`/story/${story.id}`} className="group block">
-        <div className="relative overflow-hidden rounded-xl aspect-[16/9] mb-4">
+        <div className="relative overflow-hidden rounded-xl  mb-4">
           {story.cover_image ? (
             <img
               src={story.cover_image}
@@ -17,14 +19,18 @@ export default function StoryCard({ story, variant = "default" }) {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-              <span className="font-heading text-4xl text-primary/30">{story.title?.[0]}</span>
+            <div className="w-full h-full  flex items-center justify-center">
+              <span className="font-heading text-4xl text-primary/30">
+                {story.title?.[0]}
+              </span>
             </div>
           )}
         </div>
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground font-body">
-            <span className="font-medium text-foreground">{story.author_name || "Anonymous"}</span>
+            <span className="font-medium text-foreground">
+              {story.author_name || "Anonymous"}
+            </span>
           </div>
           <h2 className="font-heading text-2xl sm:text-3xl font-bold leading-tight group-hover:text-primary transition-colors">
             {story.title}
@@ -50,7 +56,10 @@ export default function StoryCard({ story, variant = "default" }) {
           {story.tags?.length > 0 && (
             <div className="flex gap-2 pt-1">
               {story.tags.slice(0, 3).map((tag) => (
-                <span key={tag} className="px-3 py-1 bg-muted rounded-full text-xs font-body text-muted-foreground">
+                <span
+                  key={tag}
+                  className="px-3 py-1 bg-muted rounded-full text-xs font-body text-muted-foreground"
+                >
                   {tag}
                 </span>
               ))}
@@ -62,10 +71,15 @@ export default function StoryCard({ story, variant = "default" }) {
   }
 
   return (
-    <Link to={`/story/${story.id}`} className="group flex gap-4 sm:gap-6 py-6 border-b border-border last:border-0">
+    <Link
+      to={`/story/${story.id}`}
+      className="group flex gap-4 sm:gap-6 py-6 border-b border-border last:border-0"
+    >
       <div className="flex-1 min-w-0 space-y-1.5">
         <div className="flex items-center gap-2 text-sm text-muted-foreground font-body">
-          <span className="font-medium text-foreground">{story.author_name || "Anonymous"}</span>
+          <span className="font-medium text-foreground">
+            {story.author_name || "Anonymous"}
+          </span>
         </div>
         <h3 className="font-heading text-lg sm:text-xl font-bold leading-snug group-hover:text-primary transition-colors line-clamp-2">
           {story.title}
@@ -91,7 +105,10 @@ export default function StoryCard({ story, variant = "default" }) {
         {story.tags?.length > 0 && (
           <div className="flex gap-2 pt-1">
             {story.tags.slice(0, 2).map((tag) => (
-              <span key={tag} className="px-2.5 py-0.5 bg-muted rounded-full text-xs font-body text-muted-foreground">
+              <span
+                key={tag}
+                className="px-2.5 py-0.5 bg-muted rounded-full text-xs font-body text-muted-foreground"
+              >
                 {tag}
               </span>
             ))}
@@ -100,7 +117,11 @@ export default function StoryCard({ story, variant = "default" }) {
       </div>
       {story.cover_image && (
         <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden flex-shrink-0">
-          <img src={story.cover_image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <img
+            src={story.cover_image}
+            alt=""
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
         </div>
       )}
     </Link>

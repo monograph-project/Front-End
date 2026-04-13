@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
 import { TrendingUp } from "lucide-react";
+import { MOCK_STORIES } from "../data/mockStories";
 
 const TOPICS = [
   "Technology", "Science", "Programming", "Design", "Business",
@@ -9,11 +9,13 @@ const TOPICS = [
 ];
 
 export default function TrendingSidebar() {
-  const [trending, setTrending] = useState([]);
-
-  useEffect(() => {
-    base44.entities.Story.filter({ status: "published" }, "-claps_count", 5).then(setTrending);
-  }, []);
+  const trending = useMemo(
+    () =>
+      [...MOCK_STORIES]
+        .sort((a, b) => (b.claps_count ?? 0) - (a.claps_count ?? 0))
+        .slice(0, 5),
+    [],
+  );
 
   return (
     <aside className="space-y-8">

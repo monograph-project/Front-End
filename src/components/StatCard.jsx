@@ -1,6 +1,5 @@
 import IC from "./IC";
 import Icon from "./Icon";
-import Dashboard from "./../pages/Dashboard";
 
 export default function StatCard({
   icon,

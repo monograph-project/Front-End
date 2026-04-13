@@ -2,12 +2,12 @@ import { createContext, useContext, useReducer, useEffect } from "react";
 
 const AuthContext = createContext();
 
-const initialState = {
+const guestState = {
   user: {
     fullName: "me",
     email: "me@gmail.com",
     password: "test1234",
-    role: "teacher",
+    role: "admin",
     id: "_5aOxF0cFF0",
   },
   isAuthenticated: true,
@@ -21,21 +21,22 @@ function authReducer(state, action) {
         isAuthenticated: true,
       };
     case "LOGOUT":
-      return initialState;
+      return guestState;
     default:
       return state;
   }
 }
 
 export function AuthProvider({ children }) {
-  const [state, dispatch] = useReducer(authReducer, initialState);
+  const [state, dispatch] = useReducer(authReducer, guestState);
 
   useEffect(() => {
-    const user = localStorage.getItem("user");
+    const raw = localStorage.getItem("user");
     const userId = localStorage.getItem("userId");
-    if (user && userId) {
+    if (raw && userId) {
       try {
-        dispatch({ type: "LOGIN", payload: JSON.parse(user) });
+        const user = JSON.parse(raw);
+        dispatch({ type: "LOGIN", payload: user });
       } catch {
         localStorage.removeItem("user");
         localStorage.removeItem("userId");
@@ -44,12 +45,16 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (state.isAuthenticated) {
+    if (state.isAuthenticated && state.user) {
       localStorage.setItem("user", JSON.stringify(state.user));
+      if (state.user.id != null) {
+        localStorage.setItem("userId", String(state.user.id));
+      }
     } else {
       localStorage.removeItem("user");
+      localStorage.removeItem("userId");
     }
-  }, [state]);
+  }, [state.isAuthenticated, state.user]);
 
   const login = (user) => {
     dispatch({
