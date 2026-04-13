@@ -3,8 +3,14 @@ import { createContext, useContext, useReducer, useEffect } from "react";
 const AuthContext = createContext();
 
 const initialState = {
-  user: null,
-  isAuthenticated: false,
+  user: {
+    fullName: "me",
+    email: "me@gmail.com",
+    password: "test1234",
+    role: "teacher",
+    id: "_5aOxF0cFF0",
+  },
+  isAuthenticated: true,
 };
 
 function authReducer(state, action) {
@@ -26,11 +32,13 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const user = localStorage.getItem("user");
-    if (user) {
+    const userId = localStorage.getItem("userId");
+    if (user && userId) {
       try {
         dispatch({ type: "LOGIN", payload: JSON.parse(user) });
       } catch {
         localStorage.removeItem("user");
+        localStorage.removeItem("userId");
       }
     }
   }, []);
@@ -43,10 +51,10 @@ export function AuthProvider({ children }) {
     }
   }, [state]);
 
-  const login = (role, email) => {
+  const login = (user) => {
     dispatch({
       type: "LOGIN",
-      payload: { role, email },
+      payload: user,
     });
   };
 

@@ -21,7 +21,7 @@ export default function Sidebar({ collapsed, onToggle, small }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-
+  console.log(user)
   const basePath = user?.role === "admin" ? "/admin" : `/${user?.role}`;
 
   const navItems = [
@@ -113,6 +113,7 @@ export default function Sidebar({ collapsed, onToggle, small }) {
       >
         {navItems.map((item) => {
           const active = isActive(item.path);
+
           return (
             <Link
               to={item.path}
@@ -202,16 +203,6 @@ export default function Sidebar({ collapsed, onToggle, small }) {
         }}
         className={`${collapsed ? " py-3 px-2" : " py-3 px-3.5"}`}
       >
-        {!collapsed && user && (
-          <div className="mb-4 p-3 bg-input dark:bg-dark-input rounded-lg">
-            <div className="text-xs font-semibold text-primary dark:text-dark-primary capitalize mb-1">
-              {user.role}
-            </div>
-            <div className="text-[10px] text-muted dark:text-dark-muted truncate">
-              {user.email}
-            </div>
-          </div>
-        )}
         {!collapsed && (
           <>
             <div className=" flex justify-between mb-1.5">
@@ -236,7 +227,7 @@ export default function Sidebar({ collapsed, onToggle, small }) {
         >
           <DropdownMenuRoot>
             <DropdownTrigger icon={<AvatarDemo />}>
-              {!small && "Elyas Ahmadi"}
+              {!small && user.email}
             </DropdownTrigger>
             {/* <AccountTrigger /> */}
 
