@@ -20,6 +20,34 @@
       "password": "test1234",
       "role": "teacher",
       "id": "_5aOxF0cFF0"
+    },
+    {
+      "fullName": "Sam Student",
+      "email": "student@school.edu",
+      "password": "test1234",
+      "role": "student",
+      "id": "stu-demo-1"
+    },
+    {
+      "fullName": "Pat Staff",
+      "email": "staff@school.edu",
+      "password": "test1234",
+      "role": "staff",
+      "id": "staff-demo-1"
+    },
+    {
+      "fullName": "Dana Dean",
+      "email": "dean@school.edu",
+      "password": "test1234",
+      "role": "dean",
+      "id": "dean-demo-1"
+    },
+    {
+      "fullName": "Riley Reader",
+      "email": "reader@public.test",
+      "password": "test1234",
+      "role": "user",
+      "id": "user-demo-1"
     }
   ],
   "students": [

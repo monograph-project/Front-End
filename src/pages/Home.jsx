@@ -1,9 +1,21 @@
 import { useState, useEffect } from "react";
-
+import LoadingSpinner from "../components/LoadingSpinner";
+import StoryCard from "../components/StoryCard";
+import TopicPills from "../components/TopicPills";
+import TrendingSidebar from "../components/TrendingSidebar";
+import { MOCK_STORIES } from "../data/mockStories";
 
 export default function Home() {
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setStories(MOCK_STORIES);
+      setLoading(false);
+    }, 280);
+    return () => clearTimeout(t);
+  }, []);
 
   const featured = stories[0];
   const rest = stories.slice(1);
@@ -11,17 +23,11 @@ export default function Home() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8">
-      {/* Topics */}
-      <div className="mb-8 border-b border-border pb-4">
-        <TopicPills />
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-10">
-        {/* Main Feed */}
-        <div className="flex-1 min-w-0">
+    <div className="w-full px-2 py-3 sm:px-3 lg:px-4">
+      <div className="flex flex-col gap-10 lg:flex-row">
+        <div className="min-w-0 flex-1">
           {featured && (
-            <div className="mb-8 pb-8 border-b border-border">
+            <div className="mb-8 border-b border-border pb-8">
               <StoryCard story={featured} variant="featured" />
             </div>
           )}
@@ -34,11 +40,11 @@ export default function Home() {
             </div>
           ) : (
             !featured && (
-              <div className="text-center py-20">
-                <h2 className="font-heading text-2xl font-bold mb-2">
+              <div className="py-20 text-center">
+                <h2 className="mb-2 font-heading text-2xl font-bold">
                   No stories yet
                 </h2>
-                <p className="text-muted-foreground font-body">
+                <p className="font-body text-muted-foreground">
                   Be the first to write a story!
                 </p>
               </div>
@@ -46,10 +52,9 @@ export default function Home() {
           )}
         </div>
 
-        {/* Sidebar */}
-        <div className="hidden lg:block w-80 flex-shrink-0 border-l border-border pl-10">
+        {/* <div className="hidden w-80 border-l border-border pl-10 lg:block">
           <TrendingSidebar />
-        </div>
+        </div> */}
       </div>
     </div>
   );

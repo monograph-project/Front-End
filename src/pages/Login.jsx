@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { postLoginPath } from "../lib/roles";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/themContext";
 import { useLogin } from "../services/useApi";
@@ -8,7 +9,6 @@ import Icon from "../components/Icon";
 import { useForm } from "react-hook-form";
 import Field from "../components/Field";
 import Checkbox from "../components/Checkbox";
-import HoverCardComponent from "../components/CardHover";
 
 // ─── Google SVG logo ─────────────────────────────────────────────────────────
 function GoogleLogo({ className = "text-accent dark:text-dark-accent" }) {
@@ -78,17 +78,23 @@ export default function Login() {
   const { handleSubmit, register, watch, formState: errors } = useForm();
   const [view, setView] = useState("login");
   const [done, setDone] = useState(false);
+  const [serverError, setServerError] = useState("");
 
   const { login } = useAuth();
   const { mutate: apiLogin, isPending: loading } = useLogin();
   const navigate = useNavigate();
   const submit = (data) => {
+    setServerError("");
     apiLogin(data, {
       onSuccess: (response) => {
-        localStorage.setItem("userId", response.user.id);
-        login(response);
+        const nextUser = response.user ?? response;
+        login(nextUser);
         setDone(true);
-        setTimeout(() => navigate("/dashboard", { replace: true }), 1500);
+        const dest = postLoginPath(nextUser);
+        setTimeout(() => navigate(dest, { replace: true }), 1500);
+      },
+      onError: (err) => {
+        setServerError(err.message || "Sign in failed.");
       },
     });
   };
@@ -123,6 +129,13 @@ export default function Login() {
       `}</style>
 
       <div className="min-h-screen bg-bg-app dark:bg-dark-app flex items-center justify-center p-4">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="fixed top-4 left-4 z-50 text-xs font-semibold text-secondary dark:text-dark-secondary underline-offset-4 hover:underline bg-transparent border-none cursor-pointer"
+        >
+          ← Public stories
+        </button>
         {/* theme toggle */}
         <button
           onClick={toggleTheme}
@@ -204,6 +217,15 @@ export default function Login() {
                       <div className="flex-1 h-px bg-default dark:bg-dark-default" />
                     </div>
                   </>
+                )}
+
+                {serverError && view === "login" && (
+                  <p
+                    className="mb-3 rounded-lg border border-error/40 bg-error/10 px-3 py-2 text-[11px] font-medium text-error dark:text-error"
+                    role="alert"
+                  >
+                    {serverError}
+                  </p>
                 )}
 
                 {/* fields */}

@@ -1,12 +1,12 @@
 import { useTranslation } from "react-i18next";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import AvatarDemo from "../components/Avatar";
 import {
   DropdownContent,
   DropdownItem,
   DropdownLabel,
   DropdownMenuRoot,
   DropdownSeparator,
-  DropdownShortcut,
   DropdownSub,
   DropdownSubContent,
   DropdownSubTrigger,
@@ -15,79 +15,348 @@ import {
 import IC from "../components/IC";
 import Icon from "../components/Icon";
 import { useAuth } from "../context/AuthContext";
-import AvatarDemo from "../components/Avatar";
-export default function Sidebar({ collapsed, onToggle, small }) {
+import { useSidebar } from "../context/SidebarContext";
+import { getFacultyDashboardPath } from "../lib/roles";
+export default function AppSidebar() {
+  const { collapsed, handleSidebarToggle, isMobile } = useSidebar();
+  const small = collapsed;
   const { t } = useTranslation();
   const location = useLocation();
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  console.log(user)
-  const basePath = user?.role === "admin" ? "/admin" : `/${user?.role}`;
+  const { user } = useAuth();
+  const basePath = getFacultyDashboardPath(user?.role) ?? "/teacher";
 
-  const navItems = [
-    {
-      key: "dashboard",
-      labelKey: "sidebar.dashboard",
-      icon: IC.dashboard,
-      path: `${basePath}/dashboard`,
-    },
-    {
-      key: "students",
-      labelKey: "sidebar.students",
-      icon: IC.deals,
-      path: `${basePath}/deals`,
-    },
-    {
-      key: "researchNotes",
-      labelKey: "sidebar.researchNotes",
-      icon: IC.notes,
-      path: `${basePath}/notes`,
-    },
-    {
-      key: "academicCalendar",
-      labelKey: "sidebar.academicCalendar",
-      icon: IC.calendar,
-      path: `${basePath}/calendar`,
-    },
-    {
-      key: "academicReports",
-      labelKey: "sidebar.academicReports",
-      icon: IC.reports,
-      path: `${basePath}/reports`,
-    },
-    {
-      key: "researchProjects",
-      labelKey: "sidebar.researchProjects",
-      icon: IC.projects,
-      path: `${basePath}/projects`,
-    },
-  ];
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+  // Role-specific navigation items (paths must match App.jsx)
+  const roleNavItems = {
+    admin: [
+      {
+        key: "dashboard",
+        labelKey: "sidebar.admin.dashboard",
+        icon: IC.dashboard,
+        path: `${basePath}/dashboard`,
+      },
+      {
+        key: "users",
+        labelKey: "sidebar.admin.users",
+        icon: IC.contact,
+        path: `${basePath}/users`,
+      },
+      {
+        key: "departments",
+        labelKey: "sidebar.admin.departments",
+        icon: IC.company,
+        path: `${basePath}/departments`,
+      },
+      {
+        key: "roles",
+        labelKey: "sidebar.admin.roles",
+        icon: IC.settings,
+        path: `${basePath}/roles`,
+      },
+      {
+        key: "reports",
+        labelKey: "sidebar.admin.reports",
+        icon: IC.reports,
+        path: `${basePath}/reports`,
+      },
+      {
+        key: "students",
+        labelKey: "sidebar.admin.students",
+        icon: IC.contact,
+        path: `${basePath}/students`,
+      },
+      {
+        key: "projects",
+        labelKey: "sidebar.admin.researchProjects",
+        icon: IC.projects,
+        path: `${basePath}/projects`,
+      },
+    ],
+    teacher: [
+      {
+        key: "dashboard",
+        labelKey: "sidebar.teacher.dashboard",
+        icon: IC.dashboard,
+        path: `${basePath}/dashboard`,
+      },
+      {
+        key: "groups",
+        labelKey: "sidebar.teacher.groups",
+        icon: IC.deals,
+        path: `${basePath}/deals`,
+      },
+      {
+        key: "students",
+        labelKey: "sidebar.teacher.students",
+        icon: IC.contact,
+        path: `${basePath}/students`,
+      },
+      {
+        key: "projects",
+        labelKey: "sidebar.teacher.projects",
+        icon: IC.projects,
+        path: `${basePath}/projects`,
+      },
+      {
+        key: "gradebook",
+        labelKey: "sidebar.teacher.gradebook",
+        icon: IC.notes,
+        path: `${basePath}/gradebook`,
+      },
+      {
+        key: "lessons",
+        labelKey: "sidebar.teacher.lessons",
+        icon: IC.zap,
+        path: `${basePath}/lessons`,
+      },
+      {
+        key: "calendar",
+        labelKey: "sidebar.teacher.calendar",
+        icon: IC.calendar,
+        path: `${basePath}/calendar`,
+      },
+      {
+        key: "notes",
+        labelKey: "sidebar.researchNotes",
+        icon: IC.notes,
+        path: `${basePath}/notes`,
+      },
+      {
+        key: "reports",
+        labelKey: "sidebar.teacher.reports",
+        icon: IC.reports,
+        path: `${basePath}/reports`,
+      },
+    ],
+    student: [
+      {
+        key: "dashboard",
+        labelKey: "sidebar.student.dashboard",
+        icon: IC.dashboard,
+        path: `${basePath}/dashboard`,
+      },
+      {
+        key: "projects",
+        labelKey: "sidebar.student.projects",
+        icon: IC.projects,
+        path: `${basePath}/projects`,
+      },
+      {
+        key: "collaboration",
+        labelKey: "sidebar.student.collaboration",
+        icon: IC.meeting,
+        path: `${basePath}/collaboration`,
+      },
+      {
+        key: "groups",
+        labelKey: "sidebar.student.groups",
+        icon: IC.deals,
+        path: `${basePath}/deals`,
+      },
+      {
+        key: "courses",
+        labelKey: "sidebar.student.courses",
+        icon: IC.company,
+        path: `${basePath}/courses`,
+      },
+      {
+        key: "assignments",
+        labelKey: "sidebar.student.assignments",
+        icon: IC.notes,
+        path: `${basePath}/assignments`,
+      },
+      {
+        key: "grades",
+        labelKey: "sidebar.student.grades",
+        icon: IC.reports,
+        path: `${basePath}/grades`,
+      },
+      {
+        key: "schedule",
+        labelKey: "sidebar.student.schedule",
+        icon: IC.calendar,
+        path: `${basePath}/schedule`,
+      },
+      {
+        key: "calendar",
+        labelKey: "sidebar.academicCalendar",
+        icon: IC.calendar,
+        path: `${basePath}/calendar`,
+      },
+      {
+        key: "reports",
+        labelKey: "sidebar.academicReports",
+        icon: IC.reports,
+        path: `${basePath}/reports`,
+      },
+    ],
+    staff: [
+      {
+        key: "dashboard",
+        labelKey: "sidebar.staff.dashboard",
+        icon: IC.dashboard,
+        path: `${basePath}/dashboard`,
+      },
+      {
+        key: "deals",
+        labelKey: "sidebar.staff.tasks",
+        icon: IC.deals,
+        path: `${basePath}/deals`,
+      },
+      {
+        key: "notes",
+        labelKey: "sidebar.staff.notes",
+        icon: IC.notes,
+        path: `${basePath}/notes`,
+      },
+      {
+        key: "calendar",
+        labelKey: "sidebar.staff.calendar",
+        icon: IC.calendar,
+        path: `${basePath}/calendar`,
+      },
+      {
+        key: "projects",
+        labelKey: "sidebar.staff.projects",
+        icon: IC.projects,
+        path: `${basePath}/projects`,
+      },
+      {
+        key: "reports",
+        labelKey: "sidebar.staff.reports",
+        icon: IC.reports,
+        path: `${basePath}/reports`,
+      },
+    ],
+    dean: [
+      {
+        key: "dashboard",
+        labelKey: "sidebar.dean.dashboard",
+        icon: IC.dashboard,
+        path: `${basePath}/dashboard`,
+      },
+      {
+        key: "students",
+        labelKey: "sidebar.dean.students",
+        icon: IC.contact,
+        path: `${basePath}/students`,
+      },
+      {
+        key: "deals",
+        labelKey: "sidebar.dean.overview",
+        icon: IC.deals,
+        path: `${basePath}/deals`,
+      },
+      {
+        key: "projects",
+        labelKey: "sidebar.dean.projects",
+        icon: IC.projects,
+        path: `${basePath}/projects`,
+      },
+      {
+        key: "calendar",
+        labelKey: "sidebar.dean.calendar",
+        icon: IC.calendar,
+        path: `${basePath}/calendar`,
+      },
+      {
+        key: "reports",
+        labelKey: "sidebar.dean.reports",
+        icon: IC.reports,
+        path: `${basePath}/reports`,
+      },
+      {
+        key: "notes",
+        labelKey: "sidebar.dean.notes",
+        icon: IC.notes,
+        path: `${basePath}/notes`,
+      },
+    ],
   };
 
-  const favItems = [
-    {
-      key: "departments",
-      labelKey: "sidebar.departments",
-      icon: IC.company,
-      count: "1,212",
-    },
-    {
-      key: "facultyMembers",
-      labelKey: "sidebar.facultyMembers",
-      icon: IC.contact,
-      count: "898",
-    },
-    {
-      key: "meetings",
-      labelKey: "sidebar.meetings",
-      icon: IC.meeting,
-      count: "32",
-    },
-  ];
+  const navItems = roleNavItems[user?.role] || roleNavItems.teacher;
+
+  // Role-specific favorites
+  const roleFavItems = {
+    admin: [
+      {
+        key: "userStats",
+        labelKey: "sidebar.admin.userStats",
+        icon: IC.reports,
+        count: "1,250",
+      },
+      {
+        key: "activeSessions",
+        labelKey: "sidebar.admin.sessions",
+        icon: IC.meeting,
+        count: "45",
+      },
+    ],
+    teacher: [
+      {
+        key: "recentStudents",
+        labelKey: "sidebar.teacher.recentStudents",
+        icon: IC.contact,
+        count: "28",
+      },
+      {
+        key: "pendingGrades",
+        labelKey: "sidebar.teacher.pendingGrades",
+        icon: IC.notes,
+        count: "12",
+      },
+    ],
+    student: [
+      {
+        key: "dueAssignments",
+        labelKey: "sidebar.student.dueAssignments",
+        icon: IC.notes,
+        count: "5",
+      },
+      {
+        key: "upcomingClasses",
+        labelKey: "sidebar.student.classes",
+        icon: IC.calendar,
+        count: "3",
+      },
+    ],
+    staff: [
+      {
+        key: "openTasks",
+        labelKey: "sidebar.staff.openTasks",
+        icon: IC.deals,
+        count: "18",
+      },
+      {
+        key: "meetings",
+        labelKey: "sidebar.meetings",
+        icon: IC.meeting,
+        count: "4",
+      },
+    ],
+    dean: [
+      {
+        key: "programs",
+        labelKey: "sidebar.dean.programs",
+        icon: IC.company,
+        count: "6",
+      },
+      {
+        key: "alerts",
+        labelKey: "sidebar.dean.alerts",
+        icon: IC.bell,
+        count: "2",
+      },
+    ],
+  };
+
+  const favItems = roleFavItems[user?.role] || roleFavItems.teacher;
+
+  const switchRole = (newRole) => {
+    const updatedUser = { ...user, role: newRole };
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+    const next = getFacultyDashboardPath(newRole);
+    window.location.href = next ? `${next}/dashboard` : "/";
+  };
 
   const isActive = (path) => {
     if (path === "/") {
@@ -98,11 +367,19 @@ export default function Sidebar({ collapsed, onToggle, small }) {
 
   return (
     <aside
-      className={` flex flex-col h-full shrink-0 transition-width  duration-100 ease  overflow-hidden bg-shell dark:bg-dark-shell  border-r border-default dark:border-dark-default  ${collapsed ? "w-16 min-w-16" : "w-50 min-w-50"}`}
+      className={` flex flex-col h-full shrink-0 transition-width  duration-100 ease  overflow-hidden bg-shell dark:bg-dark-shell  border-r border-default dark:border-dark-default ${isMobile ? "border-none" : ""}  ${collapsed ? "w-16 min-w-16" : "w-50 min-w-50"}`}
     >
       <div
         className={` ${collapsed ? "px-4 py-4.5" : "px-2.5 py-4"} flex min-h-14 items-center border-b border-default dark:border-dark-default ${collapsed ? " justify-center" : " justify-between"}`}
-      ></div>
+        onClick={handleSidebarToggle}
+      >
+        {!collapsed && (
+          <button className="ml-auto p-1 hover:bg-accent/20 rounded">
+            <Icon d={IC.menu} className="w-4 h-4" />
+          </button>
+        )}
+        {collapsed && <Icon d={IC.menu} className="w-4 h-4 cursor-pointer" />}
+      </div>
 
       {/* Nav */}
       <nav
@@ -117,7 +394,7 @@ export default function Sidebar({ collapsed, onToggle, small }) {
           return (
             <Link
               to={item.path}
-              className={` relative  dark:hover:bg-dark-app hover:bg-app group   text-left ${active ? " font-bold dark:text-white dark:bg-accent-light/10 bg-accent/10" : "dark:text-white/60  font-normal"} ${collapsed ? "p-2.25" : " py-2.25 px-2.5"} mb-0.5 text-xs relative transition-all duration-150 ${collapsed ? " justify-center" : " justify-start"}  cursor-pointer    flex items-center gap-2.25 w-full rounded-lg border-none no-underline`}
+              className={` relative  dark:hover:bg-dark-app hover:bg-app group   text-left ${active ? " font-bold dark:text-white dark:bg-accent-light/10 bg-accent/10" : "dark:text-white/60  font-normal"} ${collapsed ? "p-2.25" : " py-2.25 px-2.5"} mb-0.5 text-xs relative transition-all duration-150 ${collapsed || isMobile ? " justify-center" : " justify-start"}  cursor-pointer    flex items-center gap-2.25 w-full rounded-lg border-none no-underline`}
               key={item.key}
             >
               {active && !collapsed && (
@@ -296,27 +573,6 @@ export default function Sidebar({ collapsed, onToggle, small }) {
                     ></path>
                   </svg>
                 }
-                variant="success"
-              >
-                Save
-              </DropdownItem>
-              <DropdownItem
-                icon={
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 15 15"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M9.94969 7.49989C9.94969 8.85288 8.85288 9.94969 7.49989 9.94969C6.14691 9.94969 5.0501 8.85288 5.0501 7.49989C5.0501 6.14691 6.14691 5.0501 7.49989 5.0501C8.85288 5.0501 9.94969 6.14691 9.94969 7.49989ZM10.8632 8C10.6213 9.64055 9.20764 10.8997 7.49989 10.8997C5.79214 10.8997 4.37847 9.64055 4.13662 8H0.5C0.223858 8 0 7.77614 0 7.5C0 7.22386 0.223858 7 0.5 7H4.13659C4.37835 5.35935 5.79206 4.1001 7.49989 4.1001C9.20772 4.1001 10.6214 5.35935 10.8632 7H14.5C14.7761 7 15 7.22386 15 7.5C15 7.77614 14.7761 8 14.5 8H10.8632Z"
-                      fill="currentColor"
-                      fill-rule="evenodd"
-                      clip-rule="evenodd"
-                    ></path>
-                  </svg>
-                }
                 variant="warning"
               >
                 Archive
@@ -346,8 +602,30 @@ export default function Sidebar({ collapsed, onToggle, small }) {
               <DropdownSeparator />
 
               <DropdownSub>
+                <DropdownSubTrigger>Current: {user?.role}</DropdownSubTrigger>
+                <DropdownSubContent>
+                  <DropdownItem onClick={() => switchRole("admin")}>
+                    Admin
+                  </DropdownItem>
+                  <DropdownItem onClick={() => switchRole("dean")}>
+                    Dean
+                  </DropdownItem>
+                  <DropdownItem onClick={() => switchRole("staff")}>
+                    Staff
+                  </DropdownItem>
+                  <DropdownItem onClick={() => switchRole("teacher")}>
+                    Teacher
+                  </DropdownItem>
+                  <DropdownItem onClick={() => switchRole("student")}>
+                    Student
+                  </DropdownItem>
+                  <DropdownItem onClick={() => switchRole("user")}>
+                    Reader (public only)
+                  </DropdownItem>
+                </DropdownSubContent>
+              </DropdownSub>
+              <DropdownSub>
                 <DropdownSubTrigger>More</DropdownSubTrigger>
-
                 <DropdownSubContent>
                   <DropdownItem>Logs</DropdownItem>
                   <DropdownItem>Analytics</DropdownItem>

@@ -8,7 +8,7 @@ const TOPICS = [
 
 export default function TopicPills({ activeTopic }) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+    <div className="flex gap-2 overflow-x-auto pb-2 ">
       <Link
         to="/"
         className={`px-4 py-1.5 rounded-full text-sm font-body whitespace-nowrap transition-colors ${
