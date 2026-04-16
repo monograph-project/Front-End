@@ -11,6 +11,7 @@
     "server": "json-server --watch ./src/server/db.json --port 5000"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@radix-ui/react-accessible-icon": "^1.1.8",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",

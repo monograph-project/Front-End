@@ -62,6 +62,13 @@
       "password": "sdfjksfjsdfj",
       "role": "student",
       "id": "g5jJscIShtE"
+    },
+    {
+      "fullName": "mahdi",
+      "email": "mahdi@gmail.com",
+      "password": "test12345",
+      "role": "student",
+      "id": "tSxr_lfZuww"
     }
   ],
   "students": [
