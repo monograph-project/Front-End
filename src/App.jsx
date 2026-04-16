@@ -24,6 +24,7 @@ import TopicFeed from "./pages/TopicFeed";
 import Unauthorized from "./pages/Unauthorized";
 import WriteStory from "./pages/WriteStory";
 import ProjectRepository from "./pages/ProjectRepository";
+import Collaboration from "./pages/Collaboration";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
@@ -198,10 +199,7 @@ export default function App() {
             <Route
               path="collaboration"
               element={
-                <PlaceholderPage
-                  title="Collaboration"
-                  description="Invite classmates, manage group membership, and link project repositories (connect Git hosting when ready)."
-                />
+                <Collaboration />
               }
             />
           </Route>
