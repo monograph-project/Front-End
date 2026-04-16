@@ -4,12 +4,12 @@ const AuthContext = createContext();
 
 const guestState = {
   user: {
-    fullName: "me",
-    email: "me@gmail.com",
-    password: "test1234",
-    role: "admin",
-    id: "_5aOxF0cFF0",
-  },
+      fullName: "ksjdf",
+      email: "sfkjdf@gkjdf.com",
+      password: "sdfjksfjsdfj",
+      role: "student",
+      id: "g5jJscIShtE"
+    },
   isAuthenticated: true,
 };
 

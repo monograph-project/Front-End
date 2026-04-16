@@ -23,7 +23,7 @@ import StudentManagement from "./pages/StudentManagement";
 import TopicFeed from "./pages/TopicFeed";
 import Unauthorized from "./pages/Unauthorized";
 import WriteStory from "./pages/WriteStory";
-
+import ProjectRepository from "./pages/ProjectRepository";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
@@ -158,7 +158,7 @@ export default function App() {
             <Route path="notes" element={<Notes />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="reports" element={<Menu />} />
-            <Route path="projects" element={<Projects />} />
+            <Route path="projects" element={<ProjectRepository />} />
             <Route
               path="courses"
               element={
