@@ -1,21 +1,7 @@
-import { Link, NavLink } from "react-router-dom";
-import Icon from "../components/Icon";
-import IC from "../components/IC";
+import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getFacultyDashboardPath } from "../lib/roles";
 import { useSidebar } from "../context/SidebarContext";
-import {
-  DropdownContent,
-  DropdownItem,
-  DropdownLabel,
-  DropdownMenuRoot,
-  DropdownSeparator,
-  DropdownSub,
-  DropdownSubContent,
-  DropdownSubTrigger,
-  DropdownTrigger,
-} from "../components/DropdownMenu";
-import AvatarDemo from "../components/Avatar";
+import { getFacultyDashboardPath } from "../lib/roles";
 
 const NAV = [
   {
@@ -23,8 +9,8 @@ const NAV = [
     label: "Home",
     icon: (
       <svg
-        width="15"
-        height="15"
+        width={15}
+        height={15}
         viewBox="0 0 15 15"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
@@ -44,8 +30,8 @@ const NAV = [
     label: "Write",
     icon: (
       <svg
-        width="15"
-        height="15"
+        width={15}
+        height={15}
         viewBox="0 0 15 15"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
@@ -64,8 +50,8 @@ const NAV = [
     label: "Reading list",
     icon: (
       <svg
-        width="15"
-        height="15"
+        width={15}
+        height={15}
         viewBox="0 0 15 15"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
@@ -84,8 +70,7 @@ const NAV = [
     label: "follower",
     icon: (
       <svg
-        width="15"
-        height="15"
+        className=" w-6"
         viewBox="0 0 15 15"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
@@ -129,180 +114,58 @@ export default function Sidebar({ mobileSidebarOpen, setMobileSidebarOpen }) {
         </div>
 
         {/* Content */}
-        <div
-          className={`flex-1 px-2 py-1 mt-4 overflow-y-auto ${collapsed ? "hidden" : ""}`}
-        >
-          <div className="mb-6 rounded-md border border-default bg-card p-4 dark:border-dark-default dark:bg-dark-card">
-            <NavLink
-              to="/write"
-              onClick={() => setMobileSidebarOpen(false)}
-              className="mt-4 flex w-full items-center justify-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 dark:bg-dark-accent dark:text-black"
-            >
-              Write a story
-            </NavLink>
-
-            {facultyBase ? (
-              <NavLink
-                to={`${facultyBase}/dashboard`}
-                onClick={() => setMobileSidebarOpen(false)}
-                className="mt-2 flex w-full items-center justify-center rounded-full border border-default px-4 py-2 text-sm font-medium text-secondary transition hover:bg-nav-hover dark:border-dark-default dark:text-dark-secondary dark:hover:bg-dark-nav-hover"
-              >
-                Open faculty dashboard
-              </NavLink>
-            ) : null}
-          </div>
-
-          <nav className="space-y-1 px-4 pb-4">
+        <div className={`flex-1 px-2 py-1 mt-4  overflow-y-auto `}>
+          <nav className=" space-y-1 px-2 pb-4">
             {NAV.map((item) => {
               return (
                 <NavLink
                   to={item.to}
                   end={item.end}
                   className={({ isActive: navActive }) =>
-                    `relative dark:hover:bg-dark-app hover:bg-app group text-left ${
+                    `relative dark:hover:bg-dark-app hover:bg-app group  ${
                       navActive
                         ? "font-bold dark:text-white dark:bg-accent-light/10 bg-accent/10"
                         : "dark:text-white/60 font-normal"
-                    } ${collapsed ? "p-2.25" : " py-2.25 px-2.5"} mb-0.5 text-xs relative transition-all duration-150 ${
-                      collapsed || isMobile
-                        ? " justify-center"
-                        : " justify-start"
-                    } cursor-pointer flex items-center gap-2.25 w-full rounded-lg border-none no-underline`
+                    } ${collapsed ? "p-2.25 py-2" : " py-2.25 px-2.5"}   text-xs relative transition-all duration-150 ${
+                      collapsed ? " justify-center " : " justify-start   "
+                    } cursor-pointer flex items-center   mx-auto  gap-2.25 w-full rounded-lg  no-underline`
                   }
                   key={item.to}
                 >
-                  {item.icon}
-                  <span className=" dark:text-badge text-primary ">
-                    {!collapsed && item.label}
-                  </span>
+                  <span className="">{item.icon}</span>
+                  {!collapsed && (
+                    <span className=" dark:text-badge text-primary ">
+                      {item.label}
+                    </span>
+                  )}
                 </NavLink>
               );
             })}
           </nav>
         </div>
-        <div
-          style={{ marginTop: collapsed ? 0 : 8 }}
-          className={`${collapsed ? " mt-0" : " mt-2"} w-full px-3 mb-2 absolute bottom-0`}
-        >
-          <DropdownMenuRoot>
-            <DropdownTrigger icon={<AvatarDemo />}>
-              {!collapsed && user.email}
-            </DropdownTrigger>
-            {/* <AccountTrigger /> */}
-
-            <DropdownContent>
-              <DropdownLabel>Account</DropdownLabel>
-
-              <DropdownItem
-                icon={
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 15 15"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M9.94969 7.49989C9.94969 8.85288 8.85288 9.94969 7.49989 9.94969C6.14691 9.94969 5.0501 8.85288 5.0501 7.49989C5.0501 6.14691 6.14691 5.0501 7.49989 5.0501C8.85288 5.0501 9.94969 6.14691 9.94969 7.49989ZM10.8632 8C10.6213 9.64055 9.20764 10.8997 7.49989 10.8997C5.79214 10.8997 4.37847 9.64055 4.13662 8H0.5C0.223858 8 0 7.77614 0 7.5C0 7.22386 0.223858 7 0.5 7H4.13659C4.37835 5.35935 5.79206 4.1001 7.49989 4.1001C9.20772 4.1001 10.6214 5.35935 10.8632 7H14.5C14.7761 7 15 7.22386 15 7.5C15 7.77614 14.7761 8 14.5 8H10.8632Z"
-                      fill="currentColor"
-                      fill-rule="evenodd"
-                      clip-rule="evenodd"
-                    ></path>
-                  </svg>
-                }
+        <div className=" absolute bottom-3 w-full  px-3 py-3 ">
+          <button
+            type="button"
+            className="rounded-md w-full flex items-center gap-x-3 justify-center bg-success cursor-pointer  text-white px-4 py-2 text-sm font-semibold hover:opacity-90 transition-opacity"
+          >
+            <span>
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 15 15"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
               >
-                <span>Profile</span>
-              </DropdownItem>
-              <DropdownItem
-                icon={
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 15 15"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M9.94969 7.49989C9.94969 8.85288 8.85288 9.94969 7.49989 9.94969C6.14691 9.94969 5.0501 8.85288 5.0501 7.49989C5.0501 6.14691 6.14691 5.0501 7.49989 5.0501C8.85288 5.0501 9.94969 6.14691 9.94969 7.49989ZM10.8632 8C10.6213 9.64055 9.20764 10.8997 7.49989 10.8997C5.79214 10.8997 4.37847 9.64055 4.13662 8H0.5C0.223858 8 0 7.77614 0 7.5C0 7.22386 0.223858 7 0.5 7H4.13659C4.37835 5.35935 5.79206 4.1001 7.49989 4.1001C9.20772 4.1001 10.6214 5.35935 10.8632 7H14.5C14.7761 7 15 7.22386 15 7.5C15 7.77614 14.7761 8 14.5 8H10.8632Z"
-                      fill="currentColor"
-                      fill-rule="evenodd"
-                      clip-rule="evenodd"
-                    ></path>
-                  </svg>
-                }
-              >
-                Settings
-              </DropdownItem>
-
-              <DropdownSeparator />
-
-              <DropdownLabel>Actions</DropdownLabel>
-
-              <DropdownItem
-                icon={
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 15 15"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M9.94969 7.49989C9.94969 8.85288 8.85288 9.94969 7.49989 9.94969C6.14691 9.94969 5.0501 8.85288 5.0501 7.49989C5.0501 6.14691 6.14691 5.0501 7.49989 5.0501C8.85288 5.0501 9.94969 6.14691 9.94969 7.49989ZM10.8632 8C10.6213 9.64055 9.20764 10.8997 7.49989 10.8997C5.79214 10.8997 4.37847 9.64055 4.13662 8H0.5C0.223858 8 0 7.77614 0 7.5C0 7.22386 0.223858 7 0.5 7H4.13659C4.37835 5.35935 5.79206 4.1001 7.49989 4.1001C9.20772 4.1001 10.6214 5.35935 10.8632 7H14.5C14.7761 7 15 7.22386 15 7.5C15 7.77614 14.7761 8 14.5 8H10.8632Z"
-                      fill="currentColor"
-                      fill-rule="evenodd"
-                      clip-rule="evenodd"
-                    ></path>
-                  </svg>
-                }
-                variant="warning"
-              >
-                Archive
-              </DropdownItem>
-              <DropdownItem
-                icon={
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 15 15"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M7.50005 1.04999C7.74858 1.04999 7.95005 1.25146 7.95005 1.49999V8.41359L10.1819 6.18179C10.3576 6.00605 10.6425 6.00605 10.8182 6.18179C10.994 6.35753 10.994 6.64245 10.8182 6.81819L7.81825 9.81819C7.64251 9.99392 7.35759 9.99392 7.18185 9.81819L4.18185 6.81819C4.00611 6.64245 4.00611 6.35753 4.18185 6.18179C4.35759 6.00605 4.64251 6.00605 4.81825 6.18179L7.05005 8.41359V1.49999C7.05005 1.25146 7.25152 1.04999 7.50005 1.04999ZM2.5 10C2.77614 10 3 10.2239 3 10.5V12C3 12.5539 3.44565 13 3.99635 13H11.0012C11.5529 13 12 12.5528 12 12V10.5C12 10.2239 12.2239 10 12.5 10C12.7761 10 13 10.2239 13 10.5V12C13 13.1041 12.1062 14 11.0012 14H3.99635C2.89019 14 2 13.103 2 12V10.5C2 10.2239 2.22386 10 2.5 10Z"
-                      fill="currentColor"
-                      fill-rule="evenodd"
-                      clip-rule="evenodd"
-                    ></path>
-                  </svg>
-                }
-                variant="danger"
-              >
-                Delete
-              </DropdownItem>
-
-              <DropdownSeparator />
-
-              <DropdownSub>
-                <DropdownSubTrigger>Current: {user?.role}</DropdownSubTrigger>
-                <DropdownSubContent>
-                  <DropdownItem>Admin</DropdownItem>
-                  <DropdownItem>Dean</DropdownItem>
-                  <DropdownItem>Staff</DropdownItem>
-                  <DropdownItem>Teacher</DropdownItem>
-                  <DropdownItem>Student</DropdownItem>
-                  <DropdownItem>Reader (public only)</DropdownItem>
-                </DropdownSubContent>
-              </DropdownSub>
-              <DropdownSub>
-                <DropdownSubTrigger>More</DropdownSubTrigger>
-                <DropdownSubContent>
-                  <DropdownItem>Logs</DropdownItem>
-                  <DropdownItem>Analytics</DropdownItem>
-                </DropdownSubContent>
-              </DropdownSub>
-            </DropdownContent>
-          </DropdownMenuRoot>
+                <path
+                  d="M3 2C2.44772 2 2 2.44772 2 3V12C2 12.5523 2.44772 13 3 13H12C12.5523 13 13 12.5523 13 12V8.5C13 8.22386 12.7761 8 12.5 8C12.2239 8 12 8.22386 12 8.5V12H3V3L6.5 3C6.77614 3 7 2.77614 7 2.5C7 2.22386 6.77614 2 6.5 2H3ZM12.8536 2.14645C12.9015 2.19439 12.9377 2.24964 12.9621 2.30861C12.9861 2.36669 12.9996 2.4303 13 2.497L13 2.5V2.50049V5.5C13 5.77614 12.7761 6 12.5 6C12.2239 6 12 5.77614 12 5.5V3.70711L6.85355 8.85355C6.65829 9.04882 6.34171 9.04882 6.14645 8.85355C5.95118 8.65829 5.95118 8.34171 6.14645 8.14645L11.2929 3H9.5C9.22386 3 9 2.77614 9 2.5C9 2.22386 9.22386 2 9.5 2H12.4999H12.5C12.5678 2 12.6324 2.01349 12.6914 2.03794C12.7504 2.06234 12.8056 2.09851 12.8536 2.14645Z"
+                  fill="currentColor"
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                ></path>
+              </svg>
+            </span>
+            {!collapsed && <span>Write</span>}
+          </button>
         </div>
       </div>
     </aside>

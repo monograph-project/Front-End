@@ -1,29 +1,40 @@
 import { GooeyToaster } from "goey-toast";
 import "goey-toast/styles.css";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
-import Menu from "./components/Menu";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ThemeProvider } from "./context/themContext";
 import Applayout from "./layout/AppLayout";
 import AppSidebar from "./layout/AppSideBar";
 import Sidebar from "./layout/Sidebar";
-import Calendar from "./pages/Calendar";
-import Dashboard from "./pages/Dashboard";
-import Deals from "./pages/Deals";
-import Home from "./pages/Home";
 import Login from "./pages/Login";
-import Notes from "./pages/Notes";
 import NotFound from "./pages/NotFound";
-import PlaceholderPage from "./pages/PlaceholderPage";
-import Projects from "./pages/Projects";
-import ReaderLibrary from "./pages/ReaderLibrary";
 import Signup from "./pages/Signup";
-import StoryDetailPage from "./pages/StoryDetailPage";
-import StudentManagement from "./pages/StudentManagement";
-import TopicFeed from "./pages/TopicFeed";
 import Unauthorized from "./pages/Unauthorized";
-import WriteStory from "./pages/WriteStory";
-
+import WriteStory from "./pages/blog/WriteStory";
+import ReaderLibrary from "./pages/blog/ReaderLibrary";
+import TopicFeed from "./pages/blog/TopicFeed";
+import StoryDetailPage from "./pages/blog/StoryDetailPage";
+import Profile from "./pages/blog/Profile";
+import Dashboard from "./pages/admin/Dashboard";
+import Reports from "./pages/admin/Reports";
+import Projects from "./pages/admin/Projects";
+import Users from "./pages/admin/Users";
+import Student from "./pages/admin/Students";
+import Teacher from "./pages/admin/Teachers";
+import Employee from "./pages/admin/Employee";
+import Notification from "./pages/admin/Notification";
+import Department from "./pages/admin/Departments";
+import Blog from "./pages/admin/Blogs";
+import Setting from "./pages/admin/Setting";
+import StudentProjects from "./pages/student/Projects";
+import StudentRepositories from "./pages/student/Repositories";
+import StudentTasks from "./pages/student/Tasks";
+import StudentContributors from "./pages/student/Contributors";
+import StudentNotifications from "./pages/student/Notifications";
+import StudentDashboard from "./pages/admin/Dashboard";
+import Home from "./pages/blog/Home";
+import UserProfile from "./pages/admin/Profile";
+import NotificationDetail from "./pages/admin/NotificationDetail";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
@@ -44,6 +55,7 @@ export default function App() {
             <Route path="library" element={<ReaderLibrary />} />
             <Route path="topic/:topic" element={<TopicFeed />} />
             <Route path="story/:id" element={<StoryDetailPage />} />
+            <Route path="/writer/profile" element={<Profile />} />
           </Route>
 
           <Route path="/login" element={<Login />} />
@@ -61,39 +73,18 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="deals" element={<Deals />} />
-            <Route path="notes" element={<Notes />} />
-            <Route path="calendar" element={<Calendar />} />
-            <Route path="reports" element={<Menu />} />
+            <Route path="users" element={<Users />} />
+            <Route path="users/:id" element={<UserProfile />} />
+            <Route path="student" element={<Student />} />
+            <Route path="teacher" element={<Teacher />} />
+            <Route path="employee" element={<Employee />} />
+            <Route path="notification" element={<Notification />} />
+            <Route path="notification/:id" element={<NotificationDetail />} />
+            <Route path="department" element={<Department />} />
             <Route path="projects" element={<Projects />} />
-            <Route path="students" element={<StudentManagement />} />
-            <Route
-              path="users"
-              element={
-                <PlaceholderPage
-                  title="Users & roles"
-                  description="Manage accounts and assign faculty roles (admin-only)."
-                />
-              }
-            />
-            <Route
-              path="departments"
-              element={
-                <PlaceholderPage
-                  title="Departments"
-                  description="Organize departments and link staff and programs."
-                />
-              }
-            />
-            <Route
-              path="roles"
-              element={
-                <PlaceholderPage
-                  title="Permissions"
-                  description="Configure role capabilities when your API is ready."
-                />
-              }
-            />
+            <Route path="blogs" element={<Blog />} />
+            <Route path="setting" element={<Setting />} />
+            <Route path="report" element={<Reports />} />
           </Route>
 
           <Route
@@ -108,38 +99,6 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="deals" element={<Deals />} />
-            <Route path="notes" element={<Notes />} />
-            <Route path="calendar" element={<Calendar />} />
-            <Route path="reports" element={<Menu />} />
-            <Route path="projects" element={<Projects />} />
-            <Route
-              path="students"
-              element={
-                <PlaceholderPage
-                  title="Assigned students"
-                  description="Rosters and groups assigned by admin appear here."
-                />
-              }
-            />
-            <Route
-              path="gradebook"
-              element={
-                <PlaceholderPage
-                  title="Gradebook"
-                  description="Grades and rubrics for your assigned groups."
-                />
-              }
-            />
-            <Route
-              path="lessons"
-              element={
-                <PlaceholderPage
-                  title="Lessons & materials"
-                  description="Lesson plans tied to assigned groups."
-                />
-              }
-            />
           </Route>
 
           <Route
@@ -153,57 +112,12 @@ export default function App() {
             }
           >
             <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="deals" element={<Deals />} />
-            <Route path="notes" element={<Notes />} />
-            <Route path="calendar" element={<Calendar />} />
-            <Route path="reports" element={<Menu />} />
-            <Route path="projects" element={<Projects />} />
-            <Route
-              path="courses"
-              element={
-                <PlaceholderPage
-                  title="Courses"
-                  description="Your enrolled courses and materials."
-                />
-              }
-            />
-            <Route
-              path="grades"
-              element={
-                <PlaceholderPage
-                  title="Grades"
-                  description="Scores and feedback from instructors."
-                />
-              }
-            />
-            <Route
-              path="assignments"
-              element={
-                <PlaceholderPage
-                  title="Assignments"
-                  description="Due work and submissions."
-                />
-              }
-            />
-            <Route
-              path="schedule"
-              element={
-                <PlaceholderPage
-                  title="Schedule"
-                  description="Classes and milestones in one place."
-                />
-              }
-            />
-            <Route
-              path="collaboration"
-              element={
-                <PlaceholderPage
-                  title="Collaboration"
-                  description="Invite classmates, manage group membership, and link project repositories (connect Git hosting when ready)."
-                />
-              }
-            />
+            <Route path="dashboard" element={<StudentDashboard />} />
+            <Route path="projects" element={<StudentProjects />} />
+            <Route path="repositories" element={<StudentRepositories />} />
+            <Route path="tasks" element={<StudentTasks />} />
+            <Route path="contributors" element={<StudentContributors />} />
+            <Route path="notifications" element={<StudentNotifications />} />
           </Route>
 
           <Route
@@ -216,11 +130,6 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="deals" element={<Deals />} />
-            <Route path="notes" element={<Notes />} />
-            <Route path="calendar" element={<Calendar />} />
-            <Route path="reports" element={<Menu />} />
-            <Route path="projects" element={<Projects />} />
           </Route>
 
           <Route
@@ -233,12 +142,6 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="deals" element={<Deals />} />
-            <Route path="notes" element={<Notes />} />
-            <Route path="calendar" element={<Calendar />} />
-            <Route path="reports" element={<Menu />} />
-            <Route path="projects" element={<Projects />} />
-            <Route path="students" element={<StudentManagement />} />
           </Route>
 
           <Route path="/unauthorized" element={<Unauthorized />} />

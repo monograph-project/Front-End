@@ -10,7 +10,7 @@ function LayoutContent({ children }) {
     setMobileMenuOpen,
   } = useSidebar();
   return (
-    <div className="w-full max-w-387 mx-auto h-screen bg-app dark:bg-dark-app flex">
+    <div className="w-full max-w-387 mx-auto h-screen flex">
       {/* Mobile menu overlay */}
       {isMobile && mobileMenuOpen && (
         <div
@@ -33,14 +33,14 @@ function LayoutContent({ children }) {
         </div>
 
         {/* Main area */}
-        <div className="flex-1 flex flex-col  bg-shell dark:bg-dark-shell min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
           <AppHeader
             collapsed={collapsed}
             isMobile={isMobile}
             handleSidebarToggle={handleSidebarToggle}
             onMenuToggle={() => setMobileMenuOpen(true)}
           />
-          <div className="overflow-y-auto">
+          <div className="flex-1">
             <Outlet />
           </div>
         </div>

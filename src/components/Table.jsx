@@ -5,9 +5,7 @@ function Table({ children, className }) {
     <div className="bg-white dark:bg-dark-shell border  rounded-lg border-default dark:border-dark-default  overflow-hidden">
       {/* Scroll container (main behavior) - allow wrap and avoid unnecessary horizontal scroll */}
       <div className="overflow-auto no-scrollbar">
-        <table
-          className={`min-w-full divide-y divide-gray-200/50 table-auto ${className || ""}`}
-        >
+        <table className={`min-w-full  table-auto ${className || ""}`}>
           {children}
         </table>
       </div>

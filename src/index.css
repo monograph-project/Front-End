@@ -80,7 +80,7 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(10, 10, 0.15) transparent;
+    scrollbar-color: var(--color-card-2) transparent;
   }
 
   .dark * {
@@ -97,7 +97,7 @@
 
   ::-webkit-scrollbar-thumb {
     @apply bg-primary/15 dark:bg-dark-primary/15 rounded-full;
-    background-color: rgba(10, 10, 10, 0.15);
+    /* background-color: rgba(10, 10, 10, 0.15); */
   }
 
   .dark ::-webkit-scrollbar-thumb {

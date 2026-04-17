@@ -12,7 +12,14 @@ import {
   DropdownRadioGroup,
   DropdownRadioItem,
   DropdownTrigger,
+  DropdownItem,
+  DropdownSeparator,
+  DropdownSub,
+  DropdownSubTrigger,
+  DropdownSubContent,
 } from "../components/DropdownMenu";
+import AvatarDemo from "../components/Avatar";
+import { getFacultyDashboardPath } from "../lib/roles";
 import IC from "../components/IC";
 import Icon from "../components/Icon";
 import NotificationDropdown from "../components/NotificationDropdown";
@@ -128,68 +135,13 @@ function NotificationButton({ unreadCount, active, onClick }) {
       >
         <Icon d={IC.bell} className="size-4 stroke-[1.5]" />
         {unreadCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 min-w-[14px] h-3.5 px-0.5 flex items-center justify-center rounded-full bg-accent dark:bg-dark-accent text-[8px] font-bold text-white leading-none">
+          <span className="absolute top-0.5 right-0.5 min-w-[14px] h-3.5 px-0.5 flex items-center justify-center rounded-full bg-success text-[8px] font-bold text-success-light leading-none">
             {unreadCount}
           </span>
         )}
       </HeaderIconButton>
       {active && <NotificationDropdown onClose={() => onClick(null)} />}
     </div>
-  );
-}
-
-function LanguageMenu({ current, onChange }) {
-  return (
-    <DropdownMenuRoot>
-      <DropdownTrigger
-        icon={
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 15 15"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M7.49996 1.80002C4.35194 1.80002 1.79996 4.352 1.79996 7.50002C1.79996 10.648 4.35194 13.2 7.49996 13.2C10.648 13.2 13.2 10.648 13.2 7.50002C13.2 4.352 10.648 1.80002 7.49996 1.80002ZM0.899963 7.50002C0.899963 3.85494 3.85488 0.900024 7.49996 0.900024C11.145 0.900024 14.1 3.85494 14.1 7.50002C14.1 11.1451 11.145 14.1 7.49996 14.1C3.85488 14.1 0.899963 11.1451 0.899963 7.50002Z"
-              fill="currentColor"
-              fill-rule="evenodd"
-              clip-rule="evenodd"
-            ></path>
-            <path
-              d="M13.4999 7.89998H1.49994V7.09998H13.4999V7.89998Z"
-              fill="currentColor"
-              fill-rule="evenodd"
-              clip-rule="evenodd"
-            ></path>
-            <path
-              d="M7.09991 13.5V1.5H7.89991V13.5H7.09991zM10.375 7.49998C10.375 5.32724 9.59364 3.17778 8.06183 1.75656L8.53793 1.24341C10.2396 2.82218 11.075 5.17273 11.075 7.49998 11.075 9.82724 10.2396 12.1778 8.53793 13.7566L8.06183 13.2434C9.59364 11.8222 10.375 9.67273 10.375 7.49998zM3.99969 7.5C3.99969 5.17611 4.80786 2.82678 6.45768 1.24719L6.94177 1.75281C5.4582 3.17323 4.69969 5.32389 4.69969 7.5 4.6997 9.67611 5.45822 11.8268 6.94179 13.2472L6.45769 13.7528C4.80788 12.1732 3.9997 9.8239 3.99969 7.5z"
-              fill="currentColor"
-              fill-rule="evenodd"
-              clip-rule="evenodd"
-            ></path>
-            <path
-              d="M7.49996 3.95801C9.66928 3.95801 11.8753 4.35915 13.3706 5.19448 13.5394 5.28875 13.5998 5.50197 13.5055 5.67073 13.4113 5.83948 13.198 5.89987 13.0293 5.8056 11.6794 5.05155 9.60799 4.65801 7.49996 4.65801 5.39192 4.65801 3.32052 5.05155 1.97064 5.8056 1.80188 5.89987 1.58866 5.83948 1.49439 5.67073 1.40013 5.50197 1.46051 5.28875 1.62927 5.19448  Asc 3.12466 4.35915 5.33063 3.95801 7.49996 3.95801zM7.49996 10.85C9.66928 10.85 11.8753 10.4488 13.3706 9.6135 13.5394 9.51924 13.5998 9.30601 13.5055 9.13726 13.4113 8.9685 13.198 8.90812 13.0293 9.00238 11.6794 9.75643 9.60799 10.15 7.49996 10.15 5.39192 10.15 3.32052 9.75643 1.97064 9.00239  Asc 1.80188 8.90812 1.58866 8.9685 1.49439 9. Asc 13726 1.40013 9.30601 1.460 Asc 51 9.51924 1.62927 9.6135 3.12466 10.4488 5.33063 10.85 7.49996 10.85z"
-              fill="currentColor"
-              Asc="evenodd"
-              clip-rule="evenodd"
-            ></path>
-          </svg>
-        }
-      >
-        {current.toUpperCase()}
-      </DropdownTrigger>
-
-      <DropdownContent align="end" className="w-44">
-        <DropdownLabel>Language</DropdownLabel>
-
-        <DropdownRadioGroup value={current} onValueChange={onChange}>
-          <DropdownRadioItem value="en">English</DropdownRadioItem>
-          <DropdownRadioItem value="ps">پښتو</DropdownRadioItem>
-          <DropdownRadioItem value="prs">فارسی</DropdownRadioItem>
-        </DropdownRadioGroup>
-      </DropdownContent>
-    </DropdownMenuRoot>
   );
 }
 
@@ -217,8 +169,11 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
   const handleLanguageChange = useCallback(
     (langCode) => {
       setLang(langCode);
+      if (i18n && typeof i18n.changeLanguage === "function") {
+        i18n.changeLanguage(langCode);
+      }
     },
-    [setLang],
+    [setLang, i18n],
   );
 
   // Derived value — recalculated only when NOTIFICATIONS changes (stable ref).
@@ -227,8 +182,15 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
     [],
   );
 
+  const switchRole = (newRole) => {
+    const updatedUser = { ...(user || {}), role: newRole };
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+    const next = getFacultyDashboardPath(newRole);
+    window.location.href = next ? `${next}/dashboard` : "/";
+  };
+
   return (
-    <header className=" bg-shell dark:bg-dark-shell border-b border-default dark:border-dark-default h-14 flex items-center gap-2 sm:gap-3 shrink-0 px-2 sm:px-3 md:px-5">
+    <header className="sticky top-0 z-20 h-14 flex items-center gap-2 sm:gap-3 shrink-0 px-2 sm:px-3 md:px-5 bg-shell/75 dark:bg-dark-shell/75 backdrop-blur-md border-b border-default/80 dark:border-dark-default/80 ">
       {/* Mobile menu toggle */}
 
       {/* Page title */}
@@ -247,7 +209,7 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
       </div>
 
       {/* Search */}
-      <div className="space-y-2 w-70">
+      <div className="space-y-2 w-75">
         <SearchableSelect
           options={FRAMEWORK_OPTIONS}
           searchPlaceholder="select"
@@ -256,11 +218,6 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
       </div>
       {/* Actions */}
       <div className="flex items-center gap-1 sm:gap-1.5">
-        {/* Mobile search toggle */}
-        <HeaderIconButton ariaLabel="Search">
-          <Icon d={IC.search} className="size-4 stroke-[1.5] lg:hidden" />
-        </HeaderIconButton>
-
         {/* Theme toggle */}
         <HeaderIconButton onClick={toggleTheme} ariaLabel="Toggle theme">
           <Icon
@@ -277,7 +234,68 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
         />
 
         {/* <DropdownMenuDemo /> */}
-        <LanguageMenu current={i18n.language} onChange={handleLanguageChange} />
+        <DropdownMenuRoot>
+          <DropdownTrigger
+            showArrow={false}
+            icon={<AvatarDemo />}
+          ></DropdownTrigger>
+
+          <DropdownContent align="end" className="w-48">
+            <DropdownLabel>Account</DropdownLabel>
+            <DropdownItem>Profile</DropdownItem>
+            <DropdownItem>Settings</DropdownItem>
+            <DropdownSeparator />
+            <DropdownSub>
+              <DropdownSubTrigger>Language</DropdownSubTrigger>
+              <DropdownSubContent>
+                <DropdownLabel>language</DropdownLabel>
+                <DropdownItem onClick={() => handleLanguageChange("en")}>
+                  English
+                </DropdownItem>
+                <DropdownItem onClick={() => handleLanguageChange("ps")}>
+                  پښتو
+                </DropdownItem>
+                <DropdownItem onClick={() => handleLanguageChange("prs")}>
+                  فارسی
+                </DropdownItem>
+              </DropdownSubContent>
+            </DropdownSub>
+
+            <DropdownSeparator />
+            <DropdownLabel>Actions</DropdownLabel>
+            <DropdownItem
+              data={20}
+              icon={<Icon d={IC.bell} className="size-4 stroke-[1.5]" />}
+              onClick={() => toggle("notifications")}
+            >
+              Notification
+            </DropdownItem>
+            <DropdownSeparator />
+            <DropdownSub>
+              <DropdownSubTrigger>More</DropdownSubTrigger>
+              <DropdownSubContent>
+                <DropdownItem onClick={() => switchRole("admin")}>
+                  Admin
+                </DropdownItem>
+                <DropdownItem onClick={() => switchRole("dean")}>
+                  Dean
+                </DropdownItem>
+                <DropdownItem onClick={() => switchRole("staff")}>
+                  Staff
+                </DropdownItem>
+                <DropdownItem onClick={() => switchRole("teacher")}>
+                  Teacher
+                </DropdownItem>
+                <DropdownItem onClick={() => switchRole("student")}>
+                  Student
+                </DropdownItem>
+                <DropdownItem onClick={() => switchRole("user")}>
+                  Reader
+                </DropdownItem>
+              </DropdownSubContent>
+            </DropdownSub>
+          </DropdownContent>
+        </DropdownMenuRoot>
       </div>
     </header>
   );
