@@ -1,164 +1,214 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 
-const Collaboration = () => {
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      author: "Ahmad",
-      text: "Hey team 👋 Let's start working on this project.",
-      time: "10:20",
-    },
-    {
-      id: 2,
-      author: "Sara",
-      text: "Sure! I will handle the frontend.",
-      time: "10:22",
-    },
-  ]);
+const fileTree = [
+  { name: "public", type: "folder" },
+  { name: "src", type: "folder" },
+  {
+    name: ".env",
+    type: "file",
+    content: "URL=http://localhost:5000\nSECOND_URL=http://localhost:5000",
+  },
+  { name: ".gitignore", type: "file" },
+  { name: "README.md", type: "file" },
+];
 
-  const messagesEndRef = useRef(null);
+// 🎨 heat colors (GitHub blame style)
+const heatColors = [
+  "bg-[#f6f8fa]",
+  "bg-[#ffe5d0]",
+  "bg-[#fcbba1]",
+  "bg-[#fc9272]",
+  "bg-[#fb6a4a]",
+  "bg-[#de2d26]",
+];
+
+export default function Collaboration() {
+  const [selectedFile, setSelectedFile] = useState(fileTree[2]);
+  const [mode, setMode] = useState("code");
+
+  const [content, setContent] = useState(selectedFile.content || "");
+  const [originalContent, setOriginalContent] = useState(selectedFile.content || "");
+
+  const [commitMessage, setCommitMessage] = useState("");
+  const [commits, setCommits] = useState([]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    setContent(selectedFile.content || "");
+    setOriginalContent(selectedFile.content || "");
+  }, [selectedFile]);
 
-  const sendMessage = () => {
-    if (!message.trim()) return;
+  const hasChanges = content !== originalContent;
 
-    setMessages([
-      ...messages,
+  const handleCommit = () => {
+    if (!commitMessage) return;
+
+    setCommits([
       {
         id: Date.now(),
-        author: "You",
-        text: message,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        message: commitMessage,
+        time: new Date().toLocaleTimeString(),
       },
+      ...commits,
     ]);
 
-    setMessage("");
+    setOriginalContent(content);
+    setCommitMessage("");
   };
 
+  const lines = content.split("\n");
+
   return (
-    <div className="h-screen flex bg-gradient-to-br from-gray-100 to-gray-200">
+    <div className="flex h-screen bg-[#f6f8fa] text-[13px]">
 
-      {/* LEFT SIDEBAR */}
-      <div className="w-72 bg-white border-r flex flex-col">
+      {/* Sidebar */}
+      <div className="w-[280px] bg-white border-r">
 
-        <div className="p-5 border-b">
-          <h2 className="font-semibold text-gray-800 text-lg">
-            👥 Team Members
-          </h2>
+        {/* Branch */}
+        <div className="p-3 border-b flex justify-between items-center">
+          <span className="font-semibold">main</span>
+          <span className="text-gray-400">🔍</span>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {["Ahmad", "Sara", "John"].map((user) => (
+        {/* Search */}
+        <div className="p-2 border-b">
+          <input
+            placeholder="Go to file"
+            className="w-full border px-2 py-1 rounded"
+          />
+        </div>
+
+        {/* Files */}
+        <div className="p-2">
+          {fileTree.map((f, i) => (
             <div
-              key={user}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 cursor-pointer transition"
+              key={i}
+              onClick={() => f.type === "file" && setSelectedFile(f)}
+              className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer ${
+                selectedFile.name === f.name ? "bg-gray-200" : "hover:bg-gray-100"
+              }`}
             >
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white flex items-center justify-center text-sm font-bold shadow">
-                {user.charAt(0)}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-800">{user}</p>
-                <p className="text-xs text-green-500">online</p>
-              </div>
+              <span>{f.type === "folder" ? "📁" : "📄"}</span>
+              <span>{f.name}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* MAIN CHAT */}
+      {/* Main */}
       <div className="flex-1 flex flex-col">
 
-        {/* HEADER */}
-        <div className="p-5 bg-white border-b flex justify-between items-center shadow-sm">
+        {/* Repo Path */}
+        <div className="bg-white border-b px-6 py-3 flex justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-gray-800">
-              🚀 Project Discussion
-            </h1>
-            <p className="text-xs text-gray-500">
-              Real-time collaboration space
-            </p>
+            <span className="text-blue-600 font-medium">Front-End</span>
+            <span className="mx-1">/</span>
+            <span className="bg-gray-200 px-2 py-0.5 rounded">
+              {selectedFile.name}
+            </span>
           </div>
 
-          <div className="flex -space-x-2">
-            {["A", "S", "J"].map((u, i) => (
-              <div
-                key={i}
-                className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs border-2 border-white"
-              >
-                {u}
-              </div>
-            ))}
-          </div>
+      
+          <div className="text-xs flex items-center gap-2 bg-white-800 border border-[#30363d] text-gray px-3 py-1 rounded-md">
+             {/* <span>{commits.length}</span> */}
+             {/* <span className="text-gray-500">•</span> */}
+             <button className="text-lg leading-none px-2 rounded cursor-pointer">
+                 ⋯
+             </button>
+             </div>
         </div>
 
-        {/* MESSAGES */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${
-                msg.author === "You" ? "justify-end" : "justify-start"
-              }`}
-            >
-
-              {msg.author !== "You" && (
-                <div className="w-9 h-9 rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold">
-                  {msg.author.charAt(0)}
-                </div>
-              )}
-
-              <div
-                className={`max-w-md px-4 py-3 rounded-2xl shadow-sm ${
-                  msg.author === "You"
-                    ? "bg-blue-600 text-white rounded-br-none"
-                    : "bg-white border rounded-bl-none"
-                }`}
-              >
-                <p className="text-sm">{msg.text}</p>
-                <span className="text-[10px] opacity-70 block mt-1 text-right">
-                  {msg.time}
-                </span>
-              </div>
-
-              {msg.author === "You" && (
-                <div className="w-9 h-9 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
-                  Y
-                </div>
-              )}
+        {/* Commit Bar */}
+        <div className="bg-white border-b px-6 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 bg-gray-300 rounded-full"></div>
+            <div>
+              <span className="font-semibold">ezatullah</span>
+              <span className="ml-2 text-gray-600">
+                {commits[0]?.message || "Add SECOND_URL to env configuration"}
+              </span>
             </div>
-          ))}
+          </div>
 
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* INPUT */}
-        <div className="p-5 bg-white border-t">
-          <div className="flex items-center gap-3 bg-gray-100 px-4 py-2 rounded-full shadow-inner">
-
-            <input
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              placeholder="Write a message..."
-              className="flex-1 bg-transparent outline-none text-sm"
-            />
-
-            <button
-              onClick={sendMessage}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-full text-sm transition"
-            >
-              Send
-            </button>
+          <div className="text-xs text-gray-400">
+            {commits[0]?.time || "1 minute ago"}
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="bg-white border-b px-6 py-2 flex gap-6">
+          <button
+            onClick={() => setMode("code")}
+            className={mode === "code" ? "border-b-2 border-black pb-1 font-semibold" : "text-gray-500 cursor-pointer"}
+          >
+            Code
+          </button>
+          <button
+            onClick={() => setMode("blame")}
+            className={mode === "blame" ? "border-b-2 border-black pb-1 font-semibold" : "text-gray-500 cursor-pointer"}
+          >
+            Blame
+          </button>
+        </div>
+
+        {/* Toolbar */}
+        <div className="bg-white border-b px-6 py-2 flex justify-end gap-2">
+          <button className="border px-2 py-1 rounded cursor-pointer">Raw</button>
+          <button className="border px-2 py-1 rounded cursor-pointer">Copy</button>
+          <button className="border px-2 py-1 rounded cursor-pointer">Download</button>
+        </div>
+
+        {/* Code Area */}
+        <div className="flex-1 bg-white font-mono text-sm">
+
+          {mode === "code" ? (
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="w-full h-full p-4 outline-none"
+            />
+          ) : (
+            <div>
+              {lines.map((line, i) => (
+                <div key={i} className="flex">
+                  {/* heat color */}
+                  <div className={`w-2 ${heatColors[i % heatColors.length]}`} />
+
+                  {/* line number */}
+                  <div className="w-10 text-right pr-3 text-gray-400 select-none">
+                    {i + 1}
+                  </div>
+
+                  {/* code */}
+                  <div className="flex-1 px-2 whitespace-pre">
+                    {line}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Commit Box */}
+        <div className="bg-white border-t p-4">
+          <textarea
+            placeholder="Commit message..."
+            value={commitMessage}
+            onChange={(e) => setCommitMessage(e.target.value)}
+            className="w-full border rounded p-2 mb-2"
+          />
+
+          <button
+            onClick={handleCommit}
+            disabled={!hasChanges}
+            className={`px-4 py-2 rounded text-white ${
+              hasChanges ? "bg-green-600" : "bg-gray-400"
+            }`}
+          >
+            Commit changes
+          </button>
+        </div>
       </div>
     </div>
   );
-};
+}
 
-export default Collaboration
