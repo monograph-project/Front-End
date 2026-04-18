@@ -1,12 +1,12 @@
-import CalendarCard from "../components/CalendarCard";
-import IC from "../components/IC";
-import LeadsCard from "../components/LeadsCard";
-import RetentionCard from "../components/RetentionCard";
-import RevenueCard from "../components/RevenueCard";
-import StatCard from "../components/StatCard";
-import TopCountryCard from "../components/TopContriesCard";
-import { useAuth } from "../context/AuthContext";
-import { getDashboardView } from "../lib/roles";
+import CalendarCard from "../../components/CalendarCard";
+import IC from "../../components/IC";
+import LeadsCard from "../../components/LeadsCard";
+import RetentionCard from "../../components/RetentionCard";
+import RevenueCard from "../../components/RevenueCard";
+import StatCard from "../../components/StatCard";
+import TopCountryCard from "../../components/TopContriesCard";
+import { useAuth } from "../../context/AuthContext";
+import { getDashboardView } from "../../lib/roles";
 
 const STAT_SETS = {
   admin: [
@@ -209,7 +209,7 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="flex gap-3">
+      <div className=" grid grid-cols-2 lg:grid-cols-4  gap-3">
         {stats.map((s) => (
           <StatCard
             key={s.label}
@@ -228,10 +228,12 @@ export default function Dashboard() {
         <CalendarCard />
       </div>
 
-      <div className="flex gap-3">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
         <LeadsCard />
         <TopCountryCard />
-        <RetentionCard />
+        <div className=" col-span-2 h-full  lg:col-span-1">
+          <RetentionCard />
+        </div>
       </div>
     </div>
   );

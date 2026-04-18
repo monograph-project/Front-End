@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import StoryCard from "../components/StoryCard";
-import TopicPills from "../components/TopicPills";
-import { storiesForTopic } from "../data/mockStories";
+import StoryCard from "../../components/StoryCard";
+import TopicPills from "../../components/TopicPills";
+import { storiesForTopic } from "../../data/mockStories";
 
 export default function TopicFeed() {
   const { topic } = useParams();

@@ -223,7 +223,7 @@ export default function SearchableSelect({
             "rounded-md border px-3 py-1.5 text-sm font-medium",
             "transition-colors duration-150 outline-none",
             // light
-            "bg-card border-default text-secondary",
+            " bg-transparent dark:bg-transparent border-default text-secondary",
             "hover:bg-card-2 hover:text-primary",
             // dark
             "dark:bg-dark-accent-light dark:border-dark-light dark:text-white",
