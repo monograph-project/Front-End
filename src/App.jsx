@@ -25,6 +25,7 @@ import Unauthorized from "./pages/Unauthorized";
 import WriteStory from "./pages/WriteStory";
 import ProjectRepository from "./pages/ProjectRepository";
 import Collaboration from "./pages/Collaboration";
+import ProjectGroup from "./pages/ProjectGroup";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
@@ -155,11 +156,12 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="deals" element={<Deals />} />
+            {/* <Route path="deals" element={<Deals />} /> */}
             <Route path="notes" element={<Notes />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="reports" element={<Menu />} />
             <Route path="projects" element={<ProjectRepository />} />
+            <Route path="deals" element={<ProjectGroup/>} />
             <Route
               path="courses"
               element={
