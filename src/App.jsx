@@ -156,7 +156,6 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            {/* <Route path="deals" element={<Deals />} /> */}
             <Route path="notes" element={<Notes />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="reports" element={<Menu />} />

@@ -1,3 +1,5 @@
+
+
 export default function PlaceholderPage({ title, description }) {
   const heading = title ?? "This section";
 
