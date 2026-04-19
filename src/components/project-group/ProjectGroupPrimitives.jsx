@@ -76,16 +76,20 @@ export const UiInput = forwardRef(function UiInput(
   );
 });
 
-export function Panel({ palette, className = "", children, ...props }) {
+export const Panel = forwardRef(function Panel(
+  { palette, className = "", children, ...props },
+  ref
+) {
   return (
     <section
+      ref={ref}
       className={cx("rounded-md border shadow-sm", palette.border, palette.panel, className)}
       {...props}
     >
       {children}
     </section>
   );
-}
+});
 
 export function CounterBadge({ palette, className = "", children }) {
   return (
@@ -171,6 +175,19 @@ export function ToastStack({ toasts, palette, onDismiss }) {
             <div>
               <p className={cx("text-sm font-semibold", palette.text)}>{toast.title}</p>
               {toast.message ? <p className={cx("mt-0.5 text-xs", palette.muted)}>{toast.message}</p> : null}
+              {toast.actionLabel && toast.onAction ? (
+                <button
+                  type="button"
+                  onClick={() => toast.onAction(toast.id)}
+                  className={cx(
+                    "mt-2 rounded border px-2 py-0.5 text-xs font-medium transition",
+                    palette.border,
+                    palette.secondaryBtn
+                  )}
+                >
+                  {toast.actionLabel}
+                </button>
+              ) : null}
             </div>
             <button
               type="button"

@@ -26,6 +26,8 @@ import WriteStory from "./pages/WriteStory";
 import ProjectRepository from "./pages/ProjectRepository";
 import Collaboration from "./pages/Collaboration";
 import ProjectGroup from "./pages/ProjectGroup";
+import ProjectCourses from "./pages/ProjectCourses";
+import ProjectAssignments from "./pages/ProjectAssignments";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
@@ -164,10 +166,7 @@ export default function App() {
             <Route
               path="courses"
               element={
-                <PlaceholderPage
-                  title="Courses"
-                  description="Your enrolled courses and materials."
-                />
+                <ProjectCourses />
               }
             />
             <Route
@@ -182,10 +181,11 @@ export default function App() {
             <Route
               path="assignments"
               element={
-                <PlaceholderPage
-                  title="Assignments"
-                  description="Due work and submissions."
-                />
+                // <PlaceholderPage
+                //   title="Assignments"
+                //   description="Due work and submissions."
+                // />
+                < ProjectAssignments />
               }
             />
             <Route
