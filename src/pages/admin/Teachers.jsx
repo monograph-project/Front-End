@@ -19,6 +19,9 @@ import Pagination from "../../components/Pagination";
 import AvatarDemo from "./../../components/Avatar";
 import Checkbox from "./../../components/Checkbox";
 import Button from "../../components/Button";
+import AddTeacherForm from "../../components/AddTeacherForm";
+import GlobalModal from "../../components/GlobalModal";
+
 const headerData = [
   { title: "" },
   { title: "ID" },
@@ -32,6 +35,7 @@ const headerData = [
 function Teachers() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showAddModal, setShowAddModal] = useState(false);
   const [teachers, setTeachers] = useState([
     {
       id: 1,
@@ -80,6 +84,30 @@ function Teachers() {
     },
   ]);
 
+  const exportToCSV = () => {
+    const headers = ['ID', 'First Name', 'Last Name', 'Email', 'Department', 'Status', 'Joined'];
+    const csvContent = [
+      headers.join(','),
+      ...teachers.map(teacher => [
+        teacher.id,
+        teacher.firstName,
+        teacher.lastName,
+        teacher.email,
+        teacher.department,
+        teacher.status,
+        teacher.joined
+      ].map(field => `"${field}"`).join(','))
+    ].join('\\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'teachers.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col bg-shell dark:bg-dark-shell gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -91,9 +119,18 @@ function Teachers() {
             Manage {teachers.length} teachers and their assignment status
           </p>
         </div>
-        <Button icon={<Icon d={IC.plus} className="size-4" />}>
-          Add Teacher
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button icon={<Icon d={IC.download} className="size-4" />} onClick={exportToCSV}>
+            Export
+          </Button>
+          <Button 
+            type="button"
+            icon={<Icon d={IC.plus} className="size-4" />} 
+            onClick={() => setShowAddModal(true)}
+          >
+            Add Teacher
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 border border-default dark:border-dark-default rounded-md ">
@@ -102,7 +139,7 @@ function Teachers() {
             <Icon
               d={IC.search}
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 stroke-muted dark:stroke-dark-muted"
-            />
+            />~
             <input
               type="text"
               placeholder="Search teachers by name, email or department..."
@@ -130,7 +167,7 @@ function Teachers() {
           <Table>
             <TableHeader headerData={headerData} />
             <TableBody>
-              {teachers.map((teacher, index) => (
+              {teachers.map((teacher) => (
                 <TableRow key={teacher.id}>
                   <TableColumn className="w-10">
                     <Checkbox />
@@ -235,6 +272,13 @@ function Teachers() {
         <div className="pt-4">
           <Pagination />
         </div>
+      )}
+      {showAddModal && (
+        <AddTeacherForm 
+          teachers={teachers} 
+          setTeachers={setTeachers} 
+          onClose={() => setShowAddModal(false)} 
+        />
       )}
     </div>
   );

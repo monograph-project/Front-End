@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownContent,
   DropdownItem,
@@ -31,8 +32,10 @@ const headerData = [
 
 function Users() {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [users, setUsers] = useState([
+  // eslint-disable-next-line no-empty-pattern
+  const [] = useState("all");
+  const navigate = useNavigate();
+  const [users] = useState([
     {
       id: 1,
       user: "Test Admin",
@@ -218,6 +221,7 @@ function Users() {
                               ></path>
                             </svg>
                           }
+                          onClick={() => navigate(`/admin/users/${user.id}`)}
                         >
                           <span>Profile</span>
                         </DropdownItem>

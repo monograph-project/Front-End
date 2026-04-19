@@ -19,6 +19,9 @@ import Pagination from "../../components/Pagination";
 import AvatarDemo from "./../../components/Avatar";
 import Checkbox from "./../../components/Checkbox";
 import Button from "../../components/Button";
+import AddEmployeeForm from "../../components/AddEmployeeForm";
+import GlobalModal from "../../components/GlobalModal";
+
 const headerData = [
   { title: "" },
   { title: "ID" },
@@ -32,6 +35,7 @@ const headerData = [
 function Employee() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showAddModal, setShowAddModal] = useState(false);
   const [employees, setEmployees] = useState([
     {
       id: 1,
@@ -80,6 +84,30 @@ function Employee() {
     },
   ]);
 
+  const exportToCSV = () => {
+    const headers = ['ID', 'First Name', 'Last Name', 'Email', 'Department', 'Status', 'Joined'];
+    const csvContent = [
+      headers.join(','),
+      ...employees.map(employee => [
+        employee.id,
+        employee.firstName,
+        employee.lastName,
+        employee.email,
+        employee.department,
+        employee.status,
+        employee.joined
+      ].map(field => `"${field}"`).join(','))
+    ].join('\\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'employees.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col bg-shell dark:bg-dark-shell gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -91,9 +119,18 @@ function Employee() {
             Manage {employees.length} employees and their employment status
           </p>
         </div>
-        <Button icon={<Icon d={IC.plus} className="size-4" />}>
-          Add Employee
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button icon={<Icon d={IC.download} className="size-4" />} onClick={exportToCSV}>
+            Export
+          </Button>
+          <Button 
+            type="button"
+            icon={<Icon d={IC.plus} className="size-4" />} 
+            onClick={() => setShowAddModal(true)}
+          >
+            Add Employee
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 border border-default dark:border-dark-default rounded-md ">
@@ -129,7 +166,7 @@ function Employee() {
           <Table>
             <TableHeader headerData={headerData} />
             <TableBody>
-              {employees.map((employee, index) => (
+              {employees.map((employee) => (
                 <TableRow key={employee.id}>
                   <TableColumn className="w-10">
                     <Checkbox />
@@ -234,6 +271,13 @@ function Employee() {
         <div className="pt-4">
           <Pagination />
         </div>
+      )}
+      {showAddModal && (
+        <AddEmployeeForm 
+          employees={employees} 
+          setEmployees={setEmployees} 
+          onClose={() => setShowAddModal(false)} 
+        />
       )}
     </div>
   );

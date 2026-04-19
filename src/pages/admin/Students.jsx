@@ -19,6 +19,8 @@ import {
   DropdownTrigger,
 } from "../../components/DropdownMenu";
 import Button from "../../components/Button";
+import GlobalModal from "../../components/GlobalModal";
+import AddStudentForm from "./AddStudentForm";
 
 const headerData = [
   { title: "" },
@@ -38,10 +40,46 @@ export default function Students() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showAddModal, setShowAddModal] = useState(false);
+
   const students = studentsData || [];
+
+  const exportToCSV = () => {
+    const headers = ['ID', 'First Name', 'Last Name', 'Father Name', 'Grand Father Name', 'Nationality', 'Gender', 'Date of Birth', 'Code', 'Email', 'Phone', 'Enrollment Date', 'Kankor ID', 'Semester', 'Department', 'Status'];
+    const csvContent = [
+      headers.join(','),
+      ...students.map(student => [
+        student.id,
+        student.firstName,
+        student.lastName,
+        student.fatherName || '',
+        student.grandFatherName || '',
+        student.nationality || '',
+        student.gender || '',
+        student.dateOfBirth || '',
+        student.code || '',
+        student.email || '',
+        student.phone || '',
+        student.enrollmentDate || '',
+        student.kankorId || '',
+        student.semester || '',
+        student.department || '',
+        student.status || ''
+      ].map(field => `"${field}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'students.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   if (isLoading) {
     return (
+      
       <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-[14px] bg-shell dark:bg-dark-shell">
         <div className="flex items-center justify-center h-64">
           <div className="text-primary dark:text-dark-primary">
@@ -64,10 +102,19 @@ export default function Students() {
             Manage {students.length} students and their enrollment status
           </p>
         </div>
-        <Button icon={<Icon d={IC.plus} className="size-4" />}>
-          Add Student
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button icon={<Icon d={IC.download} className="size-4" />} onClick={exportToCSV}>
+            Export
+          </Button>
+          <Button icon={<Icon d={IC.plus} className="size-4" />} onClick={() => setShowAddModal(true)}>
+            Add Student
+          </Button>
+        </div>
       </div>
+
+<GlobalModal open={showAddModal} setOpen={setShowAddModal} isClose={true}>
+        <AddStudentForm onClose={() => setShowAddModal(false)} />
+      </GlobalModal>
 
       {/* Filters */}
 

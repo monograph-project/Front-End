@@ -115,7 +115,13 @@ export default function UserProfile() {
     <div className="flex-1 p-4 md:p-8 bg-shell dark:bg-dark-shell">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-default dark:border-dark-default pb-3 gap-6 mb-8">
+<div className="flex items-start justify-between border-b border-default dark:border-dark-default pb-3 gap-6 mb-8">
+          <button
+            onClick={() => navigate('/admin/users')}
+            className="p-1 -ml-1 text-muted hover:text-primary hover:bg-accent/10 rounded-md transition-all flex items-center"
+          >
+            <Icon d={IC.chevLeft} className="w-5 h-5" />
+          </button>
           <div className="flex items-start gap-4">
             <Avatar
               src={user.avatar}
