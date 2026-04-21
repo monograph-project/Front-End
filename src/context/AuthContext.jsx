@@ -2,7 +2,7 @@ import { createContext, useContext, useReducer, useEffect } from "react";
 
 const AuthContext = createContext();
 
-const guestState = {
+const seedUser = {
   user: {
     fullName: "me",
     email: "me@gmail.com",
@@ -13,6 +13,37 @@ const guestState = {
   isAuthenticated: true,
 };
 
+const loggedOutState = {
+  user: null,
+  isAuthenticated: false,
+};
+
+function getInitialAuthState() {
+  const raw = localStorage.getItem("user");
+  const userId = localStorage.getItem("userId");
+
+  if (!raw || !userId) {
+    return seedUser;
+  }
+
+  try {
+    const user = JSON.parse(raw);
+
+    if (!user || typeof user !== "object" || !user.role) {
+      throw new Error("Stored user is invalid.");
+    }
+
+    return {
+      user,
+      isAuthenticated: true,
+    };
+  } catch {
+    localStorage.removeItem("user");
+    localStorage.removeItem("userId");
+    return seedUser;
+  }
+}
+
 function authReducer(state, action) {
   switch (action.type) {
     case "LOGIN":
@@ -21,28 +52,14 @@ function authReducer(state, action) {
         isAuthenticated: true,
       };
     case "LOGOUT":
-      return guestState;
+      return loggedOutState;
     default:
       return state;
   }
 }
 
 export function AuthProvider({ children }) {
-  const [state, dispatch] = useReducer(authReducer, guestState);
-
-  useEffect(() => {
-    const raw = localStorage.getItem("user");
-    const userId = localStorage.getItem("userId");
-    if (raw && userId) {
-      try {
-        const user = JSON.parse(raw);
-        dispatch({ type: "LOGIN", payload: user });
-      } catch {
-        localStorage.removeItem("user");
-        localStorage.removeItem("userId");
-      }
-    }
-  }, []);
+  const [state, dispatch] = useReducer(authReducer, undefined, getInitialAuthState);
 
   useEffect(() => {
     if (state.isAuthenticated && state.user) {
