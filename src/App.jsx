@@ -1,6 +1,6 @@
 import { GooeyToaster } from "goey-toast";
 import "goey-toast/styles.css";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ThemeProvider } from "./context/themContext";
 import Applayout from "./layout/AppLayout";
