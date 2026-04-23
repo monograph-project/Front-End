@@ -18,32 +18,6 @@ const loggedOutState = {
   isAuthenticated: false,
 };
 
-function getInitialAuthState() {
-  const raw = localStorage.getItem("user");
-  const userId = localStorage.getItem("userId");
-
-  if (!raw || !userId) {
-    return seedUser;
-  }
-
-  try {
-    const user = JSON.parse(raw);
-
-    if (!user || typeof user !== "object" || !user.role) {
-      throw new Error("Stored user is invalid.");
-    }
-
-    return {
-      user,
-      isAuthenticated: true,
-    };
-  } catch {
-    localStorage.removeItem("user");
-    localStorage.removeItem("userId");
-    return seedUser;
-  }
-}
-
 function authReducer(state, action) {
   switch (action.type) {
     case "LOGIN":
@@ -59,7 +33,7 @@ function authReducer(state, action) {
 }
 
 export function AuthProvider({ children }) {
-  const [state, dispatch] = useReducer(authReducer, undefined, getInitialAuthState);
+  const [state, dispatch] = useReducer(authReducer, seedUser);
 
   useEffect(() => {
     if (state.isAuthenticated && state.user) {
@@ -91,6 +65,7 @@ export function AuthProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
