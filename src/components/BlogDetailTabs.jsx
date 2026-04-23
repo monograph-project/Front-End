@@ -13,7 +13,7 @@ export default function BlogDetailTabs({ tabs, activeTab, onChange }) {
             type="button"
             onClick={() => onChange(tab.id)}
             className={cn(
-              "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+              "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-colors",
               isActive
                 ? "bg-primary text-white"
                 : "border border-default bg-shell text-primary hover:bg-card-2 dark:border-dark-default dark:bg-dark-shell dark:text-dark-primary dark:hover:bg-dark-card-2",

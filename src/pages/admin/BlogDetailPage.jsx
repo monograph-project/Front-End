@@ -20,7 +20,17 @@ import {
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { cn } from "../../lib/utils";
-import { getAdminBlogById, loadAdminBlogs, saveAdminBlogs } from "../../data/adminBlogs";
+import {
+  getAdminBlogById,
+  loadAdminBlogs,
+  saveAdminBlogs,
+} from "../../data/adminBlogs";
+import BlogDetailTabs from "../../components/BlogDetailTabs";
+import BlogOverviewPanel from "../../components/BlogOverviewPanel";
+import BlogWriterPanel from "../../components/BlogWriterPanel";
+import BlogWriterPostsPanel from "../../components/BlogWriterPostsPanel";
+import BlogReviewPanel from "../../components/BlogReviewPanel";
+import BlogMoreBlogsPanel from "../../components/BlogMoreBlogsPanel";
 
 const statusStyles = {
   pending:
@@ -43,7 +53,12 @@ const statusLabels = {
   draft: "Draft",
 };
 
-function AdminActionButton({ children, tone = "default", className, ...props }) {
+function AdminActionButton({
+  children,
+  tone = "default",
+  className,
+  ...props
+}) {
   const toneClass =
     tone === "primary"
       ? "bg-primary text-white hover:opacity-90"
@@ -57,7 +72,7 @@ function AdminActionButton({ children, tone = "default", className, ...props }) 
     <button
       type="button"
       className={cn(
-        "inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold transition-colors",
+        "inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
         toneClass,
         className,
       )}
@@ -78,7 +93,9 @@ export default function BlogDetailPage() {
   }, [blogs]);
 
   const blog = useMemo(
-    () => blogs.find((item) => String(item.id) === String(id)) || getAdminBlogById(id),
+    () =>
+      blogs.find((item) => String(item.id) === String(id)) ||
+      getAdminBlogById(id),
     [blogs, id],
   );
 
@@ -103,9 +120,7 @@ export default function BlogDetailPage() {
     );
   }
 
-  const relatedBlogs = blogs
-    .filter((item) => item.id !== blog.id)
-    .slice(0, 3);
+  const relatedBlogs = blogs.filter((item) => item.id !== blog.id).slice(0, 3);
   const authorBlogs = blogs.filter(
     (item) => item.author === blog.author && item.id !== blog.id,
   );
@@ -115,6 +130,7 @@ export default function BlogDetailPage() {
     { id: "writer", label: "Writer", icon: UserRound },
     { id: "posts", label: "Writer posts", icon: NotebookText },
     { id: "review", label: "Review info", icon: BadgeCheck },
+    { id: "more", label: "More blogs", icon: Eye },
   ];
 
   const updateBlog = (updater) => {
@@ -138,9 +154,52 @@ export default function BlogDetailPage() {
     : "No date";
 
   return (
-    <div className="min-h-screen flex-1 bg-shell dark:bg-dark-shell">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 md:px-6 xl:flex-row xl:items-start">
-        <main className="min-w-0 flex-1">
+    <div className="min-h-screen flex-1 bg-shell dark:bg-dark-shell border border-default dark:border-dark-default rounded-md m-2">
+      <div className="mx-auto w-full max-w-7xl px-2 py-3 md:px-3">
+        <section className="mb-6 rounded-md border border-default bg-card p-5 dark:border-dark-default dark:bg-dark-card">
+          <BlogDetailTabs
+            tabs={tabs}
+            activeTab={activeTab}
+            onChange={setActiveTab}
+          />
+        </section>
+
+        {activeTab === "overview" && (
+          <section className="mb-6">
+            <BlogOverviewPanel blog={blog} formattedDate={formattedDate} />
+          </section>
+        )}
+
+        {activeTab === "writer" && (
+          <section className="mb-6">
+            <BlogWriterPanel blog={blog} blogs={blogs} />
+          </section>
+        )}
+
+        {activeTab === "posts" && (
+          <section className="mb-6">
+            <BlogWriterPostsPanel
+              author={blog.author}
+              authorBlogs={authorBlogs}
+              statusLabels={statusLabels}
+              statusStyles={statusStyles}
+            />
+          </section>
+        )}
+
+        {activeTab === "review" && (
+          <section className="mb-6">
+            <BlogReviewPanel blog={blog} statusLabels={statusLabels} />
+          </section>
+        )}
+
+        {activeTab === "more" && (
+          <section className="mb-6">
+            <BlogMoreBlogsPanel relatedBlogs={relatedBlogs} />
+          </section>
+        )}
+
+        <main className="min-w-0">
           <div className="rounded-md border border-default bg-card dark:border-dark-default dark:bg-dark-card">
             <div className="border-b border-default px-6 py-5 dark:border-dark-default md:px-10">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -154,7 +213,7 @@ export default function BlogDetailPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={cn(
-                      "inline-flex rounded-full px-3 py-1.5 text-xs font-semibold",
+                      "inline-flex rounded-md px-3 py-1.5 text-xs font-semibold",
                       statusStyles[blog.status],
                     )}
                   >
@@ -164,21 +223,23 @@ export default function BlogDetailPage() {
                     type="button"
                     onClick={handleToggleFeatured}
                     className={cn(
-                      "inline-flex items-center gap-2 rounded-full border border-default px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-card-2 dark:border-dark-default dark:text-dark-primary dark:hover:bg-dark-card-2",
+                      "inline-flex items-center gap-2 rounded-md border border-default px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-card-2 dark:border-dark-default dark:text-dark-primary dark:hover:bg-dark-card-2",
                       blog.featured &&
                         "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300",
                     )}
                   >
-                    <Star className={cn("h-4 w-4", blog.featured && "fill-current")} />
+                    <Star
+                      className={cn("h-4 w-4", blog.featured && "fill-current")}
+                    />
                     {blog.featured ? "Featured" : "Mark featured"}
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="border-b border-default bg-shell/90 px-6 py-5 backdrop-blur dark:border-dark-default dark:bg-dark-shell/90 md:px-10 xl:sticky xl:top-0 xl:z-20">
+            <div className="border-b border-default bg-shell/90 px-6 py-5 backdrop-blur dark:border-dark-default dark:bg-dark-shell/90 md:px-10 xl:sticky xl:top-12 xl:z-20">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="max-w-2xl">
+                <div className="max-w-148">
                   <div className="flex items-center gap-2 text-sm font-semibold text-primary dark:text-dark-primary">
                     <BookOpen className="h-4 w-4" />
                     Moderation controls
@@ -190,7 +251,7 @@ export default function BlogDetailPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex gap-2">
                   {blog.status === "pending" && (
                     <>
                       <AdminActionButton
@@ -265,207 +326,6 @@ export default function BlogDetailPage() {
 
             <article className="px-6 py-8 md:px-10 md:py-10">
               <header className="mx-auto max-w-3xl">
-                <div className="mb-6 flex flex-wrap gap-2 border-b border-default pb-5 dark:border-dark-default">
-                  {tabs.map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
-
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setActiveTab(tab.id)}
-                        className={cn(
-                          "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-                          isActive
-                            ? "bg-primary text-white"
-                            : "border border-default bg-shell text-primary hover:bg-card-2 dark:border-dark-default dark:bg-dark-shell dark:text-dark-primary dark:hover:bg-dark-card-2",
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {tab.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {activeTab === "overview" && (
-                  <div className="mb-8 rounded-md border border-default bg-shell p-5 dark:border-dark-default dark:bg-dark-shell">
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
-                          Writer
-                        </p>
-                        <p className="mt-2 text-base font-semibold text-primary dark:text-dark-primary">
-                          {blog.author}
-                        </p>
-                        <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-                          {blog.authorRole}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
-                          Category
-                        </p>
-                        <p className="mt-2 text-base font-semibold text-primary dark:text-dark-primary">
-                          {blog.category}
-                        </p>
-                        <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-                          {blog.readTime} • {formattedDate}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
-                          Performance
-                        </p>
-                        <p className="mt-2 text-base font-semibold text-primary dark:text-dark-primary">
-                          {blog.claps} claps • {blog.comments} comments
-                        </p>
-                        <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-                          {blog.featured ? "Featured for readers" : "Not featured yet"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "writer" && (
-                  <div className="mb-8 rounded-md border border-default bg-shell p-5 dark:border-dark-default dark:bg-dark-shell">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-base font-bold text-white dark:bg-dark-primary dark:text-dark-shell">
-                          {blog.author
-                            .split(" ")
-                            .map((part) => part[0])
-                            .join("")
-                            .slice(0, 2)}
-                        </div>
-                        <div>
-                          <p className="text-lg font-semibold text-primary dark:text-dark-primary">
-                            {blog.author}
-                          </p>
-                          <p className="text-sm text-secondary dark:text-dark-secondary">
-                            {blog.authorRole}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-md border border-default bg-card p-3 dark:border-dark-default dark:bg-dark-card">
-                          <p className="text-xs text-muted dark:text-dark-muted">Posts</p>
-                          <p className="mt-1 text-lg font-semibold text-primary dark:text-dark-primary">
-                            {blogs.filter((item) => item.author === blog.author).length}
-                          </p>
-                        </div>
-                        <div className="rounded-md border border-default bg-card p-3 dark:border-dark-default dark:bg-dark-card">
-                          <p className="text-xs text-muted dark:text-dark-muted">Published</p>
-                          <p className="mt-1 text-lg font-semibold text-primary dark:text-dark-primary">
-                            {
-                              blogs.filter(
-                                (item) =>
-                                  item.author === blog.author &&
-                                  item.status === "published",
-                              ).length
-                            }
-                          </p>
-                        </div>
-                        <div className="rounded-md border border-default bg-card p-3 dark:border-dark-default dark:bg-dark-card">
-                          <p className="text-xs text-muted dark:text-dark-muted">Pending</p>
-                          <p className="mt-1 text-lg font-semibold text-primary dark:text-dark-primary">
-                            {
-                              blogs.filter(
-                                (item) =>
-                                  item.author === blog.author && item.status === "pending",
-                              ).length
-                            }
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <p className="mt-5 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                      Review the writer profile here before approving the post.
-                      This tab is a better place for trust signals, posting
-                      history, and publication quality than the main article
-                      body.
-                    </p>
-                  </div>
-                )}
-
-                {activeTab === "posts" && (
-                  <div className="mb-8 rounded-md border border-default bg-shell p-5 dark:border-dark-default dark:bg-dark-shell">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                          Other posts by {blog.author}
-                        </p>
-                        <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-                          Use this to compare quality and consistency before publishing.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      {authorBlogs.length ? (
-                        authorBlogs.map((item) => (
-                          <Link
-                            key={item.id}
-                            to={`/admin/blogs/${item.id}`}
-                            className="flex items-start justify-between gap-4 rounded-md border border-default bg-card p-4 transition-colors hover:bg-card-2 dark:border-dark-default dark:bg-dark-card dark:hover:bg-dark-card-2"
-                          >
-                            <div>
-                              <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                                {item.title}
-                              </p>
-                              <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-                                {item.excerpt}
-                              </p>
-                            </div>
-                            <span
-                              className={cn(
-                                "shrink-0 rounded-full px-3 py-1 text-xs font-semibold",
-                                statusStyles[item.status],
-                              )}
-                            >
-                              {statusLabels[item.status]}
-                            </span>
-                          </Link>
-                        ))
-                      ) : (
-                        <p className="text-sm text-secondary dark:text-dark-secondary">
-                          No other posts from this writer yet.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "review" && (
-                  <div className="mb-8 rounded-md border border-default bg-shell p-5 dark:border-dark-default dark:bg-dark-shell">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="rounded-md border border-default bg-card p-4 dark:border-dark-default dark:bg-dark-card">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
-                          Current state
-                        </p>
-                        <p className="mt-2 text-base font-semibold text-primary dark:text-dark-primary">
-                          {statusLabels[blog.status]}
-                        </p>
-                        <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-                          {blog.status === "published"
-                            ? "Visible to readers."
-                            : "Still under admin control."}
-                        </p>
-                      </div>
-                      <div className="rounded-md border border-default bg-card p-4 dark:border-dark-default dark:bg-dark-card">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
-                          Review checklist
-                        </p>
-                        <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                          Check title clarity, content quality, author credibility,
-                          formatting, and whether the article is ready for public readers.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted dark:text-dark-muted">
                   <span className="rounded-full bg-shell px-3 py-1 dark:bg-dark-shell">
                     {blog.category}
@@ -536,73 +396,28 @@ export default function BlogDetailPage() {
                 </div>
               )}
 
-              <section className="mx-auto mt-10 grid max-w-5xl gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <div>
-                  <div
-                    className="space-y-6 text-[17px] leading-8 text-primary dark:text-dark-primary [&_blockquote]:border-l-4 [&_blockquote]:border-default [&_blockquote]:pl-5 [&_blockquote]:text-xl [&_blockquote]:font-medium [&_blockquote]:italic [&_h2]:mt-12 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:leading-tight [&_p]:text-secondary dark:[&_blockquote]:border-dark-default dark:[&_p]:text-dark-secondary"
-                    dangerouslySetInnerHTML={{ __html: blog.content }}
-                  />
+              <section className="mx-auto mt-10 max-w-5xl">
+                <div
+                  className="space-y-6 text-[17px] leading-8 text-primary dark:text-dark-primary [&_blockquote]:border-l-4 [&_blockquote]:border-default [&_blockquote]:pl-5 [&_blockquote]:text-xl [&_blockquote]:font-medium [&_blockquote]:italic [&_h2]:mt-12 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:leading-tight [&_p]:text-secondary dark:[&_blockquote]:border-dark-default dark:[&_p]:text-dark-secondary"
+                  dangerouslySetInnerHTML={{ __html: blog.content }}
+                />
 
-                  {blog.tags?.length > 0 && (
-                    <div className="mt-12 flex flex-wrap gap-2 border-t border-default pt-8 dark:border-dark-default">
-                      {blog.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-full border border-default bg-shell px-4 py-2 text-sm font-medium text-secondary dark:border-dark-default dark:bg-dark-shell dark:text-dark-secondary"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <aside className="space-y-4">
-                  <div className="rounded-md border border-default bg-shell p-5 dark:border-dark-default dark:bg-dark-shell xl:sticky xl:top-6">
-                    <div className="rounded-md border border-default bg-card p-4 dark:border-dark-default dark:bg-dark-card">
-                      <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                        Visibility
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                        {blog.status === "published"
-                          ? "This article is ready for public readers and can appear in the general reading experience."
-                          : "This article is still restricted to admin review and should not appear for general readers yet."}
-                      </p>
-                    </div>
+                {blog.tags?.length > 0 && (
+                  <div className="mt-12 flex flex-wrap gap-2 border-t border-default pt-8 dark:border-dark-default">
+                    {blog.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-default bg-shell px-4 py-2 text-sm font-medium text-secondary dark:border-dark-default dark:bg-dark-shell dark:text-dark-secondary"
+                      >
+                        {tag}
+                      </span>
+                    ))}
                   </div>
-                </aside>
+                )}
               </section>
             </article>
           </div>
         </main>
-
-        <aside className="w-full xl:max-w-[320px]">
-          <div className="rounded-md border border-default bg-card p-5 dark:border-dark-default dark:bg-dark-card xl:sticky xl:top-6">
-            <div className="flex items-center gap-2 text-sm font-semibold text-primary dark:text-dark-primary">
-              <Eye className="h-4 w-4" />
-              More blogs
-            </div>
-            <div className="mt-4 space-y-3">
-              {relatedBlogs.map((item) => (
-                <Link
-                  key={item.id}
-                  to={`/admin/blogs/${item.id}`}
-                  className="block rounded-md border border-default bg-shell p-4 transition-colors hover:bg-card-2 dark:border-dark-default dark:bg-dark-shell dark:hover:bg-dark-card-2"
-                >
-                  <p className="text-xs uppercase tracking-[0.2em] text-muted dark:text-dark-muted">
-                    {item.category}
-                  </p>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-primary dark:text-dark-primary">
-                    {item.title}
-                  </p>
-                  <p className="mt-2 text-xs text-secondary dark:text-dark-secondary">
-                    {item.readTime}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </aside>
       </div>
     </div>
   );
