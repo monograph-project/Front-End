@@ -66,28 +66,6 @@
   ],
   "students": [
     {
-      "id": "stu-2",
-      "firstName": "Mohammad",
-      "lastName": "Ahmadi",
-      "email": "mohammad@gmail.com",
-      "phone": "234-567-8901",
-      "code": "STU002",
-      "department": "Physics",
-      "enrollmentDate": "2023-09-15",
-      "status": "pending"
-    },
-    {
-      "id": "stu-3",
-      "firstName": "Kasra",
-      "lastName": "Khalili",
-      "email": "kasra@school.edu",
-      "phone": "345-678-9012",
-      "code": "STU003",
-      "department": "Biology",
-      "enrollmentDate": "2023-10-01",
-      "status": "suspended"
-    },
-    {
       "id": "stu-4",
       "firstName": "Elyas",
       "lastName": "Rashidi",
@@ -140,20 +118,6 @@
     }
   ],
   "departments": [
-    {
-      "id": "cs-1",
-      "name": "Computer Science",
-      "head": "jane.smith@school.edu",
-      "status": "active",
-      "created": "2023-02-20"
-    },
-    {
-      "id": "phys-1",
-      "name": "Physics",
-      "head": "mike.johnson@school.edu",
-      "status": "pending",
-      "created": "2023-03-10"
-    },
     {
       "id": "bio-1",
       "name": "Biology",

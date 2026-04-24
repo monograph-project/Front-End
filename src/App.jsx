@@ -37,6 +37,8 @@ import UserProfile from "./pages/admin/Profile";
 import NotificationDetail from "./pages/admin/NotificationDetail";
 import StudentProfile from "./pages/admin/StudentProfile";
 import TeacherProfile from "./pages/admin/TeacherProfile";
+import EmployeeProfile from "./pages/admin/EmployeeProfile";
+import DepartmentProfile from "./pages/admin/DepartmentProfile";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
@@ -82,9 +84,11 @@ export default function App() {
             <Route path="teacher/:id" element={<TeacherProfile />} />
             <Route path="teacher" element={<Teacher />} />
             <Route path="employee" element={<Employee />} />
+            <Route path="employee/:id" element={<EmployeeProfile />} />
             <Route path="notification" element={<Notification />} />
             <Route path="notification/:id" element={<NotificationDetail />} />
             <Route path="department" element={<Department />} />
+            <Route path="department/:id" element={<DepartmentProfile />} />
             <Route path="projects" element={<Projects />} />
             <Route path="blogs" element={<Blog />} />
             <Route path="setting" element={<Setting />} />
