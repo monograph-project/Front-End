@@ -49,7 +49,7 @@ const Select = ({
 
         <RadixSelect.Portal>
           <RadixSelect.Content
-            className="overflow-hidden w-[var(--radix-select-trigger-width)] rounded-md bg-input dark:bg-dark-input border border-default dark:border-dark-default"
+className="overflow-hidden w-[var(--radix-select-trigger-width)] rounded-md bg-input dark:bg-dark-input border border-default dark:border-dark-default z-[10001] shadow-2xl border-2"
             position="popper"
           >
             <RadixSelect.ScrollUpButton className="flex items-center justify-center h-6">

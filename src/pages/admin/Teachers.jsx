@@ -1,4 +1,6 @@
+
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownContent,
   DropdownItem,
@@ -22,6 +24,7 @@ import Button from "../../components/Button";
 import AddTeacherForm from "../../components/AddTeacherForm";
 import GlobalModal from "../../components/GlobalModal";
 
+
 const headerData = [
   { title: "" },
   { title: "ID" },
@@ -33,9 +36,28 @@ const headerData = [
 ];
 
 function Teachers() {
-  const [search, setSearch] = useState("");
+  const navigate = useNavigate();
+  const [search, setSearch] = useState(""); 
   const [statusFilter, setStatusFilter] = useState("all");
+  // Actions handler
+  const handleAction = (action) => {
+    switch (action) {
+      case "export":
+        exportToCSV();
+        break;
+      case "import":
+        window.GooeyToaster?.info?.("Import functionality coming soon");
+        break;
+    }
+  };
+
+  const handleViewProfile = (teacher) => {
+    navigate(`/admin/teacher/${teacher.id}`);
+  }; 
+
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTeacher, setEditingTeacher] = useState(null);
   const [teachers, setTeachers] = useState([
     {
       id: 1,
@@ -120,14 +142,22 @@ function Teachers() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button icon={<Icon d={IC.download} className="size-4" />} onClick={exportToCSV}>
-            Export
-          </Button>
-          <Button 
-            type="button"
-            icon={<Icon d={IC.plus} className="size-4" />} 
-            onClick={() => setShowAddModal(true)}
-          >
+          <div className="flex-none">
+            <DropdownMenuRoot>
+              <DropdownTrigger>
+                Actions
+              </DropdownTrigger>
+              <DropdownContent align="end">
+                <DropdownItem icon={<Icon d={IC.download} className="size-4" />} onClick={() => handleAction("export")}>
+                  Export
+                </DropdownItem>
+                <DropdownItem icon={<Icon d={IC.upload} className="size-4" />} onClick={() => handleAction("import")}>
+                  Import
+                </DropdownItem>
+              </DropdownContent>
+            </DropdownMenuRoot>
+          </div>
+          <Button icon={<Icon d={IC.plus} className="size-4" />} onClick={() => setShowAddModal(true)}>
             Add Teacher
           </Button>
         </div>
@@ -139,7 +169,7 @@ function Teachers() {
             <Icon
               d={IC.search}
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 stroke-muted dark:stroke-dark-muted"
-            />~
+            />
             <input
               type="text"
               placeholder="Search teachers by name, email or department..."
@@ -224,17 +254,25 @@ function Teachers() {
                         />
                       </DropdownTrigger>
                       <DropdownContent align="end">
-                        <DropdownItem>
+                        <DropdownItem onClick={() => handleViewProfile(teacher)}>
                           <span>View Profile</span>
                         </DropdownItem>
-                        <DropdownItem>
+                        <DropdownItem onClick={() => {
+                          setEditingTeacher(teacher);
+                          setShowEditModal(true);
+                        }}>
                           <span>Edit Details</span>
                         </DropdownItem>
                         <DropdownItem>
                           <span>Send Message</span>
                         </DropdownItem>
                         <DropdownSeparator />
-                        <DropdownItem variant="danger">
+                        <DropdownItem variant="danger" onClick={() => {
+                          if (confirm('Are you sure you want to remove this teacher?')) {
+                            setTeachers(teachers.filter(t => t.id !== teacher.id));
+                            window.GooeyToaster?.success?.('Teacher removed successfully');
+                          }
+                        }}>
                           <span>Remove Teacher</span>
                         </DropdownItem>
                       </DropdownContent>
@@ -268,18 +306,75 @@ function Teachers() {
         </div>
       </div>
 
-      {teachers.length > 0 && (
+{teachers.length > 0 && (
         <div className="pt-4">
           <Pagination />
         </div>
       )}
-      {showAddModal && (
-        <AddTeacherForm 
-          teachers={teachers} 
-          setTeachers={setTeachers} 
-          onClose={() => setShowAddModal(false)} 
-        />
-      )}
+      <GlobalModal open={showAddModal} setOpen={setShowAddModal}>
+        <AddTeacherForm teachers={teachers} setTeachers={setTeachers} onClose={() => setShowAddModal(false)} />
+      </GlobalModal>
+      <GlobalModal open={showEditModal} setOpen={setShowEditModal}>
+        <div className="w-full max-w-md bg-shell dark:bg-dark-shell p-6 rounded-xl shadow-xl border border-default dark:border-dark-default">
+          <h2 className="text-xl font-bold text-primary dark:text-dark-primary mb-6">Edit Teacher Details</h2>
+          {editingTeacher && (
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const updatedTeacher = {
+                ...editingTeacher,
+                firstName: formData.get('firstName'),
+                lastName: formData.get('lastName'),
+                email: formData.get('email'),
+                department: formData.get('department'),
+                status: formData.get('status'),
+                joined: formData.get('joined'),
+              };
+              setTeachers(teachers.map(t => t.id === editingTeacher.id ? updatedTeacher : t));
+              window.GooeyToaster?.success?.('Teacher updated successfully');
+              (() => {
+                setShowEditModal(false);
+                setEditingTeacher(null);
+              })();
+            }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">First Name</label>
+                  <input type="text" name="firstName" defaultValue={editingTeacher.firstName} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Last Name</label>
+                  <input type="text" name="lastName" defaultValue={editingTeacher.lastName} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Email</label>
+                  <input type="email" name="email" defaultValue={editingTeacher.email} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Department</label>
+                  <input type="text" name="department" defaultValue={editingTeacher.department} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Status</label>
+                  <select name="status" defaultValue={editingTeacher.status} className="w-full px-3 py-2 border border-default dark:border-dark-default rounded-md focus:border-accent dark:focus:border-accent focus:outline-none text-primary dark:text-dark-primary">
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Joined Date</label>
+                  <input type="date" name="joined" defaultValue={editingTeacher.joined} className="w-full px-3 py-2 border border-default dark:border-dark-default rounded-md focus:border-accent dark:focus:border-accent focus:outline-none text-primary dark:text-dark-primary" required />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button type="submit">Save</Button>
+              </div>
+            </form>
+          )}
+        </div>
+      </GlobalModal>
     </div>
   );
 }

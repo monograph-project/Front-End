@@ -146,3 +146,55 @@ export const deleteStudent = async (id) => {
     throw new Error(err.response?.data?.message || err.message);
   }
 };
+
+// Department API functions
+export const getDepartments = async () => {
+  try {
+    const response = await axiosInstance.get(API_URL.DEPARTMENT.GETALL);
+    return response.data;
+  } catch (err) {
+    throw new Error(err.response?.data?.message || err.message);
+  }
+};
+
+export const getDepartmentById = async (id) => {
+  try {
+    const response = await axiosInstance.get(API_URL.DEPARTMENT.GETBYID(id));
+    return response.data;
+  } catch (err) {
+    throw new Error(err.response?.data?.message || err.message);
+  }
+};
+
+export const createDepartment = async (departmentData) => {
+  try {
+    const response = await axiosInstance.post(
+      API_URL.DEPARTMENT.CREATE,
+      departmentData,
+    );
+    return response.data;
+  } catch (err) {
+    throw new Error(err.response?.data?.message || err.message);
+  }
+};
+
+export const updateDepartment = async (id, departmentData) => {
+  try {
+    const response = await axiosInstance.put(
+      API_URL.DEPARTMENT.UPDATE(id),
+      departmentData,
+    );
+    return response.data;
+  } catch (err) {
+    throw new Error(err.response?.data?.message || err.message);
+  }
+};
+
+export const deleteDepartment = async (id) => {
+  try {
+    await axiosInstance.delete(API_URL.DEPARTMENT.DELETE(id));
+  } catch (err) {
+    throw new Error(err.response?.data?.message || err.message);
+  }
+};
+

@@ -20,6 +20,7 @@ import AvatarDemo from "./../../components/Avatar";
 import Checkbox from "./../../components/Checkbox";
 import Button from "../../components/Button";
 import AddEmployeeForm from "../../components/AddEmployeeForm";
+import { useNavigate } from "react-router-dom";
 import GlobalModal from "../../components/GlobalModal";
 
 const headerData = [
@@ -33,9 +34,24 @@ const headerData = [
 ];
 
 function Employee() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  // Actions handler
+  const handleAction = (action) => {
+    switch (action) {
+      case "export":
+        exportToCSV();
+        break;
+      case "import":
+        window.GooeyToaster?.info?.("Import functionality coming soon");
+        break;
+    }
+  };
+
   const [employees, setEmployees] = useState([
     {
       id: 1,
@@ -120,17 +136,31 @@ function Employee() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button icon={<Icon d={IC.download} className="size-4" />} onClick={exportToCSV}>
-            Export
-          </Button>
-          <Button 
-            type="button"
-            icon={<Icon d={IC.plus} className="size-4" />} 
-            onClick={() => setShowAddModal(true)}
-          >
-            Add Employee
-          </Button>
-        </div>
+  <div className="flex-none">
+    <DropdownMenuRoot>
+      <DropdownTrigger>
+        Actions
+      </DropdownTrigger>
+      <DropdownContent align="end">
+        <DropdownItem icon={<Icon d={IC.download} className="size-4" />} onClick={() => handleAction("export")}>
+          Export
+        </DropdownItem>
+        <DropdownItem icon={<Icon d={IC.upload} className="size-4" />} onClick={() => handleAction("import")}>
+          Import
+        </DropdownItem>
+      </DropdownContent>
+    </DropdownMenuRoot>
+  </div>
+    <div className="flex-none">
+    <Button 
+      type="button"
+      icon={<Icon d={IC.plus} className="size-4" />} 
+      onClick={() => setShowAddModal(true)}
+    >
+      Add Employee
+    </Button>
+  </div>
+</div>
       </div>
 
       <div className="flex-1 border border-default dark:border-dark-default rounded-md ">
@@ -223,10 +253,13 @@ function Employee() {
                         />
                       </DropdownTrigger>
                       <DropdownContent align="end">
-                        <DropdownItem>
+                        <DropdownItem onClick={() => navigate(`/admin/employee/${employee.id}`)}>
                           <span>View Profile</span>
                         </DropdownItem>
-                        <DropdownItem>
+                        <DropdownItem onClick={() => {
+                          setEditingEmployee(employee);
+                          setShowEditModal(true);
+                        }}>
                           <span>Edit Details</span>
                         </DropdownItem>
                         <DropdownItem>
@@ -272,13 +305,71 @@ function Employee() {
           <Pagination />
         </div>
       )}
-      {showAddModal && (
-        <AddEmployeeForm 
-          employees={employees} 
-          setEmployees={setEmployees} 
-          onClose={() => setShowAddModal(false)} 
-        />
-      )}
+      <GlobalModal open={showAddModal} setOpen={setShowAddModal}>
+        <AddEmployeeForm employees={employees} setEmployees={setEmployees} onClose={() => setShowAddModal(false)} />
+      </GlobalModal>
+      <GlobalModal open={showEditModal} setOpen={setShowEditModal}>
+        <div className="w-full max-w-md bg-shell dark:bg-dark-shell p-6 rounded-xl shadow-xl border border-default dark:border-dark-default">
+          <h2 className="text-xl font-bold text-primary dark:text-dark-primary mb-6">Edit Employee Details</h2>
+          {editingEmployee && (
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const updatedEmployee = {
+                ...editingEmployee,
+                firstName: formData.get('firstName'),
+                lastName: formData.get('lastName'),
+                email: formData.get('email'),
+                department: formData.get('department'),
+                status: formData.get('status'),
+                joined: formData.get('joined'),
+              };
+              setEmployees(employees.map(emp => emp.id === editingEmployee.id ? updatedEmployee : emp));
+              window.GooeyToaster?.success?.('Employee updated successfully');
+              (() => {
+                setShowEditModal(false);
+                setEditingEmployee(null);
+              })();
+            }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">First Name</label>
+                  <input type="text" name="firstName" defaultValue={editingEmployee.firstName} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Last Name</label>
+                  <input type="text" name="lastName" defaultValue={editingEmployee.lastName} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Email</label>
+                  <input type="email" name="email" defaultValue={editingEmployee.email} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Department</label>
+                  <input type="text" name="department" defaultValue={editingEmployee.department} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Status</label>
+                  <select name="status" defaultValue={editingEmployee.status} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary">
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Joined Date</label>
+                  <input type="date" name="joined" defaultValue={editingEmployee.joined} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+              
+                <Button type="submit">Save</Button>
+              </div>
+            </form>
+          )}
+        </div>
+      </GlobalModal>
     </div>
   );
 }

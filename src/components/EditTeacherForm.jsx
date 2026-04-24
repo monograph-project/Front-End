@@ -4,27 +4,40 @@ import Field from './Field';
 import Button from './Button';
 import Icon from './Icon';
 import IC from './IC';
-import GlobalModal from './GlobalModal';
 
-function AddTeacherForm({ teachers, setTeachers, onClose }) {
-  const { register, handleSubmit, formState: { errors }, reset } = useForm();
-
-  const onSubmit = (data) => {
-    const newId = teachers.length > 0 ? Math.max(...teachers.map(t => t.id)) + 1 : 1;
-    const newTeacher = { ...data, id: newId, status: 'pending', joined: new Date().toISOString().split('T')[0] };
-    setTeachers([...teachers, newTeacher]);
-    reset();
-    onClose();
-  };
+function EditTeacherForm({ teacher, teachers, setTeachers, onClose }) {
+  const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm();
 
   useEffect(() => {
-    reset();
-  }, [reset]);
+    if (teacher) {
+      setValue('firstName', teacher.firstName);
+      setValue('lastName', teacher.lastName);
+      setValue('email', teacher.email);
+      setValue('department', teacher.department);
+    }
+  }, [teacher, setValue]);
+
+  const onSubmit = (data) => {
+    const updatedTeachers = teachers.map(t => 
+      t.id === teacher.id ? { ...t, ...data } : t
+    );
+    setTeachers(updatedTeachers);
+    onClose();
+  };
 
   return (
     <div className="w-[550px] max-h-[90vh] h-auto bg-shell dark:bg-dark-card p-6 rounded-lg shadow-xl flex flex-col">
       <div className="flex items-center justify-between mb-6 pb-2">
-        <h2 className="text-lg font-bold text-primary dark:text-dark-primary">Add New Teacher</h2>
+        <h2 className="text-lg font-bold text-primary dark:text-dark-primary">
+          Edit Teacher: {teacher?.firstName} {teacher?.lastName}
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-10 w-10 p-2.5 bg-muted rounded-xl flex items-center justify-center transition-all hover:bg-accent"
+        >
+          <Icon d={IC.x} className="size-5" />
+        </button>
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 flex-1 overflow-y-auto pr-1 -mr-1">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -54,20 +67,18 @@ function AddTeacherForm({ teachers, setTeachers, onClose }) {
           error={errors.department?.message}
           required
         />
-        <Field
-          label="Password"
-          type="password"
-          {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'Min 6 chars' } })}
-          error={errors.password?.message}
-          required
-        />
         <div className="flex gap-3 pt-4 mt-2">
-          <Button type="submit" className="flex-1 text-sm h-9">Add Teacher</Button>
+          <Button type="button" variant="secondary" onClick={onClose} className="flex-1 text-sm h-9">
+            Cancel
+          </Button>
+          <Button type="submit" className="flex-1 text-sm h-9">
+            Update Teacher
+          </Button>
         </div>
       </form>
     </div>
   );
 }
 
-export default AddTeacherForm;
+export default EditTeacherForm;
 

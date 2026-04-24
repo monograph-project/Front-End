@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
 import {
   DropdownContent,
   DropdownItem,
@@ -19,6 +20,9 @@ import TableRow from "../../components/TableRow";
 import Pagination from "../../components/Pagination";
 import AvatarDemo from "./../../components/Avatar";
 import Checkbox from "./../../components/Checkbox";
+import Field from "../../components/Field";
+import Button from "../../components/Button";
+import GlobalModal from "../../components/GlobalModal";
 
 const headerData = [
   { title: "" },
@@ -32,10 +36,12 @@ const headerData = [
 
 function Users() {
   const [search, setSearch] = useState("");
-  // eslint-disable-next-line no-empty-pattern
+  const [editUser, setEditUser] = useState(null);
+// eslint-disable-next-line no-empty-pattern
   const [] = useState("all");
+  const [deleteUserId, setDeleteUserId] = useState(null);
   const navigate = useNavigate();
-  const [users] = useState([
+  const [users, setUsers] = useState([
     {
       id: 1,
       user: "Test Admin",
@@ -225,32 +231,12 @@ function Users() {
                         >
                           <span>Profile</span>
                         </DropdownItem>
-                        <DropdownItem
-                          icon={
-                            <svg
-                              width="15"
-                              height="15"
-                              viewBox="0 0 15 15"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M9.94969 7.49989C9.94969 8.85288 8.85288 9.94969 7.49989 9.94969C6.14691 9.94969 5.0501 8.85288 5.0501 7.49989C5.0501 6.14691 6.14691 5.0501 7.49989 5.0501C8.85288 5.0501 9.94969 6.14691 9.94969 7.49989ZM10.8632 8C10.6213 9.64055 9.20764 10.8997 7.49989 10.8997C5.79214 10.8997 4.37847 9.64055 4.13662 8H0.5C0.223858 8 0 7.77614 0 7.5C0 7.22386 0.223858 7 0.5 7H4.13659C4.37835 5.35935 5.79206 4.1001 7.49989 4.1001C9.20772 4.1001 10.6214 5.35935 10.8632 7H14.5C14.7761 7 15 7.22386 15 7.5C15 7.77614 14.7761 8 14.5 8H10.8632Z"
-                                fill="currentColor"
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                              ></path>
-                            </svg>
-                          }
-                        >
-                          Settings
-                        </DropdownItem>
+                       
 
                         <DropdownSeparator />
 
                         <DropdownLabel>Actions</DropdownLabel>
-
-                        <DropdownItem
+                         <DropdownItem
                           icon={
                             <svg
                               width="15"
@@ -267,10 +253,12 @@ function Users() {
                               ></path>
                             </svg>
                           }
-                          variant="warning"
+                          onClick={() => setEditUser(user)}
                         >
-                          Archive
+                          Edit
                         </DropdownItem>
+
+                     
                         <DropdownItem
                           icon={
                             <svg
@@ -289,6 +277,7 @@ function Users() {
                             </svg>
                           }
                           variant="danger"
+onClick={() => setDeleteUserId(user.id)}
                         >
                           Delete
                         </DropdownItem>
@@ -303,9 +292,174 @@ function Users() {
         <div>
           <Pagination />
         </div>
+        {editUser && (
+          <EditUserForm 
+            user={editUser} 
+            setEditUser={setEditUser} 
+            users={users} 
+            setUsers={setUsers} 
+          />
+        )}
+        {deleteUserId && (
+          <DeleteConfirmModal
+            userId={deleteUserId}
+            user={users.find(u => u.id === deleteUserId)}
+            setDeleteUserId={setDeleteUserId}
+            users={users}
+            setUsers={setUsers}
+          />
+        )}
       </div>
     </div>
   );
 }
 
+function DeleteConfirmModal({ userId, user, setDeleteUserId, users, setUsers }) {
+  const confirmDelete = () => {
+    setUsers(users.filter(u => u.id !== userId));
+    setDeleteUserId(null);
+  };
+
+  const cancelDelete = () => {
+    setDeleteUserId(null);
+  };
+
+  return (
+    <GlobalModal open={true} setOpen={cancelDelete}>
+      <div className="w-[450px] max-h-[70vh] bg-shell dark:bg-dark-card p-6 rounded-xl shadow-2xl border border-default dark:border-dark-default flex flex-col z-[1000]">
+        <div className="flex items-start gap-3 mb-6 pb-4 border-b border-default dark:border-dark-default">
+          <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 text-red-600 dark:text-red-400">
+            <svg width="20" height="20" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7.5 1.125C7.74858 1.125 7.95 1.32647 7.95 1.575V7.3125L10.1819 5.08071C10.3576 4.90497 10.6425 4.90497 10.8182 5.08071C10.994 5.25645 10.994 5.54137 10.8182 5.71711L7.81825 8.71711C7.64251 8.89284 7.35759 8.89284 7.18185 8.71711L4.18185 5.71711C4.00611 5.54137 4.00611 5.25645 4.18185 5.08071C4.35759 4.90497 4.64251 4.90497 4.81825 5.08071L7.05 7.3125V1.575C7.05 1.32647 7.25152 1.125 7.5 1.125ZM2.625 9.75C2.90114 9.75 3.125 9.97411 3.125 10.25V12C3.125 12.5523 3.57268 13 4.00365 13H11.0012C11.5529 13 12 12.5528 12 12V10.25C12 9.97411 12.2239 9.75 12.5 9.75C12.7761 9.75 13 9.97411 13 10.25V12C13 13.1041 12.1062 14 11.0012 14H4.00365C2.89749 14 2 13.103 2 12V10.25C2 9.97411 2.22386 9.75 2.625 9.75Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"/>
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+              Delete User
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-2">
+              Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-gray-100">{user?.user}</span>?
+            </p>
+            <p className="text-gray-600 dark:text-gray-300 text-xs mb-4">
+              Email: <span className="font-mono bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded text-xs">{user?.email}</span>
+            </p>
+            <p className="text-red-600 dark:text-red-400 text-xs font-medium">
+              This action cannot be undone.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 pt-4 mt-auto border-t border-default dark:border-dark-default">
+      
+          <Button 
+            onClick={confirmDelete} 
+            variant="destructive" 
+            className="flex-1 text-sm h-10 font-medium"
+          >
+            Delete User
+          </Button>
+        </div>
+      </div>
+    </GlobalModal>
+  );
+}
+
+function EditUserForm({ user, setEditUser, users, setUsers }) {
+  const { register, handleSubmit, setValue } = useForm({
+    defaultValues: {
+      user: user.user,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      registered: user.registered,
+    },
+  });
+
+  useEffect(() => {
+    setValue("user", user.user);
+    setValue("email", user.email);
+    setValue("role", user.role);
+    setValue("status", user.status);
+    setValue("registered", user.registered);
+  }, [user, setValue]);
+
+  const onSubmit = (data) => {
+    setUsers(users.map(u => u.id === user.id ? { ...u, ...data } : u));
+    setEditUser(null);
+  };
+
+  return (
+    <GlobalModal open={true} setOpen={() => setEditUser(null)}>
+      <div className="w-[550px] max-h-[90vh] h-auto bg-shell dark:bg-dark-card p-6 rounded-lg shadow-xl flex flex-col z-[1000]">
+        <div className="flex items-center justify-between mb-6 pb-2">
+          <h2 className="text-lg font-bold text-primary dark:text-dark-primary">
+            Edit User Settings
+          </h2>
+        </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 flex-1 overflow-y-auto pr-1 -mr-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field
+              label="Full Name"
+              {...register("user", { required: "Name is required" })}
+              error={null}
+              required
+            />
+            <Field
+              label="Email"
+              type="email"
+              {...register("email", { required: "Email is required" })}
+              error={null}
+              required
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+<div>
+              <label className="text-[11px] font-semibold text-primary dark:text-dark-primary mb-1 block">
+                Role
+              </label>
+              <Select
+                options={[
+                  { value: "admin", label: "Admin" },
+                  { value: "teacher", label: "Teacher" },
+                  { value: "student", label: "Student" },
+                  { value: "staff", label: "Staff" },
+                  { value: "dean", label: "Dean" },
+                  { value: "user", label: "User" },
+                ]}
+                {...register("role")}
+              />
+            </div>
+<div>
+              <label className="text-[11px] font-semibold text-primary dark:text-dark-primary mb-1 block">
+                Status
+              </label>
+              <Select
+                options={[
+                  { value: "active", label: "Active" },
+                  { value: "pending", label: "Pending" },
+                  { value: "suspended", label: "Suspended" },
+                  { value: "rejected", label: "Rejected" },
+                ]}
+                {...register("status")}
+              />
+            </div>
+          </div>
+          <Field
+            label="Registered Date"
+            type="date"
+            {...register("registered")}
+            className="md:col-span-2"
+          />
+          <div className="flex gap-3 pt-4 mt-2 md:col-span-2">
+            <Button type="submit" className="flex-1 text-sm h-9">
+              Update
+            </Button>
+          
+          </div>
+        </form>
+      </div>
+    </GlobalModal>
+  );
+}
+
 export default Users;
+

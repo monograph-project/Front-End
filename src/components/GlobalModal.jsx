@@ -12,7 +12,13 @@ function GloableModal({ open, setOpen, children, isClose, className }) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.23 }}
-          className="bg-black/15 dark:bg-gray-950/80 backdrop-blur-[1px] h-screen mx-auto fixed inset-0 z-999 flex justify-center items-center cursor-pointer"
+className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 dark:bg-black/70"
+          onClick={(e) => {
+            // فقط اگر روی پس‌زمینه کلیک شود بسته شود
+            if (e.target === e.currentTarget) {
+              setOpen(false);
+            }
+          }}
         >
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
@@ -20,12 +26,13 @@ function GloableModal({ open, setOpen, children, isClose, className }) {
             exit={{ scale: 0.8, opacity: 0 }}
             transition={{ duration: 0.3 }}
             className={`relative ${className ? className : "p-3"}`}
+            onClick={(e) => e.stopPropagation()} // جلوگیری از بسته شدن هنگام کلیک روی محتوا
           >
             {!isClose && (
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="absolute top-4 right-4 h-10 w-10 p-2.5 rounded-xl flex items-center justify-center transition-all text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="absolute top-4 right-4 h-10 w-10 p-2.5 rounded-xl flex items-center justify-center transition-all text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 z-10"
               >
                 <svg 
                   className="size-5 stroke-current" 
