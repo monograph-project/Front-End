@@ -108,6 +108,116 @@
       "department": "Mathematics",
       "enrollmentDate": "2024-01-10",
       "status": "pending"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
+      "code": "STU-2023-002",
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "t1DJFdVieW4"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "",
+      "code": "STU-2023-002",
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "active",
+      "id": "p_ax_cbfdbY"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
+      "code": "STU-2023-002",
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "dZ0uW8q3LAA"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jugful",
+      "email": "alamzadaj@gmail.com",
+      "phone": "",
+      "code": "STU-2023-002",
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "r8RNIUtAduY"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "",
+      "code": "STU-2023-002",
+      "department": "Medicine",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "MdxW8w1-X8c"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
+      "code": "STU-2023-002",
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "P9RN3bgIAdU"
+    },
+    {
+      "firstName": "khan",
+      "lastName": "jan",
+      "email": "ejfksdklfsd@gamil.com",
+      "phone": "5665454",
+      "code": "STU-2023-002",
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "mNGbT2O1ZMk"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
+      "code": "qwe",
+      "department": "Mathematics",
+      "enrollmentDate": "2026-04-25",
+      "status": "active",
+      "id": "evXYtWhVlhI"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
+      "code": "qwedf",
+      "department": "Mathematics",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "M5qll0_R1Sg"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
+      "code": "asd",
+      "department": "sdfv",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "FhoQtGJ2nAc"
     }
   ],
   "login": [
@@ -119,18 +229,64 @@
   ],
   "departments": [
     {
-      "id": "bio-1",
-      "name": "Biology",
-      "head": "sarah.wilson@school.edu",
-      "status": "active",
-      "created": "2023-04-05"
+      "name": "aslan",
+      "head": "alamzadaj@gmail.com",
+      "status": "pending",
+      "id": "DmCOo6AfmGo"
     },
     {
-      "id": "chem-1",
-      "name": "Chemistry",
-      "head": "david.brown@school.edu",
-      "status": "suspended",
-      "created": "2023-05-12"
+      "name": "aslan",
+      "head": "alamzadaj@gmail.com",
+      "status": "inactive",
+      "id": "3xMhiscfqJU"
+    },
+    {
+      "name": "aslan",
+      "head": "alamzadaj@gmail.com",
+      "status": "active",
+      "id": "DY94kJK7uEw"
+    },
+    {
+      "name": "aslan",
+      "head": "alamzadaj@gmail.com",
+      "status": "inactive",
+      "id": "IEJsr6-NG2w"
+    },
+    {
+      "name": "aslan",
+      "head": "alamzadaj@gmail.com",
+      "status": "inactive",
+      "id": "WfPmz3y4Z6E"
+    },
+    {
+      "name": "aslan",
+      "head": "ejfksdklfsd@gamil.com",
+      "status": "pending",
+      "id": "zot2VGUwtX8"
+    },
+    {
+      "name": "سیب",
+      "head": "",
+      "status": "active",
+      "id": "5jSjU8T1BiA"
+    },
+    {
+      "name": "sdf",
+      "head": "kjkgdk@gmail.com",
+      "status": "inactive",
+      "id": "qoO6FQIfSgM"
+    },
+    {
+      "name": "sdf2gmail.com",
+      "head": "kjkgdk@gmail.com",
+      "status": "pending",
+      "id": "NVBg9LpAyyA"
+    },
+    {
+      "name": "k",
+      "head": "askldfj@gmail.com",
+      "status": "pending",
+      "id": "3SYUOrI5okY"
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"

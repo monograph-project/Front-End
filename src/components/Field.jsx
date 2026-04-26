@@ -12,6 +12,8 @@ function Field({
   value,
   iconD,
   autoComplete,
+  children,
+  ...rest
 }) {
   const [showPw, setShowPw] = useState(false);
   const isPassword = type === "password";
@@ -31,31 +33,36 @@ function Field({
                 d={iconD}
                 className="size-3 stroke-muted dark:stroke-dark-muted stroke-[1.5]"
               />
-            </span>
+             </span>
           )}
-          <input
-            {...register}
-            id={id}
-            required={required}
-            type={resolvedType}
-            placeholder={placeholder}
-            value={value}
-            onChange={onChange}
-            autoComplete={autoComplete}
-            className={`
-              w-full h-8 text-xs rounded-lg outline-none transition-colors
-              pl-3 pr-3 py-1.5
-              text-primary dark:text-dark-primary
-              placeholder:text-muted dark:placeholder:text-dark-muted
-              bg-input dark:bg-dark-input
-              border border-default dark:border-dark-default
-              focus:border-accent 
-              dark:focus:border-white
-              transition-colors
-              ${iconD ? "pl-7" : ""}
-              ${isPassword ? "!pr-8" : ""}
-            `}
-          />
+          {children ? (
+            children
+          ) : (
+            <input
+              id={id}
+              required={required}
+              type={resolvedType}
+              placeholder={placeholder}
+              value={value}
+              onChange={onChange}
+              autoComplete={autoComplete}
+              {...register}
+              {...rest}
+              className={`
+                w-full h-8 text-xs rounded-lg outline-none transition-colors
+                pl-3 pr-3 py-1.5
+                text-primary dark:text-dark-primary
+                placeholder:text-muted dark:placeholder:text-dark-muted
+                bg-input dark:bg-dark-input
+                border border-default dark:border-dark-default
+                focus:border-accent 
+                dark:focus:border-white
+                transition-colors
+                ${iconD ? "pl-7" : ""}
+                ${isPassword ? "!pr-8" : ""}
+              `}
+            />
+          )}
           {isPassword && (
             <button
               type="button"

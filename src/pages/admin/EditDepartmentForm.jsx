@@ -84,7 +84,7 @@ export default function EditDepartmentForm({ department, onClose, onSuccess }) {
             Cancel
           </Button>
           <Button type="submit" disabled={mutation.isPending} className="flex-1 text-sm h-9">
-            {mutation.isPending ? 'Updating...' : 'Update Department'}
+            {mutation.isPending ? 'Updating...' : 'Update '}
           </Button>
         </div>
 

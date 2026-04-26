@@ -36,7 +36,7 @@ export default function DepartmentProfile() {
       <div className="flex-1 p-8 text-center">
         <div className="text-6xl mb-4 text-muted">🏛️</div>
         <h2 className="text-2xl font-bold text-primary mb-2">Department not found</h2>
-        <Button onClick={() => navigate('/admin/departments')}>Go Back</Button>
+            <Button onClick={() => navigate('/admin/department')}>Go Back</Button>
       </div>
     );
   }
@@ -58,7 +58,7 @@ export default function DepartmentProfile() {
         {/* Header */}
         <div className="flex items-start justify-between border-b border-default dark:border-dark-default pb-3 gap-6 mb-8">
           <button
-            onClick={() => navigate('/admin/departments')}
+            onClick={() => navigate('/admin/department')}
             className="p-1 -ml-1 text-muted hover:text-primary hover:bg-accent/10 rounded-md transition-all flex items-center"
           >
             <Icon d={IC.chevLeft} className="w-5 h-5" />
