@@ -758,7 +758,11 @@ const AgentsPage = () => {
             />
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
           </div>
+<<<<<<< HEAD
           <button className="px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap">
+=======
+          <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap">
+>>>>>>> 6eb1a9eab2a61c0983344e191449f3769e132546
             New agent
           </button>
         </div>
@@ -819,7 +823,11 @@ const AgentsPage = () => {
                   <button className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md focus:outline-none whitespace-nowrap">
                     View logs
                   </button>
+<<<<<<< HEAD
                   <button className="px-3 py-1.5 text-xs bg-gray-600 hover:bg-gray-400 text-white rounded-md focus:outline-none whitespace-nowrap">
+=======
+                  <button className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md focus:outline-none whitespace-nowrap">
+>>>>>>> 6eb1a9eab2a61c0983344e191449f3769e132546
                     Run agent
                   </button>
                 </div>

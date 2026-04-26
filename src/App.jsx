@@ -24,11 +24,14 @@ import TopicFeed from "./pages/TopicFeed";
 import Unauthorized from "./pages/Unauthorized";
 import WriteStory from "./pages/WriteStory";
 import ProjectRepository from "./pages/ProjectRepository";
+<<<<<<< HEAD
 import Collaboration from "./pages/Collaboration";
 import ProjectGroup from "./pages/ProjectGroup";
 import ProjectCourses from "./pages/ProjectCourses";
 import ProjectAssignments from "./pages/ProjectAssignments";
 import ProjectGrade from "./pages/ProjectGrade";
+=======
+>>>>>>> 6eb1a9eab2a61c0983344e191449f3769e132546
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
@@ -163,7 +166,10 @@ export default function App() {
             <Route path="calendar" element={<Calendar />} />
             <Route path="reports" element={<Menu />} />
             <Route path="projects" element={<ProjectRepository />} />
+<<<<<<< HEAD
             <Route path="deals" element={<ProjectGroup/>} />
+=======
+>>>>>>> 6eb1a9eab2a61c0983344e191449f3769e132546
             <Route
               path="courses"
               element={
