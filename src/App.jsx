@@ -28,6 +28,7 @@ import Collaboration from "./pages/Collaboration";
 import ProjectGroup from "./pages/ProjectGroup";
 import ProjectCourses from "./pages/ProjectCourses";
 import ProjectAssignments from "./pages/ProjectAssignments";
+import ProjectGrade from "./pages/ProjectGrade";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
@@ -172,10 +173,11 @@ export default function App() {
             <Route
               path="grades"
               element={
-                <PlaceholderPage
-                  title="Grades"
-                  description="Scores and feedback from instructors."
-                />
+                // <PlaceholderPage
+                //   title="Grades"
+                //   description="Scores and feedback from instructors."
+                // />
+                <ProjectGrade/>
               }
             />
             <Route
