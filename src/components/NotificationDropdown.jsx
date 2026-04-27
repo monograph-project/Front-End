@@ -4,6 +4,7 @@ import IC from "./IC";
 import Icon from "./Icon";
 import Avatar from "./Avatar";
 import { useClickOutSide } from "../hooks/useClickOutside";
+import { useTranslation } from "react-i18next";
 const INITIAL = [
   {
     id: 1,
@@ -57,6 +58,7 @@ const INITIAL = [
   },
 ];
 export default function NotificationDropdown({ onClose }) {
+  const { t } = useTranslation();
   const ref = useClickOutSide(onClose);
 
   const [notifications, setNotifications] = useState(INITIAL);
@@ -94,8 +96,8 @@ export default function NotificationDropdown({ onClose }) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-default dark:border-dark-default">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-primary dark:text-dark-primary">
-            Notifications
+            <span className="text-sm font-semibold text-primary dark:text-dark-primary">
+            {t("notificationDropdown.title")}
           </span>
           {unreadCount > 0 && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-accent/15 text-accent dark:bg-dark-accent/20 dark:text-dark-accent leading-none">
@@ -109,7 +111,7 @@ export default function NotificationDropdown({ onClose }) {
               onClick={markAllRead}
               className="text-[11px] text-accent dark:text-dark-accent hover:underline font-medium"
             >
-              Mark all read
+              {t("notificationDropdown.markAllRead")}
             </button>
           )}
           <button
@@ -136,7 +138,7 @@ export default function NotificationDropdown({ onClose }) {
                 : "text-muted dark:text-dark-muted hover:bg-hover dark:hover:bg-dark-hover"
             }`}
           >
-            {tab}
+            {t(`notificationDropdown.tabs.${tab}`)}
             {tab === "unread" && unreadCount > 0 && (
               <span className="ml-1.5 text-[10px]">({unreadCount})</span>
             )}
@@ -148,7 +150,7 @@ export default function NotificationDropdown({ onClose }) {
       <ul className="max-h-80 overflow-y-auto divide-y divide-default dark:divide-dark-default">
         {filtered.length === 0 ? (
           <li className="py-10 text-center text-xs text-muted dark:text-dark-muted">
-            No notifications
+            {t("notificationDropdown.empty")}
           </li>
         ) : (
           filtered.map((n) => (
@@ -196,7 +198,7 @@ export default function NotificationDropdown({ onClose }) {
       {/* Footer */}
       <div className="px-4 py-3 border-t border-default dark:border-dark-default">
         <button className="w-full text-xs text-accent dark:text-dark-accent font-medium hover:underline">
-          View all notifications →
+          {t("notificationDropdown.viewAll")}
         </button>
       </div>
     </Dropdown>

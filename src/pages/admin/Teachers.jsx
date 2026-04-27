@@ -19,20 +19,13 @@ import Pagination from "../../components/Pagination";
 import AvatarDemo from "./../../components/Avatar";
 import Checkbox from "./../../components/Checkbox";
 import Button from "../../components/Button";
-const headerData = [
-  { title: "" },
-  { title: "ID" },
-  { title: "Teacher" },
-  { title: "Department" },
-  { title: "Status" },
-  { title: "Joined" },
-  { title: "Actions" },
-];
+import { useTranslation } from "react-i18next";
 
 function Teachers() {
+  const { t, i18n } = useTranslation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [teachers, setTeachers] = useState([
+  const [teachers] = useState([
     {
       id: 1,
       firstName: "John",
@@ -80,19 +73,56 @@ function Teachers() {
     },
   ]);
 
+  const headerData = [
+    { title: "" },
+    { title: t("adminTeachers.table.id") },
+    { title: t("adminTeachers.table.teacher") },
+    { title: t("adminTeachers.table.department") },
+    { title: t("adminTeachers.table.status") },
+    { title: t("adminTeachers.table.joined") },
+    { title: t("adminTeachers.table.actions") },
+  ];
+
+  const filteredTeachers = teachers.filter((teacher) => {
+    const matchesSearch = [teacher.firstName, teacher.lastName, teacher.email, teacher.department]
+      .join(" ")
+      .toLowerCase()
+      .includes(search.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || teacher.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const locale =
+    i18n.language === "ps"
+      ? "ps-AF"
+      : i18n.language === "prs"
+        ? "fa-AF"
+        : "en-US";
+
+  const statusOptions = [
+    { value: "all", label: t("adminShared.filters.allStatus") },
+    { value: "active", label: t("adminShared.status.active") },
+    { value: "pending", label: t("adminShared.status.pending") },
+    { value: "rejected", label: t("adminShared.status.rejected") },
+    { value: "suspended", label: t("adminShared.status.suspended") },
+  ];
+
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col bg-shell dark:bg-dark-shell gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-primary dark:text-dark-primary mb-1">
-            Teachers Management
+            {t("adminTeachers.header.title")}
           </h1>
           <p className="text-muted dark:text-dark-muted">
-            Manage {teachers.length} teachers and their assignment status
+            {t("adminTeachers.header.description", {
+              count: filteredTeachers.length,
+            })}
           </p>
         </div>
         <Button icon={<Icon d={IC.plus} className="size-4" />}>
-          Add Teacher
+          {t("adminTeachers.actions.add")}
         </Button>
       </div>
 
@@ -105,7 +135,7 @@ function Teachers() {
             />
             <input
               type="text"
-              placeholder="Search teachers by name, email or department..."
+              placeholder={t("adminTeachers.filters.searchPlaceholder")}
               className="w-full pl-10 pr-4 py-1.5 border border-default dark:border-dark-default rounded-md text-sm focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all placeholder:text-muted dark:placeholder:text-dark-muted"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -113,13 +143,7 @@ function Teachers() {
           </div>
           <div className="w-48">
             <Select
-              options={[
-                { value: "all", label: "All Status" },
-                { value: "active", label: "Active" },
-                { value: "pending", label: "Pending" },
-                { value: "rejected", label: "Rejected" },
-                { value: "suspended", label: "Suspended" },
-              ]}
+              options={statusOptions}
               value={statusFilter}
               onValueChange={setStatusFilter}
             />
@@ -130,7 +154,7 @@ function Teachers() {
           <Table>
             <TableHeader headerData={headerData} />
             <TableBody>
-              {teachers.map((teacher, index) => (
+              {filteredTeachers.map((teacher) => (
                 <TableRow key={teacher.id}>
                   <TableColumn className="w-10">
                     <Checkbox />
@@ -168,11 +192,11 @@ function Teachers() {
                               : "bg-muted text-muted-foreground"
                       }`}
                     >
-                      {teacher.status}
+                      {t(`adminShared.status.${teacher.status}`)}
                     </span>
                   </TableColumn>
                   <TableColumn className="text-xs whitespace-nowrap">
-                    {new Date(teacher.joined).toLocaleDateString("en-US", {
+                    {new Date(teacher.joined).toLocaleDateString(locale, {
                       year: "numeric",
                       month: "short",
                       day: "numeric",
@@ -188,24 +212,24 @@ function Teachers() {
                       </DropdownTrigger>
                       <DropdownContent align="end">
                         <DropdownItem>
-                          <span>View Profile</span>
+                          <span>{t("adminShared.actions.viewProfile")}</span>
                         </DropdownItem>
                         <DropdownItem>
-                          <span>Edit Details</span>
+                          <span>{t("adminShared.actions.editDetails")}</span>
                         </DropdownItem>
                         <DropdownItem>
-                          <span>Send Message</span>
+                          <span>{t("adminShared.actions.sendMessage")}</span>
                         </DropdownItem>
                         <DropdownSeparator />
                         <DropdownItem variant="danger">
-                          <span>Remove Teacher</span>
+                          <span>{t("adminTeachers.actions.remove")}</span>
                         </DropdownItem>
                       </DropdownContent>
                     </DropdownMenuRoot>
                   </TableColumn>
                 </TableRow>
               ))}
-              {teachers.length === 0 && (
+              {filteredTeachers.length === 0 && (
                 <TableRow>
                   <TableColumn
                     colSpan={headerData.length}
@@ -218,9 +242,11 @@ function Teachers() {
                           className="w-5 h-5 text-muted-foreground"
                         />
                       </div>
-                      <span className="font-medium">No teachers found</span>
+                      <span className="font-medium">
+                        {t("adminTeachers.empty.title")}
+                      </span>
                       <span className="text-xs opacity-75">
-                        Try adjusting your search or filter criteria
+                        {t("adminTeachers.empty.description")}
                       </span>
                     </div>
                   </TableColumn>
@@ -231,7 +257,7 @@ function Teachers() {
         </div>
       </div>
 
-      {teachers.length > 0 && (
+      {filteredTeachers.length > 0 && (
         <div className="pt-4">
           <Pagination />
         </div>

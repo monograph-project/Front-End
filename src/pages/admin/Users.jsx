@@ -18,21 +18,13 @@ import TableRow from "../../components/TableRow";
 import Pagination from "../../components/Pagination";
 import AvatarDemo from "./../../components/Avatar";
 import Checkbox from "./../../components/Checkbox";
-
-const headerData = [
-  { title: "" },
-  { title: "ID" },
-  { title: "User" },
-  { title: "Role" },
-  { title: "Status" },
-  { title: "Registered" },
-  { title: "Actions" },
-];
+import { useTranslation } from "react-i18next";
 
 function Users() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [users, setUsers] = useState([
+  const [users] = useState([
     {
       id: 1,
       user: "Test Admin",
@@ -115,15 +107,43 @@ function Users() {
     },
   ]);
 
+  const headerData = [
+    { title: "" },
+    { title: t("adminUsers.table.id") },
+    { title: t("adminUsers.table.user") },
+    { title: t("adminUsers.table.role") },
+    { title: t("adminUsers.table.status") },
+    { title: t("adminUsers.table.registered") },
+    { title: t("adminUsers.table.actions") },
+  ];
+
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch = [user.user, user.email, user.role]
+      .join(" ")
+      .toLowerCase()
+      .includes(search.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || user.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const statusOptions = [
+    { value: "all", label: t("adminShared.filters.allStatus") },
+    { value: "active", label: t("adminShared.status.active") },
+    { value: "pending", label: t("adminShared.status.pending") },
+    { value: "rejected", label: t("adminShared.status.rejected") },
+    { value: "suspended", label: t("adminShared.status.suspended") },
+  ];
+
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col  bg-shell dark:bg-dark-shell">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary dark:text-dark-primary">
-            Users Management
+            {t("adminUsers.header.title")}
           </h1>
           <p className="text-muted dark:text-dark-muted">
-            Manage {users.length} registered users, their status and roles
+            {t("adminUsers.header.description", { count: filteredUsers.length })}
           </p>
         </div>
       </div>
@@ -137,7 +157,7 @@ function Users() {
             />
             <input
               type="text"
-              placeholder="Search users by name or email..."
+              placeholder={t("adminUsers.filters.searchPlaceholder")}
               className="w-full pl-10 pr-4 bg-transparent py-1.5 focus:border-default dark:focus:border-dark-default  rounded-md border border-default dark:border-dark-default    transition-all"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -146,13 +166,9 @@ function Users() {
 
           <div className=" w-70">
             <Select
-              options={[
-                { value: "all", label: "All Status" },
-                { value: "active", label: "Active" },
-                { value: "pending", label: "Pending" },
-                { value: "rejected", label: "Rejected" },
-                { value: "suspended", label: "Suspended" },
-              ]}
+              options={statusOptions}
+              value={statusFilter}
+              onValueChange={setStatusFilter}
             />
           </div>
         </div>
@@ -160,7 +176,7 @@ function Users() {
           <Table>
             <TableHeader headerData={headerData}></TableHeader>
             <TableBody>
-              {users?.map((user, index) => (
+              {filteredUsers?.map((user, index) => (
                 <TableRow key={index}>
                   <TableColumn className={"w-6"}>
                     <Checkbox />
@@ -175,8 +191,8 @@ function Users() {
                       <div className="col-start-2 text-[10px]">{user.user}</div>
                     </div>
                   </TableColumn>
-                  <TableColumn>{user.role}</TableColumn>
-                  <TableColumn>{user.status}</TableColumn>
+                  <TableColumn>{t(`adminShared.roles.${user.role}`)}</TableColumn>
+                  <TableColumn>{t(`adminShared.status.${user.status}`)}</TableColumn>
                   <TableColumn>{user.registered}</TableColumn>
                   <TableColumn>
                     <DropdownMenuRoot>
@@ -199,7 +215,7 @@ function Users() {
                       {/* <AccountTrigger /> */}
 
                       <DropdownContent>
-                        <DropdownLabel>Account</DropdownLabel>
+                        <DropdownLabel>{t("adminShared.labels.account")}</DropdownLabel>
 
                         <DropdownItem
                           icon={
@@ -219,7 +235,7 @@ function Users() {
                             </svg>
                           }
                         >
-                          <span>Profile</span>
+                          <span>{t("adminShared.actions.profile")}</span>
                         </DropdownItem>
                         <DropdownItem
                           icon={
@@ -239,12 +255,12 @@ function Users() {
                             </svg>
                           }
                         >
-                          Settings
+                          {t("adminShared.actions.settings")}
                         </DropdownItem>
 
                         <DropdownSeparator />
 
-                        <DropdownLabel>Actions</DropdownLabel>
+                        <DropdownLabel>{t("adminShared.labels.actions")}</DropdownLabel>
 
                         <DropdownItem
                           icon={
@@ -265,7 +281,7 @@ function Users() {
                           }
                           variant="warning"
                         >
-                          Archive
+                          {t("adminShared.actions.archive")}
                         </DropdownItem>
                         <DropdownItem
                           icon={
@@ -286,13 +302,23 @@ function Users() {
                           }
                           variant="danger"
                         >
-                          Delete
+                          {t("adminShared.actions.delete")}
                         </DropdownItem>
                       </DropdownContent>
                     </DropdownMenuRoot>
                   </TableColumn>
                 </TableRow>
               ))}
+              {filteredUsers.length === 0 && (
+                <TableRow>
+                  <TableColumn
+                    colSpan={headerData.length}
+                    className="text-center py-8 text-muted dark:text-dark-muted"
+                  >
+                    {t("adminUsers.empty")}
+                  </TableColumn>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

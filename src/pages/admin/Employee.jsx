@@ -19,20 +19,13 @@ import Pagination from "../../components/Pagination";
 import AvatarDemo from "./../../components/Avatar";
 import Checkbox from "./../../components/Checkbox";
 import Button from "../../components/Button";
-const headerData = [
-  { title: "" },
-  { title: "ID" },
-  { title: "Employee" },
-  { title: "Department" },
-  { title: "Status" },
-  { title: "Joined" },
-  { title: "Actions" },
-];
+import { useTranslation } from "react-i18next";
 
 function Employee() {
+  const { t, i18n } = useTranslation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [employees, setEmployees] = useState([
+  const [employees] = useState([
     {
       id: 1,
       firstName: "Robert",
@@ -80,19 +73,56 @@ function Employee() {
     },
   ]);
 
+  const headerData = [
+    { title: "" },
+    { title: t("adminEmployee.table.id") },
+    { title: t("adminEmployee.table.employee") },
+    { title: t("adminEmployee.table.department") },
+    { title: t("adminEmployee.table.status") },
+    { title: t("adminEmployee.table.joined") },
+    { title: t("adminEmployee.table.actions") },
+  ];
+
+  const filteredEmployees = employees.filter((employee) => {
+    const matchesSearch = [employee.firstName, employee.lastName, employee.email, employee.department]
+      .join(" ")
+      .toLowerCase()
+      .includes(search.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || employee.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const locale =
+    i18n.language === "ps"
+      ? "ps-AF"
+      : i18n.language === "prs"
+        ? "fa-AF"
+        : "en-US";
+
+  const statusOptions = [
+    { value: "all", label: t("adminShared.filters.allStatus") },
+    { value: "active", label: t("adminShared.status.active") },
+    { value: "pending", label: t("adminShared.status.pending") },
+    { value: "rejected", label: t("adminShared.status.rejected") },
+    { value: "suspended", label: t("adminShared.status.suspended") },
+  ];
+
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col bg-shell dark:bg-dark-shell gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-primary dark:text-dark-primary mb-1">
-            Employee Management
+            {t("adminEmployee.header.title")}
           </h1>
           <p className="text-muted dark:text-dark-muted">
-            Manage {employees.length} employees and their employment status
+            {t("adminEmployee.header.description", {
+              count: filteredEmployees.length,
+            })}
           </p>
         </div>
         <Button icon={<Icon d={IC.plus} className="size-4" />}>
-          Add Employee
+          {t("adminEmployee.actions.add")}
         </Button>
       </div>
 
@@ -105,7 +135,7 @@ function Employee() {
             />
             <input
               type="text"
-              placeholder="Search employees by name, email or department..."
+              placeholder={t("adminEmployee.filters.searchPlaceholder")}
               className="w-full pl-10 pr-4 py-1.5  border border-default dark:border-dark-default rounded-md text-sm focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all placeholder:text-muted dark:placeholder:text-dark-muted"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -113,13 +143,7 @@ function Employee() {
           </div>
           <div className="w-48">
             <Select
-              options={[
-                { value: "all", label: "All Status" },
-                { value: "active", label: "Active" },
-                { value: "pending", label: "Pending" },
-                { value: "rejected", label: "Rejected" },
-                { value: "suspended", label: "Suspended" },
-              ]}
+              options={statusOptions}
               value={statusFilter}
               onValueChange={setStatusFilter}
             />
@@ -129,7 +153,7 @@ function Employee() {
           <Table>
             <TableHeader headerData={headerData} />
             <TableBody>
-              {employees.map((employee, index) => (
+              {filteredEmployees.map((employee) => (
                 <TableRow key={employee.id}>
                   <TableColumn className="w-10">
                     <Checkbox />
@@ -167,11 +191,11 @@ function Employee() {
                               : "bg-muted text-muted-foreground"
                       }`}
                     >
-                      {employee.status}
+                      {t(`adminShared.status.${employee.status}`)}
                     </span>
                   </TableColumn>
                   <TableColumn className="text-xs whitespace-nowrap">
-                    {new Date(employee.joined).toLocaleDateString("en-US", {
+                    {new Date(employee.joined).toLocaleDateString(locale, {
                       year: "numeric",
                       month: "short",
                       day: "numeric",
@@ -187,24 +211,24 @@ function Employee() {
                       </DropdownTrigger>
                       <DropdownContent align="end">
                         <DropdownItem>
-                          <span>View Profile</span>
+                          <span>{t("adminShared.actions.viewProfile")}</span>
                         </DropdownItem>
                         <DropdownItem>
-                          <span>Edit Details</span>
+                          <span>{t("adminShared.actions.editDetails")}</span>
                         </DropdownItem>
                         <DropdownItem>
-                          <span>Send Message</span>
+                          <span>{t("adminShared.actions.sendMessage")}</span>
                         </DropdownItem>
                         <DropdownSeparator />
                         <DropdownItem variant="danger">
-                          <span>Remove Employee</span>
+                          <span>{t("adminEmployee.actions.remove")}</span>
                         </DropdownItem>
                       </DropdownContent>
                     </DropdownMenuRoot>
                   </TableColumn>
                 </TableRow>
               ))}
-              {employees.length === 0 && (
+              {filteredEmployees.length === 0 && (
                 <TableRow>
                   <TableColumn
                     colSpan={headerData.length}
@@ -217,9 +241,11 @@ function Employee() {
                           className="w-5 h-5 text-muted-foreground"
                         />
                       </div>
-                      <span className="font-medium">No employees found</span>
+                      <span className="font-medium">
+                        {t("adminEmployee.empty.title")}
+                      </span>
                       <span className="text-xs opacity-75">
-                        Try adjusting your search or filter criteria
+                        {t("adminEmployee.empty.description")}
                       </span>
                     </div>
                   </TableColumn>
@@ -230,7 +256,7 @@ function Employee() {
         </div>
       </div>
 
-      {employees.length > 0 && (
+      {filteredEmployees.length > 0 && (
         <div className="pt-4">
           <Pagination />
         </div>

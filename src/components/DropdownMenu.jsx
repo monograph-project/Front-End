@@ -190,7 +190,7 @@ export const DropdownSubContent = React.forwardRef(
       <DropdownMenu.SubContent
         ref={ref}
         className={cn(
-          "z-50 min-w-48 rounded-md border p-1 shadow-card",
+          "z-50 min-w-48 rounded-md border p-1",
           "bg-card dark:bg-dark-card dark:border-none border-default text-primary",
           className,
         )}

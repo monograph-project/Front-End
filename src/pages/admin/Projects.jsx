@@ -19,18 +19,7 @@ import TableColumn from "../../components/TableColumn";
 import TableHeader from "../../components/TableHeader";
 import TableRow from "../../components/TableRow";
 import Checkbox from "../../components/Checkbox";
-
-const headerData = [
-  { title: "" },
-  { title: "Project ID" },
-  { title: "Title" },
-  { title: "Faculty" },
-  { title: "Lead" },
-  { title: "Status" },
-  { title: "Budget" },
-  { title: "Deadline" },
-  { title: "Actions" },
-];
+import { useTranslation } from "react-i18next";
 
 // Mock data for faculty projects
 const mockProjects = [
@@ -107,10 +96,29 @@ const getStatusColor = (status) => {
 };
 
 function Projects() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [projects, setProjects] = useState(mockProjects);
   const navigate = useNavigate();
+  const headerData = [
+    { title: "" },
+    { title: t("adminProjects.table.projectId") },
+    { title: t("adminProjects.table.title") },
+    { title: t("adminProjects.table.faculty") },
+    { title: t("adminProjects.table.lead") },
+    { title: t("adminProjects.table.status") },
+    { title: t("adminProjects.table.budget") },
+    { title: t("adminProjects.table.deadline") },
+    { title: t("adminProjects.table.actions") },
+  ];
+  const statusOptions = [
+    { value: "all", label: t("adminShared.filters.allStatus") },
+    { value: "active", label: t("adminShared.status.active") },
+    { value: "planning", label: t("adminShared.status.planning") },
+    { value: "completed", label: t("adminShared.status.completed") },
+    { value: "paused", label: t("adminShared.status.paused") },
+  ];
 
   const filteredProjects = projects
     .filter(
@@ -135,14 +143,16 @@ function Projects() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary dark:text-dark-primary">
-            Faculty Projects
+            {t("adminProjects.header.title")}
           </h1>
           <p className="text-muted dark:text-dark-muted">
-            Manage {projects.length} research projects across all faculties
+            {t("adminProjects.header.description", {
+              count: filteredProjects.length,
+            })}
           </p>
         </div>
         <Button icon={<Icon d={IC.plus} className="size-4" />}>
-          New Project
+          {t("adminProjects.actions.new")}
         </Button>
       </div>
 
@@ -156,7 +166,7 @@ function Projects() {
             />
             <input
               type="text"
-              placeholder="Search projects, faculties, leads..."
+              placeholder={t("adminProjects.filters.searchPlaceholder")}
               className="w-full pl-10 pr-4 py-1.5 border border-default dark:border-dark-default rounded-md bg-card dark:bg-dark-card text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all placeholder:text-muted dark:placeholder:text-dark-muted"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -164,13 +174,7 @@ function Projects() {
           </div>
           <div className="w-full sm:w-48">
             <Select
-              options={[
-                { value: "all", label: "All Status" },
-                { value: "active", label: "Active" },
-                { value: "planning", label: "Planning" },
-                { value: "completed", label: "Completed" },
-                { value: "paused", label: "Paused" },
-              ]}
+              options={statusOptions}
               value={statusFilter}
               onValueChange={setStatusFilter}
             />
@@ -198,9 +202,17 @@ function Projects() {
                           {project.title}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted dark:text-dark-muted">
-                          <span>{project.members} members</span>
+                          <span>
+                            {t("adminProjects.meta.members", {
+                              count: project.members,
+                            })}
+                          </span>
                           <div className="w-2 h-2 bg-accent rounded-full" />
-                          <span>{project.progress}% complete</span>
+                          <span>
+                            {t("adminProjects.meta.complete", {
+                              progress: project.progress,
+                            })}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -220,7 +232,7 @@ function Projects() {
                           className={`${getStatusColor(project.status)} cursor-pointer hover:opacity-80`}
                           onClick={() => {}}
                         >
-                          {project.status}
+                          {t(`adminShared.status.${project.status}`)}
                         </Badge>
                       </DropdownTrigger>
                       <DropdownContent>
@@ -229,28 +241,28 @@ function Projects() {
                             handleStatusChange(project.id, "active")
                           }
                         >
-                          Active
+                          {t("adminShared.status.active")}
                         </DropdownItem>
                         <DropdownItem
                           onClick={() =>
                             handleStatusChange(project.id, "planning")
                           }
                         >
-                          Planning
+                          {t("adminShared.status.planning")}
                         </DropdownItem>
                         <DropdownItem
                           onClick={() =>
                             handleStatusChange(project.id, "paused")
                           }
                         >
-                          Paused
+                          {t("adminShared.status.paused")}
                         </DropdownItem>
                         <DropdownItem
                           onClick={() =>
                             handleStatusChange(project.id, "completed")
                           }
                         >
-                          Completed
+                          {t("adminShared.status.completed")}
                         </DropdownItem>
                       </DropdownContent>
                     </DropdownMenuRoot>
@@ -275,13 +287,15 @@ function Projects() {
                             navigate(`/admin/projects/${project.id}`)
                           }
                         >
-                          View Details
+                          {t("adminShared.actions.viewDetails")}
                         </DropdownItem>
-                        <DropdownItem>Edit Project</DropdownItem>
-                        <DropdownItem>Share</DropdownItem>
-                        <DropdownItem>Duplicate</DropdownItem>
+                        <DropdownItem>{t("adminProjects.actions.edit")}</DropdownItem>
+                        <DropdownItem>{t("adminShared.actions.share")}</DropdownItem>
+                        <DropdownItem>{t("adminShared.actions.duplicate")}</DropdownItem>
                         <DropdownSeparator />
-                        <DropdownItem variant="danger">Archive</DropdownItem>
+                        <DropdownItem variant="danger">
+                          {t("adminShared.actions.archive")}
+                        </DropdownItem>
                       </DropdownContent>
                     </DropdownMenuRoot>
                   </TableColumn>
@@ -302,12 +316,12 @@ function Projects() {
                       </div>
                       <div>
                         <h3 className="font-semibold text-primary dark:text-dark-primary mb-1">
-                          No projects found
+                          {t("adminProjects.empty.title")}
                         </h3>
                         <p className="text-sm text-muted dark:text-dark-muted">
                           {search || statusFilter !== "all"
-                            ? "Try adjusting your search or filters"
-                            : "Get started by creating your first research project"}
+                            ? t("adminProjects.empty.filtered")
+                            : t("adminProjects.empty.default")}
                         </p>
                       </div>
                     </div>
