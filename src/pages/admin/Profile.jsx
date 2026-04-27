@@ -12,6 +12,7 @@ import {
   DropdownTrigger,
 } from "../../components/DropdownMenu";
 import { GooeyToaster } from "goey-toast";
+import { useTranslation } from "react-i18next";
 
 // Fake data - replace with API/userId
 const FAKE_USER_DATA = {
@@ -49,6 +50,7 @@ const FAKE_USER_DATA = {
 };
 
 export default function UserProfile() {
+  const { t } = useTranslation();
   const { userId } = useParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
@@ -76,8 +78,12 @@ export default function UserProfile() {
     return (
       <div className="flex-1 p-8 text-center">
         <div className="text-6xl mb-4 text-muted">👤</div>
-        <h2 className="text-2xl font-bold text-primary mb-2">User not found</h2>
-        <Button onClick={() => navigate(-1)}>Go Back</Button>
+        <h2 className="text-2xl font-bold text-primary mb-2">
+          {t("adminProfile.notFound.title")}
+        </h2>
+        <Button onClick={() => navigate(-1)}>
+          {t("adminProfile.notFound.back")}
+        </Button>
       </div>
     );
   }
@@ -92,7 +98,11 @@ export default function UserProfile() {
   };
 
   const handleStatusChange = (status) => {
-    GooeyToaster.success(`Status updated to ${status}`);
+    GooeyToaster.success(
+      t("adminProfile.toast.statusUpdated", {
+        status: t(`adminShared.status.${status}`),
+      }),
+    );
     setUser({ ...user, status });
   };
 
@@ -105,7 +115,7 @@ export default function UserProfile() {
         handleStatusChange("active");
         break;
       case "delete":
-        GooeyToaster.success("User deleted successfully");
+        GooeyToaster.success(t("adminProfile.toast.deleted"));
         navigate("/admin/users");
         break;
     }
@@ -144,7 +154,7 @@ export default function UserProfile() {
                 {user.role}
               </p>
               <p className="text-sm text-muted dark:text-dark-muted">
-                {user.bio || "No bio available"}
+                {user.bio || t("adminProfile.bioFallback")}
               </p>
             </div>
           </div>
@@ -152,23 +162,25 @@ export default function UserProfile() {
           {/* Actions */}
           <div className="flex items-center gap-2 ml-auto">
             {isOwner ? (
-              <Button variant="secondary">Edit Profile</Button>
+              <Button variant="secondary">
+                {t("adminProfile.actions.editProfile")}
+              </Button>
             ) : (
               <>
                 <DropdownMenuRoot>
-                  <DropdownTrigger>Actions</DropdownTrigger>
+                  <DropdownTrigger>{t("adminShared.labels.actions")}</DropdownTrigger>
                   <DropdownContent align="end">
                     <DropdownItem onClick={() => handleAction("activate")}>
-                      Activate
+                      {t("adminProfile.actions.activate")}
                     </DropdownItem>
                     <DropdownItem onClick={() => handleAction("suspend")}>
-                      Suspend
+                      {t("adminProfile.actions.suspend")}
                     </DropdownItem>
                     <DropdownItem
                       variant="danger"
                       onClick={() => handleAction("delete")}
                     >
-                      Delete User
+                      {t("adminProfile.actions.deleteUser")}
                     </DropdownItem>
                   </DropdownContent>
                 </DropdownMenuRoot>
@@ -186,8 +198,8 @@ export default function UserProfile() {
                 <div className="text-3xl font-bold text-primary dark:text-dark-primary mb-1">
                   {user.stats?.projects || 0}
                 </div>
-                <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                  Projects
+              <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
+                  {t("adminProfile.stats.projects")}
                 </div>
               </div>
               <div className=" p-6 rounded-md border border-default dark:border-dark-default  text-center">
@@ -195,7 +207,7 @@ export default function UserProfile() {
                   {user.stats?.students || 0}
                 </div>
                 <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                  Students
+                  {t("adminProfile.stats.students")}
                 </div>
               </div>
               <div className=" p-6 rounded-md border border-default dark:border-dark-default  text-center">
@@ -203,7 +215,7 @@ export default function UserProfile() {
                   {user.stats?.classes || 0}
                 </div>
                 <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                  Classes
+                  {t("adminProfile.stats.classes")}
                 </div>
               </div>
               <div className=" p-6 rounded-md border border-default dark:border-dark-default  text-center">
@@ -211,7 +223,7 @@ export default function UserProfile() {
                   {user.stats?.groups || 0}
                 </div>
                 <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                  Groups
+                  {t("adminProfile.stats.groups")}
                 </div>
               </div>
             </div>
@@ -221,7 +233,7 @@ export default function UserProfile() {
           <div className=" p-6 rounded-md border border-default dark:border-dark-default ">
             <h3 className="font-semibold text-primary dark:text-dark-primary mb-4 flex items-center gap-2">
               <Icon d={IC.contact} className="w-4 h-4 stroke-current" />
-              Contact
+              {t("adminProfile.contact.title")}
             </h3>
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-3 bg-card-2 dark:bg-dark-card-2 rounded-lg">
@@ -241,7 +253,7 @@ export default function UserProfile() {
                 </svg>
                 <div>
                   <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                    Email
+                    {t("adminProfile.contact.email")}
                   </div>
                   <a
                     href={`mailto:${user.email}`}
@@ -269,7 +281,7 @@ export default function UserProfile() {
                   </svg>
                   <div>
                     <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                      Phone
+                      {t("adminProfile.contact.phone")}
                     </div>
                     <a
                       href={`tel:${user.phone}`}
@@ -288,7 +300,7 @@ export default function UserProfile() {
                   />
                   <div>
                     <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                      Department
+                      {t("adminProfile.contact.department")}
                     </div>
                     <div className="font-medium text-primary dark:text-dark-primary">
                       {user.department}
@@ -310,7 +322,7 @@ export default function UserProfile() {
                 className="w-5 h-5 text-accent dark:text-accent-dark stroke-[2]"
               />
               <h3 className="text-xl font-bold text-primary dark:text-dark-primary">
-                Recent Activity
+                {t("adminProfile.activity.title")}
               </h3>
             </div>
             <div className="space-y-4">
@@ -331,7 +343,7 @@ export default function UserProfile() {
                 </div>
               )) || (
                 <p className="text-sm text-muted dark:text-dark-muted p-4">
-                  No recent activity
+                  {t("adminProfile.activity.empty")}
                 </p>
               )}
             </div>
@@ -345,7 +357,7 @@ export default function UserProfile() {
                 className="w-5 h-5 text-accent dark:text-accent-dark stroke-[2]"
               />
               <h3 className="text-xl font-bold text-primary dark:text-dark-primary">
-                Permissions
+                {t("adminProfile.permissions.title")}
               </h3>
             </div>
             <div className="space-y-2">
@@ -361,7 +373,7 @@ export default function UserProfile() {
                 </div>
               )) || (
                 <p className="text-sm text-muted dark:text-dark-muted p-3">
-                  No permissions assigned
+                  {t("adminProfile.permissions.empty")}
                 </p>
               )}
             </div>
@@ -373,11 +385,15 @@ export default function UserProfile() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
               <h4 className="text-lg font-semibold text-primary dark:text-dark-primary mb-4">
-                Login History
+                {t("adminProfile.history.title")}
               </h4>
               <div className="space-y-3 text-sm">
                 <div className="flex items-center justify-between p-3  rounded-md border border-default dark:border-dark-default">
-                  <span>Last login: {user.lastLogin}</span>
+                  <span>
+                    {t("adminProfile.history.lastLogin", {
+                      value: user.lastLogin,
+                    })}
+                  </span>
                   <span className="px-2 py-0.5 bg-success/10 text-success text-xs rounded-full">
                     Kabul, AF
                   </span>
@@ -398,19 +414,19 @@ export default function UserProfile() {
             </div>
             <div>
               <h4 className="text-lg font-semibold text-primary dark:text-dark-primary mb-4">
-                Account Details
+                {t("adminProfile.account.title")}
               </h4>
               <div className="space-y-4 text-sm">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <span className="text-muted dark:text-dark-muted block text-xs uppercase tracking-wide font-medium mb-1">
-                      Member since
+                      {t("adminProfile.account.memberSince")}
                     </span>
                     <span className="font-medium">{user.registered}</span>
                   </div>
                   <div>
                     <span className="text-muted dark:text-dark-muted block text-xs uppercase tracking-wide font-medium mb-1">
-                      Account ID
+                      {t("adminProfile.account.id")}
                     </span>
                     <span className="font-mono text-xs">{user.id}</span>
                   </div>

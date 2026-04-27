@@ -356,7 +356,7 @@ export default function AppSidebar() {
 
   return (
     <aside
-      className={` flex flex-col h-full shrink-0 transition-width  duration-100 ease  overflow-hidden bg-shell dark:bg-dark-shell  border-r border-default dark:border-dark-default ${isMobile ? "border-none" : ""}  ${collapsed ? "w-16 min-w-16" : "w-65 min-w-65"}`}
+      className={` flex flex-col h-full shrink-0 transition-width  duration-100 ease  overflow-hidden bg-shell dark:bg-dark-shell  ltr:border-r rtl:border-l border-default dark:border-dark-default ${isMobile ? "border-none" : ""}  ${collapsed ? "w-16 min-w-16" : "w-65 min-w-65"}`}
     >
       <div
         className={` ${collapsed ? "px-4 py-4.5" : "px-2.5 py-4"} flex min-h-14 items-center border-b border-default dark:border-dark-default ${collapsed ? " justify-center" : " justify-between"}`}
@@ -404,66 +404,6 @@ export default function AppSidebar() {
             </Link>
           );
         })}
-
-        {/* Favorites */}
-        {!collapsed && (
-          <>
-            <div className="flex items-center justify-between mt-1 pt-3.5 pr-2.5 pb-1.5 ">
-              <span className=" text-[10px] font-semibold tracking-[0.08em] text-muted dark:text-dark-muted  uppercase">
-                {t("sidebar.favorites")}
-              </span>
-              <div className=" flex gap-1">
-                <button className=" p-2 text-[16px] leading-px bg-none border-none text-muted dark:text-dark-muted cursor-pointer">
-                  ···
-                </button>
-                <button className="bg-none border-none text-muted dark:text-dark-muted p-2 cursor-pointer">
-                  <Icon
-                    d={IC.plus}
-                    className={
-                      " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
-                    }
-                  />
-                </button>
-              </div>
-            </div>
-            {favItems.map((f) => (
-              <button
-                key={f.key}
-                className=" text-secondary dark:text-dark-secondary t text-xs cursor-pointer mb-0.5  flex items-center justify-between gap-2 w-full py-2.25 px-2.5 rounded-lg border-none bg-transparent"
-              >
-                <div className="flex items-center gap-x-1">
-                  <Icon
-                    d={f.icon}
-                    className={
-                      " stroke-muted dark:stroke-dark-muted stroke-[1.5] size-3.5"
-                    }
-                  />
-                  <span style={{ flex: 1, textAlign: "left" }}>
-                    {t(f.labelKey)}
-                  </span>
-                </div>
-                <span style={{ fontSize: 10, color: "var(--c-text-muted)" }}>
-                  {f.count}
-                </span>
-              </button>
-            ))}
-
-            {/* Projects */}
-            <div className=" flex items-center justify-between pt-3 pr-2.5 pb-1.5">
-              <span className=" text-[10px] tracking-[0.08em] font-semibold text-muted dark:text-dark-muted uppercase l">
-                {t("sidebar.projectsSection")}
-              </span>
-              <div className=" flex gap-1">
-                <button className=" bg-none border-none text-muted dark:bg-dark-muted cursor-pointer p-0.5 text-[16px] leading-1">
-                  ···
-                </button>
-                <button className=" bg-none border-none text-muted dark:text-dark-muted cursor-pointer p-0.5">
-                  <Icon d={IC.plus} size={12} />
-                </button>
-              </div>
-            </div>
-          </>
-        )}
       </nav>
 
       {/* Storage & Logout */}
@@ -474,24 +414,6 @@ export default function AppSidebar() {
         }}
         className={`${collapsed ? " py-3 px-2" : " py-3 px-3.5"}`}
       >
-        {!collapsed && (
-          <>
-            <div className=" flex justify-between mb-1.5">
-              <span className=" text-xs text-secondary dark:text-dark-secondary font-medium">
-                {t("sidebar.cloudStorage")}
-              </span>
-              <span className=" text-[11px] font-semibold text-secondary dark:text-dark-secondary">
-                90%
-              </span>
-            </div>
-            <div className=" bg-storage-bg dark:bg-storage-dark-bg rounded-[99px] overflow-hidden mb-2 h-1.25">
-              <div className=" h-full w-[90%] rounded-[99px] bg-storage-fill dark:bg-storage-dark-fill" />
-            </div>
-            <div className=" text-[10px] text-muted dark:text-dark-muted mb-4">
-              {t("sidebar.storageUsed")}
-            </div>
-          </>
-        )}
         <div
           style={{ marginTop: collapsed ? 0 : 8 }}
           className={`${collapsed ? " mt-0" : " mt-2"}`}

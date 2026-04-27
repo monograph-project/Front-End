@@ -1,4 +1,4 @@
-const url = "http://localhost:5000";
+const url = "http://localhost:8081/api/v1";
 
 export const ROUTES = {
   USER: {
@@ -6,8 +6,20 @@ export const ROUTES = {
     GETALL: `${url}/users`,
     DELETE: (id) => `${url}/users/${id}`,
     UPDATE: (id) => `${url}/users/${id}`,
-    LOGIN: `${url}/login`,
-    SIGNUP: `${url}/users`,
+    LOGIN: `${url}/auth/login`,
+    SIGNUP: `${url}/auth/signup`,
+  },
+  AUTH: {
+    LOGIN: `${url}/auth/login`,
+    SIGNUP: `${url}/auth/signup`,
+    GOOGLE: `${url}/auth/google`,
+    REFRESH_TOKEN: `${url}/auth/refresh-token`,
+    LOGOUT: `${url}/auth/logout`,
+    CHANGE_PASSWORD: (userId) => `${url}/auth/change-password/${userId}`,
+    FORGOT_PASSWORD: `${url}/auth/forgot-password`,
+    RESET_PASSWORD: `${url}/auth/reset-password`,
+    VERIFY_EMAIL: `${url}/auth/verify-email`,
+    RESEND_VERIFICATION: `${url}/auth/resend-verification-email`,
   },
   STUDENT: {
     GETBYID: (id) => `${url}/students/${id}`,

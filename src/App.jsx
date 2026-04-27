@@ -1,6 +1,6 @@
 import { GooeyToaster } from "goey-toast";
 import "goey-toast/styles.css";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ThemeProvider } from "./context/themContext";
 import Applayout from "./layout/AppLayout";
@@ -25,6 +25,7 @@ import Employee from "./pages/admin/Employee";
 import Notification from "./pages/admin/Notification";
 import Department from "./pages/admin/Departments";
 import Blog from "./pages/admin/Blogs";
+import BlogDetailPage from "./pages/admin/BlogDetailPage";
 import Setting from "./pages/admin/Setting";
 import StudentProjects from "./pages/student/Projects";
 import StudentRepositories from "./pages/student/Repositories";
@@ -39,6 +40,7 @@ import StudentProfile from "./pages/admin/StudentProfile";
 import TeacherProfile from "./pages/admin/TeacherProfile";
 import EmployeeProfile from "./pages/admin/EmployeeProfile";
 import DepartmentProfile from "./pages/admin/DepartmentProfile";
+import ProjectWorkspace from "./pages/admin/ProjectWorkspace";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
@@ -90,7 +92,9 @@ export default function App() {
             <Route path="department" element={<Department />} />
             <Route path="department/:id" element={<DepartmentProfile />} />
             <Route path="projects" element={<Projects />} />
+            <Route path="projects/:id" element={<ProjectWorkspace />} />
             <Route path="blogs" element={<Blog />} />
+            <Route path="blogs/:id" element={<BlogDetailPage />} />
             <Route path="setting" element={<Setting />} />
             <Route path="report" element={<Reports />} />
           </Route>
