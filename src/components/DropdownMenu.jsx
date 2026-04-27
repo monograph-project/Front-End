@@ -58,7 +58,7 @@ export const DropdownContent = React.forwardRef(
         sideOffset={sideOffset}
         align={align}
         className={cn(
-          "z-50 min-w-56 overflow-hidden rounded-md border p-1",
+"z-[10001] min-w-56 overflow-hidden rounded-md border p-1 shadow-2xl border-2",
           "bg-card dark:bg-dark-card dark:border-none border-default text-primary dark:tex-white",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",

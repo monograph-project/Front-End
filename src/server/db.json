@@ -66,76 +66,158 @@
   ],
   "students": [
     {
-      "id": "ST001",
-      "firstName": "احمد",
-      "fatherName": "محمد",
-      "grandFatherName": "عبدالله",
-      "lastName": "خیل",
-      "nationality": "افغان",
-      "gender": "Male",
-      "dateOfBirth": "2002-05-15",
-      "address": {
-        "street": "شار ولسي",
-        "city": "کابل",
-        "province": "کابل"
-      },
-      "code": "STU-2023-001",
-      "email": "ahmad@example.com",
-      "phone": "+93 700 123 456",
-      "enrollmentDate": "2023-09-01",
-      "kankorId": "KANKOR-2023-45678",
-      "profilePicture": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3",
-      "semester": "Fall 2023",
+      "id": "stu-4",
+      "firstName": "Elyas",
+      "lastName": "Rashidi",
+      "email": "elyas@student.edu",
+      "phone": "456-789-0123",
+      "code": "STU004",
+      "department": "Chemistry",
+      "enrollmentDate": "2023-10-20",
+      "status": "rejected"
+    },
+    {
+      "id": "stu-5",
+      "firstName": "Sarah",
+      "lastName": "Wilson",
+      "email": "sarah.w@school.edu",
+      "phone": "567-890-1234",
+      "code": "STU005",
       "department": "Computer Science",
-      "status": "Active"
+      "enrollmentDate": "2023-11-01",
+      "status": "active"
     },
     {
-      "id": "ST002",
-      "firstName": "فاطمه",
-      "fatherName": "عبدالرحمن",
-      "grandFatherName": "غلام محمد",
-      "lastName": "احمدي",
-      "nationality": "افغان",
-      "gender": "Female",
-      "dateOfBirth": "2003-08-22",
-      "address": {
-        "street": "دروازې مرادخاني",
-        "city": "هرات",
-        "province": "هرات"
-      },
+      "id": "stu-6",
+      "firstName": "Ali",
+      "lastName": "Hosseini",
+      "email": "ali.h@school.edu",
+      "phone": "678-901-2345",
+      "code": "STU006",
+      "department": "Physics",
+      "enrollmentDate": "2023-11-15",
+      "status": "active"
+    },
+    {
+      "id": "stu-7",
+      "firstName": "Fatemeh",
+      "lastName": "Karimi",
+      "email": "fatemeh.k@school.edu",
+      "phone": "789-012-3456",
+      "code": "STU007",
+      "department": "Mathematics",
+      "enrollmentDate": "2024-01-10",
+      "status": "pending"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
       "code": "STU-2023-002",
-      "email": "fatema@example.com",
-      "phone": "+93 799 987 654",
-      "enrollmentDate": "2023-09-01",
-      "kankorId": "KANKOR-2023-12345",
-      "profilePicture": "https://images.unsplash.com/photo-1494790108755-2616b612b786?ixlib=rb-4.0.3",
-      "semester": "Fall 2023",
-      "department": "Medicine",
-      "status": "Active"
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "t1DJFdVieW4"
     },
     {
-      "id": "ST003",
-      "firstName": "خلیل",
-      "fatherName": "عثمان",
-      "grandFatherName": "قادر",
-      "lastName": "رحماني",
-      "nationality": "افغان",
-      "gender": "Male",
-      "dateOfBirth": "2001-12-10",
-      "address": {
-        "street": "باغ شربات",
-        "city": "کندهار",
-        "province": "کندهار"
-      },
-      "code": "STU-2023-003",
-      "email": "khalil@example.com",
-      "phone": "+93 777 456 789",
-      "enrollmentDate": "2023-09-01",
-      "kankorId": "KANKOR-2023-98765",
-      "profilePicture": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3",
-      "semester": "Spring 2024",
-      "department": "Engineering",
-      "status": "Suspended"
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "",
+      "code": "STU-2023-002",
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "active",
+      "id": "p_ax_cbfdbY"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
+      "code": "STU-2023-002",
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "dZ0uW8q3LAA"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jugful",
+      "email": "alamzadaj@gmail.com",
+      "phone": "",
+      "code": "STU-2023-002",
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "r8RNIUtAduY"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "",
+      "code": "STU-2023-002",
+      "department": "Medicine",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "MdxW8w1-X8c"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
+      "code": "STU-2023-002",
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "P9RN3bgIAdU"
+    },
+    {
+      "firstName": "khan",
+      "lastName": "jan",
+      "email": "ejfksdklfsd@gamil.com",
+      "phone": "5665454",
+      "code": "STU-2023-002",
+      "department": "",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "mNGbT2O1ZMk"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
+      "code": "qwe",
+      "department": "Mathematics",
+      "enrollmentDate": "2026-04-25",
+      "status": "active",
+      "id": "evXYtWhVlhI"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
+      "code": "qwedf",
+      "department": "Mathematics",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "M5qll0_R1Sg"
+    },
+    {
+      "firstName": "aslan",
+      "lastName": "jumagul",
+      "email": "alamzadaj@gmail.com",
+      "phone": "123456",
+      "code": "asd",
+      "department": "sdfv",
+      "enrollmentDate": "2026-04-25",
+      "status": "Active",
+      "id": "FhoQtGJ2nAc"
     }
   ],
   "login": [
@@ -143,6 +225,68 @@
       "email": "elyas@gmail.com",
       "password": "test1234",
       "id": "SRHjCbRnsGQ"
+    }
+  ],
+  "departments": [
+    {
+      "name": "aslan",
+      "head": "alamzadaj@gmail.com",
+      "status": "pending",
+      "id": "DmCOo6AfmGo"
+    },
+    {
+      "name": "aslan",
+      "head": "alamzadaj@gmail.com",
+      "status": "inactive",
+      "id": "3xMhiscfqJU"
+    },
+    {
+      "name": "aslan",
+      "head": "alamzadaj@gmail.com",
+      "status": "active",
+      "id": "DY94kJK7uEw"
+    },
+    {
+      "name": "aslan",
+      "head": "alamzadaj@gmail.com",
+      "status": "inactive",
+      "id": "IEJsr6-NG2w"
+    },
+    {
+      "name": "aslan",
+      "head": "alamzadaj@gmail.com",
+      "status": "inactive",
+      "id": "WfPmz3y4Z6E"
+    },
+    {
+      "name": "aslan",
+      "head": "ejfksdklfsd@gamil.com",
+      "status": "pending",
+      "id": "zot2VGUwtX8"
+    },
+    {
+      "name": "سیب",
+      "head": "",
+      "status": "active",
+      "id": "5jSjU8T1BiA"
+    },
+    {
+      "name": "sdf",
+      "head": "kjkgdk@gmail.com",
+      "status": "inactive",
+      "id": "qoO6FQIfSgM"
+    },
+    {
+      "name": "sdf2gmail.com",
+      "head": "kjkgdk@gmail.com",
+      "status": "pending",
+      "id": "NVBg9LpAyyA"
+    },
+    {
+      "name": "k",
+      "head": "askldfj@gmail.com",
+      "status": "pending",
+      "id": "3SYUOrI5okY"
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"

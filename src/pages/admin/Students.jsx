@@ -1,15 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
 import Table from "../../components/Table";
 import TableBody from "../../components/TableBody";
 import TableColumn from "../../components/TableColumn";
 import TableHeader from "../../components/TableHeader";
 import TableRow from "../../components/TableRow";
-import { getStudents } from "../../services/apiRoute";
+import { getStudents, deleteStudent } from "../../services/apiRoute";
+import EditStudentForm from "./EditStudentForm";
 import Icon from "../../components/Icon";
 import IC from "../../components/IC";
-import { Badge } from "@radix-ui/themes/dist/cjs/index.js";
 import Select from "../../components/Select";
+import Checkbox from "../../components/Checkbox";
+
 import {
   DropdownContent,
   DropdownItem,
@@ -19,6 +21,28 @@ import {
   DropdownTrigger,
 } from "../../components/DropdownMenu";
 import Button from "../../components/Button";
+import GlobalModal from "../../components/GlobalModal";
+import AddStudentForm from "./AddStudentForm";
+import { useNavigate } from "react-router-dom";
+
+const headerData = [
+  { title: "" },
+  { title: "ID" },
+  { title: "Student" },
+  { title: "Department" },
+  { title: "Status" },
+  { title: "Enrolled" },
+  { title: "Actions" },
+];
+
+export default function Students() {
+  const navigate = useNavigate();
+  const {
+    data: studentsData,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
 import { useTranslation } from "react-i18next";
 
 export default function Students() {
@@ -30,6 +54,11 @@ export default function Students() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [deleteStudentId, setDeleteStudentId] = useState(null);
+
   const students = studentsData || [];
   const headerData = [
     { title: "" },
@@ -65,12 +94,123 @@ export default function Students() {
     { value: "suspended", label: t("adminShared.status.suspended") },
   ];
 
+  const filteredStudents = useMemo(() => {
+    return students.filter((student) => {
+      const matchesSearch =
+        !search ||
+        [student.firstName, student.lastName, student.email, student.department]
+          .filter(Boolean)
+          .some((field) =>
+            field.toLowerCase().includes(search.toLowerCase()),
+          );
+
+      const matchesStatus =
+        statusFilter === "all" ||
+        (student.status || "").toLowerCase() === statusFilter.toLowerCase();
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [students, search, statusFilter]);
+
+  // Actions handler
+
+  const handleAction = (action) => {
+    switch (action) {
+      case "export":
+        exportToCSV();
+        break;
+      case "import":
+        window.GooeyToaster?.info?.("Import functionality coming soon");
+        break;
+    }
+  };
+
+  const exportToCSV = () => {
+    const headers = [
+      "ID",
+      "First Name",
+      "Last Name",
+      "Father Name",
+      "Grand Father Name",
+      "Nationality",
+      "Gender",
+      "Date of Birth",
+      "Code",
+      "Email",
+      "Phone",
+      "Enrollment Date",
+      "Kankor ID",
+      "Semester",
+      "Department",
+      "Status",
+    ];
+    const csvContent = [
+      headers.join(","),
+      ...students.map((student) =>
+        [
+          student.id,
+          student.firstName,
+          student.lastName,
+          student.fatherName || "",
+          student.grandFatherName || "",
+          student.nationality || "",
+          student.gender || "",
+          student.dateOfBirth || "",
+          student.code || "",
+          student.email || "",
+          student.phone || "",
+          student.enrollmentDate || "",
+          student.kankorId || "",
+          student.semester || "",
+          student.department || "",
+          student.status || "",
+        ]
+          .map((field) => `"${field}"`)
+          .join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "students.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-[14px] bg-shell dark:bg-dark-shell">
         <div className="flex items-center justify-center h-64">
           <div className="text-primary dark:text-dark-primary">
             {t("adminStudents.loading")}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-[14px] bg-shell dark:bg-dark-shell">
+        <div className="flex flex-col items-center justify-center h-64 gap-3">
+          <div className="w-12 h-12 bg-error/10 dark:bg-dark-error/20 rounded-full flex items-center justify-center">
+            <Icon
+              d={IC.x}
+              className="w-5 h-5 text-error dark:text-dark-error"
+            />
+          </div>
+          <div className="text-center">
+            <p className="text-primary dark:text-dark-primary font-medium">
+              Failed to load students
+            </p>
+            <p className="text-muted dark:text-dark-muted text-sm mt-1 max-w-md">
+              {error?.message ||
+                "Could not connect to the server. Make sure json-server is running (npm run server)."}
+            </p>
           </div>
         </div>
       </div>
@@ -91,12 +231,63 @@ export default function Students() {
             })}
           </p>
         </div>
+        <div className="flex items-center gap-3">
+          <div className="flex-none">
+            <DropdownMenuRoot>
+              <DropdownTrigger>Actions</DropdownTrigger>
+              <DropdownContent align="end">
+                <DropdownItem
+                  icon={<Icon d={IC.download} className="size-4" />}
+                  onClick={() => handleAction("export")}
+                >
+                  Export
+                </DropdownItem>
+                <DropdownItem
+                  icon={<Icon d={IC.upload} className="size-4" />}
+                  onClick={() => handleAction("import")}
+                >
+                  Import
+                </DropdownItem>
+              </DropdownContent>
+            </DropdownMenuRoot>
+          </div>
+          <div className="flex-none">
+            <Button
+              icon={<Icon d={IC.plus} className="size-4" />}
+              onClick={() => setShowAddModal(true)}
+            >
+              Add Student
+            </Button>
+          </div>
+        </div>
         <Button icon={<Icon d={IC.plus} className="size-4" />}>
           {t("adminStudents.actions.add")}
         </Button>
       </div>
 
-      {/* Filters */}
+      <GlobalModal
+        open={showAddModal}
+        setOpen={setShowAddModal}
+        isClose={true}
+      >
+        <AddStudentForm onClose={() => setShowAddModal(false)} />
+      </GlobalModal>
+
+      <GlobalModal
+        open={showEditModal}
+        setOpen={setShowEditModal}
+        isClose={true}
+      >
+        {selectedStudent && (
+          <EditStudentForm
+            student={selectedStudent}
+            onClose={() => {
+              setShowEditModal(false);
+              setSelectedStudent(null);
+            }}
+          />
+        )}
+      </GlobalModal>
 
       {/* Table */}
       <div className="flex-1 bg-shell dark:bg-dark-shell border border-default dark:border-dark-default rounded-md ">
@@ -131,22 +322,39 @@ export default function Students() {
             <TableBody>
               {filteredStudents.map((student) => (
                 <TableRow key={student.id}>
-                  <TableColumn>{student.id}</TableColumn>
+                  <TableColumn className="text-center">
+                    <Checkbox />
+                  </TableColumn>
+                  <TableColumn className="text-center font-mono">
+                    {student.id}
+                  </TableColumn>
                   <TableColumn className="font-medium">
                     {student.firstName} {student.lastName}
                   </TableColumn>
                   <TableColumn>{student.department}</TableColumn>
-                  <TableColumn>
-                    <Badge
-                      color={`student.status === "Active" ?  "green" : "red`}
+                  <TableColumn className="text-center">
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        (student.status || "").toLowerCase() === "active"
+                          ? "bg-success text-success-light dark:bg-dark-success dark:text-dark-success-light"
+                          : (student.status || "").toLowerCase() ===
+                              "pending"
+                            ? "bg-warning text-warning-light dark:bg-dark-warning dark:text-dark-warning-light"
+                            : (student.status || "").toLowerCase() ===
+                                "suspended"
+                              ? "bg-error text-error-light dark:bg-dark-error dark:text-dark-error-light"
+                              : "bg-muted text-muted-foreground"
+                      }`}
                     >
                       {t(
                         `adminShared.status.${student.status?.toLowerCase() || "active"}`,
                       )}
                     </Badge>
                   </TableColumn>
-                  <TableColumn>{student.enrollmentDate}</TableColumn>
-                  <TableColumn className="flex gap-1">
+                  <TableColumn className="text-center">
+                    {student.enrollmentDate}
+                  </TableColumn>
+                  <TableColumn className="text-center">
                     <DropdownMenuRoot>
                       <DropdownTrigger showArrow={false}>
                         <svg
@@ -164,7 +372,6 @@ export default function Students() {
                           ></path>
                         </svg>
                       </DropdownTrigger>
-                      {/* <AccountTrigger /> */}
 
                       <DropdownContent>
                         <DropdownLabel>{t("adminShared.labels.account")}</DropdownLabel>
@@ -209,7 +416,7 @@ export default function Students() {
                         >
                           {t("adminShared.actions.settings")}
                         </DropdownItem>
-
+            
                         <DropdownSeparator />
 
                         <DropdownLabel>{t("adminShared.labels.actions")}</DropdownLabel>
@@ -231,10 +438,14 @@ export default function Students() {
                               ></path>
                             </svg>
                           }
-                          variant="warning"
+                          onClick={() => {
+                            setSelectedStudent(student);
+                            setShowEditModal(true);
+                          }}
                         >
                           {t("adminShared.actions.archive")}
                         </DropdownItem>
+
                         <DropdownItem
                           icon={
                             <svg
@@ -253,6 +464,7 @@ export default function Students() {
                             </svg>
                           }
                           variant="danger"
+                          onClick={() => setDeleteStudentId(student.id)}
                         >
                           {t("adminShared.actions.delete")}
                         </DropdownItem>
@@ -265,7 +477,7 @@ export default function Students() {
                 <TableRow>
                   <TableColumn
                     colSpan={headerData.length}
-                    className="text-center py-8 text-muted dark:text-dark-muted"
+                    className="text-center py-12 text-muted dark:text-dark-muted"
                   >
                     {t("adminStudents.empty")}
                   </TableColumn>
@@ -274,7 +486,92 @@ export default function Students() {
             </TableBody>
           </Table>
         </div>
+        {deleteStudentId && (
+          <DeleteConfirmModal
+            studentId={deleteStudentId}
+            student={students.find((s) => s.id === deleteStudentId)}
+            setDeleteStudentId={setDeleteStudentId}
+          />
+        )}
       </div>
     </div>
   );
 }
+
+function DeleteConfirmModal({ studentId, student, setDeleteStudentId }) {
+  const queryClient = useQueryClient();
+
+  const confirmDelete = async () => {
+    try {
+      await deleteStudent(studentId);
+      queryClient.invalidateQueries({ queryKey: ["students"] });
+    } catch (error) {
+      window.GooeyToaster?.error?.(error.message || "Delete failed");
+    }
+    setDeleteStudentId(null);
+  };
+
+  const cancelDelete = () => {
+    setDeleteStudentId(null);
+  };
+
+  const studentName = student
+    ? `${student.firstName} ${student.lastName}`
+    : "";
+
+  return (
+    <GlobalModal open={true} setOpen={cancelDelete}>
+      <div className="w-[450px] max-h-[70vh] bg-shell dark:bg-dark-card p-6 rounded-xl shadow-2xl border border-default dark:border-dark-default flex flex-col z-[1000]">
+        <div className="flex items-start gap-3 mb-6 pb-4 border-b border-default dark:border-dark-default">
+          <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 text-red-600 dark:text-red-400">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 15 15"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M7.5 1.125C7.74858 1.125 7.95 1.32647 7.95 1.575V7.3125L10.1819 5.08071C10.3576 4.90497 10.6425 4.90497 10.8182 5.08071C10.994 5.25645 10.994 5.54137 10.8182 5.71711L7.81825 8.71711C7.64251 8.89284 7.35759 8.89284 7.18185 8.71711L4.18185 5.71711C4.00611 5.54137 4.00611 5.25645 4.18185 5.08071C4.35759 4.90497 4.64251 4.90497 4.81825 5.08071L7.05 7.3125V1.575C7.05 1.32647 7.25152 1.125 7.5 1.125ZM2.625 9.75C2.90114 9.75 3.125 9.97411 3.125 10.25V12C3.125 12.5523 3.57268 13 4.00365 13H11.0012C11.5529 13 12 12.5528 12 12V10.25C12 9.97411 12.2239 9.75 12.5 9.75C12.7761 9.75 13 9.97411 13 10.25V12C13 13.1041 12.1062 14 11.0012 14H4.00365C2.89749 14 2 13.103 2 12V10.25C2 9.97411 2.22386 9.75 2.625 9.75Z"
+                fill="currentColor"
+                fillRule="evenodd"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+              Delete Student
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-2">
+              Are you sure you want to delete{" "}
+              <span className="font-semibold text-gray-900 dark:text-gray-100">
+                {studentName}
+              </span>
+              ?
+            </p>
+            <p className="text-gray-600 dark:text-gray-300 text-xs mb-4">
+              Email:{" "}
+              <span className="font-mono bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded text-xs">
+                {student?.email}
+              </span>
+            </p>
+            <p className="text-red-600 dark:text-red-400 text-xs font-medium">
+              This action cannot be undone.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3 pt-4 mt-auto border-t border-default dark:border-dark-default">
+          <Button
+            onClick={confirmDelete}
+            variant="destructive"
+            className="flex-1 text-sm h-10 font-medium"
+          >
+            Delete Student
+          </Button>
+        </div>
+      </div>
+    </GlobalModal>
+  );
+}
+

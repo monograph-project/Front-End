@@ -28,4 +28,12 @@ export const ROUTES = {
     UPDATE: (id) => `${url}/students/${id}`,
     DELETE: (id) => `${url}/students/${id}`,
   },
+  DEPARTMENT: {
+    GETBYID: (id) => `${url}/departments/${id}`,
+    GETALL: `${url}/departments`,
+    CREATE: `${url}/departments`,
+    UPDATE: (id) => `${url}/departments/${id}`,
+    DELETE: (id) => `${url}/departments/${id}`,
+  },
 };
+

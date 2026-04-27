@@ -36,6 +36,10 @@ import StudentDashboard from "./pages/admin/Dashboard";
 import Home from "./pages/blog/Home";
 import UserProfile from "./pages/admin/Profile";
 import NotificationDetail from "./pages/admin/NotificationDetail";
+import StudentProfile from "./pages/admin/StudentProfile";
+import TeacherProfile from "./pages/admin/TeacherProfile";
+import EmployeeProfile from "./pages/admin/EmployeeProfile";
+import DepartmentProfile from "./pages/admin/DepartmentProfile";
 import ProjectWorkspace from "./pages/admin/ProjectWorkspace";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
@@ -78,11 +82,15 @@ export default function App() {
             <Route path="users" element={<Users />} />
             <Route path="users/:id" element={<UserProfile />} />
             <Route path="student" element={<Student />} />
+            <Route path="student/:id" element={<StudentProfile />} />
+            <Route path="teacher/:id" element={<TeacherProfile />} />
             <Route path="teacher" element={<Teacher />} />
             <Route path="employee" element={<Employee />} />
+            <Route path="employee/:id" element={<EmployeeProfile />} />
             <Route path="notification" element={<Notification />} />
             <Route path="notification/:id" element={<NotificationDetail />} />
             <Route path="department" element={<Department />} />
+            <Route path="department/:id" element={<DepartmentProfile />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/:id" element={<ProjectWorkspace />} />
             <Route path="blogs" element={<Blog />} />

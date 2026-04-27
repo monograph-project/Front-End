@@ -19,7 +19,7 @@ const Select = ({
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
       {label && (
-        <label className="text-sm text-gray-600 dark:text-gray-300">
+        <label className="text-[11px] font-semibold text-primary dark:text-dark-primary">
           {label}
         </label>
       )}
@@ -31,14 +31,15 @@ const Select = ({
         disabled={disabled}
       >
         <RadixSelect.Trigger
-          className={`inline-flex h-9 items-center justify-between rounded-md px-3 text-sm
-          bg-white dark:bg-dark-shell
-          border border-default dark:border-dark-default
-          text-gray-700 dark:text-gray-200
-           outline-none
-          data-placeholder:text-gray-400
-          ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-        `}
+          className={`
+            inline-flex h-8 items-center justify-between rounded-lg px-3 text-xs
+            bg-input dark:bg-dark-input
+            border border-default dark:border-dark-default
+            focus:border-accent dark:focus:border-dark-accent
+            transition-colors
+            data-[placeholder]:text-muted dark:data-[placeholder]:text-dark-muted
+            ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+          `}
         >
           <RadixSelect.Value placeholder={placeholder} />
           <RadixSelect.Icon>
@@ -46,10 +47,9 @@ const Select = ({
           </RadixSelect.Icon>
         </RadixSelect.Trigger>
 
-        {/* Dropdown */}
         <RadixSelect.Portal>
           <RadixSelect.Content
-            className="overflow-hidden  w-[var(--radix-select-trigger-width)] rounded-md bg-white dark:bg-dark-shell  border border-default dark:border-dark-default"
+className="overflow-hidden w-[var(--radix-select-trigger-width)] rounded-md bg-input dark:bg-dark-input border border-default dark:border-dark-default z-[10001] shadow-2xl border-2"
             position="popper"
           >
             <RadixSelect.ScrollUpButton className="flex items-center justify-center h-6">
@@ -79,17 +79,12 @@ const Select = ({
 };
 
 const SelectItem = React.forwardRef(
-  ({ children, className, ...props }, ref) => {
+  ({ children, ...props }, ref) => {
     return (
       <RadixSelect.Item
         ref={ref}
         {...props}
-        className={`relative flex items-center h-8 px-8 text-sm rounded cursor-pointer
-        text-gray-700 dark:text-gray-200
-        data-highlighted:bg-gray-100 dark:data-highlighted:bg-gray-700
-        data-disabled:opacity-50 data-disabled:pointer-events-none
-        ${className}
-      `}
+        className="relative flex items-center h-8 px-8 text-xs rounded cursor-pointer text-primary dark:text-dark-primary data-highlighted:bg-primary/5 dark:data-highlighted:bg-dark-primary/10 data-disabled:opacity-50 data-disabled:pointer-events-none"
       >
         <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
 
@@ -100,5 +95,7 @@ const SelectItem = React.forwardRef(
     );
   },
 );
+
+SelectItem.displayName = "SelectItem";
 
 export default Select;
