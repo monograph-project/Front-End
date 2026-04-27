@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { cn } from "../lib/utils";
 
 export default function BlogWriterPostsPanel({
@@ -7,14 +8,16 @@ export default function BlogWriterPostsPanel({
   statusLabels,
   statusStyles,
 }) {
+  const { t } = useTranslation();
+
   return (
     <div className="rounded-md border border-default bg-shell p-5 dark:border-dark-default dark:bg-dark-shell">
       <div>
         <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-          Other posts by {author}
+          {t("blogAdmin.detail.writerPosts.title", { author })}
         </p>
         <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-          Use this to compare quality and consistency before publishing.
+          {t("blogAdmin.detail.writerPosts.description")}
         </p>
       </div>
       <div className="mt-4 space-y-3">
@@ -45,7 +48,7 @@ export default function BlogWriterPostsPanel({
           ))
         ) : (
           <p className="text-sm text-secondary dark:text-dark-secondary">
-            No other posts from this writer yet.
+            {t("blogAdmin.detail.writerPosts.empty")}
           </p>
         )}
       </div>

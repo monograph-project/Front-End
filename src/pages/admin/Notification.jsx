@@ -11,16 +11,7 @@ import {
 import IC from "../../components/IC";
 import Icon from "../../components/Icon";
 import AvatarDemo from "../../components/Avatar";
-
-const headerData = [
-  { title: "" },
-  { title: "ID" },
-  { title: "Notification" },
-  { title: "Type" },
-  { title: "Status" },
-  { title: "Sent" },
-  { title: "Actions" },
-];
+import { useTranslation } from "react-i18next";
 
 const mockNotifications = [
   {
@@ -66,9 +57,19 @@ const mockNotifications = [
 ];
 
 function Notification() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [notifications] = useState(mockNotifications);
+  const filteredNotifications = notifications.filter((notification) => {
+    const matchesSearch = [notification.title, notification.recipient, notification.type]
+      .join(" ")
+      .toLowerCase()
+      .includes(search.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || notification.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -91,10 +92,10 @@ function Notification() {
         <div className="flex items-center justify-between p-2 border-b border-default dark:border-dark-default">
           <div>
             <h2 className="text-md font-semibold text-primary dark:text-dark-primary">
-              Notifications
+              {t("adminNotification.sidebar.title")}
             </h2>
             <span className="text-xs text-muted dark:text-dark-muted">
-              12 unread
+              {t("adminNotification.sidebar.unread", { count: 12 })}
             </span>
           </div>
           <span className=" cursor-pointer p-2">
@@ -124,7 +125,7 @@ function Notification() {
             />
             <input
               type="text"
-              placeholder="Search users by name or email..."
+              placeholder={t("adminNotification.sidebar.searchPlaceholder")}
               className="w-full pl-10 pr-4 bg-transparent py-1.5 focus:border-default dark:focus:border-dark-default  rounded-md border border-default dark:border-dark-default    transition-all"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -134,7 +135,7 @@ function Notification() {
 
         {/* List */}
         <div className="flex-1 overflow-y-auto">
-          {notifications.map((notification) => (
+          {filteredNotifications.map((notification) => (
             <div
               key={notification.id}
               className="p-3 border-b border-default dark:border-dark-default  hover:bg-accent/10 dark:hover:bg-dark-accent/10 cursor-pointer transition-colors flex gap-4"
@@ -148,11 +149,13 @@ function Notification() {
                     {notification.title}
                   </h3>
                   <Badge className="text-xs" variant="outline">
-                    {notification.type}
+                    {t(`adminShared.notificationType.${notification.type}`)}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted dark:text-dark-muted line-clamp-2 mb-1">
-                  Sent to {notification.recipient}
+                  {t("adminNotification.sidebar.sentTo", {
+                    recipient: notification.recipient,
+                  })}
                 </p>
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <span>
@@ -178,23 +181,25 @@ function Notification() {
               <AvatarDemo />
             </div>
             <div>
-              <h1 className="font-semibold text-lg text-primary dark:text-dark-primary">
-                System Alerts
+                <h1 className="font-semibold text-lg text-primary dark:text-dark-primary">
+                {t("adminNotification.detail.title")}
               </h1>
               <p className="text-sm text-muted dark:text-dark-muted">
-                Active • System
+                {t("adminNotification.detail.subtitle")}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <DropdownMenuRoot>
-              <DropdownTrigger asChild>action</DropdownTrigger>
+              <DropdownTrigger asChild>{t("adminShared.labels.action")}</DropdownTrigger>
               <DropdownContent align="end">
-                <DropdownItem>Edit notification</DropdownItem>
-                <DropdownItem>Duplicate</DropdownItem>
-                <DropdownItem>Archive</DropdownItem>
+                <DropdownItem>{t("adminNotification.actions.edit")}</DropdownItem>
+                <DropdownItem>{t("adminShared.actions.duplicate")}</DropdownItem>
+                <DropdownItem>{t("adminShared.actions.archive")}</DropdownItem>
                 <DropdownSeparator />
-                <DropdownItem variant="destructive">Delete</DropdownItem>
+                <DropdownItem variant="destructive">
+                  {t("adminShared.actions.delete")}
+                </DropdownItem>
               </DropdownContent>
             </DropdownMenuRoot>
           </div>
@@ -209,13 +214,12 @@ function Notification() {
             <div className="flex-1 min-w-0 left-0">
               <div className="bg-card dark:bg-dark-card rounded-2xl p-4 max-w-[80%]">
                 <p className="text-sm mb-2">
-                  Server maintenance scheduled for Saturday 2AM-4AM. All
-                  services will be temporarily unavailable during this window.
+                  {t("adminNotification.messages.maintenance")}
                 </p>
                 <div className="flex items-center  gap-4 text-xs text-muted dark:text-dark-muted">
-                  <span>Yesterday 10:30 AM</span>
+                  <span>{t("adminNotification.messages.yesterday")}</span>
                   <Badge variant="outline" size="1">
-                    System
+                    {t("adminShared.notificationType.system")}
                   </Badge>
                 </div>
               </div>
@@ -229,11 +233,11 @@ function Notification() {
             <div className="flex-1 min-w-0">
               <div className="bg-success/10 dark:bg-dark-success/20 rounded-2xl p-4 max-w-[80%] border border-success/20">
                 <p className="text-sm mb-2">
-                  Backup completed successfully. All data synced.
+                  {t("adminNotification.messages.backup")}
                 </p>
                 <div className="flex items-center gap-4 text-xs text-success dark:text-dark-success">
                   <span>10:35 AM</span>
-                  <Badge variant="outline">Auto</Badge>
+                  <Badge variant="outline">{t("adminNotification.messages.auto")}</Badge>
                 </div>
               </div>
             </div>
@@ -262,7 +266,7 @@ function Notification() {
             </button>
             <input
               type="text"
-              placeholder="Reply to all notifications..."
+              placeholder={t("adminNotification.replyPlaceholder")}
               className="flex-1 bg-transparent outline-none text-sm resize-none h-full"
             />
           </div>

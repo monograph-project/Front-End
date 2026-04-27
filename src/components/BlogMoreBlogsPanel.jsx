@@ -1,14 +1,17 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 export default function BlogMoreBlogsPanel({ relatedBlogs }) {
+  const { t } = useTranslation();
+
   return (
     <div className="rounded-md border border-default bg-shell p-5 dark:border-dark-default dark:bg-dark-shell">
       <div>
         <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-          More blogs
+          {t("blogAdmin.detail.more.title")}
         </p>
         <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-          Open another article without leaving the admin review flow.
+          {t("blogAdmin.detail.more.description")}
         </p>
       </div>
       <div className="mt-4 space-y-3">

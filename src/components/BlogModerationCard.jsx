@@ -1,5 +1,6 @@
 import { CalendarDays, ChevronRight, Clock3, Star } from "lucide-react";
 import { format } from "date-fns";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { cn } from "../lib/utils";
 
@@ -16,16 +17,8 @@ const STATUS_STYLES = {
     "bg-slate-200 text-slate-700 ring-1 ring-inset ring-slate-300 dark:bg-slate-500/15 dark:text-slate-200 dark:ring-slate-400/20",
 };
 
-const STATUS_LABELS = {
-  pending: "Waiting",
-  accepted: "Accepted",
-  published: "Published",
-  rejected: "Rejected",
-  draft: "Draft",
-};
-
 function formatBlogDate(date) {
-  if (!date) return "No date";
+  if (!date) return null;
   return format(new Date(date), "yyyy-MM-dd");
 }
 
@@ -61,13 +54,22 @@ export default function BlogModerationCard({
   onToggleFeatured,
   linkTo,
 }) {
+  const { t } = useTranslation();
+  const statusLabels = {
+    pending: t("blogAdmin.status.pendingShort"),
+    accepted: t("blogAdmin.status.accepted"),
+    published: t("blogAdmin.status.published"),
+    rejected: t("blogAdmin.status.rejected"),
+    draft: t("blogAdmin.status.draft"),
+  };
+
   return (
     <article className="relative overflow-hidden rounded-md border border-default bg-shell p-5 transition-transform duration-200 hover:-translate-y-1 dark:border-dark-default dark:bg-dark-shell md:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted dark:text-dark-muted">
           <span className="inline-flex items-center gap-2 font-medium text-primary dark:text-dark-primary">
             <CalendarDays className="h-4 w-4" />
-            {formatBlogDate(blog.date)}
+            {formatBlogDate(blog.date) || t("blogAdmin.common.noDate")}
           </span>
           <span
             className={cn(
@@ -75,7 +77,7 @@ export default function BlogModerationCard({
               STATUS_STYLES[blog.status],
             )}
           >
-            {STATUS_LABELS[blog.status]}
+            {statusLabels[blog.status]}
           </span>
         </div>
 
@@ -87,7 +89,11 @@ export default function BlogModerationCard({
             blog.featured &&
               "border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300",
           )}
-          aria-label={blog.featured ? "Remove featured" : "Mark as featured"}
+          aria-label={
+            blog.featured
+              ? t("blogAdmin.actions.removeFeatured")
+              : t("blogAdmin.actions.markFeatured")
+          }
         >
           <Star className={cn("h-5 w-5", blog.featured && "fill-current")} />
         </button>
@@ -98,7 +104,7 @@ export default function BlogModerationCard({
           <span className="rounded-full bg-white/80 px-2.5 py-1 font-medium dark:bg-dark-shell">
             {blog.category}
           </span>
-          <span>By {blog.author}</span>
+          <span>{t("blogAdmin.common.by", { author: blog.author })}</span>
           <span className="inline-flex items-center gap-1">
             <Clock3 className="h-3.5 w-3.5" />
             {blog.readTime}
@@ -107,7 +113,10 @@ export default function BlogModerationCard({
 
         <h3 className="mt-4 max-w-[28rem] text-2xl font-semibold leading-tight text-primary dark:text-dark-primary">
           {linkTo ? (
-            <Link to={linkTo} className="transition-colors hover:text-secondary dark:hover:text-dark-secondary">
+            <Link
+              to={linkTo}
+              className="transition-colors hover:text-secondary dark:hover:text-dark-secondary"
+            >
               {blog.title}
             </Link>
           ) : (
@@ -136,7 +145,7 @@ export default function BlogModerationCard({
             to={linkTo}
             className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:text-secondary dark:text-dark-primary dark:hover:text-dark-secondary"
           >
-            Review article
+            {t("blogAdmin.actions.reviewArticle")}
             <ChevronRight className="h-4 w-4" />
           </Link>
         ) : (
@@ -144,7 +153,7 @@ export default function BlogModerationCard({
             type="button"
             className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:text-secondary dark:text-dark-primary dark:hover:text-dark-secondary"
           >
-            Review article
+            {t("blogAdmin.actions.reviewArticle")}
             <ChevronRight className="h-4 w-4" />
           </button>
         )}
@@ -158,13 +167,13 @@ export default function BlogModerationCard({
                 tone="success"
                 onClick={() => onStatusChange?.(blog.id, "accepted")}
               >
-                Accept
+                {t("blogAdmin.actions.accept")}
               </ActionButton>
               <ActionButton
                 tone="danger"
                 onClick={() => onStatusChange?.(blog.id, "rejected")}
               >
-                Reject
+                {t("blogAdmin.actions.reject")}
               </ActionButton>
             </>
           )}
@@ -175,12 +184,12 @@ export default function BlogModerationCard({
                 tone="primary"
                 onClick={() => onStatusChange?.(blog.id, "published")}
               >
-                Publish now
+                {t("blogAdmin.actions.publishNow")}
               </ActionButton>
               <ActionButton
                 onClick={() => onStatusChange?.(blog.id, "pending")}
               >
-                Back to waiting
+                {t("blogAdmin.actions.backToWaiting")}
               </ActionButton>
             </>
           )}
@@ -190,10 +199,10 @@ export default function BlogModerationCard({
               <ActionButton
                 onClick={() => onStatusChange?.(blog.id, "accepted")}
               >
-                Unpublish
+                {t("blogAdmin.actions.unpublish")}
               </ActionButton>
               <ActionButton onClick={() => onStatusChange?.(blog.id, "draft")}>
-                Move to draft
+                {t("blogAdmin.actions.moveToDraft")}
               </ActionButton>
             </>
           )}
@@ -203,7 +212,7 @@ export default function BlogModerationCard({
               tone="success"
               onClick={() => onStatusChange?.(blog.id, "accepted")}
             >
-              Restore and accept
+              {t("blogAdmin.actions.restoreAndAccept")}
             </ActionButton>
           )}
 
@@ -212,7 +221,7 @@ export default function BlogModerationCard({
               tone="primary"
               onClick={() => onStatusChange?.(blog.id, "pending")}
             >
-              Send for approval
+              {t("blogAdmin.actions.sendForApproval")}
             </ActionButton>
           )}
         </div>

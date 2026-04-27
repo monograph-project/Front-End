@@ -19,18 +19,10 @@ import {
   DropdownTrigger,
 } from "../../components/DropdownMenu";
 import Button from "../../components/Button";
-
-const headerData = [
-  { title: "" },
-  { title: "ID" },
-  { title: "Student" },
-  { title: "Department" },
-  { title: "Status" },
-  { title: "Enrolled" },
-  { title: "Actions" },
-];
+import { useTranslation } from "react-i18next";
 
 export default function Students() {
+  const { t } = useTranslation();
   const { data: studentsData, isLoading } = useQuery({
     queryKey: ["students"],
     queryFn: getStudents,
@@ -39,13 +31,46 @@ export default function Students() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const students = studentsData || [];
+  const headerData = [
+    { title: "" },
+    { title: t("adminStudents.table.id") },
+    { title: t("adminStudents.table.student") },
+    { title: t("adminStudents.table.department") },
+    { title: t("adminStudents.table.status") },
+    { title: t("adminStudents.table.enrolled") },
+    { title: t("adminStudents.table.actions") },
+  ];
+
+  const filteredStudents = students.filter((student) => {
+    const matchesSearch = [
+      student.firstName,
+      student.lastName,
+      student.email,
+      student.department,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" ||
+      student.status?.toLowerCase() === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const statusOptions = [
+    { value: "all", label: t("adminShared.filters.allStatus") },
+    { value: "active", label: t("adminShared.status.active") },
+    { value: "pending", label: t("adminShared.status.pending") },
+    { value: "rejected", label: t("adminShared.status.rejected") },
+    { value: "suspended", label: t("adminShared.status.suspended") },
+  ];
 
   if (isLoading) {
     return (
       <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-[14px] bg-shell dark:bg-dark-shell">
         <div className="flex items-center justify-center h-64">
           <div className="text-primary dark:text-dark-primary">
-            Loading students...
+            {t("adminStudents.loading")}
           </div>
         </div>
       </div>
@@ -58,14 +83,16 @@ export default function Students() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-primary dark:text-dark-primary mb-1">
-            Student Management
+            {t("adminStudents.header.title")}
           </h1>
           <p className="text-muted dark:text-dark-muted">
-            Manage {students.length} students and their enrollment status
+            {t("adminStudents.header.description", {
+              count: filteredStudents.length,
+            })}
           </p>
         </div>
         <Button icon={<Icon d={IC.plus} className="size-4" />}>
-          Add Student
+          {t("adminStudents.actions.add")}
         </Button>
       </div>
 
@@ -81,8 +108,8 @@ export default function Students() {
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 stroke-muted dark:stroke-dark-muted"
               />
               <input
-                type="text"
-                placeholder="Search students by name, email or department..."
+              type="text"
+              placeholder={t("adminStudents.filters.searchPlaceholder")}
                 className="w-full pl-10 pr-4 py-1.5 border  border-default dark:border-dark-default rounded-md text-sm  transition-all placeholder:text-muted dark:placeholder:text-dark-muted"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -91,13 +118,7 @@ export default function Students() {
 
             <div className="w-48">
               <Select
-                options={[
-                  { value: "all", label: "All Status" },
-                  { value: "active", label: "Active" },
-                  { value: "pending", label: "Pending" },
-                  { value: "rejected", label: "Rejected" },
-                  { value: "suspended", label: "Suspended" },
-                ]}
+                options={statusOptions}
                 value={statusFilter}
                 onValueChange={setStatusFilter}
               />
@@ -108,7 +129,7 @@ export default function Students() {
           <Table className="shadow-sm">
             <TableHeader headerData={headerData} />
             <TableBody>
-              {students.map((student) => (
+              {filteredStudents.map((student) => (
                 <TableRow key={student.id}>
                   <TableColumn>{student.id}</TableColumn>
                   <TableColumn className="font-medium">
@@ -119,7 +140,9 @@ export default function Students() {
                     <Badge
                       color={`student.status === "Active" ?  "green" : "red`}
                     >
-                      {student.status}
+                      {t(
+                        `adminShared.status.${student.status?.toLowerCase() || "active"}`,
+                      )}
                     </Badge>
                   </TableColumn>
                   <TableColumn>{student.enrollmentDate}</TableColumn>
@@ -144,7 +167,7 @@ export default function Students() {
                       {/* <AccountTrigger /> */}
 
                       <DropdownContent>
-                        <DropdownLabel>Account</DropdownLabel>
+                        <DropdownLabel>{t("adminShared.labels.account")}</DropdownLabel>
 
                         <DropdownItem
                           icon={
@@ -164,7 +187,7 @@ export default function Students() {
                             </svg>
                           }
                         >
-                          <span>Profile</span>
+                          <span>{t("adminShared.actions.profile")}</span>
                         </DropdownItem>
                         <DropdownItem
                           icon={
@@ -184,12 +207,12 @@ export default function Students() {
                             </svg>
                           }
                         >
-                          Settings
+                          {t("adminShared.actions.settings")}
                         </DropdownItem>
 
                         <DropdownSeparator />
 
-                        <DropdownLabel>Actions</DropdownLabel>
+                        <DropdownLabel>{t("adminShared.labels.actions")}</DropdownLabel>
 
                         <DropdownItem
                           icon={
@@ -210,7 +233,7 @@ export default function Students() {
                           }
                           variant="warning"
                         >
-                          Archive
+                          {t("adminShared.actions.archive")}
                         </DropdownItem>
                         <DropdownItem
                           icon={
@@ -231,20 +254,20 @@ export default function Students() {
                           }
                           variant="danger"
                         >
-                          Delete
+                          {t("adminShared.actions.delete")}
                         </DropdownItem>
                       </DropdownContent>
                     </DropdownMenuRoot>
                   </TableColumn>
                 </TableRow>
               ))}
-              {students.length === 0 && (
+              {filteredStudents.length === 0 && (
                 <TableRow>
                   <TableColumn
                     colSpan={headerData.length}
                     className="text-center py-8 text-muted dark:text-dark-muted"
                   >
-                    No students found
+                    {t("adminStudents.empty")}
                   </TableColumn>
                 </TableRow>
               )}

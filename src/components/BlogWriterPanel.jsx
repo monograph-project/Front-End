@@ -1,4 +1,7 @@
+import { useTranslation } from "react-i18next";
+
 export default function BlogWriterPanel({ blog, blogs }) {
+  const { t } = useTranslation();
   const totalPosts = blogs.filter((item) => item.author === blog.author).length;
   const publishedPosts = blogs.filter(
     (item) => item.author === blog.author && item.status === "published",
@@ -29,19 +32,25 @@ export default function BlogWriterPanel({ blog, blogs }) {
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-md border border-default bg-card p-3 dark:border-dark-default dark:bg-dark-card">
-            <p className="text-xs text-muted dark:text-dark-muted">Posts</p>
+            <p className="text-xs text-muted dark:text-dark-muted">
+              {t("blogAdmin.detail.writer.posts")}
+            </p>
             <p className="mt-1 text-lg font-semibold text-primary dark:text-dark-primary">
               {totalPosts}
             </p>
           </div>
           <div className="rounded-md border border-default bg-card p-3 dark:border-dark-default dark:bg-dark-card">
-            <p className="text-xs text-muted dark:text-dark-muted">Published</p>
+            <p className="text-xs text-muted dark:text-dark-muted">
+              {t("blogAdmin.detail.writer.published")}
+            </p>
             <p className="mt-1 text-lg font-semibold text-primary dark:text-dark-primary">
               {publishedPosts}
             </p>
           </div>
           <div className="rounded-md border border-default bg-card p-3 dark:border-dark-default dark:bg-dark-card">
-            <p className="text-xs text-muted dark:text-dark-muted">Pending</p>
+            <p className="text-xs text-muted dark:text-dark-muted">
+              {t("blogAdmin.detail.writer.pending")}
+            </p>
             <p className="mt-1 text-lg font-semibold text-primary dark:text-dark-primary">
               {pendingPosts}
             </p>
@@ -49,9 +58,7 @@ export default function BlogWriterPanel({ blog, blogs }) {
         </div>
       </div>
       <p className="mt-5 text-sm leading-6 text-secondary dark:text-dark-secondary">
-        Review the writer profile here before approving the post. This tab is a
-        better place for trust signals, posting history, and publication quality
-        than the main article body.
+        {t("blogAdmin.detail.writer.description")}
       </p>
     </div>
   );

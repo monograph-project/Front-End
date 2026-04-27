@@ -18,6 +18,7 @@ import {
   UserRound,
   XCircle,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import {
@@ -45,14 +46,6 @@ const statusStyles = {
     "bg-slate-200 text-slate-700 ring-1 ring-inset ring-slate-300 dark:bg-slate-500/15 dark:text-slate-200 dark:ring-slate-400/20",
 };
 
-const statusLabels = {
-  pending: "Waiting review",
-  accepted: "Accepted",
-  published: "Published",
-  rejected: "Rejected",
-  draft: "Draft",
-};
-
 function AdminActionButton({
   children,
   tone = "default",
@@ -66,7 +59,7 @@ function AdminActionButton({
         ? "bg-emerald-600 text-white hover:bg-emerald-700"
         : tone === "danger"
           ? "bg-rose-600 text-white hover:bg-rose-700"
-          : "border border-default bg-card text-primary hover:bg-card-2 dark:border-dark-default dark:bg-dark-card dark:text-dark-primary dark:hover:bg-dark-card-2";
+          : "border border-default  text-primary hover:-2 dark:border-dark-default  dark:text-dark-primary dark:hover:bg-dark-card-2";
 
   return (
     <button
@@ -84,6 +77,7 @@ function AdminActionButton({
 }
 
 export default function BlogDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const [blogs, setBlogs] = useState(() => loadAdminBlogs());
   const [activeTab, setActiveTab] = useState("overview");
@@ -102,23 +96,31 @@ export default function BlogDetailPage() {
   if (!blog) {
     return (
       <div className="flex min-h-screen flex-1 items-center justify-center bg-shell px-4 dark:bg-dark-shell">
-        <div className="max-w-md rounded-md border border-default bg-card p-8 text-center dark:border-dark-default dark:bg-dark-card">
+        <div className="max-w-md rounded-md border border-default  p-8 text-center dark:border-dark-default ">
           <h1 className="text-2xl font-bold text-primary dark:text-dark-primary">
-            Blog not found
+            {t("blogAdmin.detail.notFound.title")}
           </h1>
           <p className="mt-3 text-sm leading-6 text-secondary dark:text-dark-secondary">
-            The article may have been removed or the moderation link is invalid.
+            {t("blogAdmin.detail.notFound.description")}
           </p>
           <Link
             to="/admin/blogs"
             className="mt-6 inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white"
           >
-            Back to blogs
+            {t("blogAdmin.detail.notFound.back")}
           </Link>
         </div>
       </div>
     );
   }
+
+  const statusLabels = {
+    pending: t("blogAdmin.status.pendingReview"),
+    accepted: t("blogAdmin.status.accepted"),
+    published: t("blogAdmin.status.published"),
+    rejected: t("blogAdmin.status.rejected"),
+    draft: t("blogAdmin.status.draft"),
+  };
 
   const relatedBlogs = blogs.filter((item) => item.id !== blog.id).slice(0, 3);
   const authorBlogs = blogs.filter(
@@ -126,11 +128,23 @@ export default function BlogDetailPage() {
   );
 
   const tabs = [
-    { id: "overview", label: "Overview", icon: PanelsTopLeft },
-    { id: "writer", label: "Writer", icon: UserRound },
-    { id: "posts", label: "Writer posts", icon: NotebookText },
-    { id: "review", label: "Review info", icon: BadgeCheck },
-    { id: "more", label: "More blogs", icon: Eye },
+    {
+      id: "overview",
+      label: t("blogAdmin.detail.tabs.overview"),
+      icon: PanelsTopLeft,
+    },
+    { id: "writer", label: t("blogAdmin.detail.tabs.writer"), icon: UserRound },
+    {
+      id: "posts",
+      label: t("blogAdmin.detail.tabs.posts"),
+      icon: NotebookText,
+    },
+    {
+      id: "review",
+      label: t("blogAdmin.detail.tabs.review"),
+      icon: BadgeCheck,
+    },
+    { id: "more", label: t("blogAdmin.detail.tabs.more"), icon: Eye },
   ];
 
   const updateBlog = (updater) => {
@@ -151,12 +165,12 @@ export default function BlogDetailPage() {
 
   const formattedDate = blog.date
     ? format(new Date(blog.date), "MMMM d, yyyy")
-    : "No date";
+    : t("blogAdmin.common.noDate");
 
   return (
-    <div className="min-h-screen flex-1 bg-shell dark:bg-dark-shell border border-default dark:border-dark-default rounded-md m-2">
+    <div className="m-2 min-h-screen flex-1 rounded-md border border-default bg-shell dark:border-dark-default dark:bg-dark-shell">
       <div className="mx-auto w-full max-w-7xl px-2 py-3 md:px-3">
-        <section className="mb-6 rounded-md border border-default bg-card p-5 dark:border-dark-default dark:bg-dark-card">
+        <section className="mb-6 rounded-md border border-default  p-5 dark:border-dark-default ">
           <BlogDetailTabs
             tabs={tabs}
             activeTab={activeTab}
@@ -200,7 +214,7 @@ export default function BlogDetailPage() {
         )}
 
         <main className="min-w-0">
-          <div className="rounded-md border border-default bg-card dark:border-dark-default dark:bg-dark-card">
+          <div className="rounded-md border border-default  dark:border-dark-default ">
             <div className="border-b border-default px-6 py-5 dark:border-dark-default md:px-10">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <Link
@@ -208,7 +222,7 @@ export default function BlogDetailPage() {
                   className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:text-secondary dark:text-dark-primary dark:hover:text-dark-secondary"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Back to blog collection
+                  {t("blogAdmin.detail.backToCollection")}
                 </Link>
                 <div className="flex flex-wrap items-center gap-2">
                   <span
@@ -223,7 +237,7 @@ export default function BlogDetailPage() {
                     type="button"
                     onClick={handleToggleFeatured}
                     className={cn(
-                      "inline-flex items-center gap-2 rounded-md border border-default px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-card-2 dark:border-dark-default dark:text-dark-primary dark:hover:bg-dark-card-2",
+                      "inline-flex items-center gap-2 rounded-md border border-default px-3 py-1.5 text-xs font-semibold text-primary transition-colors  dark:border-dark-default dark:text-dark-primary dark:hover:bg-dark-card-2",
                       blog.featured &&
                         "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300",
                     )}
@@ -231,7 +245,9 @@ export default function BlogDetailPage() {
                     <Star
                       className={cn("h-4 w-4", blog.featured && "fill-current")}
                     />
-                    {blog.featured ? "Featured" : "Mark featured"}
+                    {blog.featured
+                      ? t("blogAdmin.detail.featured")
+                      : t("blogAdmin.actions.markFeatured")}
                   </button>
                 </div>
               </div>
@@ -242,12 +258,10 @@ export default function BlogDetailPage() {
                 <div className="max-w-148">
                   <div className="flex items-center gap-2 text-sm font-semibold text-primary dark:text-dark-primary">
                     <BookOpen className="h-4 w-4" />
-                    Moderation controls
+                    {t("blogAdmin.detail.moderation.title")}
                   </div>
                   <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                    Place review actions beside the article status near the top,
-                    so admins can act immediately after reading the opening
-                    section instead of hunting in a sidebar.
+                    {t("blogAdmin.detail.moderation.description")}
                   </p>
                 </div>
 
@@ -259,14 +273,14 @@ export default function BlogDetailPage() {
                         onClick={() => handleStatusChange("accepted")}
                       >
                         <CheckCheck className="mr-2 h-4 w-4" />
-                        Accept article
+                        {t("blogAdmin.detail.actions.acceptArticle")}
                       </AdminActionButton>
                       <AdminActionButton
                         tone="danger"
                         onClick={() => handleStatusChange("rejected")}
                       >
                         <XCircle className="mr-2 h-4 w-4" />
-                        Reject article
+                        {t("blogAdmin.detail.actions.rejectArticle")}
                       </AdminActionButton>
                     </>
                   )}
@@ -278,12 +292,12 @@ export default function BlogDetailPage() {
                         onClick={() => handleStatusChange("published")}
                       >
                         <Send className="mr-2 h-4 w-4" />
-                        Publish article
+                        {t("blogAdmin.detail.actions.publishArticle")}
                       </AdminActionButton>
                       <AdminActionButton
                         onClick={() => handleStatusChange("pending")}
                       >
-                        Return to waiting
+                        {t("blogAdmin.detail.actions.returnToWaiting")}
                       </AdminActionButton>
                     </>
                   )}
@@ -293,12 +307,12 @@ export default function BlogDetailPage() {
                       <AdminActionButton
                         onClick={() => handleStatusChange("accepted")}
                       >
-                        Unpublish to accepted
+                        {t("blogAdmin.detail.actions.unpublishToAccepted")}
                       </AdminActionButton>
                       <AdminActionButton
                         onClick={() => handleStatusChange("draft")}
                       >
-                        Move to draft
+                        {t("blogAdmin.actions.moveToDraft")}
                       </AdminActionButton>
                     </>
                   )}
@@ -308,7 +322,7 @@ export default function BlogDetailPage() {
                       tone="success"
                       onClick={() => handleStatusChange("accepted")}
                     >
-                      Restore and accept
+                      {t("blogAdmin.actions.restoreAndAccept")}
                     </AdminActionButton>
                   )}
 
@@ -317,7 +331,7 @@ export default function BlogDetailPage() {
                       tone="primary"
                       onClick={() => handleStatusChange("pending")}
                     >
-                      Send for approval
+                      {t("blogAdmin.actions.sendForApproval")}
                     </AdminActionButton>
                   )}
                 </div>
@@ -369,18 +383,22 @@ export default function BlogDetailPage() {
                   <div className="flex flex-wrap items-center gap-5 text-sm text-muted dark:text-dark-muted">
                     <span className="inline-flex items-center gap-2">
                       <Heart className="h-4 w-4" />
-                      {blog.claps} claps
+                      {t("blogAdmin.detail.metrics.claps", {
+                        count: blog.claps,
+                      })}
                     </span>
                     <span className="inline-flex items-center gap-2">
                       <MessageCircle className="h-4 w-4" />
-                      {blog.comments} comments
+                      {t("blogAdmin.detail.metrics.comments", {
+                        count: blog.comments,
+                      })}
                     </span>
                     <button
                       type="button"
                       className="inline-flex items-center gap-2 font-semibold text-primary dark:text-dark-primary"
                     >
                       <Share2 className="h-4 w-4" />
-                      Share
+                      {t("blogAdmin.detail.share")}
                     </button>
                   </div>
                 </div>

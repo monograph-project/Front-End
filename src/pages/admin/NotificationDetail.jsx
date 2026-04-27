@@ -12,11 +12,11 @@ import TableRow from "../../components/TableRow";
 import {
   DropdownContent,
   DropdownItem,
-  DropdownLabel,
   DropdownMenuRoot,
   DropdownSeparator,
   DropdownTrigger,
 } from "../../components/DropdownMenu";
+import { useTranslation } from "react-i18next";
 
 // Mock notification data
 const MOCK_NOTIFICATION_DETAIL = {
@@ -41,14 +41,8 @@ const MOCK_NOTIFICATION_DETAIL = {
   },
 };
 
-const deliveryHeaderData = [
-  { title: "Metric" },
-  { title: "Count" },
-  { title: "Rate" },
-  { title: "Status" },
-];
-
 function NotificationDetail() {
+  const { t } = useTranslation();
   const { notificationId } = useParams();
   const navigate = useNavigate();
   const [notification, setNotification] = useState(null);
@@ -76,14 +70,13 @@ function NotificationDetail() {
       <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col items-center justify-center bg-shell dark:bg-dark-shell text-center">
         <div className="text-5xl mb-4 text-muted">📧</div>
         <h2 className="text-2xl font-bold text-primary dark:text-dark-primary mb-2">
-          Notification Not Found
+          {t("adminNotificationDetail.notFound.title")}
         </h2>
         <p className="text-muted dark:text-dark-muted mb-6 max-w-md">
-          The notification you are looking for does not exist or has been
-          deleted.
+          {t("adminNotificationDetail.notFound.description")}
         </p>
         <Button onClick={() => navigate("/admin/notification")}>
-          ← Back to Notifications
+          {t("adminNotificationDetail.notFound.back")}
         </Button>
       </div>
     );
@@ -104,29 +97,36 @@ function NotificationDetail() {
 
   const deliveryStats = [
     {
-      metric: "Delivered",
+      metric: t("adminNotificationDetail.analytics.metrics.delivered"),
       count: notification.deliveryStats.delivered,
       rate: "100%",
       status: "success",
     },
     {
-      metric: "Opened",
+      metric: t("adminNotificationDetail.analytics.metrics.opened"),
       count: notification.deliveryStats.opened,
       rate: "91%",
       status: "success",
     },
     {
-      metric: "Clicked",
+      metric: t("adminNotificationDetail.analytics.metrics.clicked"),
       count: notification.deliveryStats.clicked,
       rate: "18.2%",
       status: "warning",
     },
     {
-      metric: "Bounced",
+      metric: t("adminNotificationDetail.analytics.metrics.bounced"),
       count: notification.deliveryStats.bounced,
       rate: "0.8%",
       status: "error",
     },
+  ];
+
+  const deliveryHeaderData = [
+    { title: t("adminNotificationDetail.table.metric") },
+    { title: t("adminNotificationDetail.table.count") },
+    { title: t("adminNotificationDetail.table.rate") },
+    { title: t("adminNotificationDetail.table.status") },
   ];
 
   return (
@@ -145,7 +145,9 @@ function NotificationDetail() {
                 </h1>
                 <div className="flex items-center gap-4 mt-2 text-sm">
                   <span className="text-muted dark:text-dark-muted">
-                    Sent: {new Date(notification.sent).toLocaleString()}
+                    {t("adminNotificationDetail.header.sent", {
+                      value: new Date(notification.sent).toLocaleString(),
+                    })}
                   </span>
                   <Badge className={getStatusClass(notification.status)}>
                     {notification.status.toUpperCase()}
@@ -159,20 +161,14 @@ function NotificationDetail() {
           </div>
           <div className="flex items-center gap-2">
             <DropdownMenuRoot>
-              <DropdownTrigger>Action</DropdownTrigger>
+              <DropdownTrigger>{t("adminShared.labels.action")}</DropdownTrigger>
               <DropdownContent align="end">
-                <DropdownItem>
-                  <span>View Profile</span>
-                </DropdownItem>
-                <DropdownItem>
-                  <span>Edit Details</span>
-                </DropdownItem>
-                <DropdownItem>
-                  <span>Send Message</span>
-                </DropdownItem>
+                <DropdownItem>{t("adminShared.actions.viewProfile")}</DropdownItem>
+                <DropdownItem>{t("adminShared.actions.editDetails")}</DropdownItem>
+                <DropdownItem>{t("adminShared.actions.sendMessage")}</DropdownItem>
                 <DropdownSeparator />
                 <DropdownItem variant="danger">
-                  <span>Remove Employee</span>
+                  {t("adminNotificationDetail.actions.remove")}
                 </DropdownItem>
               </DropdownContent>
             </DropdownMenuRoot>
@@ -190,7 +186,7 @@ function NotificationDetail() {
               }`}
               onClick={() => setTab("content")}
             >
-              Content
+              {t("adminNotificationDetail.tabs.content")}
             </button>
             <button
               className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-all ${
@@ -200,7 +196,7 @@ function NotificationDetail() {
               }`}
               onClick={() => setTab("analytics")}
             >
-              Analytics
+              {t("adminNotificationDetail.tabs.analytics")}
             </button>
             <button
               className={`flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-all ${
@@ -210,7 +206,7 @@ function NotificationDetail() {
               }`}
               onClick={() => setTab("recipients")}
             >
-              Recipients
+              {t("adminNotificationDetail.tabs.recipients")}
             </button>
           </div>
 
@@ -219,7 +215,7 @@ function NotificationDetail() {
             <div className="p-6 bg-card dark:bg-dark-card">
               <div className="mb-6">
                 <h3 className="text-lg font-semibold mb-3 text-primary dark:text-dark-primary">
-                  Subject
+                  {t("adminNotificationDetail.content.subject")}
                 </h3>
                 <div className="bg-muted/50 dark:bg-dark-muted/50 p-4 rounded-lg font-medium text-primary dark:text-dark-primary">
                   {notification.subject}
@@ -228,7 +224,7 @@ function NotificationDetail() {
 
               <div className="mb-6">
                 <h3 className="text-lg font-semibold mb-3 text-primary dark:text-dark-primary">
-                  Message
+                  {t("adminNotificationDetail.content.message")}
                 </h3>
                 <div className="prose prose-sm max-w-none bg-muted/50 dark:bg-dark-muted/50 p-6 rounded-lg">
                   <div
@@ -242,7 +238,7 @@ function NotificationDetail() {
               {notification.attachments?.length > 0 && (
                 <div>
                   <h3 className="text-lg font-semibold mb-3 text-primary dark:text-dark-primary">
-                    Attachments
+                    {t("adminNotificationDetail.content.attachments")}
                   </h3>
                   <div className="space-y-2">
                     {notification.attachments.map((attachment, index) => (
@@ -263,7 +259,7 @@ function NotificationDetail() {
                           </div>
                         </div>
                         <Button size="sm" variant="ghost">
-                          Download
+                          {t("adminShared.actions.download")}
                         </Button>
                       </div>
                     ))}
@@ -279,7 +275,7 @@ function NotificationDetail() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div className="bg-card dark:bg-dark-card p-6 rounded-lg border border-default dark:border-dark-default">
                   <h4 className="text-lg font-semibold mb-4 text-primary dark:text-dark-primary">
-                    Delivery Overview
+                    {t("adminNotificationDetail.analytics.deliveryOverview")}
                   </h4>
                   <Table>
                     <TableHeader headerData={deliveryHeaderData} />
@@ -309,7 +305,7 @@ function NotificationDetail() {
                   <div className="p-6 rounded-lg border border-default dark:border-dark-default bg-card dark:bg-dark-card">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-lg font-semibold text-primary dark:text-dark-primary">
-                        Open Rate
+                        {t("adminNotificationDetail.analytics.openRate")}
                       </h4>
                       <Badge className="bg-success text-success-light">
                         91%
@@ -318,7 +314,7 @@ function NotificationDetail() {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted dark:text-dark-muted">
-                          Delivered
+                          {t("adminNotificationDetail.analytics.metrics.delivered")}
                         </span>
                         <span>1,564</span>
                       </div>
@@ -333,7 +329,7 @@ function NotificationDetail() {
                   <div className="p-6 rounded-lg border border-default dark:border-dark-default bg-card dark:bg-dark-card">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-lg font-semibold text-primary dark:text-dark-primary">
-                        Click Rate
+                        {t("adminNotificationDetail.analytics.clickRate")}
                       </h4>
                       <Badge className="bg-warning text-warning-light">
                         18.2%
@@ -342,7 +338,7 @@ function NotificationDetail() {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted dark:text-dark-muted">
-                          Opened
+                          {t("adminNotificationDetail.analytics.metrics.opened")}
                         </span>
                         <span>1,423</span>
                       </div>
@@ -364,7 +360,9 @@ function NotificationDetail() {
             <div className="p-6">
               <div className="mb-6">
                 <h3 className="text-lg font-semibold mb-4 text-primary dark:text-dark-primary">
-                  Recipients ({notification.recipients.toLocaleString()})
+                  {t("adminNotificationDetail.recipients.title", {
+                    count: notification.recipients.toLocaleString(),
+                  })}
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="p-4 border border-default dark:border-dark-default rounded-lg text-center">
@@ -372,7 +370,7 @@ function NotificationDetail() {
                       1,564
                     </div>
                     <div className="text-sm text-muted dark:text-dark-muted">
-                      Delivered
+                      {t("adminNotificationDetail.analytics.metrics.delivered")}
                     </div>
                   </div>
                   <div className="p-4 border border-default dark:border-dark-default rounded-lg text-center">
@@ -380,7 +378,7 @@ function NotificationDetail() {
                       1,423
                     </div>
                     <div className="text-sm text-muted dark:text-dark-muted">
-                      Opened
+                      {t("adminNotificationDetail.analytics.metrics.opened")}
                     </div>
                   </div>
                   <div className="p-4 border border-default dark:border-dark-default rounded-lg text-center">
@@ -388,7 +386,7 @@ function NotificationDetail() {
                       285
                     </div>
                     <div className="text-sm text-muted dark:text-dark-muted">
-                      Clicked
+                      {t("adminNotificationDetail.analytics.metrics.clicked")}
                     </div>
                   </div>
                 </div>

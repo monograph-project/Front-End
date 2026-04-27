@@ -9,6 +9,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useTranslation } from "react-i18next";
 
 const faculty = {
   name: "Faculty of Computer Science",
@@ -117,7 +118,7 @@ const facultyFacilities = [
 
 function MetricCard({ icon: Icon, label, value, note }) {
   return (
-    <div className="rounded-md border border-default bg-card p-4 dark:border-dark-default dark:bg-dark-card">
+    <div className="rounded-md border border-default  p-4 dark:border-dark-default ">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
@@ -139,7 +140,9 @@ function MetricCard({ icon: Icon, label, value, note }) {
 }
 
 function Departments() {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("overview");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(
     departments[0].id,
   );
@@ -162,12 +165,22 @@ function Departments() {
   }, [query]);
 
   const selectedDepartment =
-    departments.find((department) => department.id === selectedDepartmentId) ||
+    filteredDepartments.find(
+      (department) => department.id === selectedDepartmentId,
+    ) ||
+    filteredDepartments[0] ||
     departments[0];
+
+  const tabs = [
+    { id: "overview", label: t("adminDepartments.tabs.overview") },
+    { id: "departments", label: t("adminDepartments.tabs.departments") },
+    { id: "programs", label: t("adminDepartments.tabs.programs") },
+    { id: "facilities", label: t("adminDepartments.tabs.facilities") },
+  ];
 
   return (
     <div className="flex min-h-screen flex-1 flex-col gap-6 overflow-y-auto bg-shell p-4 dark:bg-dark-shell md:p-6">
-      <section className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+      <section className="rounded-md border border-default  p-6 dark:border-dark-default ">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-md border border-default bg-shell px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:border-dark-default dark:bg-dark-shell dark:text-dark-muted">
@@ -185,7 +198,7 @@ function Departments() {
           <div className="grid grid-cols-2 gap-3 xl:min-w-[360px]">
             <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
               <p className="text-xs text-muted dark:text-dark-muted">
-                Established
+                {t("adminDepartments.overview.established")}
               </p>
               <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                 {faculty.established}
@@ -193,7 +206,7 @@ function Departments() {
             </div>
             <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
               <p className="text-xs text-muted dark:text-dark-muted">
-                Dean
+                {t("adminDepartments.overview.dean")}
               </p>
               <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                 {faculty.dean}
@@ -201,7 +214,7 @@ function Departments() {
             </div>
             <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
               <p className="text-xs text-muted dark:text-dark-muted">
-                Location
+                {t("adminDepartments.overview.location")}
               </p>
               <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                 {faculty.location}
@@ -209,7 +222,7 @@ function Departments() {
             </div>
             <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
               <p className="text-xs text-muted dark:text-dark-muted">
-                Programs
+                {t("adminDepartments.overview.programs")}
               </p>
               <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                 {faculty.programs}
@@ -222,130 +235,58 @@ function Departments() {
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={GraduationCap}
-          label="Students"
+          label={t("adminDepartments.metrics.students")}
           value={faculty.students}
-          note="Current enrolled students in this faculty."
+          note={t("adminDepartments.metrics.studentsNote")}
         />
         <MetricCard
           icon={UserRound}
-          label="Teachers"
+          label={t("adminDepartments.metrics.teachers")}
           value={faculty.teachers}
-          note="Academic staff and supervisors across departments."
+          note={t("adminDepartments.metrics.teachersNote")}
         />
         <MetricCard
           icon={BookOpen}
-          label="Programs"
+          label={t("adminDepartments.metrics.programs")}
           value={faculty.programs}
-          note="Degree and certificate offerings under this faculty."
+          note={t("adminDepartments.metrics.programsNote")}
         />
         <MetricCard
           icon={Microscope}
-          label="Labs"
+          label={t("adminDepartments.metrics.labs")}
           value={faculty.labs}
-          note="Laboratories and collaborative faculty facilities."
+          note={t("adminDepartments.metrics.labsNote")}
         />
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)] xl:items-start">
-        <aside className="rounded-md border border-default bg-card dark:border-dark-default dark:bg-dark-card">
-          <div className="border-b border-default p-5 dark:border-dark-default">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-primary dark:text-dark-primary" />
-              <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
-                Faculty departments
-              </h2>
-            </div>
-            <div className="relative mt-4">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted dark:text-dark-muted" />
-              <input
-                type="text"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search department or head..."
-                className="w-full rounded-md border border-default bg-shell py-2.5 pl-10 pr-4 text-sm text-primary outline-none transition-colors placeholder:text-muted focus:border-primary/30 dark:border-dark-default dark:bg-dark-shell dark:text-dark-primary dark:placeholder:text-dark-muted dark:focus:border-dark-primary/30"
-              />
-            </div>
-          </div>
+      <section className="rounded-md border border-default  p-3 dark:border-dark-default ">
+        <div className="flex flex-wrap gap-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "rounded-md px-4 py-2 text-sm font-semibold transition-colors",
+                activeTab === tab.id
+                  ? "bg-primary text-white dark:bg-dark-primary dark:text-dark-shell"
+                  : "border border-default bg-shell text-primary hover: dark:border-dark-default dark:bg-dark-shell dark:text-dark-primary dark:hover:bg-dark-card",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </section>
 
-          <div className="space-y-3 p-4">
-            {filteredDepartments.map((department) => {
-              const isActive = selectedDepartment.id === department.id;
-
-              return (
-                <button
-                  key={department.id}
-                  type="button"
-                  onClick={() => setSelectedDepartmentId(department.id)}
-                  className={cn(
-                    "w-full rounded-md border p-4 text-left transition-colors",
-                    isActive
-                      ? "border-primary bg-shell dark:border-dark-primary dark:bg-dark-shell"
-                      : "border-default bg-card hover:bg-shell dark:border-dark-default dark:bg-dark-card dark:hover:bg-dark-shell",
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-primary dark:text-dark-primary">
-                        {department.name}
-                      </p>
-                      <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-                        Head: {department.head}
-                      </p>
-                    </div>
-                    <span className="rounded-md border border-default bg-card px-2.5 py-1 text-xs font-medium text-secondary dark:border-dark-default dark:bg-dark-card dark:text-dark-secondary">
-                      {department.programs} programs
-                    </span>
-                  </div>
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-                    <div className="rounded-md bg-shell px-2 py-2 text-center dark:bg-dark-shell">
-                      <p className="text-[11px] text-muted dark:text-dark-muted">
-                        Students
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
-                        {department.students}
-                      </p>
-                    </div>
-                    <div className="rounded-md bg-shell px-2 py-2 text-center dark:bg-dark-shell">
-                      <p className="text-[11px] text-muted dark:text-dark-muted">
-                        Staff
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
-                        {department.teachers}
-                      </p>
-                    </div>
-                    <div className="rounded-md bg-shell px-2 py-2 text-center dark:bg-dark-shell">
-                      <p className="text-[11px] text-muted dark:text-dark-muted">
-                        Labs
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
-                        {department.labs}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-
-            {!filteredDepartments.length && (
-              <div className="rounded-md border border-dashed border-default px-4 py-10 text-center dark:border-dark-default">
-                <p className="font-semibold text-primary dark:text-dark-primary">
-                  No department found
-                </p>
-                <p className="mt-2 text-sm text-secondary dark:text-dark-secondary">
-                  Try another search term.
-                </p>
-              </div>
-            )}
-          </div>
-        </aside>
-
-        <main className="min-w-0 space-y-6">
-          <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+      {activeTab === "overview" && (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_320px] xl:items-start">
+          <div className="rounded-md border border-default  p-6 dark:border-dark-default ">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-3xl">
                 <div className="inline-flex items-center gap-2 rounded-md border border-default bg-shell px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:border-dark-default dark:bg-dark-shell dark:text-dark-muted">
                   <Building2 className="h-3.5 w-3.5" />
-                  Department details
+                  {t("adminDepartments.details.title")}
                 </div>
                 <h2 className="mt-4 text-3xl font-bold text-primary dark:text-dark-primary">
                   {selectedDepartment.name}
@@ -358,7 +299,7 @@ function Departments() {
               <div className="grid grid-cols-2 gap-3 lg:min-w-[320px]">
                 <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
                   <p className="text-xs text-muted dark:text-dark-muted">
-                    Department head
+                    {t("adminDepartments.details.head")}
                   </p>
                   <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                     {selectedDepartment.head}
@@ -366,7 +307,7 @@ function Departments() {
                 </div>
                 <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
                   <p className="text-xs text-muted dark:text-dark-muted">
-                    Programs
+                    {t("adminDepartments.overview.programs")}
                   </p>
                   <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                     {selectedDepartment.programs}
@@ -374,7 +315,7 @@ function Departments() {
                 </div>
                 <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
                   <p className="text-xs text-muted dark:text-dark-muted">
-                    Students
+                    {t("adminDepartments.metrics.students")}
                   </p>
                   <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                     {selectedDepartment.students}
@@ -382,7 +323,7 @@ function Departments() {
                 </div>
                 <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
                   <p className="text-xs text-muted dark:text-dark-muted">
-                    Teachers
+                    {t("adminDepartments.metrics.teachers")}
                   </p>
                   <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                     {selectedDepartment.teachers}
@@ -392,13 +333,224 @@ function Departments() {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <section className="space-y-6">
-              <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+          <aside className="space-y-6">
+            <div className="rounded-md border border-default  p-6 dark:border-dark-default ">
+              <div className="flex items-center gap-2">
+                <UserRound className="h-4 w-4 text-primary dark:text-dark-primary" />
+                <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                  {t("adminDepartments.leadership.title")}
+                </h3>
+              </div>
+              <div className="mt-4 rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                  {faculty.dean}
+                </p>
+                <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
+                  {t("adminDepartments.leadership.deanOf", {
+                    faculty: faculty.shortName,
+                  })}
+                </p>
+                <p className="mt-3 text-sm text-muted dark:text-dark-muted">
+                  {faculty.deanEmail}
+                </p>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-secondary dark:text-dark-secondary">
+                {faculty.vision}
+              </p>
+            </div>
+
+            <div className="rounded-md border border-default  p-6 dark:border-dark-default ">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary dark:text-dark-primary" />
+                <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                  {t("adminDepartments.capacity.title")}
+                </h3>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                  <p className="text-xs text-muted dark:text-dark-muted">
+                    {t("adminDepartments.metrics.students")}
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
+                    {faculty.students}
+                  </p>
+                </div>
+                <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                  <p className="text-xs text-muted dark:text-dark-muted">
+                    {t("adminDepartments.metrics.teachers")}
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
+                    {faculty.teachers}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {activeTab === "departments" && (
+        <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)] xl:items-start">
+          <aside className="rounded-md border border-default  dark:border-dark-default ">
+            <div className="border-b border-default p-5 dark:border-dark-default">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary dark:text-dark-primary" />
+                <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                  {t("adminDepartments.list.title")}
+                </h2>
+              </div>
+              <div className="relative mt-4">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted dark:text-dark-muted" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={t("adminDepartments.list.searchPlaceholder")}
+                  className="w-full rounded-md border border-default bg-shell py-2.5 pl-10 pr-4 text-sm text-primary outline-none transition-colors placeholder:text-muted focus:border-primary/30 dark:border-dark-default dark:bg-dark-shell dark:text-dark-primary dark:placeholder:text-dark-muted dark:focus:border-dark-primary/30"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 p-4">
+              {filteredDepartments.map((department) => {
+                const isActive = selectedDepartment.id === department.id;
+
+                return (
+                  <button
+                    key={department.id}
+                    type="button"
+                    onClick={() => setSelectedDepartmentId(department.id)}
+                    className={cn(
+                      "w-full rounded-md border p-4 text-left transition-colors",
+                      isActive
+                        ? "border-primary bg-shell dark:border-dark-primary dark:bg-dark-shell"
+                        : "border-default  hover:bg-shell dark:border-dark-default  dark:hover:bg-dark-shell",
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-primary dark:text-dark-primary">
+                          {department.name}
+                        </p>
+                        <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
+                          {t("adminDepartments.list.head", {
+                            name: department.head,
+                          })}
+                        </p>
+                      </div>
+                      <span className="rounded-md border border-default  px-2.5 py-1 text-xs font-medium text-secondary dark:border-dark-default  dark:text-dark-secondary">
+                        {t("adminDepartments.list.programsCount", {
+                          count: department.programs,
+                        })}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="rounded-md bg-shell px-2 py-2 text-center dark:bg-dark-shell">
+                        <p className="text-[11px] text-muted dark:text-dark-muted">
+                          {t("adminDepartments.metrics.students")}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
+                          {department.students}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-shell px-2 py-2 text-center dark:bg-dark-shell">
+                        <p className="text-[11px] text-muted dark:text-dark-muted">
+                          {t("adminDepartments.list.staff")}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
+                          {department.teachers}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-shell px-2 py-2 text-center dark:bg-dark-shell">
+                        <p className="text-[11px] text-muted dark:text-dark-muted">
+                          {t("adminDepartments.metrics.labs")}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
+                          {department.labs}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {!filteredDepartments.length && (
+                <div className="rounded-md border border-dashed border-default px-4 py-10 text-center dark:border-dark-default">
+                  <p className="font-semibold text-primary dark:text-dark-primary">
+                    {t("adminDepartments.empty.title")}
+                  </p>
+                  <p className="mt-2 text-sm text-secondary dark:text-dark-secondary">
+                    {t("adminDepartments.empty.description")}
+                  </p>
+                </div>
+              )}
+            </div>
+          </aside>
+
+          <main className="min-w-0">
+            <div className="rounded-md border border-default  p-6 dark:border-dark-default ">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-3xl">
+                  <div className="inline-flex items-center gap-2 rounded-md border border-default bg-shell px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:border-dark-default dark:bg-dark-shell dark:text-dark-muted">
+                    <Building2 className="h-3.5 w-3.5" />
+                    {t("adminDepartments.details.title")}
+                  </div>
+                  <h2 className="mt-4 text-3xl font-bold text-primary dark:text-dark-primary">
+                    {selectedDepartment.name}
+                  </h2>
+                  <p className="mt-3 text-sm leading-7 text-secondary dark:text-dark-secondary">
+                    {selectedDepartment.description}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 lg:min-w-[320px]">
+                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                    <p className="text-xs text-muted dark:text-dark-muted">
+                      {t("adminDepartments.details.head")}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                      {selectedDepartment.head}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                    <p className="text-xs text-muted dark:text-dark-muted">
+                      {t("adminDepartments.overview.programs")}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                      {selectedDepartment.programs}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                    <p className="text-xs text-muted dark:text-dark-muted">
+                      {t("adminDepartments.metrics.students")}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                      {selectedDepartment.students}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                    <p className="text-xs text-muted dark:text-dark-muted">
+                      {t("adminDepartments.metrics.teachers")}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                      {selectedDepartment.teachers}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      )}
+
+      {activeTab === "programs" && (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <section className="space-y-6">
+              <div className="rounded-md border border-default  p-6 dark:border-dark-default ">
                 <div className="flex items-center gap-2">
                   <BookOpen className="h-4 w-4 text-primary dark:text-dark-primary" />
                   <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
-                    Department focus areas
+                    {t("adminDepartments.focus.title")}
                   </h3>
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -411,111 +563,117 @@ function Departments() {
                         {area}
                       </p>
                       <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                        Academic and practical work stream supported by this
-                        department inside {faculty.shortName}.
+                        {t("adminDepartments.focus.description", {
+                          faculty: faculty.shortName,
+                        })}
                       </p>
                     </div>
                   ))}
                 </div>
               </div>
+          </section>
 
-              <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
-                    Faculty-level programs
-                  </h3>
-                </div>
-                <div className="mt-4 space-y-3">
-                  {facultyPrograms.map((program) => (
-                    <div
-                      key={program}
-                      className="rounded-md border border-default bg-shell px-4 py-3 dark:border-dark-default dark:bg-dark-shell"
-                    >
-                      <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                        {program}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <aside className="space-y-6">
-              <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
-                <div className="flex items-center gap-2">
-                  <UserRound className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
-                    Faculty leadership
-                  </h3>
-                </div>
-                <div className="mt-4 rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+          <section className="rounded-md border border-default  p-6 dark:border-dark-default ">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-primary dark:text-dark-primary" />
+              <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                {t("adminDepartments.programs.title")}
+              </h3>
+            </div>
+            <div className="mt-4 space-y-3">
+              {facultyPrograms.map((program) => (
+                <div
+                  key={program}
+                  className="rounded-md border border-default bg-shell px-4 py-3 dark:border-dark-default dark:bg-dark-shell"
+                >
                   <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                    {faculty.dean}
-                  </p>
-                  <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-                    Dean of {faculty.shortName}
-                  </p>
-                  <p className="mt-3 text-sm text-muted dark:text-dark-muted">
-                    {faculty.deanEmail}
+                    {program}
                   </p>
                 </div>
-                <p className="mt-4 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                  {faculty.vision}
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {activeTab === "facilities" && (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="rounded-md border border-default  p-6 dark:border-dark-default ">
+            <div className="flex items-center gap-2">
+              <Microscope className="h-4 w-4 text-primary dark:text-dark-primary" />
+              <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                {t("adminDepartments.facilities.title")}
+              </h3>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {facultyFacilities.map((facility) => (
+                <div
+                  key={facility}
+                  className="rounded-md border border-default bg-shell px-4 py-4 dark:border-dark-default dark:bg-dark-shell"
+                >
+                  <p className="text-sm font-medium text-primary dark:text-dark-primary">
+                    {facility}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <aside className="space-y-6">
+            <div className="rounded-md border border-default  p-6 dark:border-dark-default ">
+              <div className="flex items-center gap-2">
+                <UserRound className="h-4 w-4 text-primary dark:text-dark-primary" />
+                <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                  {t("adminDepartments.leadership.title")}
+                </h3>
+              </div>
+              <div className="mt-4 rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                  {faculty.dean}
+                </p>
+                <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
+                  {t("adminDepartments.leadership.deanOf", {
+                    faculty: faculty.shortName,
+                  })}
+                </p>
+                <p className="mt-3 text-sm text-muted dark:text-dark-muted">
+                  {faculty.deanEmail}
                 </p>
               </div>
+              <p className="mt-4 text-sm leading-6 text-secondary dark:text-dark-secondary">
+                {faculty.vision}
+              </p>
+            </div>
 
-              <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
-                <div className="flex items-center gap-2">
-                  <Microscope className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
-                    Faculty facilities
-                  </h3>
+            <div className="rounded-md border border-default  p-6 dark:border-dark-default ">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary dark:text-dark-primary" />
+                <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                  {t("adminDepartments.capacity.title")}
+                </h3>
+              </div>
+              <div className="mt-4 grid gap-3">
+                <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                  <p className="text-xs text-muted dark:text-dark-muted">
+                    {t("adminDepartments.metrics.students")}
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
+                    {faculty.students}
+                  </p>
                 </div>
-                <div className="mt-4 space-y-3">
-                  {facultyFacilities.map((facility) => (
-                    <div
-                      key={facility}
-                      className="rounded-md border border-default bg-shell px-4 py-3 dark:border-dark-default dark:bg-dark-shell"
-                    >
-                      <p className="text-sm font-medium text-primary dark:text-dark-primary">
-                        {facility}
-                      </p>
-                    </div>
-                  ))}
+                <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                  <p className="text-xs text-muted dark:text-dark-muted">
+                    {t("adminDepartments.metrics.teachers")}
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
+                    {faculty.teachers}
+                  </p>
                 </div>
               </div>
-
-              <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
-                    Faculty capacity
-                  </h3>
-                </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
-                    <p className="text-xs text-muted dark:text-dark-muted">
-                      Students
-                    </p>
-                    <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
-                      {faculty.students}
-                    </p>
-                  </div>
-                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
-                    <p className="text-xs text-muted dark:text-dark-muted">
-                      Teachers
-                    </p>
-                    <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
-                      {faculty.teachers}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </aside>
-          </div>
-        </main>
-      </div>
+            </div>
+          </aside>
+        </div>
+      )}
     </div>
   );
 }

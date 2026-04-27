@@ -40,7 +40,7 @@ function LayoutContent({ children }) {
             handleSidebarToggle={handleSidebarToggle}
             onMenuToggle={() => setMobileMenuOpen(true)}
           />
-          <div className="flex-1">
+          <div className="flex-1 bg-shell dark:bg-dark-shell">
             <Outlet />
           </div>
         </div>
