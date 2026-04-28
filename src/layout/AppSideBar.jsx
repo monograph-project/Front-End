@@ -140,12 +140,7 @@ export default function AppSidebar() {
         icon: IC.projects,
         path: `${basePath}/projects`,
       },
-      {
-        key: "collaboration",
-        labelKey: "sidebar.student.collaboration",
-        icon: IC.meeting,
-        path: `${basePath}/collaboration`,
-      },
+      
       {
         key: "groups",
         labelKey: "sidebar.student.groups",
@@ -176,12 +171,7 @@ export default function AppSidebar() {
         icon: IC.calendar,
         path: `${basePath}/schedule`,
       },
-      {
-        key: "calendar",
-        labelKey: "sidebar.academicCalendar",
-        icon: IC.calendar,
-        path: `${basePath}/calendar`,
-      },
+      
       {
         key: "reports",
         labelKey: "sidebar.academicReports",

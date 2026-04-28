@@ -1,259 +1,333 @@
-import React, { useState, useEffect } from "react";
+import { useMemo, useState } from 'react'
 
-// =========================
-// CONFIG
-// =========================
-const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
-const hours = Array.from({ length: 11 }, (_, i) => 8 + i);
+const WEEKS = 53
+const DAYS_PER_WEEK = 7
+const ACTIVE_YEAR = 2026
+const CELL_GAP = 2
+const LABEL_GUTTER = 28
 
-const STORAGE_KEY = "university_schedule_pro";
+const HEAT_COLORS = [
+  'bg-[#ebedf0]',
+  'bg-[#9be9a8]',
+  'bg-[#40c463]',
+  'bg-[#30a14e]',
+  'bg-[#216e39]',
+]
+const GHOST_COLORS = [
+  "bg-[#ebedf0]/20",
+  "bg-[#ebedf0]/30",
+  "bg-[#ebedf0]/40",
+  "bg-[#ebedf0]/50",
+  "bg-[#ebedf0]/60",
+];
 
-// =========================
-// LOAD
-// =========================
-const loadCourses = () => {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  return saved
-    ? JSON.parse(saved)
-    : [
-        { id: 1, name: "Math", teacher: "Mr. Ahmad", day: "monday", start: 8, end: 10 },
-        { id: 2, name: "Physics", teacher: "Dr. Khan", day: "monday", start: 10, end: 12 },
-        { id: 3, name: "Programming", teacher: "Ms. Sara", day: "tuesday", start: 13, end: 15 },
-      ];
-};
 
-// =========================
-// HEATMAP
-// =========================
-const generateHeatmap = () =>
-  Array.from({ length: 140 }, () => Math.floor(Math.random() * 6));
 
-// =========================
-// MAIN
-// =========================
-export default function ProjectSchedule() {
-  const [courses, setCourses] = useState(loadCourses);
-  const [selected, setSelected] = useState(null);
-  const [dragItem, setDragItem] = useState(null);
-  const [heatmap] = useState(generateHeatmap);
 
-  const [form, setForm] = useState({
-    name: "",
-    teacher: "",
-    day: "monday",
-    start: 8,
-    end: 9,
-  });
+const WEEKDAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', '']
 
-  // =========================
-  // PERSISTENCE
-  // =========================
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(courses));
-  }, [courses]);
+function getPastNDates(n) {
+  const days = []
+  const today = new Date()
 
-  // =========================
-  // VALIDATION + CONFLICT
-  // =========================
-  const hasConflict = (newC, ignoreId = null) => {
-    return courses.some((c) => {
-      if (ignoreId && c.id === ignoreId) return false;
-      if (c.day !== newC.day) return false;
+  for (let i = n - 1; i >= 0; i -= 1) {
+    const date = new Date(today)
+    date.setDate(today.getDate() - i)
+    days.push(date)
+  }
 
-      return (
-        (newC.start >= c.start && newC.start < c.end) ||
-        (newC.end > c.start && newC.end <= c.end)
-      );
-    });
-  };
+  return days
+}
 
-  const validate = () => {
-    if (!form.name || !form.teacher) return "Fill all fields";
-    if (form.start >= form.end) return "Invalid time range";
-    if (hasConflict(form, selected?.id)) return "Schedule conflict detected";
-    return null;
-  };
+function toDateKey(date) {
+  return date.toISOString().split('T')[0]
+}
 
-  // =========================
-  // CRUD
-  // =========================
-  const saveCourse = () => {
-    const error = validate();
-    if (error) return alert(error);
+function getMonthTicks(columns) {
+  let lastMonth = ''
+  const ticks = []
 
-    if (selected) {
-      setCourses((prev) =>
-        prev.map((c) => (c.id === selected.id ? { ...form, id: c.id } : c))
-      );
-    } else {
-      setCourses((prev) => [...prev, { ...form, id: Date.now() }]);
+  columns.forEach((column, index) => {
+    const first = column.find(Boolean)
+    if (!first) return
+
+    const month = first.date.toLocaleString('en-US', { month: 'short' })
+    if (month !== lastMonth) {
+      lastMonth = month
+      ticks.push({ month, index })
     }
+  })
 
-    setSelected(null);
-    setForm({ name: "", teacher: "", day: "monday", start: 8, end: 9 });
-  };
+  return ticks
+}
 
-  const editCourse = (c) => {
-    setSelected(c);
-    setForm(c);
-  };
+function getHeatClass(count) {
+  if (count <= 0) return HEAT_COLORS[0]
+  if (count === 1) return HEAT_COLORS[1]
+  if (count === 2) return HEAT_COLORS[2]
+  if (count <= 4) return HEAT_COLORS[3]
+  return HEAT_COLORS[4]
+}
 
-  const deleteCourse = (id) => {
-    setCourses((prev) => prev.filter((c) => c.id !== id));
-  };
+function buildContributionMap(dates) {
+  const map = {}
 
-  // =========================
-  // DRAG & DROP
-  // =========================
-  const onDrop = (day, hour) => {
-    if (!dragItem) return;
+  dates.forEach((date) => {
+    map[toDateKey(date)] = 0
+  })
 
-    const updated = {
-      ...dragItem,
-      day,
-      start: hour,
-      end: hour + (dragItem.end - dragItem.start),
-    };
+  const total = dates.length
+  const marks = [total - 190, total - 12, total - 10]
 
-    if (hasConflict(updated, dragItem.id)) {
-      alert("Conflict detected!");
-      return;
+  marks.forEach((index) => {
+    if (index >= 0 && index < total) {
+      map[toDateKey(dates[index])] = 1
     }
+  })
 
-    setCourses((prev) =>
-      prev.map((c) => (c.id === dragItem.id ? updated : c))
-    );
+  return map
+}
 
-    setDragItem(null);
-  };
+function Tooltip({ state }) {
+  if (!state.show) return null
 
-  // =========================
-  // UI
-  // =========================
   return (
-    <div className="p-4 space-y-6 text-sm">
-
-      {/* ================= FORM ================= */}
-      <div className="border p-3 rounded">
-        <h2 className="font-bold mb-2">
-          {selected ? "Edit Course" : "Add Course"}
-        </h2>
-
-        <div className="grid grid-cols-5 gap-2">
-          <input className="border p-1" placeholder="Name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-
-          <input className="border p-1" placeholder="Teacher"
-            value={form.teacher}
-            onChange={(e) => setForm({ ...form, teacher: e.target.value })}
-          />
-
-          <select className="border p-1"
-            value={form.day}
-            onChange={(e) => setForm({ ...form, day: e.target.value })}
-          >
-            {days.map((d) => <option key={d}>{d}</option>)}
-          </select>
-
-          <input type="number" className="border p-1"
-            value={form.start}
-            onChange={(e) => setForm({ ...form, start: +e.target.value })}
-          />
-
-          <input type="number" className="border p-1"
-            value={form.end}
-            onChange={(e) => setForm({ ...form, end: +e.target.value })}
-          />
-        </div>
-
-        <button
-          onClick={saveCourse}
-          className="mt-2 px-3 py-1 bg-blue-600 text-white rounded"
-        >
-          Save
-        </button>
-      </div>
-
-      {/* ================= WEEKLY SCHEDULE ================= */}
-      <div className="border rounded overflow-auto">
-        <div className="grid grid-cols-6 text-xs font-bold bg-gray-100">
-          <div className="p-1 border-r">Time</div>
-          {days.map((d) => (
-            <div key={d} className="p-1 border-r text-center capitalize">
-              {d}
-            </div>
-          ))}
-        </div>
-
-        {hours.map((h) => (
-          <div key={h} className="grid grid-cols-6 text-xs border-t">
-            <div className="p-1 border-r">{h}:00</div>
-
-            {days.map((day) => {
-              const course = courses.find(
-                (c) => c.day === day && h >= c.start && h < c.end
-              );
-
-              return (
-                <div
-                  key={day}
-                  className="border-r h-10 relative"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => onDrop(day, h)}
-                >
-                  {course && (
-                    <div
-                      draggable
-                      onDragStart={() => setDragItem(course)}
-                      onClick={() => editCourse(course)}
-                      className="absolute inset-0 bg-blue-500/20 border text-[10px] p-1 cursor-move"
-                    >
-                      <div className="font-bold truncate">{course.name}</div>
-                      <div className="truncate">{course.teacher}</div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteCourse(course.id);
-                        }}
-                        className="text-red-500 text-[9px]"
-                      >
-                        delete
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-
-      {/* ================= GITHUB HEATMAP ================= */}
-      <div>
-        <h2 className="font-bold mb-2">GitHub Activity</h2>
-
-        <div className="grid grid-cols-20 gap-1 overflow-auto">
-          {heatmap.map((v, i) => (
-            <div
-              key={i}
-              className={`w-3 h-3 ${
-                v === 0
-                  ? "bg-gray-200"
-                  : v === 1
-                  ? "bg-green-100"
-                  : v === 2
-                  ? "bg-green-300"
-                  : v <= 4
-                  ? "bg-green-500"
-                  : "bg-green-800"
-              }`}
-            />
-          ))}
-        </div>
-      </div>
+    <div
+      className="pointer-events-none fixed z-50 rounded-md bg-[#24292f] px-2 py-1.5 text-xs text-white shadow-lg"
+      style={{ left: state.x + 12, top: state.y + 12 }}
+    >
+      {state.text}
     </div>
-  );
+  )
+}
+
+export default function ProjectSchedule() {
+  const [tooltip, setTooltip] = useState({
+    show: false,
+    text: '',
+    x: 0,
+    y: 0,
+  })
+
+  const dates = useMemo(() => getPastNDates(WEEKS * DAYS_PER_WEEK), [])
+  const contributionMap = useMemo(() => buildContributionMap(dates), [dates])
+
+  const columns = useMemo(() => {
+    const output = []
+
+    for (let w = 0; w < WEEKS; w += 1) {
+      const week = []
+
+      for (let d = 0; d < DAYS_PER_WEEK; d += 1) {
+        const idx = (w * DAYS_PER_WEEK) + d
+        const date = dates[idx]
+
+        if (!date) {
+          week.push(null)
+          continue
+        }
+
+        const key = toDateKey(date)
+        week.push({
+          date,
+          count: contributionMap[key] ?? 0,
+        })
+      }
+
+      output.push(week)
+    }
+
+    return output
+  }, [dates, contributionMap])
+
+  const totalContributions = useMemo(
+    () => Object.values(contributionMap).reduce((sum, count) => sum + count, 0),
+    [contributionMap],
+  )
+
+  const monthTicks = useMemo(() => getMonthTicks(columns), [columns])
+
+  return (
+    <div className="min-h-screen bg-[#f6f8fa] text-[#24292f]">
+      <main className="mx-auto w-full max-w-[1320px] px-4 py-8 sm:px-6 lg:px-8">
+        <section>
+          <div className="mb-4 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              Popular repositories
+            </h2>
+            <button type="button" className="text-sm text-[#0969da] hover:underline">
+              Customize your pins
+            </button>
+          </div>
+
+          <article className="w-full max-w-2xl rounded-md border border-[#d0d7de] bg-white px-6 py-5">
+            <div className="flex items-start justify-between gap-4">
+              <a href="#" className="text-xl font-semibold text-[#0969da] hover:underline">
+                test-repo
+              </a>
+              <span className="rounded-full border border-[#d0d7de] px-2.5 py-0.5 text-sm font-medium text-[#57606a]">
+                Public
+              </span>
+            </div>
+          </article>
+        </section>
+
+        <section className="mt-12 grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px]">
+          <div className="order-2 lg:order-1">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-2xl font-normal sm:text-3xl">
+                {totalContributions} contributions in the last year
+              </h3>
+              <button
+                type="button"
+                className="hidden items-center gap-1 text-sm text-[#57606a] lg:inline-flex"
+              >
+                Contribution settings
+                <span className="text-xs">▼</span>
+              </button>
+            </div>
+
+            <div className="rounded-md border border-[#d0d7de] bg-white p-4 sm:p-5">
+              <div className="overflow-hidden">
+                <div>
+                  <div className="mb-1.5" style={{ paddingLeft: `${LABEL_GUTTER}px` }}>
+                    <div className="relative h-4">
+                      {monthTicks.map((tick) => (
+                        <span
+                          key={`${tick.month}-${tick.index}`}
+                          className="absolute text-[10px] text-[#57606a]"
+                          style={{ left: `${(tick.index / WEEKS) * 100}%` }}
+                        >
+                          {tick.month}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <div
+                      className="grid text-[10px] leading-none text-[#57606a]"
+                      style={{
+                        width: `${LABEL_GUTTER - 8}px`,
+                        gridTemplateRows: `repeat(${DAYS_PER_WEEK}, minmax(0, 1fr))`,
+                        rowGap: `${CELL_GAP}px`,
+                      }}
+                    >
+                      {WEEKDAY_LABELS.map((dayLabel, index) => (
+                        <span key={index} className="flex items-center">
+                          {dayLabel}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div
+                      className="grid flex-1"
+                      style={{
+                        gridTemplateColumns: `repeat(${WEEKS}, minmax(0, 1fr))`,
+                        columnGap: `${CELL_GAP}px`,
+                      }}
+                    >
+                      {columns.map((week, ci) => (
+                        <div
+                          key={ci}
+                          className="grid"
+                          style={{
+                            gridTemplateRows: `repeat(${DAYS_PER_WEEK}, minmax(0, 1fr))`,
+                            rowGap: `${CELL_GAP}px`,
+                          }}
+                        >
+                          {week.map((cell, ri) => {
+                           if (!cell) {
+                                    return (
+                                        <span
+                                        key={ri}
+                                        className="aspect-square w-full rounded-[2px] bg-[#ebedf0]/50 dark:bg-[#2d333b]/40"
+                                        />
+                                    )
+                                    }
+
+                            const text = `${cell.count} ${
+                              cell.count === 1 ? 'contribution' : 'contributions'
+                            } on ${cell.date.toLocaleDateString()}`
+
+                            return (
+                              <button
+                                key={ri}
+                                type="button"
+                                className={`aspect-square w-full rounded-[2px] border border-black/5 transition hover:ring-1 hover:ring-[#0969da]/40 ${getHeatClass(cell.count)}`}
+                                onMouseEnter={(event) =>
+                                  setTooltip({
+                                    show: true,
+                                    text,
+                                    x: event.clientX,
+                                    y: event.clientY,
+                                  })
+                                }
+                                onMouseMove={(event) =>
+                                  setTooltip((prev) => ({
+                                    ...prev,
+                                    x: event.clientX,
+                                    y: event.clientY,
+                                  }))
+                                }
+                                onMouseLeave={() =>
+                                  setTooltip((prev) => ({ ...prev, show: false }))
+                                }
+                                aria-label={text}
+                              />
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                <button type="button" className="text-sm text-[#57606a] hover:underline">
+                  Learn how we count contributions
+                </button>
+
+                <div className="flex items-center gap-1.5 text-sm text-[#57606a]">
+                  <span>Less</span>
+                  {HEAT_COLORS.map((color) => (
+                    <span
+                      key={color}
+                      className={`h-2.5 w-2.5 rounded-[2px] border border-black/5 ${color}`}
+                    />
+                  ))}
+                  <span>More</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <aside className="order-1 flex w-full items-start gap-2 sm:w-auto lg:order-2 lg:flex-col">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded-[10px] border border-[#d0d7de] bg-white px-3 py-2 text-sm text-[#57606a] lg:hidden"
+            >
+              Contribution settings
+              <span className="text-xs">▼</span>
+            </button>
+            <button
+              type="button"
+              className="w-full rounded-[10px] bg-[#1f6feb] px-4 py-2.5 text-base font-medium text-white sm:min-w-[110px]"
+            >
+              {ACTIVE_YEAR}
+            </button>
+            <button
+              type="button"
+              className="w-full rounded-[10px] px-4 py-2.5 text-base text-[#57606a] hover:bg-[#eaedf1] sm:min-w-[110px]"
+            >
+              {ACTIVE_YEAR - 1}
+            </button>
+          </aside>
+        </section>
+      </main>
+
+      <Tooltip state={tooltip} />
+    </div>
+  )
 }
