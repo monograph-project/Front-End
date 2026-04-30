@@ -49,7 +49,7 @@ const Select = ({
 
         <RadixSelect.Portal>
           <RadixSelect.Content
-className="overflow-hidden w-[var(--radix-select-trigger-width)] rounded-md bg-input dark:bg-dark-input border border-default dark:border-dark-default z-[10001] shadow-2xl border-2"
+            className="overflow-hidden w-[var(--radix-select-trigger-width)] rounded-md bg-input dark:bg-dark-input border border-default dark:border-dark-default"
             position="popper"
           >
             <RadixSelect.ScrollUpButton className="flex items-center justify-center h-6">
@@ -78,23 +78,21 @@ className="overflow-hidden w-[var(--radix-select-trigger-width)] rounded-md bg-i
   );
 };
 
-const SelectItem = React.forwardRef(
-  ({ children, ...props }, ref) => {
-    return (
-      <RadixSelect.Item
-        ref={ref}
-        {...props}
-        className="relative flex items-center h-8 px-8 text-xs rounded cursor-pointer text-primary dark:text-dark-primary data-highlighted:bg-primary/5 dark:data-highlighted:bg-dark-primary/10 data-disabled:opacity-50 data-disabled:pointer-events-none"
-      >
-        <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
+const SelectItem = React.forwardRef(({ children, ...props }, ref) => {
+  return (
+    <RadixSelect.Item
+      ref={ref}
+      {...props}
+      className="relative flex items-center h-8 px-8 text-xs rounded cursor-pointer text-primary dark:text-dark-primary data-highlighted:bg-primary/5 dark:data-highlighted:bg-dark-primary/10 data-disabled:opacity-50 data-disabled:pointer-events-none"
+    >
+      <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
 
-        <RadixSelect.ItemIndicator className="absolute left-2">
-          <CheckIcon />
-        </RadixSelect.ItemIndicator>
-      </RadixSelect.Item>
-    );
-  },
-);
+      <RadixSelect.ItemIndicator className="absolute left-2">
+        <CheckIcon />
+      </RadixSelect.ItemIndicator>
+    </RadixSelect.Item>
+  );
+});
 
 SelectItem.displayName = "SelectItem";
 

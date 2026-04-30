@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   DropdownContent,
   DropdownItem,
-  DropdownLabel,
   DropdownMenuRoot,
   DropdownSeparator,
   DropdownTrigger,
@@ -16,51 +17,22 @@ import TableColumn from "../../components/TableColumn";
 import TableHeader from "../../components/TableHeader";
 import TableRow from "../../components/TableRow";
 import Pagination from "../../components/Pagination";
-import AvatarDemo from "./../../components/Avatar";
-import Checkbox from "./../../components/Checkbox";
+import AvatarDemo from "../../components/Avatar";
+import Checkbox from "../../components/Checkbox";
 import Button from "../../components/Button";
 import AddEmployeeForm from "../../components/AddEmployeeForm";
-import { useNavigate } from "react-router-dom";
 import GlobalModal from "../../components/GlobalModal";
-
-const headerData = [
-  { title: "" },
-  { title: "ID" },
-  { title: "Employee" },
-  { title: "Department" },
-  { title: "Status" },
-  { title: "Joined" },
-  { title: "Actions" },
-];
 
 function Employee() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [deleteEmployeeId, setDeleteEmployeeId] = useState(null);
-  // Actions handler
-  const handleAction = (action) => {
-    switch (action) {
-      case "export":
-        exportToCSV();
-        break;
-      case "import":
-        window.GooeyToaster?.info?.("Import functionality coming soon");
-        break;
-    }
-  };
-
   const [employees, setEmployees] = useState([
-import { useTranslation } from "react-i18next";
-
-function Employee() {
-  const { t, i18n } = useTranslation();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [employees] = useState([
     {
       id: 1,
       firstName: "Robert",
@@ -108,29 +80,6 @@ function Employee() {
     },
   ]);
 
-  const exportToCSV = () => {
-    const headers = ['ID', 'First Name', 'Last Name', 'Email', 'Department', 'Status', 'Joined'];
-    const csvContent = [
-      headers.join(','),
-      ...employees.map(employee => [
-        employee.id,
-        employee.firstName,
-        employee.lastName,
-        employee.email,
-        employee.department,
-        employee.status,
-        employee.joined
-      ].map(field => `"${field}"`).join(','))
-    ].join('\\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'employees.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
   const headerData = [
     { title: "" },
     { title: t("adminEmployee.table.id") },
@@ -142,12 +91,19 @@ function Employee() {
   ];
 
   const filteredEmployees = employees.filter((employee) => {
-    const matchesSearch = [employee.firstName, employee.lastName, employee.email, employee.department]
+    const matchesSearch = [
+      employee.firstName,
+      employee.lastName,
+      employee.email,
+      employee.department,
+    ]
       .join(" ")
       .toLowerCase()
       .includes(search.toLowerCase());
+
     const matchesStatus =
       statusFilter === "all" || employee.status === statusFilter;
+
     return matchesSearch && matchesStatus;
   });
 
@@ -166,6 +122,71 @@ function Employee() {
     { value: "suspended", label: t("adminShared.status.suspended") },
   ];
 
+  const exportToCSV = () => {
+    const headers = [
+      "ID",
+      "First Name",
+      "Last Name",
+      "Email",
+      "Department",
+      "Status",
+      "Joined",
+    ];
+    const csvContent = [
+      headers.join(","),
+      ...employees.map((employee) =>
+        [
+          employee.id,
+          employee.firstName,
+          employee.lastName,
+          employee.email,
+          employee.department,
+          employee.status,
+          employee.joined,
+        ]
+          .map((field) => `"${field}"`)
+          .join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "employees.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleAction = (action) => {
+    switch (action) {
+      case "export":
+        exportToCSV();
+        break;
+      case "import":
+        window.GooeyToaster?.info?.("Import functionality coming soon");
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleViewProfile = (employee) => {
+    navigate(`/admin/employee/${employee.id}`);
+  };
+
+  const handleOpenEditModal = (employee) => {
+    setEditingEmployee(employee);
+    setShowEditModal(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setEditingEmployee(null);
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col bg-shell dark:bg-dark-shell gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -179,38 +200,41 @@ function Employee() {
             })}
           </p>
         </div>
+
         <div className="flex items-center gap-3">
-  <div className="flex-none">
-    <DropdownMenuRoot>
-      <DropdownTrigger>
-        Actions
-      </DropdownTrigger>
-      <DropdownContent align="end">
-        <DropdownItem icon={<Icon d={IC.download} className="size-4" />} onClick={() => handleAction("export")}>
-          Export
-        </DropdownItem>
-        <DropdownItem icon={<Icon d={IC.upload} className="size-4" />} onClick={() => handleAction("import")}>
-          Import
-        </DropdownItem>
-      </DropdownContent>
-    </DropdownMenuRoot>
-  </div>
-    <div className="flex-none">
-    <Button 
-      type="button"
-      icon={<Icon d={IC.plus} className="size-4" />} 
-      onClick={() => setShowAddModal(true)}
-    >
-      Add Employee
-    </Button>
-  </div>
-</div>
-        <Button icon={<Icon d={IC.plus} className="size-4" />}>
-          {t("adminEmployee.actions.add")}
-        </Button>
+          <div className="flex-none">
+            <DropdownMenuRoot>
+              <DropdownTrigger>Actions</DropdownTrigger>
+              <DropdownContent align="end">
+                <DropdownItem
+                  icon={<Icon d={IC.download} className="size-4" />}
+                  onClick={() => handleAction("export")}
+                >
+                  Export
+                </DropdownItem>
+                <DropdownItem
+                  icon={<Icon d={IC.upload} className="size-4" />}
+                  onClick={() => handleAction("import")}
+                >
+                  Import
+                </DropdownItem>
+              </DropdownContent>
+            </DropdownMenuRoot>
+          </div>
+
+          <div className="flex-none">
+            <Button
+              type="button"
+              icon={<Icon d={IC.plus} className="size-4" />}
+              onClick={() => setShowAddModal(true)}
+            >
+              {t("adminEmployee.actions.add")}
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <div className="flex-1 border border-default dark:border-dark-default rounded-md ">
+      <div className="flex-1 border border-default dark:border-dark-default rounded-md">
         <div className="flex mb-2 flex-col px-4 py-3 sm:flex-row gap-3 bg-shell dark:bg-dark-shell border-b border-default dark:border-dark-default">
           <div className="relative flex-1">
             <Icon
@@ -220,11 +244,12 @@ function Employee() {
             <input
               type="text"
               placeholder={t("adminEmployee.filters.searchPlaceholder")}
-              className="w-full pl-10 pr-4 py-1.5  border border-default dark:border-dark-default rounded-md text-sm focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all placeholder:text-muted dark:placeholder:text-dark-muted"
+              className="w-full pl-10 pr-4 py-1.5 border border-default dark:border-dark-default rounded-md text-sm focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all placeholder:text-muted dark:placeholder:text-dark-muted"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(event) => setSearch(event.target.value)}
             />
           </div>
+
           <div className="w-48">
             <Select
               options={statusOptions}
@@ -233,7 +258,8 @@ function Employee() {
             />
           </div>
         </div>
-        <div className="w-full    overflow-hidden p-2">
+
+        <div className="w-full overflow-hidden p-2">
           <Table>
             <TableHeader headerData={headerData} />
             <TableBody>
@@ -242,9 +268,11 @@ function Employee() {
                   <TableColumn className="w-10">
                     <Checkbox />
                   </TableColumn>
+
                   <TableColumn className="font-mono text-xs">
                     #{employee.id.toString().padStart(2, "0")}
                   </TableColumn>
+
                   <TableColumn>
                     <div className="flex items-center gap-3">
                       <AvatarDemo />
@@ -258,11 +286,13 @@ function Employee() {
                       </div>
                     </div>
                   </TableColumn>
+
                   <TableColumn>
                     <span className="px-2.5 py-1 bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-full text-xs font-medium capitalize">
                       {employee.department}
                     </span>
                   </TableColumn>
+
                   <TableColumn>
                     <span
                       className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -278,6 +308,7 @@ function Employee() {
                       {t(`adminShared.status.${employee.status}`)}
                     </span>
                   </TableColumn>
+
                   <TableColumn className="text-xs whitespace-nowrap">
                     {new Date(employee.joined).toLocaleDateString(locale, {
                       year: "numeric",
@@ -285,6 +316,7 @@ function Employee() {
                       day: "numeric",
                     })}
                   </TableColumn>
+
                   <TableColumn className="text-center">
                     <DropdownMenuRoot>
                       <DropdownTrigger showArrow={false}>
@@ -298,24 +330,30 @@ function Employee() {
                           <path
                             d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
                             fill="currentColor"
-                            fill-rule="evenodd"
-                            clip-rule="evenodd"
-                          ></path>
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       </DropdownTrigger>
                       <DropdownContent align="end">
-                        <DropdownItem>
+                        <DropdownItem onClick={() => handleViewProfile(employee)}>
                           <span>{t("adminShared.actions.viewProfile")}</span>
                         </DropdownItem>
-                        <DropdownItem>
+                        <DropdownItem
+                          onClick={() => handleOpenEditModal(employee)}
+                        >
                           <span>{t("adminShared.actions.editDetails")}</span>
                         </DropdownItem>
                         <DropdownItem>
                           <span>{t("adminShared.actions.sendMessage")}</span>
                         </DropdownItem>
-            
+
                         <DropdownSeparator />
-                        <DropdownItem variant="danger">
+
+                        <DropdownItem
+                          variant="danger"
+                          onClick={() => setDeleteEmployeeId(employee.id)}
+                        >
                           <span>{t("adminEmployee.actions.remove")}</span>
                         </DropdownItem>
                       </DropdownContent>
@@ -323,6 +361,7 @@ function Employee() {
                   </TableColumn>
                 </TableRow>
               ))}
+
               {filteredEmployees.length === 0 && (
                 <TableRow>
                   <TableColumn
@@ -349,6 +388,7 @@ function Employee() {
             </TableBody>
           </Table>
         </div>
+
         {deleteEmployeeId && (
           <DeleteConfirmModal
             employeeId={deleteEmployeeId}
@@ -365,65 +405,131 @@ function Employee() {
           <Pagination />
         </div>
       )}
+
       <GlobalModal open={showAddModal} setOpen={setShowAddModal}>
-        <AddEmployeeForm employees={employees} setEmployees={setEmployees} onClose={() => setShowAddModal(false)} />
+        <AddEmployeeForm
+          employees={employees}
+          setEmployees={setEmployees}
+          onClose={() => setShowAddModal(false)}
+        />
       </GlobalModal>
+
       <GlobalModal open={showEditModal} setOpen={setShowEditModal}>
         <div className="w-full max-w-md bg-shell dark:bg-dark-shell p-6 rounded-xl shadow-xl border border-default dark:border-dark-default">
-          <h2 className="text-xl font-bold text-primary dark:text-dark-primary mb-6">Edit Employee Details</h2>
+          <h2 className="text-xl font-bold text-primary dark:text-dark-primary mb-6">
+            Edit Employee Details
+          </h2>
+
           {editingEmployee && (
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.target);
-              const updatedEmployee = {
-                ...editingEmployee,
-                firstName: formData.get('firstName'),
-                lastName: formData.get('lastName'),
-                email: formData.get('email'),
-                department: formData.get('department'),
-                status: formData.get('status'),
-                joined: formData.get('joined'),
-              };
-              setEmployees(employees.map(emp => emp.id === editingEmployee.id ? updatedEmployee : emp));
-              window.GooeyToaster?.success?.('Employee updated successfully');
-              (() => {
-                setShowEditModal(false);
-                setEditingEmployee(null);
-              })();
-            }}>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const formData = new FormData(event.target);
+                const updatedEmployee = {
+                  ...editingEmployee,
+                  firstName: formData.get("firstName"),
+                  lastName: formData.get("lastName"),
+                  email: formData.get("email"),
+                  department: formData.get("department"),
+                  status: formData.get("status"),
+                  joined: formData.get("joined"),
+                };
+
+                setEmployees(
+                  employees.map((employee) =>
+                    employee.id === editingEmployee.id
+                      ? updatedEmployee
+                      : employee,
+                  ),
+                );
+                window.GooeyToaster?.success?.("Employee updated successfully");
+                handleCloseEditModal();
+              }}
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">First Name</label>
-                  <input type="text" name="firstName" defaultValue={editingEmployee.firstName} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    defaultValue={editingEmployee.firstName}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                    required
+                  />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Last Name</label>
-                  <input type="text" name="lastName" defaultValue={editingEmployee.lastName} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    defaultValue={editingEmployee.lastName}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                    required
+                  />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Email</label>
-                  <input type="email" name="email" defaultValue={editingEmployee.email} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    defaultValue={editingEmployee.email}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                    required
+                  />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Department</label>
-                  <input type="text" name="department" defaultValue={editingEmployee.department} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    Department
+                  </label>
+                  <input
+                    type="text"
+                    name="department"
+                    defaultValue={editingEmployee.department}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                    required
+                  />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Status</label>
-                  <select name="status" defaultValue={editingEmployee.status} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary">
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    defaultValue={editingEmployee.status}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                  >
                     <option value="active">Active</option>
                     <option value="pending">Pending</option>
                     <option value="rejected">Rejected</option>
                     <option value="suspended">Suspended</option>
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Joined Date</label>
-                  <input type="date" name="joined" defaultValue={editingEmployee.joined} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    Joined Date
+                  </label>
+                  <input
+                    type="date"
+                    name="joined"
+                    defaultValue={editingEmployee.joined}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                    required
+                  />
                 </div>
               </div>
+
               <div className="flex gap-3 pt-4">
-              
                 <Button type="submit">Save</Button>
               </div>
             </form>
@@ -434,7 +540,13 @@ function Employee() {
   );
 }
 
-function DeleteConfirmModal({ employeeId, employee, setDeleteEmployeeId, employees, setEmployees }) {
+function DeleteConfirmModal({
+  employeeId,
+  employee,
+  setDeleteEmployeeId,
+  employees,
+  setEmployees,
+}) {
   const confirmDelete = () => {
     setEmployees(employees.filter((emp) => emp.id !== employeeId));
     window.GooeyToaster?.success?.("Employee removed successfully");

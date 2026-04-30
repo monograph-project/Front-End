@@ -19,7 +19,7 @@ export const DropdownTrigger = React.forwardRef(
       <button
         ref={ref}
         className={cn(
-          `flex ${icon || showArrow ? "w-full px-3 py-2" : "w-fit rounded-full flex items-center cursor-pointer justify-center"} group items-center  gap-2 rounded-md border  text-sm font-medium transition-colors`,
+          `flex ${icon || showArrow ? "w-full px-3 py-2" : "w-fit rounded-full flex items-center cursor-pointer justify-center"} group items-center gap-2 rounded-md border text-sm font-medium transition-colors rtl:flex-row-reverse`,
           " bg-transparent dark:focus:outline-none dark:bg-transparent dark:border-dark-light border-transparent  text-secondary dark:text-white",
           "hover:bg-card-2   dark:hover:bg-dark-card hover:text-primary",
           "",
@@ -34,13 +34,13 @@ export const DropdownTrigger = React.forwardRef(
           </span>
         )}
         {children && (
-          <span className="flex-1 truncate text-left text-gray-600 dark:text-gray-200 dark:group-hover:text-white">
+          <span className="flex-1 truncate ltr:text-left rtl:text-right text-gray-600 dark:text-gray-200 dark:group-hover:text-white">
             {children}
           </span>
         )}
 
         {showArrow && (
-          <ChevronRightIcon className="h-4 w-4 dark:group-hover:text-white group-hover:rotate-90 transition-transform data-[state=open]:rotate-90" />
+          <ChevronRightIcon className="h-4 w-4 shrink-0 dark:group-hover:text-white group-hover:rotate-90 transition-transform data-[state=open]:rotate-90 rtl:rotate-180 rtl:group-hover:-rotate-90 rtl:data-[state=open]:-rotate-90" />
         )}
       </button>
     </DropdownMenu.Trigger>
@@ -58,8 +58,8 @@ export const DropdownContent = React.forwardRef(
         sideOffset={sideOffset}
         align={align}
         className={cn(
-"z-[10001] min-w-56 overflow-hidden rounded-md border p-1 shadow-2xl border-2",
-          "bg-card dark:bg-dark-card dark:border-none border-default text-primary dark:tex-white",
+          " z-50 min-w-56 overflow-hidden rounded-md  p-1 ",
+          "bg-card dark:bg-dark-card dark:border-none border border-default text-primary dark:tex-white",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
           "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
@@ -88,20 +88,26 @@ export const DropdownItem = React.forwardRef(
     <DropdownMenu.Item
       ref={ref}
       className={cn(
-        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium",
+        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-normal rtl:flex-row-reverse",
         "cursor-pointer select-none   outline-none transition-colors",
         "hover:bg-accent-light  dark:hover:bg-dark-accent-light  data-highlighted:bg-accent-light",
-
+        "ltr:text-left rtl:text-right",
         itemVariants[variant],
         className,
       )}
       {...props}
     >
       {icon && (
-        <span className="h-4 w-4 text-muted dark:text-white">{icon}</span>
+        <span className="h-4 w-4 shrink-0 text-muted dark:text-white">
+          {icon}
+        </span>
       )}
-      <span className="flex-1">{children}</span>
-      {data && <span className="text-dark-accent-light">{data}</span>}
+      <span className="flex-1 min-w-0">{children}</span>
+      {data && (
+        <span className="shrink-0 text-dark-accent-light ltr:ml-auto rtl:mr-auto">
+          {data}
+        </span>
+      )}
     </DropdownMenu.Item>
   ),
 );
@@ -168,7 +174,7 @@ export const DropdownSubTrigger = React.forwardRef(
     <DropdownMenu.SubTrigger
       ref={ref}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium",
+        "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium rtl:flex-row-reverse",
         "cursor-pointer select-none outline-none transition-colors",
         "text-primary",
         " group  dark:text-white  dark:data-highlighted:bg-dark-accent-light dark:hover:text-white   data-highlighted:bg-accent-light",
@@ -176,9 +182,9 @@ export const DropdownSubTrigger = React.forwardRef(
       )}
       {...props}
     >
-      {icon && <span className="h-4 w-4 text-muted">{icon}</span>}
-      <span className="flex-1">{children}</span>
-      <ChevronRightIcon className="h-4 w-4 group-hover:rotate-90" />
+      {icon && <span className="h-4 w-4 shrink-0 text-muted">{icon}</span>}
+      <span className="flex-1 ltr:text-left rtl:text-right">{children}</span>
+      <ChevronRightIcon className="h-4 w-4 shrink-0 group-hover:rotate-90 rtl:rotate-180 rtl:group-hover:-rotate-90" />
     </DropdownMenu.SubTrigger>
   ),
 );

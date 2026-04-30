@@ -1,4 +1,4 @@
-const url = "http://localhost:8081/api/v1";
+const url = "http://localhost:5000";
 
 export const ROUTES = {
   USER: {
@@ -36,4 +36,3 @@ export const ROUTES = {
     DELETE: (id) => `${url}/departments/${id}`,
   },
 };
-

@@ -66,17 +66,6 @@
   ],
   "students": [
     {
-      "id": "stu-4",
-      "firstName": "Elyas",
-      "lastName": "Rashidi",
-      "email": "elyas@student.edu",
-      "phone": "456-789-0123",
-      "code": "STU004",
-      "department": "Chemistry",
-      "enrollmentDate": "2023-10-20",
-      "status": "rejected"
-    },
-    {
       "id": "stu-5",
       "firstName": "Sarah",
       "lastName": "Wilson",
@@ -218,6 +207,45 @@
       "enrollmentDate": "2026-04-25",
       "status": "Active",
       "id": "FhoQtGJ2nAc"
+    },
+    {
+      "firstName": "dskldfjsdf",
+      "lastName": "sdfksdkf",
+      "fatherName": "ldfkdf",
+      "grandFatherName": "klsjfdfj",
+      "email": "elyasahmadiiran2020@gmail.com",
+      "phone": "0795899621",
+      "gender": "Other",
+      "dateOfBirth": "2026-04-27",
+      "enrollmentDate": "2026-04-30",
+      "department": "aslan",
+      "semester": "4",
+      "code": "hjkl;kjsd",
+      "kankorId": "wiurewriu",
+      "baseNumber": "lkdsjfdf",
+      "originInfo": "بلخ",
+      "stayingInfo": "ksdjfdfjdf",
+      "relativeInfo": {
+        "relativeType": "sister",
+        "name": "sdf",
+        "fatherName": "sdf",
+        "job": "djf",
+        "mobile": "0705441909",
+        "address": "jshfd"
+      },
+      "documents": [
+        {
+          "name": "cli-application.md",
+          "size": 94570,
+          "type": ""
+        }
+      ],
+      "biometric": {
+        "fingerprintId": "",
+        "registeredAt": "",
+        "status": false
+      },
+      "id": "2BWNXok00z4"
     }
   ],
   "login": [

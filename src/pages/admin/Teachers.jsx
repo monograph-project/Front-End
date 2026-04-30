@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   DropdownContent,
   DropdownItem,
-  DropdownLabel,
   DropdownMenuRoot,
   DropdownSeparator,
   DropdownTrigger,
@@ -18,55 +17,22 @@ import TableColumn from "../../components/TableColumn";
 import TableHeader from "../../components/TableHeader";
 import TableRow from "../../components/TableRow";
 import Pagination from "../../components/Pagination";
-import AvatarDemo from "./../../components/Avatar";
-import Checkbox from "./../../components/Checkbox";
+import AvatarDemo from "../../components/Avatar";
+import Checkbox from "../../components/Checkbox";
 import Button from "../../components/Button";
 import AddTeacherForm from "../../components/AddTeacherForm";
 import GlobalModal from "../../components/GlobalModal";
 
-
-const headerData = [
-  { title: "" },
-  { title: "ID" },
-  { title: "Teacher" },
-  { title: "Department" },
-  { title: "Status" },
-  { title: "Joined" },
-  { title: "Actions" },
-];
-
 function Teachers() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState(""); 
+  const { t, i18n } = useTranslation();
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  // Actions handler
-  const handleAction = (action) => {
-    switch (action) {
-      case "export":
-        exportToCSV();
-        break;
-      case "import":
-        window.GooeyToaster?.info?.("Import functionality coming soon");
-        break;
-    }
-  };
-
-  const handleViewProfile = (teacher) => {
-    navigate(`/admin/teacher/${teacher.id}`);
-  }; 
-
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState(null);
   const [deleteTeacherId, setDeleteTeacherId] = useState(null);
   const [teachers, setTeachers] = useState([
-import { useTranslation } from "react-i18next";
-
-function Teachers() {
-  const { t, i18n } = useTranslation();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [teachers] = useState([
     {
       id: 1,
       firstName: "John",
@@ -114,29 +80,6 @@ function Teachers() {
     },
   ]);
 
-  const exportToCSV = () => {
-    const headers = ['ID', 'First Name', 'Last Name', 'Email', 'Department', 'Status', 'Joined'];
-    const csvContent = [
-      headers.join(','),
-      ...teachers.map(teacher => [
-        teacher.id,
-        teacher.firstName,
-        teacher.lastName,
-        teacher.email,
-        teacher.department,
-        teacher.status,
-        teacher.joined
-      ].map(field => `"${field}"`).join(','))
-    ].join('\\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'teachers.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
   const headerData = [
     { title: "" },
     { title: t("adminTeachers.table.id") },
@@ -148,12 +91,19 @@ function Teachers() {
   ];
 
   const filteredTeachers = teachers.filter((teacher) => {
-    const matchesSearch = [teacher.firstName, teacher.lastName, teacher.email, teacher.department]
+    const matchesSearch = [
+      teacher.firstName,
+      teacher.lastName,
+      teacher.email,
+      teacher.department,
+    ]
       .join(" ")
       .toLowerCase()
       .includes(search.toLowerCase());
+
     const matchesStatus =
       statusFilter === "all" || teacher.status === statusFilter;
+
     return matchesSearch && matchesStatus;
   });
 
@@ -172,6 +122,71 @@ function Teachers() {
     { value: "suspended", label: t("adminShared.status.suspended") },
   ];
 
+  const exportToCSV = () => {
+    const headers = [
+      "ID",
+      "First Name",
+      "Last Name",
+      "Email",
+      "Department",
+      "Status",
+      "Joined",
+    ];
+    const csvContent = [
+      headers.join(","),
+      ...teachers.map((teacher) =>
+        [
+          teacher.id,
+          teacher.firstName,
+          teacher.lastName,
+          teacher.email,
+          teacher.department,
+          teacher.status,
+          teacher.joined,
+        ]
+          .map((field) => `"${field}"`)
+          .join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "teachers.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleAction = (action) => {
+    switch (action) {
+      case "export":
+        exportToCSV();
+        break;
+      case "import":
+        window.GooeyToaster?.info?.("Import functionality coming soon");
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleViewProfile = (teacher) => {
+    navigate(`/admin/teacher/${teacher.id}`);
+  };
+
+  const handleOpenEditModal = (teacher) => {
+    setEditingTeacher(teacher);
+    setShowEditModal(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setEditingTeacher(null);
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col bg-shell dark:bg-dark-shell gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -185,32 +200,38 @@ function Teachers() {
             })}
           </p>
         </div>
+
         <div className="flex items-center gap-3">
           <div className="flex-none">
             <DropdownMenuRoot>
-              <DropdownTrigger>
-                Actions
-              </DropdownTrigger>
+              <DropdownTrigger>Actions</DropdownTrigger>
               <DropdownContent align="end">
-                <DropdownItem icon={<Icon d={IC.download} className="size-4" />} onClick={() => handleAction("export")}>
+                <DropdownItem
+                  icon={<Icon d={IC.download} className="size-4" />}
+                  onClick={() => handleAction("export")}
+                >
                   Export
                 </DropdownItem>
-                <DropdownItem icon={<Icon d={IC.upload} className="size-4" />} onClick={() => handleAction("import")}>
+                <DropdownItem
+                  icon={<Icon d={IC.upload} className="size-4" />}
+                  onClick={() => handleAction("import")}
+                >
                   Import
                 </DropdownItem>
               </DropdownContent>
             </DropdownMenuRoot>
           </div>
-          <Button icon={<Icon d={IC.plus} className="size-4" />} onClick={() => setShowAddModal(true)}>
-            Add Teacher
+
+          <Button
+            icon={<Icon d={IC.plus} className="size-4" />}
+            onClick={() => setShowAddModal(true)}
+          >
+            {t("adminTeachers.actions.add")}
           </Button>
         </div>
-        <Button icon={<Icon d={IC.plus} className="size-4" />}>
-          {t("adminTeachers.actions.add")}
-        </Button>
       </div>
 
-      <div className="flex-1 border border-default dark:border-dark-default rounded-md ">
+      <div className="flex-1 border border-default dark:border-dark-default rounded-md">
         <div className="flex mb-3 flex-col px-4 py-3 sm:flex-row gap-3 bg-shell dark:bg-dark-shell border-b border-default dark:border-dark-default">
           <div className="relative flex-1">
             <Icon
@@ -222,9 +243,10 @@ function Teachers() {
               placeholder={t("adminTeachers.filters.searchPlaceholder")}
               className="w-full pl-10 pr-4 py-1.5 border border-default dark:border-dark-default rounded-md text-sm focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all placeholder:text-muted dark:placeholder:text-dark-muted"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(event) => setSearch(event.target.value)}
             />
           </div>
+
           <div className="w-48">
             <Select
               options={statusOptions}
@@ -234,7 +256,7 @@ function Teachers() {
           </div>
         </div>
 
-        <div className="w-full p-2 overflow-hidden ">
+        <div className="w-full p-2 overflow-hidden">
           <Table>
             <TableHeader headerData={headerData} />
             <TableBody>
@@ -243,9 +265,11 @@ function Teachers() {
                   <TableColumn className="w-10">
                     <Checkbox />
                   </TableColumn>
+
                   <TableColumn className="font-mono text-xs">
                     #{teacher.id.toString().padStart(2, "0")}
                   </TableColumn>
+
                   <TableColumn>
                     <div className="flex items-center gap-3">
                       <AvatarDemo />
@@ -259,11 +283,13 @@ function Teachers() {
                       </div>
                     </div>
                   </TableColumn>
+
                   <TableColumn>
                     <span className="px-2.5 py-1 bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-full text-xs font-medium capitalize">
                       {teacher.department}
                     </span>
                   </TableColumn>
+
                   <TableColumn>
                     <span
                       className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -279,6 +305,7 @@ function Teachers() {
                       {t(`adminShared.status.${teacher.status}`)}
                     </span>
                   </TableColumn>
+
                   <TableColumn className="text-xs whitespace-nowrap">
                     {new Date(teacher.joined).toLocaleDateString(locale, {
                       year: "numeric",
@@ -286,6 +313,7 @@ function Teachers() {
                       day: "numeric",
                     })}
                   </TableColumn>
+
                   <TableColumn className="text-center">
                     <DropdownMenuRoot>
                       <DropdownTrigger showArrow={false}>
@@ -299,24 +327,30 @@ function Teachers() {
                           <path
                             d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
                             fill="currentColor"
-                            fill-rule="evenodd"
-                            clip-rule="evenodd"
-                          ></path>
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       </DropdownTrigger>
                       <DropdownContent align="end">
-                        <DropdownItem>
+                        <DropdownItem onClick={() => handleViewProfile(teacher)}>
                           <span>{t("adminShared.actions.viewProfile")}</span>
                         </DropdownItem>
-                        <DropdownItem>
+                        <DropdownItem
+                          onClick={() => handleOpenEditModal(teacher)}
+                        >
                           <span>{t("adminShared.actions.editDetails")}</span>
                         </DropdownItem>
                         <DropdownItem>
                           <span>{t("adminShared.actions.sendMessage")}</span>
                         </DropdownItem>
-            
+
                         <DropdownSeparator />
-                        <DropdownItem variant="danger">
+
+                        <DropdownItem
+                          variant="danger"
+                          onClick={() => setDeleteTeacherId(teacher.id)}
+                        >
                           <span>{t("adminTeachers.actions.remove")}</span>
                         </DropdownItem>
                       </DropdownContent>
@@ -324,6 +358,7 @@ function Teachers() {
                   </TableColumn>
                 </TableRow>
               ))}
+
               {filteredTeachers.length === 0 && (
                 <TableRow>
                   <TableColumn
@@ -350,10 +385,11 @@ function Teachers() {
             </TableBody>
           </Table>
         </div>
+
         {deleteTeacherId && (
           <DeleteConfirmModal
             teacherId={deleteTeacherId}
-            teacher={teachers.find((t) => t.id === deleteTeacherId)}
+            teacher={teachers.find((teacher) => teacher.id === deleteTeacherId)}
             setDeleteTeacherId={setDeleteTeacherId}
             teachers={teachers}
             setTeachers={setTeachers}
@@ -366,63 +402,128 @@ function Teachers() {
           <Pagination />
         </div>
       )}
+
       <GlobalModal open={showAddModal} setOpen={setShowAddModal}>
-        <AddTeacherForm teachers={teachers} setTeachers={setTeachers} onClose={() => setShowAddModal(false)} />
+        <AddTeacherForm
+          teachers={teachers}
+          setTeachers={setTeachers}
+          onClose={() => setShowAddModal(false)}
+        />
       </GlobalModal>
+
       <GlobalModal open={showEditModal} setOpen={setShowEditModal}>
         <div className="w-full max-w-md bg-shell dark:bg-dark-shell p-6 rounded-xl shadow-xl border border-default dark:border-dark-default">
-          <h2 className="text-xl font-bold text-primary dark:text-dark-primary mb-6">Edit Teacher Details</h2>
+          <h2 className="text-xl font-bold text-primary dark:text-dark-primary mb-6">
+            Edit Teacher Details
+          </h2>
+
           {editingTeacher && (
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.target);
-              const updatedTeacher = {
-                ...editingTeacher,
-                firstName: formData.get('firstName'),
-                lastName: formData.get('lastName'),
-                email: formData.get('email'),
-                department: formData.get('department'),
-                status: formData.get('status'),
-                joined: formData.get('joined'),
-              };
-              setTeachers(teachers.map(t => t.id === editingTeacher.id ? updatedTeacher : t));
-              window.GooeyToaster?.success?.('Teacher updated successfully');
-              (() => {
-                setShowEditModal(false);
-                setEditingTeacher(null);
-              })();
-            }}>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const formData = new FormData(event.target);
+                const updatedTeacher = {
+                  ...editingTeacher,
+                  firstName: formData.get("firstName"),
+                  lastName: formData.get("lastName"),
+                  email: formData.get("email"),
+                  department: formData.get("department"),
+                  status: formData.get("status"),
+                  joined: formData.get("joined"),
+                };
+
+                setTeachers(
+                  teachers.map((teacher) =>
+                    teacher.id === editingTeacher.id ? updatedTeacher : teacher,
+                  ),
+                );
+                window.GooeyToaster?.success?.("Teacher updated successfully");
+                handleCloseEditModal();
+              }}
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">First Name</label>
-                  <input type="text" name="firstName" defaultValue={editingTeacher.firstName} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    defaultValue={editingTeacher.firstName}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                    required
+                  />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Last Name</label>
-                  <input type="text" name="lastName" defaultValue={editingTeacher.lastName} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    defaultValue={editingTeacher.lastName}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                    required
+                  />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Email</label>
-                  <input type="email" name="email" defaultValue={editingTeacher.email} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    defaultValue={editingTeacher.email}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                    required
+                  />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Department</label>
-                  <input type="text" name="department" defaultValue={editingTeacher.department} className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary" required />
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    Department
+                  </label>
+                  <input
+                    type="text"
+                    name="department"
+                    defaultValue={editingTeacher.department}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                    required
+                  />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Status</label>
-                  <select name="status" defaultValue={editingTeacher.status} className="w-full px-3 py-2 border border-default dark:border-dark-default rounded-md focus:border-accent dark:focus:border-accent focus:outline-none text-primary dark:text-dark-primary">
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    defaultValue={editingTeacher.status}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                  >
                     <option value="active">Active</option>
                     <option value="pending">Pending</option>
                     <option value="rejected">Rejected</option>
                     <option value="suspended">Suspended</option>
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">Joined Date</label>
-                  <input type="date" name="joined" defaultValue={editingTeacher.joined} className="w-full px-3 py-2 border border-default dark:border-dark-default rounded-md focus:border-accent dark:focus:border-accent focus:outline-none text-primary dark:text-dark-primary" required />
+                  <label className="block text-sm font-medium text-muted dark:text-dark-muted mb-1 text-primary dark:text-dark-primary">
+                    Joined Date
+                  </label>
+                  <input
+                    type="date"
+                    name="joined"
+                    defaultValue={editingTeacher.joined}
+                    className="w-full px-3 py-2.5 border border-default dark:border-dark-default rounded-lg bg-card dark:bg-dark-card focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/20 transition-all text-sm text-primary dark:text-dark-primary"
+                    required
+                  />
                 </div>
               </div>
+
               <div className="flex gap-3 pt-4">
                 <Button type="submit">Save</Button>
               </div>
@@ -434,9 +535,15 @@ function Teachers() {
   );
 }
 
-function DeleteConfirmModal({ teacherId, teacher, setDeleteTeacherId, teachers, setTeachers }) {
+function DeleteConfirmModal({
+  teacherId,
+  teacher,
+  setDeleteTeacherId,
+  teachers,
+  setTeachers,
+}) {
   const confirmDelete = () => {
-    setTeachers(teachers.filter((t) => t.id !== teacherId));
+    setTeachers(teachers.filter((item) => item.id !== teacherId));
     window.GooeyToaster?.success?.("Teacher removed successfully");
     setDeleteTeacherId(null);
   };
@@ -445,9 +552,7 @@ function DeleteConfirmModal({ teacherId, teacher, setDeleteTeacherId, teachers, 
     setDeleteTeacherId(null);
   };
 
-  const teacherName = teacher
-    ? `${teacher.firstName} ${teacher.lastName}`
-    : "";
+  const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : "";
 
   return (
     <GlobalModal open={true} setOpen={cancelDelete}>

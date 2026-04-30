@@ -33,7 +33,7 @@ function Field({
                 d={iconD}
                 className="size-3 stroke-muted dark:stroke-dark-muted stroke-[1.5]"
               />
-             </span>
+            </span>
           )}
           {children ? (
             children
@@ -49,11 +49,11 @@ function Field({
               {...register}
               {...rest}
               className={`
-                w-full h-8 text-xs rounded-lg outline-none transition-colors
+                w-full h-8 text-xs rounded-lg outline-none
                 pl-3 pr-3 py-1.5
                 text-primary dark:text-dark-primary
                 placeholder:text-muted dark:placeholder:text-dark-muted
-                bg-input dark:bg-dark-input
+                bg-input dark:bg-transparent
                 border border-default dark:border-dark-default
                 focus:border-accent 
                 dark:focus:border-white
@@ -90,4 +90,3 @@ function Field({
   );
 }
 export default Field;
-

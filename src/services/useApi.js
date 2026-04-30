@@ -1,5 +1,17 @@
-import { useMutation } from "@tanstack/react-query";
-import { login, signup, googleAuth, refreshToken, logout, forgotPassword, resetPassword, verifyEmail, resendVerificationEmail, changePassword } from "./apiRoute";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  login,
+  signup,
+  googleAuth,
+  refreshToken,
+  logout,
+  forgotPassword,
+  resetPassword,
+  verifyEmail,
+  resendVerificationEmail,
+  changePassword,
+  getStudents,
+} from "./apiRoute";
 
 export const useLogin = () => {
   return useMutation({
@@ -48,5 +60,12 @@ export const useResendVerificationEmail = () =>
     mutationFn: resendVerificationEmail,
     mutationKey: ["resendVerificationEmail"],
   });
+
+export const useStudents = () => {
+  return useQuery({
+    queryKey: ["students"],
+    queryFn: getStudents,
+  });
+};
 export const useChangePassword = () =>
   useMutation({ mutationFn: changePassword, mutationKey: ["changePassword"] });

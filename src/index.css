@@ -7,12 +7,24 @@
   --font-app: \"DM Sans\", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-persian: IRANYekanX, sans-serif;
 
+  --blue-50: #E5F0FF;
+  --blue-100: #CCE0FF;
+  --blue-200: #99C2FF;
+  --blue-300: #66A3FF;
+  --blue-400: #3385FF;
+  --blue-500: #0066FF;
+  --blue-600: #0052CC;
+  --blue-700: #003D99;
+  --blue-800: #002966;
+  --blue-900: #001433;
+  --blue-950: #000E24;
+  
   --color-app: #f0f0f0;
   --color-shell: #ffffff;
   --color-sidebar: #fafafa;
   --color-card: #ffffff;
   --color-card-2: #f7f7f7;
-  --color-dark-app: #121212;
+  --color-dark-app: #1E1E1E;
   --color-dark-shell: #1d1d1d;
   --color-dark-sidebar: #121212;
   --color-dark-card: #252525;
