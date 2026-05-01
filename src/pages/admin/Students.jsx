@@ -1,18 +1,9 @@
-import { CgProfile } from "react-icons/cg";
-import { AiOutlineDelete } from "react-icons/ai";
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import Table from "../../components/Table";
-import TableBody from "../../components/TableBody";
-import TableColumn from "../../components/TableColumn";
-import TableHeader from "../../components/TableHeader";
-import TableRow from "../../components/TableRow";
-import EditStudentForm from "./EditStudentForm";
-import Icon from "../../components/Icon";
-import IC from "../../components/IC";
-import Select from "../../components/Select";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { CgProfile } from "react-icons/cg";
+import { useNavigate } from "react-router-dom";
+import Button from "../../components/Button";
 import Checkbox from "../../components/Checkbox";
 import {
   DropdownContent,
@@ -22,28 +13,53 @@ import {
   DropdownSeparator,
   DropdownTrigger,
 } from "../../components/DropdownMenu";
-import Button from "../../components/Button";
+import Field from "../../components/Field";
 import GlobalModal from "../../components/GlobalModal";
-import StudentForm from "../../components/StudentForm";
-import { useStudents } from "../../services/useApi";
+import IC from "../../components/IC";
+import Icon from "../../components/Icon";
+import Select from "../../components/Select";
+import Table from "../../components/Table";
+import TableBody from "../../components/TableBody";
+import TableColumn from "../../components/TableColumn";
+import TableHeader from "../../components/TableHeader";
+import TableRow from "../../components/TableRow";
+import Pagination from "../../components/Pagination";
 import { deleteStudent } from "../../services/apiRoute";
-
+import { useStudentsPage } from "../../services/useApi";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 const EMPTY_STUDENTS = [];
 
 export default function Students() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
-  const { data: studentsData, isLoading, isError, error } = useStudents();
-
-  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearch = useDebouncedValue(searchInput, 400);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(null);
   const [deleteStudentId, setDeleteStudentId] = useState(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
-  const students = studentsData ?? EMPTY_STUDENTS;
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
+
+  const { data: pageData, isLoading, isError, error } = useStudentsPage({
+    page: page - 1,
+    pageSize,
+    search: debouncedSearch,
+    status: statusFilter,
+  });
+
+  const students = pageData?.content ?? EMPTY_STUDENTS;
+  const totalElements = pageData?.totalElements ?? 0;
+  const totalPages = pageData?.totalPages ?? 0;
+
+  useEffect(() => {
+    if (totalPages > 0 && page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
   const deletingStudent = students.find(
     (student) => student.id === deleteStudentId,
   );
@@ -65,32 +81,6 @@ export default function Students() {
     { value: "rejected", label: t("adminShared.status.rejected") },
     { value: "suspended", label: t("adminShared.status.suspended") },
   ];
-
-  const filteredStudents = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-
-    return students.filter((student) => {
-      const matchesSearch =
-        !normalizedSearch ||
-        [
-          student.firstName,
-          student.lastName,
-          student.email,
-          student.department,
-          student.code,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedSearch);
-
-      const matchesStatus =
-        statusFilter === "all" ||
-        (student.status || "").toLowerCase() === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [search, statusFilter, students]);
 
   const exportToCSV = () => {
     const headers = [
@@ -166,37 +156,32 @@ export default function Students() {
     navigate(`/admin/student/${student.id}`);
   };
 
-  const handleOpenEditModal = (student) => {
-    setSelectedStudent(student);
-    setShowEditModal(true);
-  };
+  const confirmDeleteStudent = async () => {
+    if (!deleteStudentId || deleteSubmitting) return;
 
-  const handleCloseEditModal = () => {
-    setShowEditModal(false);
-    setSelectedStudent(null);
-  };
-
-  const handleDeleteStudent = async () => {
-    if (!deleteStudentId) return;
-
+    setDeleteSubmitting(true);
     try {
       await deleteStudent(deleteStudentId);
-      queryClient.invalidateQueries({ queryKey: ["students"] });
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "students",
+      });
       window.GooeyToaster?.success?.(t("adminStudents.delete.success"));
+      setDeleteStudentId(null);
     } catch (deleteError) {
       window.GooeyToaster?.error?.(
         deleteError.message || t("adminStudents.delete.error"),
       );
+    } finally {
+      setDeleteSubmitting(false);
     }
-
-    setDeleteStudentId(null);
   };
 
   if (isLoading) {
     return (
-      <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-[14px] bg-shell dark:bg-dark-shell">
+      <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-[14px] bg-light-app-bg dark:bg-dark-shell">
         <div className="flex items-center justify-center h-64">
-          <div className="text-primary dark:text-dark-primary">
+          <div className="text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
             {t("adminStudents.loading")}
           </div>
         </div>
@@ -206,19 +191,19 @@ export default function Students() {
 
   if (isError) {
     return (
-      <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-[14px] bg-shell dark:bg-dark-shell">
+      <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-[14px] bg-light-app-bg dark:bg-dark-shell">
         <div className="flex flex-col items-center justify-center h-64 gap-3">
-          <div className="w-12 h-12 bg-error/10 dark:bg-dark-error/20 rounded-full flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center bg-light-error-bg dark:bg-dark-error-bg">
             <Icon
               d={IC.x}
-              className="w-5 h-5 text-error dark:text-dark-error"
+              className="w-5 h-5 text-light-error-text dark:text-dark-error-text"
             />
           </div>
           <div className="text-center">
-            <p className="text-primary dark:text-dark-primary font-medium">
+            <p className="text-(--color-light-text-primary) dark:text-(--color-dark-text-primary) font-medium">
               Failed to load students
             </p>
-            <p className="text-muted dark:text-dark-muted text-sm mt-1 max-w-md">
+            <p className="text-(--color-light-text-muted) dark:text-dark-text-muted text-sm mt-1 max-w-md">
               {error?.message ||
                 "Could not connect to the server. Make sure json-server is running (npm run server)."}
             </p>
@@ -229,15 +214,15 @@ export default function Students() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 min-h-screen md:p-5 flex flex-col bg-shell dark:bg-dark-shell gap-6">
+    <div className="flex-1 overflow-y-auto p-4 min-h-screen md:p-5 flex flex-col bg-white  dark:bg-dark-shell gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-primary dark:text-dark-primary mb-1">
+          <h1 className="text-2xl font-bold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary) mb-1">
             {t("adminStudents.header.title")}
           </h1>
-          <p className="text-muted dark:text-dark-muted">
+          <p className="text-(--color-light-text-muted) dark:text-dark-text-muted">
             {t("adminStudents.header.description", {
-              count: filteredStudents.length,
+              count: totalElements,
             })}
           </p>
         </div>
@@ -266,7 +251,7 @@ export default function Students() {
           <div className="flex-none">
             <Button
               icon={<Icon d={IC.plus} className="size-4" />}
-              onClick={() => setShowAddModal(true)}
+              onClick={() => navigate("/admin/student/new")}
             >
               {t("adminStudents.actions.add")}
             </Button>
@@ -274,97 +259,28 @@ export default function Students() {
         </div>
       </div>
 
-      <GlobalModal
-        open={showAddModal}
-        setOpen={setShowAddModal}
-        isClose={true}
-        className="w-[min(94vw,1000px)] bg-app dark:bg-dark-app max-h-[92vh] overflow-y-auto  p-2 rounded-md"
-      >
-        <StudentForm onClose={() => setShowAddModal(false)} />
-      </GlobalModal>
-
-      <GlobalModal
-        open={showEditModal}
-        setOpen={setShowEditModal}
-        isClose={true}
-      >
-        {selectedStudent && (
-          <EditStudentForm
-            student={selectedStudent}
-            onClose={handleCloseEditModal}
-          />
+      {totalElements === 0 &&
+        totalPages <= 1 &&
+        !debouncedSearch.trim() &&
+        statusFilter === "all" && (
+          <div
+            className="rounded-xl border border-default/80 bg-input/40 px-4 py-3 text-xs text-secondary dark:border-dark-default dark:bg-dark-input/40 dark:text-dark-secondary"
+            role="status"
+          >
+            {t("adminStudents.emptyHint")}
+          </div>
         )}
-      </GlobalModal>
 
-      <GlobalModal
-        open={Boolean(deleteStudentId)}
-        setOpen={() => setDeleteStudentId(null)}
-        isClose={true}
-        className="w-[min(92vw,460px)]"
-      >
-        <div className="bg-shell dark:bg-dark-card p-6 rounded-xl shadow-2xl border border-default dark:border-dark-default flex flex-col">
-          <div className="flex items-start gap-3 mb-6 pb-4 border-b border-default dark:border-dark-default">
-            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 text-red-600 dark:text-red-400">
-              <AiOutlineDelete />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-primary dark:text-dark-primary mb-1">
-                {t("adminStudents.delete.title")}
-              </h2>
-              <p className="text-muted dark:text-dark-muted text-sm mb-2">
-                {t("adminStudents.delete.descriptionPrefix")}{" "}
-                <span className="font-semibold text-primary dark:text-dark-primary">
-                  {deletingStudent
-                    ? `${deletingStudent.firstName} ${deletingStudent.lastName}`
-                    : t("adminStudents.delete.fallbackName")}
-                </span>
-                {t("adminStudents.delete.descriptionSuffix")}
-              </p>
-              <p className="text-muted dark:text-dark-muted text-xs mb-4">
-                {t("adminStudents.delete.emailLabel")}{" "}
-                <span className="font-mono bg-card dark:bg-gray-800 text-primary dark:text-dark-primary px-2 py-0.5 rounded text-xs">
-                  {deletingStudent?.email || t("adminStudents.delete.noEmail")}
-                </span>
-              </p>
-              <p className="text-red-600 dark:text-red-400 text-xs font-medium">
-                {t("adminStudents.delete.warning")}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-4 mt-auto border-t border-default dark:border-dark-default">
-            <Button
-              type="button"
-              onClick={() => setDeleteStudentId(null)}
-              className="flex-1 text-sm h-10 font-medium bg-card dark:bg-dark-input text-primary dark:text-dark-primary border border-default dark:border-dark-default"
-            >
-              {t("adminStudents.delete.cancel")}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleDeleteStudent}
-              className="flex-1 text-sm h-10 font-medium bg-error text-white text-center"
-            >
-              {t("adminStudents.delete.confirm")}
-            </Button>
-          </div>
-        </div>
-      </GlobalModal>
-
-      <div className="flex-1 bg-shell dark:bg-dark-shell border border-default dark:border-dark-default rounded-md">
-        <div className="overflow-hidden border-b border-default dark:border-dark-default">
-          <div className="flex flex-col px-4 py-3 sm:flex-row gap-3 bg-shell dark:bg-dark-shell">
+      <div className="flex-1 rounded-xl border bg-(--color-light-card-bg) border-(--color-light-card-border) dark:bg-(--color-dark-card-bg) dark:border-(--color-dark-card-border)">
+        <div className="overflow-hidden border-b border-light-divider dark:border-dark-divider">
+          <div className="flex flex-col px-4 py-3 sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Icon
-                d={IC.search}
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 stroke-muted dark:stroke-dark-muted"
-              />
-              <input
-                type="text"
+              <Field
+                id="students-search"
                 placeholder={t("adminStudents.filters.searchPlaceholder")}
-                className="w-full pl-10 pr-4 py-1.5 border border-default dark:border-dark-default rounded-md text-sm transition-all placeholder:text-muted dark:placeholder:text-dark-muted"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                iconD={IC.search}
               />
             </div>
 
@@ -382,7 +298,7 @@ export default function Students() {
           <Table className="">
             <TableHeader headerData={headerData} />
             <TableBody>
-              {filteredStudents.map((student) => (
+              {students.map((student) => (
                 <TableRow key={student.id}>
                   <TableColumn className="text-center">
                     <Checkbox />
@@ -463,7 +379,9 @@ export default function Students() {
                         </DropdownLabel>
 
                         <DropdownItem
-                          onClick={() => handleOpenEditModal(student)}
+                          onClick={() =>
+                            navigate(`/admin/student/${student.id}/edit`)
+                          }
                         >
                           {t("common.actions.edit")}
                         </DropdownItem>
@@ -480,7 +398,7 @@ export default function Students() {
                 </TableRow>
               ))}
 
-              {filteredStudents.length === 0 && (
+              {students.length === 0 && (
                 <TableRow>
                   <TableColumn
                     colSpan={headerData.length}
@@ -494,6 +412,116 @@ export default function Students() {
           </Table>
         </div>
       </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={totalElements}
+          pageSize={pageSize}
+          onPageChange={(nextPage, nextSize) => {
+            if (nextSize !== pageSize) {
+              setPageSize(nextSize);
+              setPage(1);
+              return;
+            }
+            setPage(nextPage);
+          }}
+        />
+      </div>
+
+      {deleteStudentId ? (
+        <StudentDeleteModal
+          student={deletingStudent}
+          onCancel={() => {
+            if (!deleteSubmitting) setDeleteStudentId(null);
+          }}
+          onConfirm={confirmDeleteStudent}
+          submitting={deleteSubmitting}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function StudentDeleteModal({ student, onCancel, onConfirm, submitting }) {
+  const { t } = useTranslation();
+  const displayName =
+    student &&
+    `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim();
+  const namePhrase = displayName
+    ? `\u201c${displayName}\u201d`
+    : t("adminStudents.delete.fallbackName");
+  const emailDisplay = student?.email?.trim()
+    ? student.email
+    : t("adminStudents.delete.noEmail");
+
+  return (
+    <GlobalModal open={true} setOpen={() => (!submitting ? onCancel() : null)}>
+      <div className="z-[1000] flex max-h-[70vh] w-full max-w-[450px] flex-col rounded-xl border border-default bg-shell p-6 shadow-2xl dark:border-dark-default dark:bg-dark-card">
+        <div className="mb-6 flex flex-shrink-0 items-start gap-3 border-b border-default pb-4 dark:border-dark-default">
+          <div className="mt-0.5 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 15 15"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden
+            >
+              <path
+                d="M7.5 1.125C7.74858 1.125 7.95 1.32647 7.95 1.575V7.3125L10.1819 5.08071C10.3576 4.90497 10.6425 4.90497 10.8182 5.08071C10.994 5.25645 10.994 5.54137 10.8182 5.71711L7.81825 8.71711C7.64251 8.89284 7.35759 8.89284 7.18185 8.71711L4.18185 5.71711C4.00611 5.54137 4.00611 5.25645 4.18185 5.08071C4.35759 4.90497 4.64251 4.90497 4.81825 5.08071L7.05 7.3125V1.575C7.05 1.32647 7.25152 1.125 7.5 1.125ZM2.625 9.75C2.90114 9.75 3.125 9.97411 3.125 10.25V12C3.125 12.5523 3.57268 13 4.00365 13H11.0012C11.5529 13 12 12.5528 12 12V10.25C12 9.97411 12.2239 9.75 12.5 9.75C12.7761 9.75 13 9.97411 13 10.25V12C13 13.1041 12.1062 14 11.0012 14H4.00365C2.89749 14 2 13.103 2 12V10.25C2 9.97411 2.22386 9.75 2.625 9.75Z"
+                fill="currentColor"
+                fillRule="evenodd"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <h2 className="mb-1 text-xl font-bold text-gray-900 dark:text-gray-100">
+              {t("adminStudents.delete.title")}
+            </h2>
+            <p className="mb-2 text-sm text-gray-600 dark:text-gray-300">
+              {t("adminStudents.delete.descriptionPrefix")}{" "}
+              <span className="font-semibold text-gray-900 dark:text-gray-100">
+                {namePhrase}
+              </span>
+              {t("adminStudents.delete.descriptionSuffix")}
+            </p>
+            <p className="mb-4 text-xs text-gray-600 dark:text-gray-300">
+              <span className="font-medium">
+                {t("adminStudents.delete.emailLabel")}
+              </span>{" "}
+              <span className="rounded bg-gray-100 px-2 py-0.5 font-mono text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                {emailDisplay}
+              </span>
+            </p>
+            <p className="text-xs font-medium text-red-600 dark:text-red-400">
+              {t("adminStudents.delete.warning")}
+            </p>
+          </div>
+        </div>
+        <div className="mt-auto flex flex-shrink-0 flex-wrap gap-3 border-t border-default pt-4 dark:border-dark-default">
+          <Button
+            type="button"
+            variant="secondary"
+            className="min-w-[6rem]"
+            disabled={submitting}
+            onClick={onCancel}
+          >
+            {t("adminStudents.delete.cancel")}
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            className="min-w-[6rem]"
+            disabled={submitting}
+            onClick={() => void onConfirm()}
+          >
+            {submitting ? t("studentForm.actions.submitting") : t("adminStudents.delete.confirm")}
+          </Button>
+        </div>
+      </div>
+    </GlobalModal>
   );
 }

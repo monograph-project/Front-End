@@ -1,12 +1,14 @@
 import { GooeyToaster } from "goey-toast";
 import "goey-toast/styles.css";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import ProtectedRoute from "./components/ProtectedRoute";
+import GuestRoute from "./routes/GuestRoute";
+import ProtectedRoute from "./routes/ProtectedRoute";
 import { ThemeProvider } from "./context/themContext";
 import Applayout from "./layout/AppLayout";
 import AppSidebar from "./layout/AppSideBar";
-import Sidebar from "./layout/Sidebar";
+import PublicWebsiteLayout from "./layout/PublicWebsiteLayout";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import Signup from "./pages/Signup";
 import Unauthorized from "./pages/Unauthorized";
@@ -37,35 +39,83 @@ import Home from "./pages/blog/Home";
 import UserProfile from "./pages/admin/Profile";
 import NotificationDetail from "./pages/admin/NotificationDetail";
 import StudentProfile from "./pages/admin/StudentProfile";
+import StudentRegisterPage from "./pages/admin/StudentRegisterPage";
+import StudentEditPage from "./pages/admin/StudentEditPage";
+import TeacherRegisterPage from "./pages/admin/TeacherRegisterPage";
+import TeacherEditPage from "./pages/admin/TeacherEditPage";
+import EmployeeRegisterPage from "./pages/admin/EmployeeRegisterPage";
+import EmployeeEditPage from "./pages/admin/EmployeeEditPage";
 import TeacherProfile from "./pages/admin/TeacherProfile";
 import EmployeeProfile from "./pages/admin/EmployeeProfile";
 import DepartmentProfile from "./pages/admin/DepartmentProfile";
 import ProjectWorkspace from "./pages/admin/ProjectWorkspace";
+import About from "./pages/public/About";
+import Download from "./pages/public/Download";
+import Documentation from "./pages/public/Documentation";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
     <ThemeProvider>
       <BrowserRouter>
         <Routes>
-          {/* Medium-style public surface — everyone can read/write stories here */}
-          <Route
-            path="/"
-            element={
-              <Applayout>
-                <Sidebar />
-              </Applayout>
-            }
-          >
+          {/* Public blog / stories — dedicated marketing header; read anonymously, write when signed in */}
+          <Route element={<PublicWebsiteLayout />}>
             <Route index element={<Home />} />
-            <Route path="write" element={<WriteStory />} />
-            <Route path="library" element={<ReaderLibrary />} />
             <Route path="topic/:topic" element={<TopicFeed />} />
             <Route path="story/:id" element={<StoryDetailPage />} />
-            <Route path="/writer/profile" element={<Profile />} />
+            <Route path="about" element={<About />} />
+            <Route path="download" element={<Download />} />
+            <Route path="documentation" element={<Documentation />} />
+            <Route
+              path="write"
+              element={
+                <ProtectedRoute allowedRoles={[]}>
+                  <WriteStory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="library"
+              element={
+                <ProtectedRoute allowedRoles={[]}>
+                  <ReaderLibrary />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="writer/profile"
+              element={
+                <ProtectedRoute allowedRoles={[]}>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
           </Route>
 
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route
+            path="/login"
+            element={
+              <GuestRoute>
+                <Login />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <GuestRoute>
+                <Signup />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <GuestRoute>
+                <ForgotPassword />
+              </GuestRoute>
+            }
+          />
 
           <Route
             path="/admin"
@@ -81,10 +131,16 @@ export default function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="users" element={<Users />} />
             <Route path="users/:id" element={<UserProfile />} />
+            <Route path="student/new" element={<StudentRegisterPage />} />
+            <Route path="student/:id/edit" element={<StudentEditPage />} />
             <Route path="student" element={<Student />} />
             <Route path="student/:id" element={<StudentProfile />} />
+            <Route path="teacher/new" element={<TeacherRegisterPage />} />
+            <Route path="teacher/:id/edit" element={<TeacherEditPage />} />
             <Route path="teacher/:id" element={<TeacherProfile />} />
             <Route path="teacher" element={<Teacher />} />
+            <Route path="employee/new" element={<EmployeeRegisterPage />} />
+            <Route path="employee/:id/edit" element={<EmployeeEditPage />} />
             <Route path="employee" element={<Employee />} />
             <Route path="employee/:id" element={<EmployeeProfile />} />
             <Route path="notification" element={<Notification />} />

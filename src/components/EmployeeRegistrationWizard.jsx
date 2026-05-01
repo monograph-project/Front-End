@@ -1,0 +1,1028 @@
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Briefcase,
+  CalendarRange,
+  CheckCircle2,
+  KeyRound,
+  Mail,
+  MapPin,
+  ShieldCheck,
+  User,
+  UserCircle2,
+} from "lucide-react";
+import { Controller, useForm, useWatch } from "react-hook-form";
+import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
+import Field from "./Field";
+import IC from "./IC";
+import Select from "./Select";
+import FacultyRegistrationShell, {
+  FacultyReviewRow,
+  FacultySummaryLine,
+  facultyStepMotion,
+} from "./faculty/FacultyRegistrationShell";
+import {
+  useCreateEmployee,
+  useEmployee,
+  useUpdateEmployee,
+} from "../services/useApi";
+
+const MotionDiv = motion.div;
+
+const USERNAME_PATTERN = /^[a-zA-Z0-9._]+$/;
+const PASSWORD_PATTERN =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
+/** Backend EmployeeRequest phone pattern */
+const EMPLOYEE_PHONE_PATTERN = /^[0-9+\-() ]{7,20}$/;
+
+const EDUCATION_RANK_VALUES = [
+  "HIGH_SCHOOL",
+  "DIPLOMA",
+  "BACHELOR",
+  "MASTER",
+  "PHD",
+];
+
+const FACULTY_POSITION_GROUPS = [
+  {
+    titleKey: "employeeForm.facultyPosition.group.leadership",
+    values: ["DEAN", "VICE_DEAN", "HEAD_OF_DEPARTMENT", "ASSISTANT_HEAD"],
+  },
+  {
+    titleKey: "employeeForm.facultyPosition.group.academic",
+    values: [
+      "PROFESSOR",
+      "ASSOCIATE_PROFESSOR",
+      "ASSISTANT_PROFESSOR",
+      "LECTURER",
+      "TEACHING_ASSISTANT",
+    ],
+  },
+  {
+    titleKey: "employeeForm.facultyPosition.group.support",
+    values: ["ADMINISTRATIVE_STAFF", "TECHNICAL_STAFF"],
+  },
+];
+
+const FACULTY_POSITION_VALUES = FACULTY_POSITION_GROUPS.flatMap(
+  (g) => g.values,
+);
+
+const selectLikeClass = `
+  inline-flex h-8 w-full cursor-pointer items-center rounded-xl px-3.5 text-xs
+  border transition-colors outline-none
+  bg-(--color-light-input-bg) text-(--color-light-text-primary) border-(--color-light-input-border)
+  dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:border-dark-input-border
+  focus-visible:border-(--color-light-input-border-focus) focus-visible:ring-2 focus-visible:ring-blue-500/15
+  dark:focus-visible:border-(--color-dark-input-border-focus) dark:focus-visible:ring-blue-400/15
+`.replace(/\s+/g, " ").trim();
+
+const tintIconBox = {
+  violet:
+    "bg-violet-100 text-violet-600 dark:bg-violet-950/60 dark:text-violet-300",
+  indigo:
+    "bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300",
+  rose: "bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-300",
+  sky: "bg-sky-100 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300",
+  emerald:
+    "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/45 dark:text-emerald-300",
+};
+
+function FormSectionCard({
+  icon: Glyph,
+  tint = "violet",
+  title,
+  subtitle,
+  children,
+}) {
+  return (
+    <div className="rounded-xl border border-default bg-light-card-bg p-5 shadow-sm backdrop-blur-sm dark:border-dark-card-border dark:bg-dark-card-bg dark:shadow-none sm:p-6">
+      <div className="mb-5 flex gap-4">
+        <div
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tintIconBox[tint]}`}
+        >
+          <Glyph className="size-5" strokeWidth={1.75} />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold tracking-tight text-primary dark:text-dark-primary">
+            {title}
+          </h3>
+          {subtitle ? (
+            <p className="mt-0.5 text-[11px] leading-snug text-secondary dark:text-dark-secondary">
+              {subtitle}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
+
+function GroupedPositionSelect({ label, value, onChange, error, t }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {label ? (
+        <label className="text-[11px] font-semibold text-primary dark:text-dark-primary">
+          {label}
+        </label>
+      ) : null}
+      <select
+        className={selectLikeClass}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">{t("employeeForm.facultyPosition.placeholder")}</option>
+        {FACULTY_POSITION_GROUPS.map((g) => (
+          <optgroup key={g.titleKey} label={t(g.titleKey)}>
+            {g.values.map((v) => (
+              <option key={v} value={v}>
+                {t(`employeeForm.facultyPosition.${v}`)}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      {error ? (
+        <p className="text-[11px] text-error dark:text-red-400">{error}</p>
+      ) : null}
+    </div>
+  );
+}
+
+export default function EmployeeRegistrationWizard({
+  mode = "create",
+  employeeId = null,
+  onCompleted,
+  onCancel,
+  className = "",
+}) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [step, setStep] = useState(1);
+  const isEdit = mode === "edit" && Boolean(employeeId);
+
+  const {
+    data: existingEmployee,
+    isLoading: employeeLoading,
+    isError: employeeFetchError,
+  } = useEmployee(employeeId, {
+    enabled: isEdit,
+    notifyOnError: false,
+  });
+
+  const educationRankOptions = useMemo(
+    () =>
+      EDUCATION_RANK_VALUES.map((v) => ({
+        value: v,
+        label: t(`teacherForm.educationRank.${v}`),
+      })),
+    [t],
+  );
+
+  const roleOptions = useMemo(
+    () => [{ value: "EMPLOYEE", label: t("employeeForm.roles.EMPLOYEE") }],
+    [t],
+  );
+
+  const steps = useMemo(
+    () => [
+      { id: 1, titleKey: "employeeForm.steps.account", icon: KeyRound },
+      {
+        id: 2,
+        titleKey: "employeeForm.steps.personal",
+        icon: UserCircle2,
+      },
+      { id: 3, titleKey: "employeeForm.steps.contact", icon: Mail },
+      { id: 4, titleKey: "employeeForm.steps.address", icon: MapPin },
+      {
+        id: 5,
+        titleKey: "employeeForm.steps.placement",
+        icon: Briefcase,
+      },
+      {
+        id: 6,
+        titleKey: "employeeForm.steps.review",
+        icon: CheckCircle2,
+      },
+    ],
+    [],
+  );
+
+  const motionEase = [0.22, 1, 0.36, 1];
+
+  const hydratedRef = useRef(null);
+
+  useEffect(() => {
+    hydratedRef.current = null;
+  }, [employeeId]);
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors },
+    trigger,
+  } = useForm({
+    defaultValues: {
+      username: "",
+      password: "",
+      role: "EMPLOYEE",
+      firstName: "",
+      lastName: "",
+      fatherName: "",
+      grandFatherName: "",
+      email: "",
+      phone: "",
+      addressStreet: "",
+      addressCity: "",
+      addressPostalCode: "",
+      addressProvince: "",
+      faculty: "",
+      educationRank: "BACHELOR",
+      facultyPosition: "",
+      hireDate: new Date().toISOString().slice(0, 10),
+    },
+  });
+
+  useEffect(() => {
+    if (!isEdit || !employeeId) return;
+    if (employeeLoading || !existingEmployee) return;
+    if (hydratedRef.current === employeeId) return;
+    hydratedRef.current = employeeId;
+
+    const pos = existingEmployee.facultyPosition;
+    const posOk =
+      pos && FACULTY_POSITION_VALUES.includes(String(pos).toUpperCase())
+        ? String(pos).toUpperCase()
+        : "";
+
+    reset({
+      username: existingEmployee.username ?? "",
+      password: "",
+      role: existingEmployee.role ?? "EMPLOYEE",
+      firstName: existingEmployee.firstName ?? "",
+      lastName: existingEmployee.lastName ?? "",
+      fatherName: existingEmployee.fatherName ?? "",
+      grandFatherName: existingEmployee.grandFatherName ?? "",
+      email: existingEmployee.email ?? "",
+      phone: existingEmployee.phone ?? "",
+      addressStreet: existingEmployee.addressStreet ?? "",
+      addressCity: existingEmployee.addressCity ?? "",
+      addressPostalCode: existingEmployee.addressPostalCode ?? "",
+      addressProvince: existingEmployee.addressProvince ?? "",
+      faculty: existingEmployee.faculty ?? "",
+      educationRank:
+        existingEmployee.educationRank &&
+        EDUCATION_RANK_VALUES.includes(existingEmployee.educationRank)
+          ? existingEmployee.educationRank
+          : "BACHELOR",
+      facultyPosition: posOk,
+      hireDate:
+        existingEmployee.hireDate ||
+        new Date().toISOString().slice(0, 10),
+    });
+  }, [isEdit, employeeId, employeeLoading, existingEmployee, reset]);
+
+  const watched = useWatch({ control });
+  const progressPct = Math.round((step / steps.length) * 100);
+
+  const mapToApiBody = useCallback(
+    (values) => {
+      const body = {
+        userName: values.username.trim(),
+        role: (values.role && values.role.trim()) || "EMPLOYEE",
+        faculty: values.faculty.trim(),
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim(),
+        fatherName: values.fatherName.trim(),
+        grandFatherName: values.grandFatherName.trim(),
+        email: values.email.trim(),
+        phone: values.phone.trim(),
+        hireDate: values.hireDate,
+        educationRank: values.educationRank,
+        facultyPosition: values.facultyPosition,
+        address: {
+          street: values.addressStreet.trim(),
+          city: values.addressCity.trim(),
+          postalCode: values.addressPostalCode.trim(),
+          province: (values.addressProvince ?? "").trim() || undefined,
+        },
+      };
+      if (!isEdit) {
+        body.password = values.password;
+      } else if (values.password?.trim()) {
+        body.password = values.password;
+      }
+      return body;
+    },
+    [isEdit],
+  );
+
+  const createMutation = useCreateEmployee({
+    toastSuccess: "employeeForm.toast.createSuccess",
+    toastError: "employeeForm.toast.createError",
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "employees",
+      });
+      onCompleted?.();
+    },
+  });
+
+  const updateMutation = useUpdateEmployee({
+    toastSuccess: "employeeForm.toast.updateSuccess",
+    toastError: "employeeForm.toast.updateError",
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "employees",
+      });
+      if (employeeId)
+        void queryClient.invalidateQueries({
+          queryKey: ["employees", employeeId],
+        });
+      onCompleted?.();
+    },
+  });
+
+  const pending = createMutation.isPending || updateMutation.isPending;
+
+  const onValidSubmit = (values) => {
+    const body = mapToApiBody(values);
+    if (isEdit && employeeId)
+      updateMutation.mutate({ id: employeeId, ...body });
+    else createMutation.mutate(body);
+  };
+
+  const goPrev = () => setStep((s) => Math.max(s - 1, 1));
+
+  const advanceStep = () =>
+    setStep((s) => Math.min(s + 1, steps.length));
+
+  const educationLabel =
+    educationRankOptions.find((o) => o.value === watched?.educationRank)
+      ?.label ?? watched?.educationRank ?? "—";
+
+  const positionReadable = useMemo(() => {
+    const v = watched?.facultyPosition;
+    if (!v) return "—";
+    return t(`employeeForm.facultyPosition.${v}`);
+  }, [t, watched?.facultyPosition]);
+
+  const summaryName = [watched?.firstName, watched?.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  const completedSnippet = useCallback(
+    (stepId) => {
+      switch (stepId) {
+        case 1:
+          return watched?.username?.trim()
+            ? `@${watched.username.trim()}`
+            : "—";
+        case 2:
+          return (
+            [
+              watched?.firstName,
+              watched?.lastName,
+              watched?.fatherName,
+              watched?.grandFatherName,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "—"
+          );
+        case 3:
+          return watched?.email?.trim()
+            ? `${watched.email} · ${watched?.phone ?? ""}`
+            : "—";
+        case 4:
+          return [watched?.addressCity, watched?.addressPostalCode]
+            .filter(Boolean)
+            .join(", ") || "—";
+        case 5:
+          return (
+            [
+              watched?.faculty?.trim(),
+              educationLabel,
+              positionReadable,
+              watched?.hireDate,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "—"
+          );
+        default:
+          return "";
+      }
+    },
+    [
+      educationLabel,
+      positionReadable,
+      watched?.username,
+      watched?.firstName,
+      watched?.lastName,
+      watched?.fatherName,
+      watched?.grandFatherName,
+      watched?.email,
+      watched?.phone,
+      watched?.addressCity,
+      watched?.addressPostalCode,
+      watched?.faculty,
+      watched?.hireDate,
+    ],
+  );
+
+  const stepTitle = steps.find((s) => s.id === step)?.titleKey;
+
+  const eduRankOpt = educationRankOptions.find(
+    (o) => o.value === watched?.educationRank,
+  );
+  const erLabel = eduRankOpt?.label ?? watched?.educationRank ?? "—";
+
+  const stepContent = () => {
+    switch (step) {
+      case 1:
+        return (
+          <MotionDiv
+            key="em1"
+            variants={facultyStepMotion}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: motionEase }}
+            className="space-y-5"
+          >
+            <FormSectionCard
+              icon={ShieldCheck}
+              tint="indigo"
+              title={t("studentForm.section.account")}
+              subtitle={
+                isEdit
+                  ? t("studentForm.section.accountEditSub")
+                  : t("studentForm.section.accountSub")
+              }
+            >
+              {isEdit ? (
+                <Field
+                  iconD={IC.contact}
+                  label={t("studentForm.fields.username.label")}
+                  autoComplete="username"
+                  disabled
+                  register={register("username")}
+                />
+              ) : (
+                <Field
+                  iconD={IC.contact}
+                  label={`${t("studentForm.fields.username.label")} *`}
+                  placeholder={t("studentForm.fields.username.placeholder")}
+                  autoComplete="username"
+                  register={register("username", {
+                    required: t("studentForm.validation.usernameRequired"),
+                    minLength: {
+                      value: 3,
+                      message: t("studentForm.validation.usernameLength"),
+                    },
+                    maxLength: {
+                      value: 50,
+                      message: t("studentForm.validation.usernameLength"),
+                    },
+                    pattern: {
+                      value: USERNAME_PATTERN,
+                      message: t("studentForm.validation.usernamePattern"),
+                    },
+                  })}
+                  error={errors.username?.message}
+                />
+              )}
+              <Field
+                iconD={IC.contact}
+                label={
+                  isEdit
+                    ? t("studentForm.fields.password.optionalLabel")
+                    : `${t("studentForm.fields.password.label")} *`
+                }
+                type="password"
+                autoComplete="new-password"
+                placeholder={
+                  isEdit
+                    ? t("studentForm.fields.password.placeholderEdit")
+                    : t("studentForm.fields.password.placeholder")
+                }
+                register={register("password", {
+                  required: isEdit
+                    ? false
+                    : t("studentForm.validation.passwordRequired"),
+                  validate: (v) => {
+                    if (!v || !`${v}`.trim()) return true;
+                    const s = `${v}`;
+                    if (s.length < 8 || s.length > 128)
+                      return t("studentForm.validation.passwordLength");
+                    return PASSWORD_PATTERN.test(s)
+                      ? true
+                      : t("studentForm.validation.passwordPattern");
+                  },
+                })}
+                error={errors.password?.message}
+              />
+              <Controller
+                name="role"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    label={t("studentForm.fields.role.label")}
+                    options={roleOptions}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isEdit}
+                  />
+                )}
+              />
+            </FormSectionCard>
+          </MotionDiv>
+        );
+      case 2:
+        return (
+          <MotionDiv
+            key="em2"
+            variants={facultyStepMotion}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: motionEase }}
+            className="space-y-5"
+          >
+            <FormSectionCard
+              icon={User}
+              tint="violet"
+              title={t("studentForm.section.basic")}
+              subtitle={t("employeeForm.section.personalEmployeeSub")}
+            >
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field
+                  iconD={IC.contact}
+                  label={`${t("studentForm.fields.firstName.label")} *`}
+                  placeholder={t("studentForm.fields.firstName.placeholder")}
+                  register={register("firstName", {
+                    required: t("studentForm.validation.firstNameRequired"),
+                    minLength: {
+                      value: 2,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                    maxLength: {
+                      value: 50,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                  })}
+                  error={errors.firstName?.message}
+                />
+                <Field
+                  iconD={IC.contact}
+                  label={`${t("studentForm.fields.lastName.label")} *`}
+                  placeholder={t("studentForm.fields.lastName.placeholder")}
+                  register={register("lastName", {
+                    required: t("studentForm.validation.lastNameRequired"),
+                    minLength: {
+                      value: 2,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                    maxLength: {
+                      value: 50,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                  })}
+                  error={errors.lastName?.message}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field
+                  label={`${t("studentForm.fields.fatherName.label")} *`}
+                  placeholder={t("studentForm.fields.fatherName.placeholder")}
+                  register={register("fatherName", {
+                    required: t("studentForm.validation.fatherNameRequired"),
+                  })}
+                  error={errors.fatherName?.message}
+                />
+                <Field
+                  label={`${t("studentForm.fields.grandFatherName.label")} *`}
+                  placeholder={t(
+                    "studentForm.fields.grandFatherName.placeholder",
+                  )}
+                  register={register("grandFatherName", {
+                    required: t("employeeForm.validation.grandFatherRequired"),
+                    minLength: {
+                      value: 2,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                    maxLength: {
+                      value: 50,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                  })}
+                  error={errors.grandFatherName?.message}
+                />
+              </div>
+            </FormSectionCard>
+          </MotionDiv>
+        );
+      case 3:
+        return (
+          <MotionDiv
+            key="em3"
+            variants={facultyStepMotion}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: motionEase }}
+            className="space-y-5"
+          >
+            <FormSectionCard
+              icon={Mail}
+              tint="rose"
+              title={t("studentForm.section.contact")}
+              subtitle={t("studentForm.section.contactSub")}
+            >
+              <Field
+                iconD={IC.mail}
+                label={`${t("studentForm.fields.email.label")} *`}
+                type="email"
+                placeholder={t("studentForm.fields.email.placeholder")}
+                register={register("email", {
+                  required: t("studentForm.validation.emailRequired"),
+                  pattern: {
+                    value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/i,
+                    message: t("studentForm.validation.emailInvalid"),
+                  },
+                })}
+                error={errors.email?.message}
+              />
+              <Field
+                iconD={IC.contact}
+                label={`${t("studentForm.fields.phone.label")} *`}
+                type="tel"
+                placeholder={t("studentForm.fields.phone.placeholder")}
+                register={register("phone", {
+                  required: t("studentForm.validation.phoneRequired"),
+                  pattern: {
+                    value: EMPLOYEE_PHONE_PATTERN,
+                    message: t("employeeForm.validation.phonePattern"),
+                  },
+                })}
+                error={errors.phone?.message}
+              />
+            </FormSectionCard>
+          </MotionDiv>
+        );
+      case 4:
+        return (
+          <MotionDiv
+            key="em4"
+            variants={facultyStepMotion}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: motionEase }}
+            className="space-y-5"
+          >
+            <FormSectionCard
+              icon={MapPin}
+              tint="sky"
+              title={t("studentForm.section.address")}
+              subtitle={t("employeeForm.section.addressEmployeeSub")}
+            >
+              <Field
+                iconD={IC.contact}
+                label={`${t("studentForm.fields.addressStreet.label")} *`}
+                placeholder={t("studentForm.fields.addressStreet.placeholder")}
+                register={register("addressStreet", {
+                  required: t("studentForm.validation.addressStreetRequired"),
+                })}
+                error={errors.addressStreet?.message}
+              />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field
+                  iconD={IC.globe}
+                  label={`${t("studentForm.fields.addressCity.label")} *`}
+                  placeholder={t("studentForm.fields.addressCity.placeholder")}
+                  register={register("addressCity", {
+                    required: t("studentForm.validation.addressCityRequired"),
+                  })}
+                  error={errors.addressCity?.message}
+                />
+                <Field
+                  label={`${t("studentForm.fields.addressPostalCode.label")} *`}
+                  placeholder={t(
+                    "studentForm.fields.addressPostalCode.placeholder",
+                  )}
+                  register={register("addressPostalCode", {
+                    required: t("studentForm.validation.addressPostalRequired"),
+                  })}
+                  error={errors.addressPostalCode?.message}
+                />
+              </div>
+              <Field
+                label={t("teacherForm.fields.addressProvince.label")}
+                placeholder={t(
+                  "teacherForm.fields.addressProvince.placeholder",
+                )}
+                register={register("addressProvince")}
+              />
+            </FormSectionCard>
+          </MotionDiv>
+        );
+      case 5:
+        return (
+          <MotionDiv
+            key="em5"
+            variants={facultyStepMotion}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: motionEase }}
+            className="space-y-5"
+          >
+            <FormSectionCard
+              icon={Briefcase}
+              tint="sky"
+              title={t("employeeForm.section.placementTitle")}
+              subtitle={t("employeeForm.section.placementSub")}
+            >
+              <Field
+                iconD={IC.globe}
+                label={`${t("employeeForm.fields.faculty.label")} *`}
+                placeholder={t("employeeForm.fields.faculty.placeholder")}
+                register={register("faculty", {
+                  required: t("employeeForm.validation.facultyRequired"),
+                })}
+                error={errors.faculty?.message}
+              />
+              <Controller
+                name="educationRank"
+                control={control}
+                rules={{ required: true }}
+                render={({ field }) => (
+                  <Select
+                    name="educationRank"
+                    label={`${t("teacherForm.fields.educationRank.label")} *`}
+                    placeholder={t(
+                      "teacherForm.fields.educationRank.placeholder",
+                    )}
+                    options={educationRankOptions}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  />
+                )}
+              />
+              <Controller
+                name="facultyPosition"
+                control={control}
+                rules={{
+                  required: t("employeeForm.validation.facultyPositionRequired"),
+                }}
+                render={({ field, fieldState }) => (
+                  <GroupedPositionSelect
+                    label={`${t("employeeForm.fields.facultyPosition.label")} *`}
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    t={t}
+                  />
+                )}
+              />
+            </FormSectionCard>
+
+            <FormSectionCard
+              icon={CalendarRange}
+              tint="emerald"
+              title={t("employeeForm.section.hireTitle")}
+              subtitle={t("employeeForm.section.hireSub")}
+            >
+              <Field
+                iconD={IC.calendar}
+                label={`${t("employeeForm.fields.hireDate.label")} *`}
+                type="date"
+                register={register("hireDate", {
+                  required: t("employeeForm.validation.hireDateRequired"),
+                  validate: (v) => {
+                    if (!v) return true;
+                    const d = new Date(v);
+                    const today = new Date();
+                    d.setHours(0, 0, 0, 0);
+                    today.setHours(0, 0, 0, 0);
+                    return (
+                      d <= today ||
+                      t("employeeForm.validation.hireDateFuture")
+                    );
+                  },
+                })}
+                error={errors.hireDate?.message}
+              />
+            </FormSectionCard>
+          </MotionDiv>
+        );
+      case 6: {
+        const addrSummary = [
+          watched?.addressStreet,
+          watched?.addressCity,
+          watched?.addressPostalCode,
+          watched?.addressProvince,
+        ]
+          .filter(Boolean)
+          .join(", ");
+        return (
+          <MotionDiv
+            key="em6"
+            variants={facultyStepMotion}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.38, ease: motionEase }}
+            className="space-y-5"
+          >
+            <FormSectionCard
+              icon={CheckCircle2}
+              tint="emerald"
+              title={t("studentForm.steps.review")}
+              subtitle={t("employeeForm.section.reviewSub")}
+            >
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <FacultyReviewRow
+                  k={t("studentForm.fields.username.label")}
+                  v={watched?.username}
+                />
+                <FacultyReviewRow
+                  k={t("studentForm.summary.fullName")}
+                  v={summaryName}
+                />
+                <FacultyReviewRow
+                  k={t("studentForm.fields.fatherName.label")}
+                  v={watched?.fatherName}
+                />
+                <FacultyReviewRow
+                  k={t("studentForm.fields.grandFatherName.label")}
+                  v={watched?.grandFatherName}
+                />
+                <FacultyReviewRow
+                  k={t("studentForm.fields.email.label")}
+                  v={watched?.email}
+                />
+                <FacultyReviewRow
+                  k={t("studentForm.fields.phone.label")}
+                  v={watched?.phone}
+                />
+                <FacultyReviewRow
+                  k={t("studentForm.summary.address")}
+                  v={addrSummary}
+                />
+                <FacultyReviewRow
+                  k={t("employeeForm.fields.faculty.label")}
+                  v={watched?.faculty}
+                />
+                <FacultyReviewRow
+                  k={t("teacherForm.fields.educationRank.label")}
+                  v={erLabel}
+                />
+                <FacultyReviewRow
+                  k={t("employeeForm.fields.facultyPosition.label")}
+                  v={positionReadable}
+                />
+                <FacultyReviewRow
+                  k={t("employeeForm.fields.hireDate.label")}
+                  v={watched?.hireDate}
+                />
+              </div>
+            </FormSectionCard>
+          </MotionDiv>
+        );
+      }
+      default:
+        return null;
+    }
+  };
+
+  if (isEdit && employeeLoading) {
+    return (
+      <div
+        className={[className, "mx-auto w-full max-w-[min(100%,92rem)] py-24"]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <p className="text-center text-sm text-muted dark:text-dark-muted">
+          {t("employeeForm.loadingRecord")}
+        </p>
+      </div>
+    );
+  }
+
+  if (
+    isEdit &&
+    !employeeLoading &&
+    employeeFetchError &&
+    !existingEmployee
+  ) {
+    return (
+      <div
+        className={[className, "mx-auto w-full max-w-[min(100%,92rem)] py-16"]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <p className="text-center text-sm text-error">
+          {t("employeeForm.recordNotFound")}
+        </p>
+      </div>
+    );
+  }
+
+  const summaryLines = (
+    <>
+      <FacultySummaryLine
+        label={t("studentForm.fields.username.label")}
+        value={
+          watched?.username?.trim() ? `@${watched.username.trim()}` : "—"
+        }
+      />
+      <FacultySummaryLine
+        label={t("studentForm.summary.fullName")}
+        value={summaryName || "—"}
+      />
+      <FacultySummaryLine
+        label={t("employeeForm.fields.faculty.label")}
+        value={watched?.faculty?.trim() || "—"}
+      />
+      <FacultySummaryLine
+        label={t("teacherForm.fields.educationRank.label")}
+        value={erLabel !== "—" ? erLabel : "—"}
+      />
+      <FacultySummaryLine
+        label={t("employeeForm.fields.facultyPosition.label")}
+        value={positionReadable !== "—" ? positionReadable : "—"}
+      />
+      <FacultySummaryLine
+        label={t("employeeForm.fields.hireDate.label")}
+        value={watched?.hireDate || "—"}
+      />
+    </>
+  );
+
+  const fieldsStep1 = isEdit ? [] : ["username", "password", "role"];
+  const validateStep = async () => {
+    const cfg = steps.find((s) => s.id === step);
+    if (!cfg) return false;
+    if (step === 1 && fieldsStep1.length === 0) return true;
+    const fieldsByStep = {
+      1: fieldsStep1,
+      2: ["firstName", "lastName", "fatherName", "grandFatherName"],
+      3: ["email", "phone"],
+      4: ["addressStreet", "addressCity", "addressPostalCode"],
+      5: ["faculty", "educationRank", "facultyPosition", "hireDate"],
+      6: [],
+    };
+    const flds = fieldsByStep[step] ?? [];
+    if (!flds.length) return true;
+    return trigger(flds);
+  };
+
+  return (
+    <FacultyRegistrationShell
+      isEdit={isEdit}
+      className={className}
+      onCancel={onCancel}
+      onSubmit={handleSubmit(onValidSubmit)}
+      steps={steps}
+      step={step}
+      progressPct={progressPct}
+      stepTitleKey={stepTitle}
+      progressPercentKey="studentForm.progress.percent"
+      progressHintKey="studentForm.progress.hint"
+      stackUpToExclusive={6}
+      completedSnippet={completedSnippet}
+      stepContent={
+        <AnimatePresence mode="wait">{stepContent()}</AnimatePresence>
+      }
+      summaryLines={summaryLines}
+      continueDisabled={false}
+      actionPending={pending}
+      goPrev={goPrev}
+      goNext={async () => {
+        const ok = await validateStep();
+        if (ok) advanceStep();
+      }}
+      headerTitleEditKey="employeeForm.header.editTitle"
+      headerTitleCreateKey="employeeForm.header.createTitle"
+      heroSubtitleKey="employeeForm.header.subtitle"
+      lastSubmitEditKey="employeeForm.actions.save"
+      lastSubmitCreateKey="employeeForm.actions.submitCreate"
+      summaryTitleKey="studentForm.summary.title"
+      summarySubtitleKey="employeeForm.summary.subtitle"
+    />
+  );
+}

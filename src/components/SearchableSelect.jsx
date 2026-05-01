@@ -5,7 +5,6 @@ import {
   Cross2Icon,
   MagnifyingGlassIcon,
   ChevronDownIcon,
-  ChevronUpIcon,
 } from "@radix-ui/react-icons";
 import { cn } from "../lib/utils"; // adjust path to your cn utility
 
@@ -29,7 +28,13 @@ function Highlighted({ text = "", query = "" }) {
   return (
     <span>
       {text.slice(0, idx)}
-      <mark className="bg-accent-light dark:bg-dark-accent-light text-primary dark:text-white rounded-[2px] px-[1px]">
+      <mark
+        className="
+          rounded px-0.5
+          bg-(--color-light-nav-active-bg) text-(--color-light-text-primary)
+          dark:bg-[rgba(0,102,255,0.18)] dark:text-(--color-dark-text-primary)
+        "
+      >
         {text.slice(idx, idx + query.length)}
       </mark>
       {text.slice(idx + query.length)}
@@ -40,7 +45,14 @@ function Highlighted({ text = "", query = "" }) {
 // ─── Chip (multi-select tag) ──────────────────────────────────────────────────
 function Chip({ label, onRemove }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-md border border-default dark:border-dark-light bg-accent-light dark:bg-dark-accent-light px-2 py-0.5 text-xs font-medium text-primary dark:text-white max-w-[120px]">
+    <span
+      className="
+        inline-flex items-center gap-1 max-w-[120px]
+        rounded-lg border px-2 py-0.5 text-xs font-medium
+        bg-(--color-light-nav-active-bg) text-(--color-light-text-primary) border-(--color-light-card-border)
+        dark:bg-[rgba(0,102,255,0.18)] dark:text-(--color-dark-text-primary) dark:border-(--color-dark-card-border)
+      "
+    >
       <span className="truncate">{label}</span>
       <button
         type="button"
@@ -48,7 +60,11 @@ function Chip({ label, onRemove }) {
           e.stopPropagation();
           onRemove();
         }}
-        className="flex-shrink-0 rounded-sm text-muted dark:text-gray-400 hover:text-primary dark:hover:text-white transition-colors"
+        className="
+          shrink-0 rounded-sm transition-colors
+          text-light-text-secondary hover:text-(--color-light-text-primary)
+          dark:text-dark-text-secondary dark:hover:text-(--color-dark-text-primary)
+        "
         aria-label={`Remove ${label}`}
       >
         <Cross2Icon className="h-3 w-3" />
@@ -61,6 +77,7 @@ export default function SearchableSelect({
   value: controlledValue,
   defaultValue,
   onChange,
+  onValueChange,
   multiple = false,
   placeholder = "Select…",
   searchPlaceholder = "Search…",
@@ -71,6 +88,7 @@ export default function SearchableSelect({
   className,
   contentClassName,
   name,
+  register,
   maxHeight = 300,
 }) {
   // ── State ──────────────────────────────────────────────────────────────
@@ -132,7 +150,7 @@ export default function SearchableSelect({
       setOpen(false);
     }
     if (!isControlled) setInternalValue(next);
-    onChange?.(next);
+    (onChange ?? onValueChange)?.(next);
   }
 
   function removeValue(val) {
@@ -141,10 +159,10 @@ export default function SearchableSelect({
         (v) => v !== val,
       );
       if (!isControlled) setInternalValue(next);
-      onChange?.(next);
+      (onChange ?? onValueChange)?.(next);
     } else {
       if (!isControlled) setInternalValue(null);
-      onChange?.(null);
+      (onChange ?? onValueChange)?.(null);
     }
   }
 
@@ -152,7 +170,7 @@ export default function SearchableSelect({
     e.stopPropagation();
     const next = multiple ? [] : null;
     if (!isControlled) setInternalValue(next);
-    onChange?.(next);
+    (onChange ?? onValueChange)?.(next);
   }
 
   // ── Keyboard ────────────────────────────────────────────────────────────
@@ -207,6 +225,8 @@ export default function SearchableSelect({
           name={name}
           value={multiple ? JSON.stringify(selected ?? []) : (selected ?? "")}
           readOnly
+          {...((typeof register === "function" ? register(name) : register) ||
+            {})}
         />
       )}
 
@@ -219,22 +239,20 @@ export default function SearchableSelect({
           aria-label={placeholder}
           className={cn(
             // base layout
-            "group relative flex w-full min-h-[38px] items-center gap-2",
-            "rounded-md border px-3 py-1.5 text-sm font-medium",
-            "transition-colors duration-150 outline-none",
-            // light
-            " bg-transparent dark:bg-transparent border-default text-secondary",
-            "hover:bg-card-2 hover:text-primary",
-            // dark
-            "dark:bg-dark-accent-light dark:border-dark-light dark:text-white",
-            "dark:hover:bg-dark-card",
+            "group relative flex w-full min-h-9.5 items-center gap-2",
+            "rounded-xl border px-3.5 py-1.5 text-sm font-medium outline-none transition-colors duration-150",
+            // surface + border from index.css tokens
+            "bg-(--color-light-input-bg) text-(--color-light-text-primary) border-(--color-light-input-border)",
+            "dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:border-dark-input-border",
+            "hover:border-(--color-light-border-default) dark:hover:border-(--color-dark-border-default)",
+
             // open state
-            "data-[state=open]:bg-accent-light data-[state=open]:border-primary/30",
-            "dark:data-[state=open]:bg-dark-card dark:data-[state=open]:text-white",
+            "data-[state=open]:bg-(--color-light-nav-active-bg) data-[state=open]:border-[rgba(0,102,255,0.28)]",
+            "dark:data-[state=open]:bg-(--color-dark-card-hover) dark:data-[state=open]:border-[rgba(51,133,255,0.35)]",
             // disabled
             "disabled:opacity-50 disabled:cursor-not-allowed",
             // focus ring
-            "focus-visible:ring-2 focus-visible:ring-primary/30",
+            "focus-visible:ring-2 focus-visible:ring-blue-500/15 dark:focus-visible:ring-blue-400/15",
             className,
           )}
         >
@@ -252,24 +270,28 @@ export default function SearchableSelect({
                 ) : null;
               })
             ) : triggerLabel ? (
-              <span className="truncate text-primary dark:text-white">
+              <span className="truncate text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
                 {triggerLabel}
               </span>
             ) : (
-              <span className="truncate text-muted dark:text-gray-400">
+              <span className="truncate text-(--color-light-input-placeholder) dark:text-(--color-dark-input-placeholder)">
                 {placeholder}
               </span>
             )}
           </span>
 
           {/* Right side: clear button + chevron */}
-          <span className="ml-auto flex flex-shrink-0 items-center gap-1">
+          <span className="ml-auto flex shrink-0 items-center gap-1">
             {clearable && hasValue && !disabled && (
               <span
                 role="button"
                 tabIndex={-1}
                 onClick={clearAll}
-                className="flex h-4 w-4 items-center justify-center rounded-sm text-muted dark:text-gray-400 hover:text-primary dark:hover:text-white transition-colors"
+                className="
+                  flex h-4 w-4 items-center justify-center rounded-sm transition-colors
+                  text-(--color-light-text-muted) hover:text-(--color-light-text-primary)
+                  dark:text-dark-text-muted dark:hover:text-(--color-dark-text-primary)
+                "
                 aria-label="Clear selection"
               >
                 <Cross2Icon className="h-3.5 w-3.5" />
@@ -277,7 +299,7 @@ export default function SearchableSelect({
             )}
             <ChevronDownIcon
               className={cn(
-                "h-4 w-4 text-muted dark:text-gray-400 transition-transform duration-200",
+                "h-4 w-4 transition-transform duration-200 text-(--color-light-text-muted) dark:text-dark-text-muted",
                 "group-data-[state=open]:rotate-180",
               )}
             />
@@ -298,9 +320,10 @@ export default function SearchableSelect({
             if (e.target === searchRef.current) e.preventDefault();
           }}
           className={cn(
-            "z-50 overflow-hidden rounded-md border p-1",
-            "bg-card dark:bg-dark-card dark:border-none border-default",
-            "shadow-card",
+            "z-50 overflow-hidden rounded-xl border p-1 shadow-md",
+            "bg-(--color-light-card-bg) text-(--color-light-text-primary) border-(--color-light-card-border)",
+            "dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-text-primary) dark:border-(--color-dark-card-border)",
+
             // entrance animation
             "data-[state=open]:animate-in data-[state=closed]:animate-out",
             "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
@@ -310,8 +333,8 @@ export default function SearchableSelect({
           )}
         >
           {/* ── Search input ── */}
-          <div className="flex items-center gap-2 border-b border-default dark:border-dark-light px-2 pb-1 pt-0.5 mb-1">
-            <MagnifyingGlassIcon className="h-3.5 w-3.5 flex-shrink-0 text-muted dark:text-gray-400" />
+          <div className="flex items-center gap-2 border-b px-2 pb-1 pt-0.5 mb-1 border-light-divider dark:border-dark-divider">
+            <MagnifyingGlassIcon className="h-3.5 w-3.5 shrink-0 text-(--color-light-text-muted) dark:text-dark-text-muted" />
             <input
               ref={searchRef}
               type="text"
@@ -328,8 +351,8 @@ export default function SearchableSelect({
               aria-expanded={open}
               className={cn(
                 "w-full bg-transparent text-sm outline-none",
-                "placeholder:text-muted dark:placeholder:text-gray-500",
-                "text-primary dark:text-white",
+                "placeholder:text-(--color-light-input-placeholder) dark:placeholder:text-(--color-dark-input-placeholder)",
+                "text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)",
                 "py-1",
               )}
             />
@@ -340,7 +363,11 @@ export default function SearchableSelect({
                   setQuery("");
                   searchRef.current?.focus();
                 }}
-                className="flex-shrink-0 text-muted dark:text-gray-400 hover:text-primary dark:hover:text-white"
+                className="
+                  shrink-0 transition-colors
+                  text-(--color-light-text-muted) hover:text-(--color-light-text-primary)
+                  dark:text-dark-text-muted dark:hover:text-(--color-dark-text-primary)
+                "
                 aria-label="Clear search"
               >
                 <Cross2Icon className="h-3 w-3" />
@@ -358,7 +385,7 @@ export default function SearchableSelect({
           >
             {/* Loading state */}
             {loading && (
-              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted dark:text-gray-400">
+              <div className="flex items-center justify-center gap-2 py-6 text-sm text-(--color-light-text-muted) dark:text-dark-text-muted">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 Loading…
               </div>
@@ -367,11 +394,11 @@ export default function SearchableSelect({
             {/* Empty state */}
             {!loading && filteredFlat.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-1 py-6 text-center">
-                <span className="text-sm font-medium text-secondary dark:text-gray-300">
+                <span className="text-sm font-medium text-light-text-secondary dark:text-dark-text-secondary">
                   No results
                 </span>
                 {query && (
-                  <span className="text-xs text-muted dark:text-gray-500">
+                  <span className="text-xs text-(--color-light-text-muted) dark:text-dark-text-muted">
                     No match for &ldquo;{query}&rdquo;
                   </span>
                 )}
@@ -384,7 +411,7 @@ export default function SearchableSelect({
                 <div key={gi}>
                   {/* Group label */}
                   {group.label && (
-                    <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted dark:text-secondary">
+                    <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-(--color-light-text-muted) dark:text-dark-text-muted">
                       {group.label}
                     </div>
                   )}
@@ -408,16 +435,16 @@ export default function SearchableSelect({
                         className={cn(
                           // base
                           "relative flex w-full cursor-pointer select-none items-center gap-3",
-                          "rounded-md px-3 py-2 text-sm transition-colors duration-100",
+                          "rounded-lg px-3 py-2 text-sm transition-colors duration-100",
                           // normal
-                          "text-primary dark:text-white",
+                          "text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)",
                           // hover / focus
-                          "hover:bg-accent-light dark:hover:bg-dark-accent-light",
+                          "hover:bg-(--color-light-nav-hover-bg) dark:hover:bg-(--color-dark-card-hover)",
                           focused &&
-                            "bg-accent-light dark:bg-dark-accent-light",
+                            "bg-(--color-light-nav-active-bg) dark:bg-(--color-dark-card-hover)",
                           // selected
                           selected_ &&
-                            "bg-accent-light dark:bg-dark-accent-light font-medium",
+                            "bg-(--color-light-nav-active-bg) dark:bg-(--color-dark-card-hover) font-medium",
                           // disabled
                           opt.disabled &&
                             "cursor-not-allowed opacity-40 hover:bg-transparent dark:hover:bg-transparent",
@@ -425,7 +452,7 @@ export default function SearchableSelect({
                       >
                         {/* Leading icon */}
                         {opt.icon && (
-                          <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-muted dark:text-gray-400">
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center text-(--color-light-text-muted) dark:text-dark-text-muted">
                             {opt.icon}
                           </span>
                         )}
@@ -440,7 +467,7 @@ export default function SearchableSelect({
                                 <Highlighted text={opt.label} query={query} />
                               </span>
                               {opt.description && (
-                                <span className="truncate text-xs text-muted dark:text-gray-400">
+                                <span className="truncate text-xs text-(--color-light-text-muted) dark:text-dark-text-muted">
                                   {opt.description}
                                 </span>
                               )}
@@ -450,7 +477,7 @@ export default function SearchableSelect({
 
                         {/* Check indicator */}
                         {selected_ && (
-                          <CheckIcon className="ml-auto h-4 w-4 flex-shrink-0 text-primary dark:text-white" />
+                          <CheckIcon className="ml-auto h-4 w-4 shrink-0 text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)" />
                         )}
                       </div>
                     );
@@ -458,7 +485,7 @@ export default function SearchableSelect({
 
                   {/* Group separator (except last) */}
                   {gi < filteredGroups.length - 1 && group.label && (
-                    <div className="my-1 h-px bg-default dark:bg-dark-badge mx-1" />
+                    <div className="my-1 mx-1 h-px bg-light-divider dark:bg-dark-divider" />
                   )}
                 </div>
               ))}
@@ -466,14 +493,14 @@ export default function SearchableSelect({
 
           {/* ── Footer: multi count + clear all ── */}
           {multiple && Array.isArray(selected) && selected.length > 0 && (
-            <div className="mt-1 flex items-center justify-between border-t border-default dark:border-dark-light px-3 pt-1.5 pb-1">
-              <span className="text-xs text-muted dark:text-gray-400">
+            <div className="mt-1 flex items-center justify-between border-t px-3 pt-1.5 pb-1 border-light-divider dark:border-dark-divider">
+              <span className="text-xs text-(--color-light-text-muted) dark:text-dark-text-muted">
                 {selected.length} selected
               </span>
               <button
                 type="button"
                 onClick={clearAll}
-                className="text-xs text-error dark:text-red-400 hover:underline transition-colors"
+                className="text-xs text-light-error-text dark:text-dark-error-text hover:underline transition-colors"
               >
                 Clear all
               </button>

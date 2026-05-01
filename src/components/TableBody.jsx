@@ -1,10 +1,8 @@
-import React from "react";
+import clsx from "clsx";
 
-function TableBody({ children }) {
+function TableBody({ children, className }) {
   return (
-    <tbody className="bg-white dark:bg-dark-shell divide-y divide-default  dark:divide-dark-default ">
-      {children}
-    </tbody>
+    <tbody className={clsx("table-advanced-tbody", className)}>{children}</tbody>
   );
 }
 

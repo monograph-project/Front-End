@@ -10,14 +10,14 @@ import {
   UsersRound,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import SettingsTabs from "../../components/settings/SettingsTabs";
-import SystemSettingsTab from "../../components/settings/SystemSettingsTab";
-import PermissionSettingsTab from "../../components/settings/PermissionSettingsTab";
-import RoleSettingsTab from "../../components/settings/RoleSettingsTab";
-import NotificationSettingsTab from "../../components/settings/NotificationSettingsTab";
-import LanguageSettingsTab from "../../components/settings/LanguageSettingsTab";
-import ThemeSettingsTab from "../../components/settings/ThemeSettingsTab";
-import SecuritySettingsTab from "../../components/settings/SecuritySettingsTab";
+import SettingsTabs from "../../components/SettingsTabs";
+import SystemSettingsTab from "../../components/SystemSettingsTab";
+import PermissionSettingsTab from "../../components/PermissionSettingsTab";
+import RoleSettingsTab from "../../components/RoleSettingsTab";
+import NotificationSettingsTab from "../../components/NotificationSettingsTab";
+import LanguageSettingsTab from "../../components/LanguageSettingsTab";
+import ThemeSettingsTab from "../../components/ThemeSettingsTab";
+import SecuritySettingsTab from "../../components/SecuritySettingsTab";
 
 function Setting() {
   const { t } = useTranslation();

@@ -7,22 +7,27 @@ const MotionDiv = motion.div;
 const MotionButton = motion.button;
 
 const defaultSteps = [
-  { position: 0, label: "شخصي معلومات", icon: AiOutlineUser },
-  { position: 1, label: "د خپلوانو معلومات", icon: HiOutlineUsers },
-  { position: 2, label: "بایومتریک معلومات", icon: FaFingerprint },
+  { id: "personal", label: "شخصي معلومات", icon: AiOutlineUser },
+  { id: "relatives", label: "د خپلوانو معلومات", icon: HiOutlineUsers },
+  { id: "biometrics", label: "بایومتریک معلومات", icon: FaFingerprint },
 ];
 
 export default function ProgressIndicator({
   currentStep = 0,
   maxReached = 0,
-  goToStep,
+  onStepChange,
   steps = defaultSteps,
+  dir = "rtl",
 }) {
-  const resolvedSteps = steps.map((step, index) => ({
-    ...defaultSteps[index],
-    ...step,
-    icon: step.icon || defaultSteps[index]?.icon || AiOutlineUser,
-  }));
+  const resolvedSteps = (steps?.length ? steps : defaultSteps).map(
+    (step, index) => ({
+      ...defaultSteps[index],
+      ...step,
+      id: step.id ?? defaultSteps[index]?.id ?? String(index),
+      label: step.label ?? defaultSteps[index]?.label ?? `Step ${index + 1}`,
+      icon: step.icon || defaultSteps[index]?.icon || AiOutlineUser,
+    }),
+  );
 
   const progressPercent =
     resolvedSteps.length > 1
@@ -30,12 +35,12 @@ export default function ProgressIndicator({
       : 0;
 
   return (
-    <div className="flex w-full justify-center py-2 font-persian ">
-      <div className="relative w-full  px-5">
+    <div className="flex w-full justify-center py-3 font-persian" dir={dir}>
+      <div className="relative w-full px-6">
         {/* ===== Progress Line Background ===== */}
-        <div className="absolute top-1/4 w-[80%] mx-auto -translate-y-2/4 left-6 right-6 h-[2px] bg-gray-200 dark:bg-gray-100 rounded-full">
+        <div className="absolute top-1/4 w-[80%] mx-auto -translate-y-2/4 left-6 right-6 h-[2px] rounded-full bg-light-divider dark:bg-dark-divider">
           <MotionDiv
-            className="h-full  bg-success rounded-full"
+            className="h-full rounded-full bg-(--color-light-btn-primary-bg) dark:bg-(--color-dark-btn-primary-bg)"
             initial={{ width: 0 }}
             animate={{ width: `${progressPercent}%` }}
             transition={{ duration: 0.4, ease: "easeInOut" }}
@@ -51,22 +56,29 @@ export default function ProgressIndicator({
 
             return (
               <div
-                key={step.position}
+                key={step.id}
                 className="flex flex-col items-center text-center"
               >
                 <MotionButton
                   type="button"
-                  onClick={() => isUnlocked && goToStep(index)}
+                  onClick={() => isUnlocked && onStepChange?.(index)}
                   disabled={!isUnlocked}
-                  className={`flex items-center justify-center w-9 h-9 rounded-full border transition-all duration-300 ${
+                  className={[
+                    "flex items-center justify-center w-10 h-10 rounded-full border transition-all duration-200",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/15 dark:focus-visible:ring-blue-400/15",
                     isCompleted
-                      ? " bg-success dark:bg-success  text-white"
+                      ? "text-white border-transparent bg-(--color-light-btn-primary-bg) dark:bg-(--color-dark-btn-primary-bg)"
                       : isCurrent
-                        ? " dark:border-default border-dark-default  bg-app dark:bg-dark-app dark:text-card "
+                        ? "bg-(--color-light-input-bg) border-(--color-light-input-border-focus) text-(--color-light-text-primary) " +
+                          "dark:bg-(--color-dark-input-bg) dark:border-(--color-dark-input-border-focus) dark:text-(--color-dark-text-primary)"
                         : isUnlocked
-                          ? "border-gray-200/60 dark:border-gray-700  text-dark-app dark:text-app"
-                          : " bg-app dark:bg-dark-app text-gray-300 cursor-not-allowed"
-                  }`}
+                          ? "bg-(--color-light-card-bg) border-(--color-light-input-border) text-light-text-secondary " +
+                            "dark:bg-(--color-dark-card-bg) dark:border-dark-input-border dark:text-dark-text-secondary"
+                          : "bg-(--color-light-card-bg) border-light-divider text-(--color-light-text-muted) cursor-not-allowed " +
+                            "dark:bg-(--color-dark-card-bg) dark:border-dark-divider dark:text-dark-text-muted",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                   animate={{ scale: isCurrent ? 1.15 : 1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 15 }}
                 >
@@ -78,11 +90,12 @@ export default function ProgressIndicator({
                 </MotionButton>
 
                 <p
-                  className={`mt-2 text-sm font-medium rtl:font-persian ${
+                  className={[
+                    "mt-2 text-[13px] font-medium rtl:font-persian max-w-[120px] leading-snug",
                     isCompleted || isCurrent
-                      ? " dark:text-white text-dark-app"
-                      : "text-gray-400 dark:text-gray-500"
-                  }`}
+                      ? "text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)"
+                      : "text-(--color-light-text-muted) dark:text-dark-text-muted",
+                  ].join(" ")}
                 >
                   {step.label}
                 </p>

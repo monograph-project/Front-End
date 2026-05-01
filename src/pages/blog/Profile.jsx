@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import AvatarDemo from "../../components/Avatar.jsx";
 import Button from "../../components/Button.jsx";
+import { BlogShell } from "./BlogShell";
 
 const TABS = ["Stories", "About"];
 
-// Small helpers to simulate content and pagination
 const makeStory = (i, owner = false) => ({
   id: i,
   title: `Sample story title ${i}`,
@@ -20,18 +21,16 @@ const makeStory = (i, owner = false) => ({
   private: owner && i % 19 === 0,
 });
 
-// Load all stories at once using useMemo
-const useAllStories = (totalCount, generate) => {
-  const [items, setItems] = useState(() => {
-    // Generate all stories upfront in initial state
-    return Array.from({ length: totalCount }, (_, i) => generate(i + 1));
-  });
+function useAllStories(totalCount, generate) {
+  const [items] = useState(() =>
+    Array.from({ length: totalCount }, (_, i) => generate(i + 1)),
+  );
+  const [list, setList] = useState(items);
 
-  return { items, setItems };
-};
+  return { items: list, setItems: setList };
+}
 
 export default function Profile() {
-  // Assume current viewer; toggle to true to simulate owner features
   const [isOwner] = useState(true);
   const [activeTab, setActiveTab] = useState("Stories");
 
@@ -39,11 +38,10 @@ export default function Profile() {
     () => ({
       id: "u_123",
       name: "Maya Arman",
-      username: "@maya",
+      username: "maya",
       bio: "Writer, designer, and curious human. I write about product design, learning, and the occasional longform essay.",
-      location: "Tehran, Remote",
+      location: "Tehran · Remote",
       website: "https://example.com",
-      avatarSeed: 42,
       followers: 2140,
       following: 128,
       posts: 48,
@@ -52,18 +50,13 @@ export default function Profile() {
     [],
   );
 
-  // stories: load all at once
-  const storyGenerator = React.useCallback(
+  const storyGenerator = useCallback(
     (index) => makeStory(index, isOwner),
     [isOwner],
   );
 
-  const { items: stories, setItems } = useAllStories(
-    user.posts,
-    storyGenerator,
-  );
+  const { items: stories, setItems } = useAllStories(16, storyGenerator);
 
-  // simple interactions
   const [following, setFollowing] = useState(false);
   const toggleFollow = () => setFollowing((v) => !v);
 
@@ -74,251 +67,276 @@ export default function Profile() {
   };
 
   return (
-    <div className="w-full bg-shell dark:bg-dark-shell min-h-screen">
-      {/* Hero Section */}
-      <div className="border-b border-default dark:border-dark-default bg-shell dark:bg-dark-shell">
-        <div className="w-full mx-auto px-4 md:px-16 py-12 md:py-16">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
-            {/* Left: Profile Info */}
-            <div className="flex-1">
-              <div className="flex items-start gap-4">
-                <div className="shrink-0">
-                  <AvatarDemo />
-                </div>
-                <div className="flex-1">
-                  <h1 className="text-3xl md:text-4xl font-bold mb-3 text-primary dark:text-dark-primary">
-                    {user.name}
-                  </h1>
-                  <p className="text-base text-secondary dark:text-dark-secondary mb-4 leading-relaxed max-w-md">
-                    {user.bio}
-                  </p>
-
-                  {/* Stats */}
+    <BlogShell variant="feed">
+      <div className="min-h-screen pb-20">
+        <header className="border-b border-default pb-12 pt-10 dark:border-dark-default sm:pb-14 sm:pt-12">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex gap-5">
+              <AvatarDemo />
+              <div className="min-w-0 flex-1">
+                <p className="font-blog-serif text-secondary dark:text-dark-secondary">
+                  @{user.username}
+                </p>
+                <h1 className="font-blog-display mt-2 text-4xl font-bold tracking-tight text-primary md:text-[2.6rem] dark:text-dark-primary">
+                  {user.name}
+                </h1>
+                <p className="font-blog-serif mt-4 max-w-xl text-lg leading-relaxed text-secondary dark:text-dark-secondary">
+                  {user.bio}
+                </p>
+                <p className="mt-4 text-sm text-muted dark:text-dark-muted">
+                  {user.location}
+                  <span aria-hidden className="mx-2">
+                    ·
+                  </span>
+                  <a
+                    href={user.website}
+                    className="text-primary underline-offset-4 hover:underline dark:text-dark-primary"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Website
+                  </a>
+                </p>
+                <div className="mt-6 flex flex-wrap items-center gap-4">
                   <div className="flex gap-8 text-sm">
-                    <div>
-                      <div className="font-semibold text-primary dark:text-dark-primary text-lg">
+                    <span>
+                      <strong className="text-lg tabular-nums text-primary dark:text-dark-primary">
                         {user.followers.toLocaleString()}
-                      </div>
-                      <div className="text-muted dark:text-dark-muted text-xs mt-1">
+                      </strong>
+                      <span className="ms-2 text-muted dark:text-dark-muted">
                         Followers
-                      </div>
-                    </div>
-                    <div>
-                      <div className="font-semibold text-primary dark:text-dark-primary text-lg">
-                        {user.posts}
-                      </div>
-                      <div className="text-muted dark:text-dark-muted text-xs mt-1">
-                        Stories
-                      </div>
-                    </div>
+                      </span>
+                    </span>
+                    <span>
+                      <strong className="text-lg tabular-nums text-primary dark:text-dark-primary">
+                        {user.following}
+                      </strong>
+                      <span className="ms-2 text-muted dark:text-dark-muted">
+                        Following
+                      </span>
+                    </span>
                   </div>
+                  {!isOwner && (
+                    <Button
+                      onClick={toggleFollow}
+                      variant={following ? "secondary" : "primary"}
+                      className="rounded-full px-8 text-sm"
+                    >
+                      {following ? "Following" : "Follow"}
+                    </Button>
+                  )}
+                  {isOwner && (
+                    <Link
+                      to="/write"
+                      className="btn-primary inline-flex h-10 items-center rounded-full px-6 text-sm"
+                    >
+                      Write a story
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </header>
 
-      {/* Navigation Tabs */}
-      <nav className="border-b border-default dark:border-dark-default sticky top-14  bg-shell dark:bg-dark-shell z-10">
-        <div className="w-full mx-auto px-4 md:px-6">
-          <ul className="flex gap-8 overflow-auto">
+        <nav className="sticky top-[3.25rem] z-[5] -mx-4 border-b border-default bg-shell/95 px-4 py-3 backdrop-blur-sm dark:border-dark-default dark:bg-dark-shell/95 sm:top-14 sm:-mx-6 lg:-mx-8">
+          <div className="flex gap-8">
             {TABS.map((t) => (
-              <li key={t}>
-                <button
-                  onClick={() => setActiveTab(t)}
-                  className={`py-4 px-1 cursor-pointer font-medium text-sm transition-colors border-b-2 ${
-                    activeTab === t
-                      ? "text-primary dark:text-dark-primary border-accent dark:border-dark-accent"
-                      : "text-muted dark:text-dark-muted border-transparent hover:text-secondary dark:hover:text-dark-secondary"
-                  }`}
-                >
-                  {t}
-                </button>
-              </li>
+              <button
+                key={t}
+                type="button"
+                onClick={() => setActiveTab(t)}
+                className={`relative pb-3 text-sm font-medium transition-colors ${
+                  activeTab === t
+                    ? "text-primary dark:text-dark-primary"
+                    : "text-muted hover:text-secondary dark:text-dark-muted dark:hover:text-dark-secondary"
+                }`}
+              >
+                {t}
+                {activeTab === t && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-primary dark:bg-dark-primary" />
+                )}
+              </button>
             ))}
-          </ul>
-        </div>
-      </nav>
+          </div>
+        </nav>
 
-      {/* Main Content */}
-      <main className="lg:max-w-6xl md:max-w-4xl  mx-auto px-4 md:px-3 py-6">
-        {activeTab === "Stories" && (
-          <section className="space-y-8">
-            {/* Featured Story */}
-            {stories.length > 0 && (
-              <article className="group border-b border-default dark:border-dark-default pb-8 w-full ">
-                <div className="flex flex-col md:flex-row gap-6 cursor-pointer transition-opacity hover:opacity-75 w-full">
-                  <div className="flex-1">
-                    <div className="text-xs font-bold tracking-wider text-accent dark:text-dark-accent mb-2 uppercase">
-                      Featured
-                    </div>
-                    <h2 className="text-2xl md:text-3xl font-bold mb-3 text-primary dark:text-dark-primary group-hover:text-secondary dark:group-hover:text-dark-secondary transition-colors">
-                      {stories[0].title}
-                    </h2>
-                    <p className="text-base text-secondary dark:text-dark-secondary mb-4 line-clamp-2 leading-relaxed">
-                      {stories[0].subtitle}
-                    </p>
-                    <div className="flex gap-4 text-sm text-muted dark:text-dark-muted">
-                      <span>{stories[0].readTime} min read</span>
-                      <span>·</span>
-                      <span>{stories[0].date}</span>
-                      {stories[0].popular && (
-                        <>
-                          <span>·</span>
-                          <span className="font-semibold text-accent dark:text-dark-accent">
-                            Popular
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <img
-                    src={stories[0].cover}
-                    alt={stories[0].title}
-                    className="w-full md:w-48 h-32 object-cover rounded shrink-0"
-                  />
-                </div>
-              </article>
-            )}
-
-            {/* Stories Grid */}
-            <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-primary dark:text-dark-primary">
-                All stories{" "}
-                <span className="text-muted dark:text-dark-muted">
-                  ({stories.length})
-                </span>
-              </h3>
-              <div className="space-y-4">
-                {stories.slice(1).map((s) => (
-                  <article
-                    key={s.id}
-                    className="group  flex flex-col md:flex-row gap-4 pb-4 border-b border-default dark:border-dark-default hover:bg-card/30 dark:hover:bg-dark-card/30 p-4 -mx-2 transition-colors cursor-pointer last:border-b-0"
+        <main className="pt-10">
+          {activeTab === "Stories" && (
+            <section className="space-y-10">
+              {stories.length > 0 && (
+                <article className="border-b border-default pb-12 dark:border-dark-default">
+                  <Link
+                    to={`/story/${stories[0].id}`}
+                    className="group flex cursor-pointer flex-col gap-8 md:flex-row lg:gap-12"
                   >
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold mb-2 text-primary dark:text-dark-primary group-hover:text-secondary dark:group-hover:text-dark-secondary transition-colors">
-                        {s.title}
-                      </h3>
-                      <p className="text-secondary dark:text-dark-secondary mb-3 line-clamp-2 leading-relaxed">
-                        {s.subtitle}
+                    <div className="flex-1 space-y-3">
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-success dark:text-success">
+                        Featured
                       </p>
-                      <div className="flex gap-4 text-sm text-muted dark:text-dark-muted">
-                        <span>{s.readTime} min</span>
+                      <h2 className="font-blog-display text-2xl font-bold leading-snug tracking-tight text-primary group-hover:text-secondary md:text-[1.875rem] dark:text-dark-primary dark:group-hover:text-dark-secondary">
+                        {stories[0].title}
+                      </h2>
+                      <p className="font-blog-serif max-w-xl text-secondary dark:text-dark-secondary">
+                        {stories[0].subtitle}
+                      </p>
+                      <div className="flex flex-wrap gap-3 text-sm text-muted dark:text-dark-muted">
+                        <span>{stories[0].readTime} min read</span>
                         <span>·</span>
-                        <span>{s.date}</span>
-                        <button
-                          onClick={() => clap(s.id)}
-                          className="text-accent dark:text-dark-accent hover:opacity-75 transition-opacity font-medium"
-                        >
-                          👏 {s.clapCount.toLocaleString()}
-                        </button>
+                        <span>{stories[0].date}</span>
                       </div>
                     </div>
                     <img
-                      src={s.cover}
-                      alt={s.title}
-                      className="w-full md:w-32 h-24 object-cover rounded shrink-0"
+                      src={stories[0].cover}
+                      alt=""
+                      className="aspect-[16/10] w-full rounded-md object-cover md:max-w-sm lg:max-w-md"
                     />
-                  </article>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
+                  </Link>
+                </article>
+              )}
 
-        {activeTab === "About" && (
-          <section className="max-w-3xl space-y-8">
-            <div>
-              <h2 className="text-3xl font-bold mb-4 text-primary dark:text-dark-primary">
-                About {user.name}
-              </h2>
-              <p className="text-lg text-secondary dark:text-dark-secondary leading-relaxed max-w-2xl">
-                {user.bio}
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8">
-              <div className="p-4 rounded-lg bg-card dark:bg-dark-card border border-default dark:border-dark-default">
-                <h3 className="text-lg font-semibold mb-4 text-primary dark:text-dark-primary">
-                  Stats
+              <div>
+                <h3 className="mb-8 font-blog-display text-lg font-bold text-secondary dark:text-dark-secondary">
+                  All stories <span className="text-muted">{stories.length}</span>
                 </h3>
-                <div className="space-y-3 text-secondary dark:text-dark-secondary">
-                  <div className="flex justify-between items-center">
-                    <span>Followers</span>
-                    <strong className="text-primary dark:text-dark-primary text-lg">
-                      {user.followers.toLocaleString()}
-                    </strong>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Published Stories</span>
-                    <strong className="text-primary dark:text-dark-primary text-lg">
-                      {user.posts}
-                    </strong>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Member-only Stories</span>
-                    <strong className="text-primary dark:text-dark-primary text-lg">
-                      {user.members}
-                    </strong>
-                  </div>
+                <div className="divide-y divide-default dark:divide-dark-default">
+                  {stories.slice(1).map((s) => (
+                    <article
+                      key={s.id}
+                      className="flex flex-col gap-5 py-9 first:pt-0 md:flex-row md:justify-between lg:gap-10"
+                    >
+                      <div className="min-w-0 flex-1 space-y-3">
+                        <Link
+                          to={`/story/${s.id}`}
+                          className="group block space-y-3"
+                        >
+                          <h3 className="font-blog-display text-xl font-bold leading-snug text-primary group-hover:text-secondary dark:text-dark-primary dark:group-hover:text-dark-secondary md:text-[1.25rem]">
+                            {s.title}
+                          </h3>
+                          <p className="font-blog-serif line-clamp-2 max-w-xl text-secondary dark:text-dark-secondary">
+                            {s.subtitle}
+                          </p>
+                        </Link>
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted dark:text-dark-muted">
+                          <span>{s.date}</span>
+                          <span>·</span>
+                          <span>{s.readTime} min read</span>
+                          <button
+                            type="button"
+                            onClick={() => clap(s.id)}
+                            className="text-primary hover:underline dark:text-dark-primary"
+                          >
+                            👏 {s.clapCount.toLocaleString()}
+                          </button>
+                          {s.draft && (
+                            <span className="rounded-full border border-default px-2 py-0.5 text-xs dark:border-dark-default">
+                              Draft
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Link to={`/story/${s.id}`} className="shrink-0 md:w-48">
+                        <img
+                          src={s.cover}
+                          alt=""
+                          className="aspect-[4/3] w-full rounded-sm object-cover"
+                        />
+                      </Link>
+                    </article>
+                  ))}
                 </div>
               </div>
+            </section>
+          )}
 
-              <div className="p-4 rounded-lg bg-card dark:bg-dark-card border border-default dark:border-dark-default">
-                <h3 className="text-lg font-semibold mb-4 text-primary dark:text-dark-primary">
-                  More from {user.name}
-                </h3>
-                <p className="text-secondary dark:text-dark-secondary text-sm mb-4 leading-relaxed">
-                  Follow to get notified about new stories and updates from this
-                  writer.
+          {activeTab === "About" && (
+            <section className="mx-auto max-w-xl space-y-10">
+              <div>
+                <h2 className="font-blog-display text-2xl font-bold text-primary dark:text-dark-primary">
+                  About {user.name}
+                </h2>
+                <p className="font-blog-serif mt-4 text-lg leading-relaxed text-secondary dark:text-dark-secondary">
+                  {user.bio}
                 </p>
-                {!isOwner && (
-                  <Button onClick={toggleFollow} className="rounded-full">
-                    {following ? "Following" : "Follow"}
-                  </Button>
-                )}
               </div>
-            </div>
-          </section>
-        )}
-      </main>
+              <div className="grid gap-8 md:grid-cols-2">
+                <div className="rounded-xl border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                    Reach
+                  </h3>
+                  <dl className="mt-6 space-y-4 text-secondary dark:text-dark-secondary">
+                    <div className="flex justify-between gap-4">
+                      <dt>Followers</dt>
+                      <dd className="font-semibold text-primary dark:text-dark-primary">
+                        {user.followers.toLocaleString()}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt>Stories</dt>
+                      <dd className="font-semibold text-primary dark:text-dark-primary">
+                        {user.posts}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt>Member reads</dt>
+                      <dd className="font-semibold text-primary dark:text-dark-primary">
+                        {user.members}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className="rounded-xl border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                    Newsletter
+                  </h3>
+                  <p className="mt-4 text-secondary dark:text-dark-secondary">
+                    Writers you follow surface in your homepage feed — same idea
+                    as Medium’s following graph.
+                  </p>
+                  {!isOwner ? (
+                    <Button
+                      onClick={toggleFollow}
+                      variant="secondary"
+                      className="mt-6 rounded-full"
+                    >
+                      {following ? "Following" : "Follow"}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          )}
+        </main>
 
-      {/* Related Writers (Sidebar) */}
-      <section className="border-t border-default dark:border-dark-default bg-shell dark:bg-dark-shell py-12 md:py-16">
-        <div className="max-w-4xl  lg:max-w-5xl mx-auto px-4 md:px-6">
-          <h2 className="text-2xl md:text-3xl font-bold mb-8 text-primary dark:text-dark-primary">
-            More writers you might like
+        <section className="mt-16 border-t border-default pt-16 dark:border-dark-default">
+          <h2 className="font-blog-display text-xl font-bold text-primary md:text-2xl dark:text-dark-primary">
+            Writers worth following
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 md:gap-3 lg:gap-5">
+          <div className="mt-8 grid gap-6 md:grid-cols-3">
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="group p-5 rounded-lg border border-default dark:border-dark-default bg-shell dark:bg-dark-shell hover:border-nav-hover dark:hover:border-dark-nav-hover hover:shadow-md transition-all cursor-pointer"
+                className="rounded-xl border border-default bg-shell p-5 transition-colors hover:border-primary hover:shadow-md dark:border-dark-default dark:bg-dark-shell dark:hover:border-dark-primary"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <AvatarDemo />
-                </div>
-                <h4 className="font-semibold mb-2 text-primary dark:text-dark-primary group-hover:text-secondary dark:group-hover:text-dark-secondary transition-colors">
+                <AvatarDemo />
+                <h4 className="mt-4 font-semibold text-primary dark:text-dark-primary">
                   Writer {i}
                 </h4>
-                <p className="text-sm text-secondary dark:text-dark-secondary mb-3 line-clamp-2 leading-relaxed">
-                  A passionate writer exploring topics in design and technology.
+                <p className="mt-2 text-sm leading-relaxed text-secondary dark:text-dark-secondary">
+                  Design, systems, and longform notes from the field.
                 </p>
-                <div className="text-xs text-muted dark:text-dark-muted mb-4 font-medium">
-                  12.5K followers · 48 stories
-                </div>
                 <Button
-                  variant="outline"
-                  className="w-full rounded-full text-sm"
+                  variant="secondary"
+                  fullWidth
+                  className="mt-5 rounded-full text-sm !py-2"
                 >
                   Follow
                 </Button>
               </div>
             ))}
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </BlogShell>
   );
 }

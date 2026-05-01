@@ -340,13 +340,6 @@ export default function AppSidebar() {
 
   const favItems = roleFavItems[user?.role] || roleFavItems.teacher;
 
-  const switchRole = (newRole) => {
-    const updatedUser = { ...user, role: newRole };
-    localStorage.setItem("user", JSON.stringify(updatedUser));
-    const next = getFacultyDashboardPath(newRole);
-    window.location.href = next ? `${next}/dashboard` : "/";
-  };
-
   const isActive = (path) => {
     if (path === "/") {
       return location.pathname === "/";
@@ -359,7 +352,7 @@ export default function AppSidebar() {
       className={` flex flex-col h-full shrink-0 transition-width  duration-100 ease  overflow-hidden bg-shell dark:bg-dark-shell  ltr:border-r rtl:border-l border-default dark:border-dark-default ${isMobile ? "border-none" : ""}  ${collapsed ? "w-16 min-w-16" : "w-65 min-w-65"}`}
     >
       <div
-        className={` ${collapsed ? "px-4 py-4.5" : "px-2.5 py-4"} flex min-h-14 items-center border-b border-default dark:border-dark-default ${collapsed ? " justify-center" : " justify-between"}`}
+        className={` ${collapsed ? "px-4 py-4.5" : "px-2.5 py-4"} flex min-h-14 items-center border-b border-default   dark:border-dark-default ${collapsed ? " justify-center" : " justify-between"}`}
         onClick={handleSidebarToggle}
       >
         {!collapsed && (
@@ -383,18 +376,20 @@ export default function AppSidebar() {
           return (
             <Link
               to={item.path}
-              className={` relative  dark:hover:bg-dark-app hover:bg-app group   text-left ${active ? " font-bold dark:text-white dark:bg-accent-light/10 bg-accent/10" : "dark:text-white/60  font-normal"} ${collapsed ? "p-2.25" : " py-2.25 px-2.5"} mb-0.5 text-xs relative transition-all duration-150 ${collapsed || isMobile ? " justify-center" : " justify-start"}  cursor-pointer    flex items-center gap-2.25 w-full rounded-lg border-none no-underline`}
+              className={` relative hover:bg-dark-btn-primary-bg  group   text-left ${active ? " font-bold dark:text-white bg-dark-btn-primary-bg bg-accent/10" : "  font-normal"} ${collapsed ? "p-2.25" : " py-2.25 px-2.5"} mb-0.5 text-xs relative transition-all duration-150 ${collapsed || isMobile ? " justify-center" : " justify-start"}  cursor-pointer    flex items-center gap-2.25 w-full rounded-lg border-none no-underline`}
               key={item.key}
             >
               {active && !collapsed && (
-                <div className=" absolute ltr:-left-0.5  rtl:-right-0.5 top-[20%] bottom-[20%]  border-2 bg-accent   rounded-3xl" />
+                <div className=" absolute ltr:-left-0.5  rtl:-right-0.5 top-[10%] bottom-[10%]  border-2 border-light-badge-border  rounded-3xl" />
               )}
               <Icon
                 d={item.icon}
-                className={` dark:text-white text-primary group-hover:translate-y-0.5 transition-all  size-4 ${active ? " text-nav-text-active stroke-2 " : " text-muted stroke-[1.5]"}`}
+                className={`  group-hover:text-dark-text-primary    group-hover:translate-y-0.5 transition-all  size-4 ${active ? " text-dark-text-primary stroke-2 " : "text-light-text-primary  stroke-[1.5] dark:text-dark-text-primary"}`}
               />
               {!collapsed && (
-                <span className=" dark:text-badge text-primary ">
+                <span
+                  className={`group-hover:text-dark-text-primary    ${active ? " text-dark-text-primary" : "text-light-text-primary dark:text-dark-text-primary"}`}
+                >
                   {!collapsed &&
                     (item.labelKey.includes(".")
                       ? t(item.labelKey)

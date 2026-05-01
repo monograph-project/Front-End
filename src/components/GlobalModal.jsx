@@ -18,20 +18,27 @@ function GloableModal({ open, setOpen, children, isClose, className }) {
           }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.23 }}
-          className="bg-text-400/20  backdrop-blur-[1px]  bg-shell/80 dark:bg-primary/80   h-screen  mx-auto   fixed inset-0 z-999 flex justify-center items-center  cursor-pointer"
+          className="fixed inset-0 z-999 flex items-center justify-center p-4 backdrop-blur-[2px] bg-black/30 dark:bg-black/55"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setOpen(false);
+          }}
         >
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.8, opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className={`relative  ${className ? className : "p-3"}`}
+            className={`relative w-full ${className ? className : "p-3"} cursor-auto`}
           >
-            {!isClose && (
-              <AiOutlineClose
-                className=" absolute top-5 right-4 p4"
+            {isClose && (
+              <button
+                type="button"
                 onClick={() => setOpen(false)}
-              />
+                className="absolute top-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border transition-colors bg-(--color-light-input-bg) border-(--color-light-input-border) text-light-text-secondary hover:text-(--color-light-text-primary) hover:bg-(--color-light-card-hover) dark:bg-(--color-dark-input-bg) dark:border-dark-input-border dark:text-dark-text-secondary dark:hover:text-(--color-dark-text-primary) dark:hover:bg-(--color-dark-card-hover)"
+                aria-label="Close modal"
+              >
+                <AiOutlineClose className="h-4 w-4" />
+              </button>
             )}
 
             {children}

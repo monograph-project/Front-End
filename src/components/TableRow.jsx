@@ -1,10 +1,16 @@
-import React from "react";
+import clsx from "clsx";
 
-function TableRow({ children, onClick }) {
+function TableRow({ children, onClick, className }) {
+  const interactive = typeof onClick === "function";
+
   return (
     <tr
       onClick={onClick}
-      className=" bg-white  dark:bg-dark-shell hover:dark:bg-dark-app  hover:bg-gray-50/50 cursor-pointer align-top"
+      className={clsx(
+        "table-advanced-tr",
+        interactive && "cursor-pointer",
+        className,
+      )}
     >
       {children}
     </tr>

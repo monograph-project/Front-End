@@ -1,9 +1,13 @@
-import React from "react";
+import clsx from "clsx";
 
-function TableColumn({ children, className, colSpan }) {
+function TableColumn({ children, className, colSpan, nowrap = true }) {
   return (
     <td
-      className={`${className ? className : ""} px-5 py-3 text-sm text-primary dark:text-dark-primary align-middle  whitespace-nowrap `}
+      className={clsx(
+        "table-advanced-td",
+        nowrap !== false && "whitespace-nowrap",
+        className,
+      )}
       colSpan={colSpan}
     >
       {children}

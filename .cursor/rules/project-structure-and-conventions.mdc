@@ -1,0 +1,66 @@
+---
+alwaysApply: true
+---
+# Project structure & conventions
+
+Read this **before** implementing commands in this repo: align layout, tokens, shared components, API layer, and translations.
+
+## Universal design standard (non-negotiable)
+
+**Every** new or edited UI must follow the **same** visual principles so the app feels one coherent product—not mixed styles.
+
+- **Single source of truth**: semantic colors, shadows, and radii come from **`src/index.css`** (`@theme` CSS variables). Do **not** introduce one-off palette choices (`gray-400`, raw hex, random `rounded-md`/`rounded-lg` mixes) unless there is genuinely no token; then extend `index.css` instead of patching a single component.
+- **Consistency over customization**: spacing, borders, typography, and control sizes should **match existing primitives**. Reuse **`Field`**, **`Select`**, **`SearchableSelect`**, **`Button`**, **`GlobalModal`**, **`DeleteConfirmModal`**, **`DropdownMenu`** before styling raw HTML.
+- **Spacing rhythm**: stick to a small scale — section padding `p-4` / `md:p-5`, form grids `gap-3` / `gap-4`, related controls `gap-2` / `gap-3`. Avoid arbitrary `gap-[13px]`-style values unless aligning to an established pattern nearby.
+- **Surfaces**: cards and panels use **`--color-light-card-bg`** / **`--color-dark-card-bg`**, borders **`--color-*-card-border`**, dividers **`light-divider` / `dark-divider`**. Modals and elevated panels use **`shadow-md`** or **`shadow-lg`** consistently with sibling UI.
+- **Borders**: default UI borders use **`--color-*-input-border`** or **`--color-*-card-border`**; never alternate between `border-default` and token borders in the same screen without reason.
+- **Typography**: hierarchy from tokens — **`text-primary` / `text-muted`** utilities or **`text-(--color-light-text-primary)`**, **`secondary`**, **`muted`** pairs with dark equivalents. Labels for forms: **`text-[11px] font-semibold`** pattern already used with `Field` / `Select`.
+- **Light / dark**: every interactive or surface style must define **both** light and dark (or inherit from utilities that already do). No light-only polish.
+- **Polish**: transitions `transition-colors` (short duration); focus states visible (`focus-visible:ring-*` aligned with inputs). Icons and hit targets remain aligned with neighboring controls **`h-8`** / **`h-9`** row height where applicable.
+
+If a design requirement conflicts with these rules, **update the shared component or `index.css` tokens** so the standard improves everywhere—not only one file.
+
+## Folder responsibilities
+
+| Path | Responsibility |
+|------|----------------|
+| `src/pages/` | Route-level screens. Split by **audience or area**: `pages/admin/` (staff/admin), `pages/student/`, `pages/blog/` (reader/writer), auth (`Login.jsx`, `Signup.jsx`), `NotFound.jsx`, `Unauthorized.jsx`. **Teacher** routes appear under admin-style paths in routing (e.g. faculty); keep new role pages grouped consistently. |
+| `src/layout/` | App shell: headers, sidebars, main content wrapper (`AppLayout`, `AppHeader`, `AppSideBar`, `LayoutContent`). |
+| `src/components/` | **Reusable UI**: forms (`Field`, `Select`, `SearchableSelect`), actions (`Button`), overlays (`GlobalModal`, `DeleteConfirmModal`), navigation (`DropdownMenu`), tables, cards, blog panels, etc. Prefer extending these instead of one-off markup in pages. |
+| `src/context/` | Cross-cutting React state: auth, theme, language, sidebar. |
+| `src/hooks/` | Shared hooks (e.g. `useClickOutSide`). |
+| `src/services/` | **API integration**: HTTP helpers and React Query hooks (`apiRoute.js`, `useApi.js`, `RouteConfig.js`). Pages/components call services; avoid fetch scattered in UI. |
+| `src/i18n.js` | **i18next** resources and RTL: languages **`en`**, **`prs`** (Persian/Dari), **`ps`** (Pashto). RTL: `ps`, `prs`. |
+
+## Design system (`src/index.css`)
+
+- **Colors / surfaces**: use `@theme` CSS variables (`--color-light-*`, `--color-dark-*`) via Tailwind utilities (`bg-(--color-…)`, `border-light-divider`, `text-light-error-text`, etc.).
+- **Inputs** (match `Field` + `Select` trigger):
+  - **Height**: `h-8` for single-line controls.
+  - **Radius**: `rounded-xl`.
+  - **Padding**: `px-3.5 py-1.5` (with icon: extra left padding on `Field`).
+  - **Border**: `border-(--color-light-input-border)` / `dark:border-dark-input-border`.
+  - **Text**: `text-(--color-light-text-primary)` / `dark:text-(--color-dark-text-primary)`.
+  - **Placeholder**: `placeholder:text-(--color-light-input-placeholder)` / `dark:placeholder:text-(--color-dark-input-placeholder)`.
+  - **Focus**: border `--color-*-input-border-focus` + subtle ring (`ring-blue-500/15` light, `ring-blue-400/15` dark).
+- **Spacing**: use consistent gaps in forms (`gap-3`, `gap-4` in grids); page padding often `p-4 md:p-5`.
+- **Buttons**: use `src/components/Button.jsx` with `variant`: `primary` | `secondary` | `tertiary` | `danger` (maps to `.btn-*` / tokens).
+
+## Internationalization (mandatory for user-visible strings)
+
+- **No hard-coded** user-facing copy in components/pages except truly technical constants.
+- For **every new screen, component labels, placeholders, buttons, errors**, add the **same key** under all three namespaces in `src/i18n.js`:
+  - `resources.en.translation`
+  - `resources.prs.translation` (Persian / Dari)
+  - `resources.ps.translation` (Pashto)
+- Use **`useTranslation()`** and keys like `namespace.section.field` (match existing patterns, e.g. `adminStudents.*`, `studentForm.*`).
+
+## New components workflow
+
+1. Implement UI using **tokens** + existing primitives (`Field`, `Select`, `Button`, …).
+2. Add **translation keys** in `en`, `prs`, and `ps` in `src/i18n.js`.
+3. If the feature needs server data, add or reuse functions in `src/services/` (and hooks in `useApi.js` when appropriate).
+
+## Scope
+
+- Change only what the task requires; keep diffs focused.

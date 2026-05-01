@@ -7,14 +7,37 @@ function Button({
   type = "button",
   className = "",
   disabled = false,
+  variant = "primary",
+  fullWidth = false,
   ...rest
 }) {
+  const base =
+    "inline-flex items-center justify-center gap-2 font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed";
+
+  const variants = {
+    primary: "btn-primary",
+    secondary: "btn-secondary",
+    tertiary: "btn-tertiary",
+    ghost: "btn-ghost",
+    danger:
+      "px-5 py-2.5 rounded-full font-semibold transition-all text-white " +
+      "bg-(--color-light-error-text) hover:opacity-95 active:opacity-90 " +
+      "dark:bg-(--color-dark-error-border)",
+  };
+
   return (
     <button
       onClick={onClick}
       type={type}
       disabled={disabled}
-      className={`flex items-center justify-center cursor-pointer gap-2 px-2 py-1 bg-primary text-white rounded-md font-semibold hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
+      className={[
+        base,
+        variants[variant] ?? variants.primary,
+        fullWidth ? "w-full" : "",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
       {...rest}
     >
       {icon && <span>{icon}</span>}

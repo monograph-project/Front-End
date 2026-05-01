@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
 import {
   TbLayoutSidebarLeftCollapse,
@@ -19,6 +20,7 @@ import {
   DropdownSubContent,
 } from "../components/DropdownMenu";
 import AvatarDemo from "../components/Avatar";
+import { normalizeFacetKey } from "../auth/roleModel";
 import { getFacultyDashboardPath } from "../lib/roles";
 import IC from "../components/IC";
 import Icon from "../components/Icon";
@@ -88,7 +90,7 @@ function HeaderIconButton({ onClick, active = false, ariaLabel, children }) {
       onClick={onClick}
       aria-label={ariaLabel}
       className={`
-        p-2 rounded-lg flex items-center gap-1 cursor-pointer
+        flex cursor-pointer items-center gap-0.5 rounded-lg p-1.5 sm:p-2
         text-secondary dark:text-dark-secondary
         hover:bg-hover dark:hover:bg-dark-hover transition-colors
         ${active ? "bg-nav-active dark:bg-dark-nav-active" : ""}
@@ -99,41 +101,27 @@ function HeaderIconButton({ onClick, active = false, ariaLabel, children }) {
   );
 }
 
-/** Search input — extracted so the header JSX stays flat. */
-function SearchInput({ placeholder }) {
-  return (
-    <div className="relative hidden lg:block">
-      <input
-        placeholder={placeholder}
-        className="
-          px-3 py-1.5 h-full text-xs rounded-lg outline-none
-          w-44 xl:w-52 pl-7
-          text-muted dark:text-dark-muted
-          placeholder:text-muted dark:placeholder:text-dark-muted
-          bg-input dark:bg-dark-input
-          border border-default dark:border-dark-default
-          focus:border-accent dark:focus:border-dark-accent
-          transition-colors
-        "
-      />
-      <Icon
-        d={IC.search}
-        className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 stroke-muted dark:stroke-dark-muted stroke-2 pointer-events-none"
-      />
-    </div>
-  );
+/** Public “Medium” stories surface: `/`, `/write`, `/library`, `/topic/*`, `/story/*`, `/writer/*` */
+function isPublicStoriesPath(pathname) {
+  if (pathname === "/") return true;
+  if (pathname === "/write" || pathname.startsWith("/write/")) return true;
+  if (pathname === "/writer" || pathname.startsWith("/writer/")) return true;
+  if (pathname === "/library" || pathname.startsWith("/library/")) return true;
+  if (pathname.startsWith("/topic/")) return true;
+  if (pathname.startsWith("/story/")) return true;
+  return false;
 }
 
 /** Notification bell with unread badge. */
-function NotificationButton({ unreadCount, active, onClick }) {
+function NotificationButton({ unreadCount, active, onClick, ariaLabel }) {
   return (
     <div className="relative">
       <HeaderIconButton
         onClick={onClick}
         active={active}
-        ariaLabel="Notifications"
+        ariaLabel={ariaLabel}
       >
-        <Icon d={IC.bell} className="size-4 stroke-[1.5]" />
+        <Icon d={IC.bell} className="size-3.5 stroke-[1.5] sm:size-4" />
         {unreadCount > 0 && (
           <span className="absolute top-0.5 right-0.5 min-w-[14px] h-3.5 px-0.5 flex items-center justify-center rounded-full bg-success text-[8px] font-bold text-success-light leading-none">
             {unreadCount}
@@ -148,9 +136,13 @@ function NotificationButton({ unreadCount, active, onClick }) {
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export default function AppHeader({ handleSidebarToggle, collapsed }) {
-  const { user, isAuthenticated } = useAuth();
-  const { i18n } = useTranslation();
-  const { lang, setLang } = useLanguage();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { hasRole, user, logout } = useAuth();
+  const showStoriesSearch = isPublicStoriesPath(pathname);
+
+  const { t } = useTranslation();
+  const { setLang } = useLanguage();
   const { toggleTheme, theme } = useTheme();
   const [openPanel, setOpenPanel] = useState(null);
   const [search, setSearch] = useState();
@@ -168,12 +160,10 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
 
   const handleLanguageChange = useCallback(
     (langCode) => {
-      setLang(langCode);
-      if (i18n && typeof i18n.changeLanguage === "function") {
-        i18n.changeLanguage(langCode);
-      }
+      /** Default context stub uses `setLang()` with no params; Provider passes arity-1 updater. */
+      /** @type {(next?: string) => void} */ (setLang)(langCode);
     },
-    [setLang, i18n],
+    [setLang],
   );
 
   // Derived value — recalculated only when NOTIFICATIONS changes (stable ref).
@@ -182,47 +172,92 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
     [],
   );
 
-  const switchRole = (newRole) => {
-    const updatedUser = { ...(user || {}), role: newRole };
-    localStorage.setItem("user", JSON.stringify(updatedUser));
-    const next = getFacultyDashboardPath(newRole);
-    window.location.href = next ? `${next}/dashboard` : "/";
-  };
+  const navigateToFacetDashboard = useCallback(
+    (raw) => {
+      const facetRaw = String(raw ?? "").trim();
+      const facet = normalizeFacetKey(facetRaw) ?? facetRaw.toLowerCase();
+
+      /* Reader facet → student shell */
+      if (facetRaw === "user" || facet === "user") {
+        if (!(hasRole("user") || hasRole("student"))) return;
+        const base = getFacultyDashboardPath("student");
+        navigate(`${base}/dashboard`);
+        return;
+      }
+
+      if (!hasRole(facetRaw) && !hasRole(facet)) return;
+      const base = getFacultyDashboardPath(facet);
+      if (base) navigate(`${base}/dashboard`);
+    },
+    [hasRole, navigate],
+  );
+
+  const navigateToProfile = useCallback(() => {
+    const base = getFacultyDashboardPath(user?.role ?? "student");
+    if (base === "/admin" && user?.id != null) {
+      navigate(`/admin/users/${encodeURIComponent(user.id)}`);
+      return;
+    }
+    navigate("/writer/profile");
+  }, [navigate, user]);
+
+  const navigateToAccountSettings = useCallback(() => {
+    const base = getFacultyDashboardPath(user?.role ?? "student");
+    if (base === "/admin") {
+      navigate(`${base}/setting`);
+      return;
+    }
+    navigate("/writer/profile");
+  }, [navigate, user]);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout();
+    } catch {
+      /* AuthProvider redirects to /login on success */
+    }
+  }, [logout]);
 
   return (
-    <header className="sticky top-0 z-20 h-14 flex items-center gap-2 sm:gap-3 shrink-0 px-2 sm:px-3 md:px-5 bg-shell/75 dark:bg-dark-shell/75 backdrop-blur-md border-b border-default/80 dark:border-dark-default/80 ">
-      {/* Mobile menu toggle */}
-
-      {/* Page title */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
+    <header className="sticky top-0 z-20 flex h-11 shrink-0 items-center gap-1 border-b border-default/80 bg-white px-2 dark:border-dark-default dark:bg-dark-shell sm:h-14 sm:gap-2 md:gap-3 md:px-4 lg:px-5">
+      {/* Mobile menu toggle + title area */}
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
         <div
           onClick={handleSidebarToggle}
-          className="p-1.5 group hover:border-light group transition-all border rounded-xl border-default dark:border-dark-default hover:dark:border-dark-default"
+          className="group rounded-xl border border-default p-1 transition-all hover:border-light dark:border-dark-default hover:dark:border-dark-default sm:p-1.5"
         >
           {collapsed ? (
-            <TbLayoutSidebarRightCollapse />
+            <TbLayoutSidebarRightCollapse className="text-[1.1rem] sm:text-xl" />
           ) : (
-            <TbLayoutSidebarLeftCollapse className="text-xl cursor-pointer" />
+            <TbLayoutSidebarLeftCollapse className="cursor-pointer text-[1.1rem] sm:text-xl" />
           )}
         </div>
-        {/* here routes */}
+        {/* Route-specific title slots can mount here */}
       </div>
 
-      {/* Search */}
-      <div className="space-y-2 w-75">
-        <SearchableSelect
-          options={FRAMEWORK_OPTIONS}
-          searchPlaceholder="select"
-          value={search}
-        />
-      </div>
+      {/* Stories filter — lg+ only (see header responsive rules) */}
+      {showStoriesSearch ? (
+        <div className="mx-2 hidden min-w-0 max-w-xs flex-1 lg:flex xl:max-w-md">
+          <SearchableSelect
+            options={FRAMEWORK_OPTIONS}
+            searchPlaceholder="select"
+            value={search}
+            onValueChange={setSearch}
+            className="min-h-9 gap-2 px-3.5 py-1.5 text-sm"
+          />
+        </div>
+      ) : null}
+
       {/* Actions */}
-      <div className="flex items-center gap-1 sm:gap-1.5">
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1 md:gap-1.5">
         {/* Theme toggle */}
-        <HeaderIconButton onClick={toggleTheme} ariaLabel="Toggle theme">
+        <HeaderIconButton
+          onClick={toggleTheme}
+          ariaLabel={t("appHeader.toggleTheme")}
+        >
           <Icon
             d={theme === "light" ? IC.moon : IC.sun}
-            className="size-4 stroke-[1.5]"
+            className="size-3.5 stroke-[1.5] sm:size-4"
           />
         </HeaderIconButton>
 
@@ -231,69 +266,94 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
           unreadCount={notifUnread}
           active={openPanel === "notifications"}
           onClick={() => toggle("notifications")}
+          ariaLabel={t("appHeader.notificationsBell")}
         />
 
         {/* <DropdownMenuDemo /> */}
         <DropdownMenuRoot>
           <DropdownTrigger
             showArrow={false}
+            compactIcon
+            aria-label={t("appHeader.accountMenu")}
             icon={<AvatarDemo />}
           ></DropdownTrigger>
 
           <DropdownContent align="end" className="w-48">
-            <DropdownLabel>Account</DropdownLabel>
-            <DropdownItem>Profile</DropdownItem>
-            <DropdownItem>Settings</DropdownItem>
+            <DropdownLabel>{t("common.sections.account")}</DropdownLabel>
+            <DropdownItem onClick={navigateToProfile}>
+              {t("common.actions.profile")}
+            </DropdownItem>
+            <DropdownItem onClick={navigateToAccountSettings}>
+              {t("common.actions.settings")}
+            </DropdownItem>
             <DropdownSeparator />
             <DropdownSub>
-              <DropdownSubTrigger>Language</DropdownSubTrigger>
+              <DropdownSubTrigger>{t("common.language")}</DropdownSubTrigger>
               <DropdownSubContent>
-                <DropdownLabel>language</DropdownLabel>
+                <DropdownLabel>{t("common.language")}</DropdownLabel>
                 <DropdownItem onClick={() => handleLanguageChange("en")}>
-                  English
+                  {t("appHeader.langNames.en")}
                 </DropdownItem>
                 <DropdownItem onClick={() => handleLanguageChange("ps")}>
-                  پښتو
+                  {t("appHeader.langNames.ps")}
                 </DropdownItem>
                 <DropdownItem onClick={() => handleLanguageChange("prs")}>
-                  فارسی
+                  {t("appHeader.langNames.prs")}
                 </DropdownItem>
               </DropdownSubContent>
             </DropdownSub>
 
             <DropdownSeparator />
-            <DropdownLabel>Actions</DropdownLabel>
+            <DropdownLabel>{t("common.sections.actions")}</DropdownLabel>
             <DropdownItem
               data={20}
               icon={<Icon d={IC.bell} className="size-4 stroke-[1.5]" />}
               onClick={() => toggle("notifications")}
             >
-              Notification
+              {t("appHeader.notifications")}
             </DropdownItem>
             <DropdownSeparator />
             <DropdownSub>
-              <DropdownSubTrigger>More</DropdownSubTrigger>
+              <DropdownSubTrigger>
+                {t("appHeader.moreDashboards")}
+              </DropdownSubTrigger>
               <DropdownSubContent>
-                <DropdownItem onClick={() => switchRole("admin")}>
-                  Admin
-                </DropdownItem>
-                <DropdownItem onClick={() => switchRole("dean")}>
-                  Dean
-                </DropdownItem>
-                <DropdownItem onClick={() => switchRole("staff")}>
-                  Staff
-                </DropdownItem>
-                <DropdownItem onClick={() => switchRole("teacher")}>
-                  Teacher
-                </DropdownItem>
-                <DropdownItem onClick={() => switchRole("student")}>
-                  Student
-                </DropdownItem>
-                <DropdownItem onClick={() => switchRole("user")}>
-                  Reader
-                </DropdownItem>
+                {hasRole("admin") && (
+                  <DropdownItem onClick={() => navigateToFacetDashboard("admin")}>
+                    {t("adminShared.roles.admin")}
+                  </DropdownItem>
+                )}
+                {hasRole("dean") && (
+                  <DropdownItem onClick={() => navigateToFacetDashboard("dean")}>
+                    {t("adminShared.roles.dean")}
+                  </DropdownItem>
+                )}
+                {hasRole("staff") && (
+                  <DropdownItem onClick={() => navigateToFacetDashboard("staff")}>
+                    {t("adminShared.roles.staff")}
+                  </DropdownItem>
+                )}
+                {hasRole("teacher") && (
+                  <DropdownItem onClick={() => navigateToFacetDashboard("teacher")}>
+                    {t("adminShared.roles.teacher")}
+                  </DropdownItem>
+                )}
+                {(hasRole("student") || hasRole("user")) && (
+                  <DropdownItem onClick={() => navigateToFacetDashboard("student")}>
+                    {t("adminShared.roles.student")}
+                  </DropdownItem>
+                )}
               </DropdownSubContent>
             </DropdownSub>
+            <DropdownSeparator />
+            <DropdownItem
+              variant="danger"
+              onClick={() => {
+                void handleLogout();
+              }}
+            >
+              {t("common.actions.logout")}
+            </DropdownItem>
           </DropdownContent>
         </DropdownMenuRoot>
       </div>

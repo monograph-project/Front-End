@@ -49,17 +49,17 @@ function Field({
               {...register}
               {...rest}
               className={`
-                w-full h-8 text-xs rounded-lg outline-none
-                pl-3 pr-3 py-1.5
-                text-primary dark:text-dark-primary
-                placeholder:text-muted dark:placeholder:text-dark-muted
-                bg-input dark:bg-transparent
-                border border-default dark:border-dark-default
-                focus:border-accent 
-                dark:focus:border-white
-                transition-colors
-                ${iconD ? "pl-7" : ""}
-                ${isPassword ? "!pr-8" : ""}
+                w-full h-8 text-xs rounded-xl outline-none
+                px-3.5 py-1.5
+                border transition-colors
+                bg-(--color-light-input-bg) text-(--color-light-text-primary) border-(--color-light-input-border)
+                placeholder:text-(--color-light-input-placeholder)
+                focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15
+                dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:border-dark-input-border
+                dark:placeholder:text-(--color-dark-input-placeholder)
+                dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15
+                ${iconD ? "pl-9" : ""}
+                ${isPassword ? "pr-9!" : ""}
               `}
             />
           )}
