@@ -1,12 +1,20 @@
+// @ts-ignore
 import axiosInstance from "./axiosConfig";
 import { authUsesCookieRefresh } from "../auth/httpCredentials";
 import { ingestGatewayLoginPayload } from "../auth/sessionApply";
-import { fetchCurrentGatewayUser, logoutLocalGateway } from "../auth/authService";
+import {
+  fetchCurrentGatewayUser,
+  logoutLocalGateway,
+} from "../auth/authService";
 import {
   AUTH,
   STUDENT,
   DEPARTMENT,
   BATCH,
+  ACADEMIC_YEAR,
+  SEMESTER,
+  FACULTY_PROJECT,
+  FACULTY_GROUP,
   TEACHER,
   EMPLOYEE,
   USERS,
@@ -25,6 +33,12 @@ function normalizeEmail(email) {
     .toLowerCase();
 }
 
+function normalizeLoginIdentifier(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return "";
+  return trimmed.includes("@") ? trimmed.toLowerCase() : trimmed;
+}
+
 /** Exported for toast / logging — parses axios error `response.data`. */
 export function extractApiError(err, fallbackMessage = "Request failed.") {
   const body = err.response?.data;
@@ -37,10 +51,7 @@ export function extractApiError(err, fallbackMessage = "Request failed.") {
     return parts.join(" · ") || fallbackMessage;
   }
   return (
-    body?.message ??
-    body?.error_description ??
-    err.message ??
-    fallbackMessage
+    body?.message ?? body?.error_description ?? err.message ?? fallbackMessage
   );
 }
 
@@ -50,7 +61,11 @@ export function extractApiError(err, fallbackMessage = "Request failed.") {
  * @param {string} fallbackMessage — English fallback for logging / non-i18n tooling
  * @param {string} [i18nKey] — Translation key such as `apiErrors.*`
  */
-export function throwApiError(err, fallbackMessage = "Request failed.", i18nKey) {
+export function throwApiError(
+  err,
+  fallbackMessage = "Request failed.",
+  i18nKey,
+) {
   const message = extractApiError(err, fallbackMessage);
   const error = new Error(message);
   error.name = "ApiRequestError";
@@ -71,7 +86,7 @@ export function throwClientApiError(message, i18nKey) {
 
 /** POST `/api/v1/auth/login` (resource-owner) */
 export async function login(formData) {
-  const username_or_email = normalizeEmail(
+  const username_or_email = normalizeLoginIdentifier(
     formData.email ?? formData.username_or_email,
   );
   const password = formData.password;
@@ -150,7 +165,11 @@ export async function googleAuth(payload) {
     });
     return ingestGatewayLoginPayload(data);
   } catch (err) {
-    throwApiError(err, "Google authentication failed.", "apiErrors.google_authentication_failed");
+    throwApiError(
+      err,
+      "Google authentication failed.",
+      "apiErrors.google_authentication_failed",
+    );
   }
 }
 
@@ -169,7 +188,11 @@ export async function refreshAuthToken(refresh_token) {
     const { data } = await axiosInstance.post(AUTH.REFRESH_TOKEN, body);
     return ingestGatewayLoginPayload(data);
   } catch (err) {
-    throwApiError(err, "Token refresh failed.", "apiErrors.token_refresh_failed");
+    throwApiError(
+      err,
+      "Token refresh failed.",
+      "apiErrors.token_refresh_failed",
+    );
   }
 }
 
@@ -245,7 +268,7 @@ function normalizeStudentRecord(raw) {
     status: statusNorm,
     batchId,
     batch:
-      batchObj && typeof batchObj === "object" ? batchObj : raw.batch ?? null,
+      batchObj && typeof batchObj === "object" ? batchObj : (raw.batch ?? null),
     role: raw.role ?? "STUDENT",
     addressStreet: addr.street ?? raw.addressStreet ?? "",
     addressCity: addr.city ?? raw.addressCity ?? "",
@@ -311,7 +334,8 @@ function serializeSpringQueryParams(params) {
     if (v === undefined || v === null || v === "") return;
     if (Array.isArray(v)) {
       v.forEach((item) => {
-        if (item != null && `${item}`.trim() !== "") usp.append(k, String(item));
+        if (item != null && `${item}`.trim() !== "")
+          usp.append(k, String(item));
       });
     } else {
       usp.append(k, String(v));
@@ -336,6 +360,20 @@ function unwrapPagePayload(raw) {
       "totalElements" in inner);
   if (looksLikePage) return inner;
   return raw;
+}
+
+/** Faculty `/api/*` lists may return a bare array or a Spring page envelope. */
+function facultyListItems(data) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  const page = unwrapPagePayload(data);
+  if (page && typeof page === "object") {
+    if (Array.isArray(page.content)) return page.content;
+    if (Array.isArray(page.data)) return page.data;
+    if (Array.isArray(page.items)) return page.items;
+    if (Array.isArray(page.records)) return page.records;
+  }
+  return [];
 }
 
 /**
@@ -363,7 +401,8 @@ function normalizeSpringPage(raw, normalizeItem) {
         : Array.isArray(page.items)
           ? page.items
           : [];
-  const norm = (v) => (typeof normalizeItem === "function" ? normalizeItem(v) : v);
+  const norm = (v) =>
+    typeof normalizeItem === "function" ? normalizeItem(v) : v;
   const content = (Array.isArray(contentRaw) ? contentRaw : [])
     .map(norm)
     .filter(Boolean);
@@ -438,12 +477,17 @@ function normalizeStudentsList(payload) {
 
 export async function getStudents() {
   try {
-    const { data } = await axiosInstance.get(STUDENT.GETALL);
-    console.log(data)
+    const { data } = await axiosInstance.get(
+      STUDENTS.GETALL
+     );
     return normalizeStudentsList(data);
   } catch (err) {
     if (err?.response?.status === 404) return [];
-    throwApiError(err, "Failed to load students.", "apiErrors.failed_to_load_students");
+    throwApiError(
+      err,
+      "Failed to load students.",
+      "apiErrors.failed_to_load_students",
+    );
   }
 }
 
@@ -458,7 +502,11 @@ export async function getStudentsPage(query = {}) {
     if (err?.response?.status === 404) {
       return normalizeSpringPage(null, normalizeStudentRecord);
     }
-    throwApiError(err, "Failed to load students.", "apiErrors.failed_to_load_students");
+    throwApiError(
+      err,
+      "Failed to load students.",
+      "apiErrors.failed_to_load_students",
+    );
   }
 }
 
@@ -467,7 +515,11 @@ export async function getStudentById(id) {
     const { data } = await axiosInstance.get(STUDENT.GETBYID(id));
     return normalizeStudentRecord(data);
   } catch (err) {
-    throwApiError(err, "Failed to load student.", "apiErrors.failed_to_load_student");
+    throwApiError(
+      err,
+      "Failed to load student.",
+      "apiErrors.failed_to_load_student",
+    );
   }
 }
 
@@ -477,7 +529,27 @@ export async function getBatches() {
     return normalizeBatchesList(data);
   } catch (err) {
     if (err?.response?.status === 404) return [];
-    throwApiError(err, "Failed to load batches.", "apiErrors.failed_to_load_batches");
+    throwApiError(
+      err,
+      "Failed to load batches.",
+      "apiErrors.failed_to_load_batches",
+    );
+  }
+}
+
+export async function getBatchById(id) {
+  if (id == null || String(id).trim() === "") {
+    throwClientApiError("Batch id is required.");
+  }
+  try {
+    const { data } = await axiosInstance.get(BATCH.GETBYID(id));
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load batch.",
+      "apiErrors.failed_to_load_batch",
+    );
   }
 }
 
@@ -495,19 +567,24 @@ export async function createStudent(studentData) {
     const { data } = await axiosInstance.post(STUDENT.CREATE, studentData);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to create student.", "apiErrors.failed_to_create_student");
+    throwApiError(
+      err,
+      "Failed to create student.",
+      "apiErrors.failed_to_create_student",
+    );
   }
 }
 
 export async function updateStudent(id, studentData) {
   try {
-    const { data } = await axiosInstance.put(
-      STUDENT.UPDATE(id),
-      studentData,
-    );
+    const { data } = await axiosInstance.put(STUDENT.UPDATE(id), studentData);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to update student.", "apiErrors.failed_to_update_student");
+    throwApiError(
+      err,
+      "Failed to update student.",
+      "apiErrors.failed_to_update_student",
+    );
   }
 }
 
@@ -515,7 +592,11 @@ export async function deleteStudent(id) {
   try {
     await axiosInstance.delete(STUDENT.DELETE(id));
   } catch (err) {
-    throwApiError(err, "Failed to delete student.", "apiErrors.failed_to_delete_student");
+    throwApiError(
+      err,
+      "Failed to delete student.",
+      "apiErrors.failed_to_delete_student",
+    );
   }
 }
 
@@ -557,8 +638,7 @@ function normalizeTeacherRecord(raw) {
         ? String(departmentLabel)
         : "",
     departmentId: departmentId != null ? String(departmentId) : "",
-    addressStreet:
-      addr.street ?? raw.addressStreet ?? raw.address_street ?? "",
+    addressStreet: addr.street ?? raw.addressStreet ?? raw.address_street ?? "",
     addressCity: addr.city ?? raw.addressCity ?? "",
     addressPostalCode:
       addr.postalCode ??
@@ -593,7 +673,7 @@ function normalizeTeachersList(payload) {
 export async function getTeachers() {
   try {
     const { data } = await axiosInstance.get(TEACHER.GETALL);
-    console.log(data)
+    console.log(data);
     return normalizeTeachersList(data);
   } catch (err) {
     if (err?.response?.status === 404) return [];
@@ -714,8 +794,7 @@ function normalizeEmployeeRecord(raw) {
     educationRank: raw.educationRank ?? raw.education_rank ?? "",
     facultyPosition: raw.facultyPosition ?? raw.faculty_position ?? "",
     hireDate: toDateInputValue(raw.hireDate ?? raw.hire_date),
-    addressStreet:
-      addr.street ?? raw.addressStreet ?? raw.address_street ?? "",
+    addressStreet: addr.street ?? raw.addressStreet ?? raw.address_street ?? "",
     addressCity: addr.city ?? raw.addressCity ?? "",
     addressPostalCode:
       addr.postalCode ??
@@ -750,7 +829,7 @@ function normalizeEmployeesList(payload) {
 export async function getEmployees() {
   try {
     const { data } = await axiosInstance.get(EMPLOYEE.GETALL);
-    console.log(data)
+    console.log(data);
     return normalizeEmployeesList(data);
   } catch (err) {
     if (err?.response?.status === 404) return [];
@@ -832,21 +911,105 @@ export async function deleteEmployeeRecord(id) {
   }
 }
 
+function normalizeDepartmentRecord(raw) {
+  if (raw == null || typeof raw !== "object") return null;
+
+  const headNested =
+    typeof raw.head === "object" && raw.head !== null ? raw.head : null;
+  const facultyNested =
+    typeof raw.faculty === "object" && raw.faculty !== null ? raw.faculty : null;
+
+  const statusRaw = raw.status ?? raw.state ?? raw.departmentStatus ?? "";
+  const createdRaw =
+    raw.created ??
+    raw.createdAt ??
+    raw.created_at ??
+    raw.createdDate ??
+    raw.created_date ??
+    raw.creationDate ??
+    null;
+
+  return {
+    ...raw,
+    id: raw.id ?? raw.departmentId ?? raw.department_id ?? raw.uuid ?? "",
+    code: raw.code ?? raw.departmentCode ?? raw.department_code ?? "",
+    name:
+      raw.name ??
+      raw.title ??
+      raw.departmentName ??
+      raw.department_name ??
+      "",
+    head:
+      (typeof raw.head === "string" ? raw.head : "") ||
+      headNested?.email ||
+      headNested?.name ||
+      headNested?.fullName ||
+      raw.headEmail ||
+      raw.headName ||
+      raw.head_name ||
+      raw.dean ||
+      raw.deanEmail ||
+      "",
+    status:
+      typeof statusRaw === "string" && statusRaw.trim() !== ""
+        ? statusRaw.trim().toLowerCase()
+        : "inactive",
+    created: createdRaw,
+    facultyName:
+      raw.facultyName ??
+      raw.faculty_name ??
+      facultyNested?.name ??
+      facultyNested?.title ??
+      "",
+  };
+}
+
+function normalizeDepartmentsList(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload)) {
+    return payload.map(normalizeDepartmentRecord).filter(Boolean);
+  }
+  if (typeof payload !== "object") return [];
+
+  const nested =
+    payload.content ??
+    payload.departments ??
+    payload.items ??
+    payload.data ??
+    payload.records ??
+    payload.results;
+
+  if (Array.isArray(nested)) {
+    return nested.map(normalizeDepartmentRecord).filter(Boolean);
+  }
+
+  return [];
+}
+
 export async function getDepartments() {
   try {
     const { data } = await axiosInstance.get(DEPARTMENT.GETALL);
-    return data;
+    return normalizeDepartmentsList(data);
   } catch (err) {
-    throwApiError(err, "Failed to load departments.", "apiErrors.failed_to_load_departments");
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to load departments.",
+      "apiErrors.failed_to_load_departments",
+    );
   }
 }
 
 export async function getDepartmentById(id) {
   try {
     const { data } = await axiosInstance.get(DEPARTMENT.GETBYID(id));
-    return data;
+    return normalizeDepartmentRecord(data);
   } catch (err) {
-    throwApiError(err, "Failed to load department.", "apiErrors.failed_to_load_department");
+    throwApiError(
+      err,
+      "Failed to load department.",
+      "apiErrors.failed_to_load_department",
+    );
   }
 }
 
@@ -858,7 +1021,11 @@ export async function createDepartment(departmentData) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to create department.", "apiErrors.failed_to_create_department");
+    throwApiError(
+      err,
+      "Failed to create department.",
+      "apiErrors.failed_to_create_department",
+    );
   }
 }
 
@@ -870,7 +1037,11 @@ export async function updateDepartment(id, departmentData) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to update department.", "apiErrors.failed_to_update_department");
+    throwApiError(
+      err,
+      "Failed to update department.",
+      "apiErrors.failed_to_update_department",
+    );
   }
 }
 
@@ -878,7 +1049,322 @@ export async function deleteDepartment(id) {
   try {
     await axiosInstance.delete(DEPARTMENT.DELETE(id));
   } catch (err) {
-    throwApiError(err, "Failed to delete department.", "apiErrors.failed_to_delete_department");
+    throwApiError(
+      err,
+      "Failed to delete department.",
+      "apiErrors.failed_to_delete_department",
+    );
+  }
+}
+
+/* ─── Academic year (`/api/academic-year`) ───────────────────────────────── */
+
+export async function getAcademicYears(query = {}) {
+  try {
+    const { data } = await axiosInstance.get(ACADEMIC_YEAR.LIST(query));
+    return facultyListItems(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to load academic years.",
+      "apiErrors.failed_to_load_academic_years",
+    );
+  }
+}
+
+export async function getAcademicYearById(id) {
+  if (id == null || String(id).trim() === "") {
+    throwClientApiError("Academic year id is required.");
+  }
+  try {
+    const { data } = await axiosInstance.get(ACADEMIC_YEAR.BY_ID(id));
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load academic year.",
+      "apiErrors.failed_to_load_academic_year",
+    );
+  }
+}
+
+export async function createAcademicYear(body) {
+  try {
+    const { data } = await axiosInstance.post(ACADEMIC_YEAR.CREATE, body);
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to create academic year.",
+      "apiErrors.failed_to_create_academic_year",
+    );
+  }
+}
+
+export async function updateAcademicYear(id, body) {
+  try {
+    const { data } = await axiosInstance.put(ACADEMIC_YEAR.UPDATE(id), body);
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to update academic year.",
+      "apiErrors.failed_to_update_academic_year",
+    );
+  }
+}
+
+export async function deleteAcademicYear(id) {
+  try {
+    await axiosInstance.delete(ACADEMIC_YEAR.DELETE(id));
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to delete academic year.",
+      "apiErrors.failed_to_delete_academic_year",
+    );
+  }
+}
+
+/* ─── Semester (`/api/semester`) ───────────────────────────────────────────── */
+
+export async function getSemesters(query = {}) {
+  try {
+    const { data } = await axiosInstance.get(SEMESTER.LIST(query));
+    return facultyListItems(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to load semesters.",
+      "apiErrors.failed_to_load_semesters",
+    );
+  }
+}
+
+export async function getSemesterById(id) {
+  try {
+    const { data } = await axiosInstance.get(SEMESTER.BY_ID(id));
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load semester.",
+      "apiErrors.failed_to_load_semester",
+    );
+  }
+}
+
+export async function createSemester(body) {
+  try {
+    const { data } = await axiosInstance.post(SEMESTER.CREATE, body);
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to create semester.",
+      "apiErrors.failed_to_create_semester",
+    );
+  }
+}
+
+export async function updateSemester(id, body) {
+  try {
+    const { data } = await axiosInstance.put(SEMESTER.UPDATE(id), body);
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to update semester.",
+      "apiErrors.failed_to_update_semester",
+    );
+  }
+}
+
+export async function deleteSemester(id) {
+  try {
+    await axiosInstance.delete(SEMESTER.DELETE(id));
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to delete semester.",
+      "apiErrors.failed_to_delete_semester",
+    );
+  }
+}
+
+/* ─── Faculty project (`/api/project`) ────────────────────────────────────── */
+
+export async function getFacultyProjects(query = {}) {
+  try {
+    const { data } = await axiosInstance.get(FACULTY_PROJECT.LIST(query));
+    return facultyListItems(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to load projects.",
+      "apiErrors.failed_to_load_faculty_projects",
+    );
+  }
+}
+
+export async function getFacultyProjectById(id) {
+  try {
+    const { data } = await axiosInstance.get(FACULTY_PROJECT.BY_ID(id));
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load project.",
+      "apiErrors.failed_to_load_faculty_project",
+    );
+  }
+}
+
+export async function createFacultyProject(body) {
+  try {
+    const { data } = await axiosInstance.post(FACULTY_PROJECT.CREATE, body);
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to create project.",
+      "apiErrors.failed_to_create_faculty_project",
+    );
+  }
+}
+
+export async function updateFacultyProject(id, body) {
+  try {
+    const { data } = await axiosInstance.put(FACULTY_PROJECT.UPDATE(id), body);
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to update project.",
+      "apiErrors.failed_to_update_faculty_project",
+    );
+  }
+}
+
+export async function deleteFacultyProject(id) {
+  try {
+    await axiosInstance.delete(FACULTY_PROJECT.DELETE(id));
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to delete project.",
+      "apiErrors.failed_to_delete_faculty_project",
+    );
+  }
+}
+
+/* ─── Faculty group (`/api/group`) ─────────────────────────────────────────── */
+
+export async function getFacultyGroups(query = {}) {
+  try {
+    const { data } = await axiosInstance.get(FACULTY_GROUP.LIST(query));
+    return facultyListItems(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to load groups.",
+      "apiErrors.failed_to_load_faculty_groups",
+    );
+  }
+}
+
+export async function getFacultyGroupById(id) {
+  try {
+    const { data } = await axiosInstance.get(FACULTY_GROUP.BY_ID(id));
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load group.",
+      "apiErrors.failed_to_load_faculty_group",
+    );
+  }
+}
+
+export async function createFacultyGroup(body) {
+  try {
+    const { data } = await axiosInstance.post(FACULTY_GROUP.CREATE, body);
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to create group.",
+      "apiErrors.failed_to_create_faculty_group",
+    );
+  }
+}
+
+export async function updateFacultyGroup(id, body) {
+  try {
+    const { data } = await axiosInstance.put(FACULTY_GROUP.UPDATE(id), body);
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to update group.",
+      "apiErrors.failed_to_update_faculty_group",
+    );
+  }
+}
+
+export async function deleteFacultyGroup(id) {
+  try {
+    await axiosInstance.delete(FACULTY_GROUP.DELETE(id));
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to delete group.",
+      "apiErrors.failed_to_delete_faculty_group",
+    );
+  }
+}
+
+/* ─── Batch CUD (`/api/batch`) — read helpers exist above ──────────────────── */
+
+export async function createBatch(body) {
+  try {
+    const { data } = await axiosInstance.post(BATCH.CREATE, body);
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to create batch.",
+      "apiErrors.failed_to_create_batch",
+    );
+  }
+}
+
+export async function updateBatch(id, body) {
+  try {
+    const { data } = await axiosInstance.put(BATCH.UPDATE(id), body);
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to update batch.",
+      "apiErrors.failed_to_update_batch",
+    );
+  }
+}
+
+export async function deleteBatch(id) {
+  try {
+    await axiosInstance.delete(BATCH.DELETE(id));
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to delete batch.",
+      "apiErrors.failed_to_delete_batch",
+    );
   }
 }
 
@@ -896,7 +1382,11 @@ export async function forgotPassword(email) {
     });
     return data;
   } catch (err) {
-    throwApiError(err, "Forgot password request failed.", "apiErrors.forgot_password_request_failed");
+    throwApiError(
+      err,
+      "Forgot password request failed.",
+      "apiErrors.forgot_password_request_failed",
+    );
   }
 }
 
@@ -913,7 +1403,11 @@ export async function resetPassword(formData) {
     const { data } = await axiosInstance.post(AUTH.RESET_PASSWORD, formData);
     return data;
   } catch (err) {
-    throwApiError(err, "Password reset failed.", "apiErrors.password_reset_failed");
+    throwApiError(
+      err,
+      "Password reset failed.",
+      "apiErrors.password_reset_failed",
+    );
   }
 }
 
@@ -931,7 +1425,11 @@ export async function verifyEmail(verification_token) {
     });
     return data;
   } catch (err) {
-    throwApiError(err, "Email verification failed.", "apiErrors.email_verification_failed");
+    throwApiError(
+      err,
+      "Email verification failed.",
+      "apiErrors.email_verification_failed",
+    );
   }
 }
 
@@ -949,17 +1447,17 @@ export async function resendVerificationEmail(email) {
     });
     return data;
   } catch (err) {
-    throwApiError(err, "Resend verification failed.", "apiErrors.resend_verification_failed");
+    throwApiError(
+      err,
+      "Resend verification failed.",
+      "apiErrors.resend_verification_failed",
+    );
   }
 }
 
 export async function changePassword(userId, formData) {
   const { current_password, new_password, confirm_password } = formData;
-  if (
-    !current_password ||
-    !new_password ||
-    new_password !== confirm_password
-  ) {
+  if (!current_password || !new_password || new_password !== confirm_password) {
     throwClientApiError(
       "Invalid passwords.",
       "apiErrors.validation.invalidPasswords",
@@ -973,7 +1471,11 @@ export async function changePassword(userId, formData) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Change password failed.", "apiErrors.change_password_failed");
+    throwApiError(
+      err,
+      "Change password failed.",
+      "apiErrors.change_password_failed",
+    );
   }
 }
 
@@ -984,7 +1486,11 @@ export async function listUsers(params = {}) {
     const { data } = await axiosInstance.get(USERS.LIST(params));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load users.", "apiErrors.failed_to_load_users");
+    throwApiError(
+      err,
+      "Failed to load users.",
+      "apiErrors.failed_to_load_users",
+    );
   }
 }
 
@@ -993,7 +1499,11 @@ export async function searchUsers(search) {
     const { data } = await axiosInstance.get(USERS.SEARCH(search || ""));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to search users.", "apiErrors.failed_to_search_users");
+    throwApiError(
+      err,
+      "Failed to search users.",
+      "apiErrors.failed_to_search_users",
+    );
   }
 }
 
@@ -1002,7 +1512,11 @@ export async function createUser(body) {
     const { data } = await axiosInstance.post(USERS.CREATE(), body);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to create user.", "apiErrors.failed_to_create_user");
+    throwApiError(
+      err,
+      "Failed to create user.",
+      "apiErrors.failed_to_create_user",
+    );
   }
 }
 
@@ -1020,7 +1534,11 @@ export async function updateUser(id, body) {
     const { data } = await axiosInstance.put(USERS.BY_ID(id), body);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to update user.", "apiErrors.failed_to_update_user");
+    throwApiError(
+      err,
+      "Failed to update user.",
+      "apiErrors.failed_to_update_user",
+    );
   }
 }
 
@@ -1028,7 +1546,11 @@ export async function deleteUser(id) {
   try {
     await axiosInstance.delete(USERS.BY_ID(id));
   } catch (err) {
-    throwApiError(err, "Failed to delete user.", "apiErrors.failed_to_delete_user");
+    throwApiError(
+      err,
+      "Failed to delete user.",
+      "apiErrors.failed_to_delete_user",
+    );
   }
 }
 
@@ -1055,7 +1577,11 @@ export async function getUserAuthorProfile(id) {
     const { data } = await axiosInstance.get(USERS.AUTHOR(id));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load author profile.", "apiErrors.failed_to_load_author_profile");
+    throwApiError(
+      err,
+      "Failed to load author profile.",
+      "apiErrors.failed_to_load_author_profile",
+    );
   }
 }
 
@@ -1064,7 +1590,11 @@ export async function getUserContributorProfile(id) {
     const { data } = await axiosInstance.get(USERS.CONTRIBUTOR(id));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load contributor.", "apiErrors.failed_to_load_contributor");
+    throwApiError(
+      err,
+      "Failed to load contributor.",
+      "apiErrors.failed_to_load_contributor",
+    );
   }
 }
 
@@ -1082,7 +1612,11 @@ export async function suspendUser(id) {
     const { data } = await axiosInstance.post(USERS.SUSPEND(id));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to suspend user.", "apiErrors.failed_to_suspend_user");
+    throwApiError(
+      err,
+      "Failed to suspend user.",
+      "apiErrors.failed_to_suspend_user",
+    );
   }
 }
 
@@ -1091,7 +1625,11 @@ export async function activateUser(id) {
     const { data } = await axiosInstance.post(USERS.ACTIVATE(id));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to activate user.", "apiErrors.failed_to_activate_user");
+    throwApiError(
+      err,
+      "Failed to activate user.",
+      "apiErrors.failed_to_activate_user",
+    );
   }
 }
 
@@ -1109,7 +1647,11 @@ export async function verifyUserEmailByAdmin(id) {
     const { data } = await axiosInstance.post(USERS.VERIFY_EMAIL(id));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to verify email.", "apiErrors.failed_to_verify_email");
+    throwApiError(
+      err,
+      "Failed to verify email.",
+      "apiErrors.failed_to_verify_email",
+    );
   }
 }
 
@@ -1118,7 +1660,11 @@ export async function postUsersStatsCount(body = {}) {
     const { data } = await axiosInstance.post(USERS.STATS_COUNT(), body);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load user statistics.", "apiErrors.failed_to_load_user_statistics");
+    throwApiError(
+      err,
+      "Failed to load user statistics.",
+      "apiErrors.failed_to_load_user_statistics",
+    );
   }
 }
 
@@ -1129,7 +1675,11 @@ export async function listRoles() {
     const { data } = await axiosInstance.get(ROLES.LIST());
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load roles.", "apiErrors.failed_to_load_roles");
+    throwApiError(
+      err,
+      "Failed to load roles.",
+      "apiErrors.failed_to_load_roles",
+    );
   }
 }
 
@@ -1138,7 +1688,11 @@ export async function createRole(body) {
     const { data } = await axiosInstance.post(ROLES.CREATE(), body);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to create role.", "apiErrors.failed_to_create_role");
+    throwApiError(
+      err,
+      "Failed to create role.",
+      "apiErrors.failed_to_create_role",
+    );
   }
 }
 
@@ -1147,7 +1701,11 @@ export async function updateRole(roleName, body) {
     const { data } = await axiosInstance.put(ROLES.BY_NAME(roleName), body);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to update role.", "apiErrors.failed_to_update_role");
+    throwApiError(
+      err,
+      "Failed to update role.",
+      "apiErrors.failed_to_update_role",
+    );
   }
 }
 
@@ -1155,7 +1713,11 @@ export async function deleteRole(roleName) {
   try {
     await axiosInstance.delete(ROLES.BY_NAME(roleName));
   } catch (err) {
-    throwApiError(err, "Failed to delete role.", "apiErrors.failed_to_delete_role");
+    throwApiError(
+      err,
+      "Failed to delete role.",
+      "apiErrors.failed_to_delete_role",
+    );
   }
 }
 
@@ -1164,29 +1726,37 @@ export async function getRolesStatsCount() {
     const { data } = await axiosInstance.get(ROLES.STATS_COUNT());
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load role statistics.", "apiErrors.failed_to_load_role_statistics");
+    throwApiError(
+      err,
+      "Failed to load role statistics.",
+      "apiErrors.failed_to_load_role_statistics",
+    );
   }
 }
 
 export async function assignRoleToUser(roleName, userId) {
   try {
-    const { data } = await axiosInstance.post(
-      ROLES.ASSIGN(roleName, userId),
-    );
+    const { data } = await axiosInstance.post(ROLES.ASSIGN(roleName, userId));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to assign role.", "apiErrors.failed_to_assign_role");
+    throwApiError(
+      err,
+      "Failed to assign role.",
+      "apiErrors.failed_to_assign_role",
+    );
   }
 }
 
 export async function removeRoleFromUser(roleName, userId) {
   try {
-    const { data } = await axiosInstance.delete(
-      ROLES.REMOVE(roleName, userId),
-    );
+    const { data } = await axiosInstance.delete(ROLES.REMOVE(roleName, userId));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to remove role.", "apiErrors.failed_to_remove_role");
+    throwApiError(
+      err,
+      "Failed to remove role.",
+      "apiErrors.failed_to_remove_role",
+    );
   }
 }
 
@@ -1197,7 +1767,11 @@ export async function createPermission(body) {
     const { data } = await axiosInstance.post(PERMISSIONS.CREATE(), body);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to create permission.", "apiErrors.failed_to_create_permission");
+    throwApiError(
+      err,
+      "Failed to create permission.",
+      "apiErrors.failed_to_create_permission",
+    );
   }
 }
 
@@ -1206,7 +1780,11 @@ export async function getPermissionsByClient(clientId) {
     const { data } = await axiosInstance.get(PERMISSIONS.BY_CLIENT(clientId));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load permissions.", "apiErrors.failed_to_load_permissions");
+    throwApiError(
+      err,
+      "Failed to load permissions.",
+      "apiErrors.failed_to_load_permissions",
+    );
   }
 }
 
@@ -1217,22 +1795,26 @@ export async function assignPermissionRoleToUser(clientId, roleName, userId) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to assign permission.", "apiErrors.failed_to_assign_permission");
+    throwApiError(
+      err,
+      "Failed to assign permission.",
+      "apiErrors.failed_to_assign_permission",
+    );
   }
 }
 
-export async function removePermissionRoleFromUser(
-  clientId,
-  roleName,
-  userId,
-) {
+export async function removePermissionRoleFromUser(clientId, roleName, userId) {
   try {
     const { data } = await axiosInstance.delete(
       PERMISSIONS.REMOVE(clientId, roleName, userId),
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to remove permission.", "apiErrors.failed_to_remove_permission");
+    throwApiError(
+      err,
+      "Failed to remove permission.",
+      "apiErrors.failed_to_remove_permission",
+    );
   }
 }
 
@@ -1240,7 +1822,11 @@ export async function deleteClientRoleBundle(clientId, roleName) {
   try {
     await axiosInstance.delete(PERMISSIONS.DELETE_ROLE(clientId, roleName));
   } catch (err) {
-    throwApiError(err, "Failed to delete client role.", "apiErrors.failed_to_delete_client_role");
+    throwApiError(
+      err,
+      "Failed to delete client role.",
+      "apiErrors.failed_to_delete_client_role",
+    );
   }
 }
 
@@ -1249,7 +1835,11 @@ export async function getPermissionClientStats(clientId) {
     const { data } = await axiosInstance.get(PERMISSIONS.STATS(clientId));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load permission stats.", "apiErrors.failed_to_load_permission_stats");
+    throwApiError(
+      err,
+      "Failed to load permission stats.",
+      "apiErrors.failed_to_load_permission_stats",
+    );
   }
 }
 
@@ -1260,7 +1850,11 @@ export async function getArticles(params = {}) {
     const { data } = await axiosInstance.get(BLOG.ARTICLES(params));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load articles.", "apiErrors.failed_to_load_articles");
+    throwApiError(
+      err,
+      "Failed to load articles.",
+      "apiErrors.failed_to_load_articles",
+    );
   }
 }
 
@@ -1269,7 +1863,11 @@ export async function getArticleById(articleId) {
     const { data } = await axiosInstance.get(BLOG.ARTICLE_BY_ID(articleId));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load article.", "apiErrors.failed_to_load_article");
+    throwApiError(
+      err,
+      "Failed to load article.",
+      "apiErrors.failed_to_load_article",
+    );
   }
 }
 
@@ -1281,7 +1879,11 @@ export async function createArticleForUser(userId, body) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to create article.", "apiErrors.failed_to_create_article");
+    throwApiError(
+      err,
+      "Failed to create article.",
+      "apiErrors.failed_to_create_article",
+    );
   }
 }
 
@@ -1293,7 +1895,11 @@ export async function createDraftForUser(userId, body) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to save draft.", "apiErrors.failed_to_save_draft");
+    throwApiError(
+      err,
+      "Failed to save draft.",
+      "apiErrors.failed_to_save_draft",
+    );
   }
 }
 
@@ -1306,7 +1912,11 @@ export async function createArticleWithMultipart(authorUserId, formData) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to create article with files.", "apiErrors.failed_to_create_article_with_files");
+    throwApiError(
+      err,
+      "Failed to create article with files.",
+      "apiErrors.failed_to_create_article_with_files",
+    );
   }
 }
 
@@ -1318,7 +1928,11 @@ export async function updateArticleJson(articleId, authorId, body) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to update article.", "apiErrors.failed_to_update_article");
+    throwApiError(
+      err,
+      "Failed to update article.",
+      "apiErrors.failed_to_update_article",
+    );
   }
 }
 
@@ -1331,7 +1945,11 @@ export async function updateArticleWithFile(articleId, authorId, formData) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to update article.", "apiErrors.failed_to_update_article");
+    throwApiError(
+      err,
+      "Failed to update article.",
+      "apiErrors.failed_to_update_article",
+    );
   }
 }
 
@@ -1343,7 +1961,11 @@ export async function publishArticle(articleId, authorId, body) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to publish article.", "apiErrors.failed_to_publish_article");
+    throwApiError(
+      err,
+      "Failed to publish article.",
+      "apiErrors.failed_to_publish_article",
+    );
   }
 }
 
@@ -1351,7 +1973,11 @@ export async function deleteArticle(articleId, authorId) {
   try {
     await axiosInstance.delete(BLOG.DELETE(articleId, authorId));
   } catch (err) {
-    throwApiError(err, "Failed to delete article.", "apiErrors.failed_to_delete_article");
+    throwApiError(
+      err,
+      "Failed to delete article.",
+      "apiErrors.failed_to_delete_article",
+    );
   }
 }
 
@@ -1362,7 +1988,11 @@ export async function getArticlesByAuthor(authorId, params = {}) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load author articles.", "apiErrors.failed_to_load_author_articles");
+    throwApiError(
+      err,
+      "Failed to load author articles.",
+      "apiErrors.failed_to_load_author_articles",
+    );
   }
 }
 
@@ -1373,7 +2003,11 @@ export async function getPublishedArticlesByAuthor(authorId, params = {}) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load published articles.", "apiErrors.failed_to_load_published_articles");
+    throwApiError(
+      err,
+      "Failed to load published articles.",
+      "apiErrors.failed_to_load_published_articles",
+    );
   }
 }
 
@@ -1384,7 +2018,11 @@ export async function getAuthorArticleDetail(authorId, articleId) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load article.", "apiErrors.failed_to_load_article");
+    throwApiError(
+      err,
+      "Failed to load article.",
+      "apiErrors.failed_to_load_article",
+    );
   }
 }
 
@@ -1393,18 +2031,24 @@ export async function postArticleComment(articleId, body) {
     const { data } = await axiosInstance.post(BLOG.COMMENTS(articleId), body);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to post comment.", "apiErrors.failed_to_post_comment");
+    throwApiError(
+      err,
+      "Failed to post comment.",
+      "apiErrors.failed_to_post_comment",
+    );
   }
 }
 
 export async function getArticleComments(articleId, params = {}) {
   try {
-    const { data } = await axiosInstance.get(
-      BLOG.COMMENTS(articleId, params),
-    );
+    const { data } = await axiosInstance.get(BLOG.COMMENTS(articleId, params));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load comments.", "apiErrors.failed_to_load_comments");
+    throwApiError(
+      err,
+      "Failed to load comments.",
+      "apiErrors.failed_to_load_comments",
+    );
   }
 }
 
@@ -1420,7 +2064,11 @@ export async function postArticleCommentReply(
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to post reply.", "apiErrors.failed_to_post_reply");
+    throwApiError(
+      err,
+      "Failed to post reply.",
+      "apiErrors.failed_to_post_reply",
+    );
   }
 }
 
@@ -1428,7 +2076,11 @@ export async function deleteArticleComment(commentId) {
   try {
     await axiosInstance.delete(BLOG.COMMENT_DELETE(commentId));
   } catch (err) {
-    throwApiError(err, "Failed to delete comment.", "apiErrors.failed_to_delete_comment");
+    throwApiError(
+      err,
+      "Failed to delete comment.",
+      "apiErrors.failed_to_delete_comment",
+    );
   }
 }
 
@@ -1437,7 +2089,11 @@ export async function likeArticle(articleId) {
     const { data } = await axiosInstance.post(BLOG.LIKES(articleId));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to like article.", "apiErrors.failed_to_like_article");
+    throwApiError(
+      err,
+      "Failed to like article.",
+      "apiErrors.failed_to_like_article",
+    );
   }
 }
 
@@ -1445,7 +2101,11 @@ export async function unlikeArticle(articleId) {
   try {
     await axiosInstance.delete(BLOG.LIKES(articleId));
   } catch (err) {
-    throwApiError(err, "Failed to remove like.", "apiErrors.failed_to_remove_like");
+    throwApiError(
+      err,
+      "Failed to remove like.",
+      "apiErrors.failed_to_remove_like",
+    );
   }
 }
 
@@ -1454,7 +2114,11 @@ export async function shareArticle(articleId, body) {
     const { data } = await axiosInstance.post(BLOG.SHARES(articleId), body);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to record share.", "apiErrors.failed_to_record_share");
+    throwApiError(
+      err,
+      "Failed to record share.",
+      "apiErrors.failed_to_record_share",
+    );
   }
 }
 
@@ -1469,7 +2133,11 @@ export async function uploadArticleImage(userId, articleId, file) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to upload image.", "apiErrors.failed_to_upload_image");
+    throwApiError(
+      err,
+      "Failed to upload image.",
+      "apiErrors.failed_to_upload_image",
+    );
   }
 }
 
@@ -1484,7 +2152,11 @@ export async function uploadArticleVideo(userId, articleId, file) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to upload video.", "apiErrors.failed_to_upload_video");
+    throwApiError(
+      err,
+      "Failed to upload video.",
+      "apiErrors.failed_to_upload_video",
+    );
   }
 }
 
@@ -1492,7 +2164,11 @@ export async function deleteBlogApiFile(fileId, articleId) {
   try {
     await axiosInstance.delete(BLOG_API_FILES.DELETE_FILE(fileId, articleId));
   } catch (err) {
-    throwApiError(err, "Failed to delete file.", "apiErrors.failed_to_delete_file");
+    throwApiError(
+      err,
+      "Failed to delete file.",
+      "apiErrors.failed_to_delete_file",
+    );
   }
 }
 
@@ -1509,7 +2185,11 @@ export async function postUniversityLogo(id, file) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to upload university logo.", "apiErrors.failed_to_upload_university_logo");
+    throwApiError(
+      err,
+      "Failed to upload university logo.",
+      "apiErrors.failed_to_upload_university_logo",
+    );
   }
 }
 
@@ -1518,7 +2198,11 @@ export async function getUniversityLogoUrl(id) {
     const { data } = await axiosInstance.get(FILE.UNIVERSITY_LOGO.GET(id));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load university logo.", "apiErrors.failed_to_load_university_logo");
+    throwApiError(
+      err,
+      "Failed to load university logo.",
+      "apiErrors.failed_to_load_university_logo",
+    );
   }
 }
 
@@ -1526,18 +2210,29 @@ export async function deleteUniversityLogo(id) {
   try {
     await axiosInstance.delete(FILE.UNIVERSITY_LOGO.DELETE(id));
   } catch (err) {
-    throwApiError(err, "Failed to delete university logo.", "apiErrors.failed_to_delete_university_logo");
+    throwApiError(
+      err,
+      "Failed to delete university logo.",
+      "apiErrors.failed_to_delete_university_logo",
+    );
   }
 }
 
 export async function downloadUniversityLogoBlob(id) {
   try {
-    const { data } = await axiosInstance.get(FILE.UNIVERSITY_LOGO.DOWNLOAD(id), {
-      responseType: "blob",
-    });
+    const { data } = await axiosInstance.get(
+      FILE.UNIVERSITY_LOGO.DOWNLOAD(id),
+      {
+        responseType: "blob",
+      },
+    );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to download logo.", "apiErrors.failed_to_download_logo");
+    throwApiError(
+      err,
+      "Failed to download logo.",
+      "apiErrors.failed_to_download_logo",
+    );
   }
 }
 
@@ -1545,14 +2240,16 @@ export async function postFacultyLogo(id, file) {
   try {
     const fd = new FormData();
     fd.append("file", file);
-    const { data } = await axiosInstance.post(
-      FILE.FACULTY_LOGO.POST(id),
-      fd,
-      { headers: { "Content-Type": "multipart/form-data" } },
-    );
+    const { data } = await axiosInstance.post(FILE.FACULTY_LOGO.POST(id), fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to upload faculty logo.", "apiErrors.failed_to_upload_faculty_logo");
+    throwApiError(
+      err,
+      "Failed to upload faculty logo.",
+      "apiErrors.failed_to_upload_faculty_logo",
+    );
   }
 }
 
@@ -1561,7 +2258,11 @@ export async function getFacultyLogoUrl(id) {
     const { data } = await axiosInstance.get(FILE.FACULTY_LOGO.GET(id));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load faculty logo.", "apiErrors.failed_to_load_faculty_logo");
+    throwApiError(
+      err,
+      "Failed to load faculty logo.",
+      "apiErrors.failed_to_load_faculty_logo",
+    );
   }
 }
 
@@ -1576,7 +2277,11 @@ export async function postDepartmentLogo(id, file) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to upload department logo.", "apiErrors.failed_to_upload_department_logo");
+    throwApiError(
+      err,
+      "Failed to upload department logo.",
+      "apiErrors.failed_to_upload_department_logo",
+    );
   }
 }
 
@@ -1585,7 +2290,11 @@ export async function getDepartmentLogoUrl(id) {
     const { data } = await axiosInstance.get(FILE.DEPARTMENT_LOGO.GET(id));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load department logo.", "apiErrors.failed_to_load_department_logo");
+    throwApiError(
+      err,
+      "Failed to load department logo.",
+      "apiErrors.failed_to_load_department_logo",
+    );
   }
 }
 
@@ -1600,7 +2309,11 @@ export async function postTeacherProfilePicture(id, file) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to upload teacher profile.", "apiErrors.failed_to_upload_teacher_profile");
+    throwApiError(
+      err,
+      "Failed to upload teacher profile.",
+      "apiErrors.failed_to_upload_teacher_profile",
+    );
   }
 }
 
@@ -1609,7 +2322,11 @@ export async function getTeacherProfilePictureUrl(id) {
     const { data } = await axiosInstance.get(FILE.TEACHER_PROFILE.GET(id));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load teacher profile.", "apiErrors.failed_to_load_teacher_profile");
+    throwApiError(
+      err,
+      "Failed to load teacher profile.",
+      "apiErrors.failed_to_load_teacher_profile",
+    );
   }
 }
 
@@ -1624,7 +2341,11 @@ export async function postEmployeeProfilePicture(file) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to upload employee profile.", "apiErrors.failed_to_upload_employee_profile");
+    throwApiError(
+      err,
+      "Failed to upload employee profile.",
+      "apiErrors.failed_to_upload_employee_profile",
+    );
   }
 }
 
@@ -1639,18 +2360,24 @@ export async function uploadBlogFileMultipart(file, ownerId, articleId) {
     });
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to upload blog file.", "apiErrors.failed_to_upload_blog_file");
+    throwApiError(
+      err,
+      "Failed to upload blog file.",
+      "apiErrors.failed_to_upload_blog_file",
+    );
   }
 }
 
 export async function getBlogFileMeta(fileId, ownerId) {
   try {
-    const { data } = await axiosInstance.get(
-      FILE.BLOG_META(fileId, ownerId),
-    );
+    const { data } = await axiosInstance.get(FILE.BLOG_META(fileId, ownerId));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load file metadata.", "apiErrors.failed_to_load_file_metadata");
+    throwApiError(
+      err,
+      "Failed to load file metadata.",
+      "apiErrors.failed_to_load_file_metadata",
+    );
   }
 }
 
@@ -1661,7 +2388,11 @@ export async function listBlogFilesForArticle(articleId, userId) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to list blog files.", "apiErrors.failed_to_list_blog_files");
+    throwApiError(
+      err,
+      "Failed to list blog files.",
+      "apiErrors.failed_to_list_blog_files",
+    );
   }
 }
 
@@ -1672,7 +2403,11 @@ export async function createNotification(body) {
     const { data } = await axiosInstance.post(NOTIFICATIONS.ROOT(), body);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to send notification.", "apiErrors.failed_to_send_notification");
+    throwApiError(
+      err,
+      "Failed to send notification.",
+      "apiErrors.failed_to_send_notification",
+    );
   }
 }
 
@@ -1681,7 +2416,11 @@ export async function resendNotification(id, body) {
     const { data } = await axiosInstance.post(NOTIFICATIONS.RESEND(id), body);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to resend notification.", "apiErrors.failed_to_resend_notification");
+    throwApiError(
+      err,
+      "Failed to resend notification.",
+      "apiErrors.failed_to_resend_notification",
+    );
   }
 }
 
@@ -1690,7 +2429,11 @@ export async function getNotificationById(id) {
     const { data } = await axiosInstance.get(NOTIFICATIONS.BY_ID(id));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load notification.", "apiErrors.failed_to_load_notification");
+    throwApiError(
+      err,
+      "Failed to load notification.",
+      "apiErrors.failed_to_load_notification",
+    );
   }
 }
 
@@ -1699,16 +2442,26 @@ export async function listNotificationsRoot(params = {}) {
     const { data } = await axiosInstance.get(NOTIFICATIONS.ROOT(params));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load notifications.", "apiErrors.failed_to_load_notifications");
+    throwApiError(
+      err,
+      "Failed to load notifications.",
+      "apiErrors.failed_to_load_notifications",
+    );
   }
 }
 
 export async function listUserNotifications(userId, params = {}) {
   try {
-    const { data } = await axiosInstance.get(NOTIFICATIONS.USER(userId, params));
+    const { data } = await axiosInstance.get(
+      NOTIFICATIONS.USER(userId, params),
+    );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load notifications.", "apiErrors.failed_to_load_notifications");
+    throwApiError(
+      err,
+      "Failed to load notifications.",
+      "apiErrors.failed_to_load_notifications",
+    );
   }
 }
 
@@ -1719,18 +2472,30 @@ export async function listUserNotificationsByType(userId, type, params = {}) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load notifications.", "apiErrors.failed_to_load_notifications");
+    throwApiError(
+      err,
+      "Failed to load notifications.",
+      "apiErrors.failed_to_load_notifications",
+    );
   }
 }
 
-export async function listUserNotificationsByStatus(userId, status, params = {}) {
+export async function listUserNotificationsByStatus(
+  userId,
+  status,
+  params = {},
+) {
   try {
     const { data } = await axiosInstance.get(
       NOTIFICATIONS.USER_BY_STATUS(userId, status, params),
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load notifications.", "apiErrors.failed_to_load_notifications");
+    throwApiError(
+      err,
+      "Failed to load notifications.",
+      "apiErrors.failed_to_load_notifications",
+    );
   }
 }
 
@@ -1741,7 +2506,11 @@ export async function getUserNotificationUnreadCount(userId) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load unread count.", "apiErrors.failed_to_load_unread_count");
+    throwApiError(
+      err,
+      "Failed to load unread count.",
+      "apiErrors.failed_to_load_unread_count",
+    );
   }
 }
 
@@ -1752,7 +2521,11 @@ export async function listNotificationsByStatusGlobally(status, params = {}) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load notifications.", "apiErrors.failed_to_load_notifications");
+    throwApiError(
+      err,
+      "Failed to load notifications.",
+      "apiErrors.failed_to_load_notifications",
+    );
   }
 }
 
@@ -1763,7 +2536,11 @@ export async function listNotificationsByTypeGlobally(type, params = {}) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load notifications.", "apiErrors.failed_to_load_notifications");
+    throwApiError(
+      err,
+      "Failed to load notifications.",
+      "apiErrors.failed_to_load_notifications",
+    );
   }
 }
 
@@ -1774,7 +2551,11 @@ export async function listNotificationsByReference(params) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load notifications.", "apiErrors.failed_to_load_notifications");
+    throwApiError(
+      err,
+      "Failed to load notifications.",
+      "apiErrors.failed_to_load_notifications",
+    );
   }
 }
 
@@ -1785,7 +2566,11 @@ export async function adminRetryFailedNotifications() {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to trigger retry.", "apiErrors.failed_to_trigger_retry");
+    throwApiError(
+      err,
+      "Failed to trigger retry.",
+      "apiErrors.failed_to_trigger_retry",
+    );
   }
 }
 
@@ -1796,18 +2581,24 @@ export async function adminCleanupNotifications(daysOld = 30) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to cleanup notifications.", "apiErrors.failed_to_cleanup_notifications");
+    throwApiError(
+      err,
+      "Failed to cleanup notifications.",
+      "apiErrors.failed_to_cleanup_notifications",
+    );
   }
 }
 
 export async function adminNotificationStatistics(params = {}) {
   try {
-    const { data } = await axiosInstance.get(
-      NOTIFICATIONS.ADMIN_STATS(params),
-    );
+    const { data } = await axiosInstance.get(NOTIFICATIONS.ADMIN_STATS(params));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load notification stats.", "apiErrors.failed_to_load_notification_stats");
+    throwApiError(
+      err,
+      "Failed to load notification stats.",
+      "apiErrors.failed_to_load_notification_stats",
+    );
   }
 }
 
@@ -1836,7 +2627,11 @@ export async function vcRefresh(body) {
     const { data } = await axiosInstance.post(VC_AUTH.REFRESH, body);
     return data;
   } catch (err) {
-    throwApiError(err, "Token refresh failed.", "apiErrors.token_refresh_failed");
+    throwApiError(
+      err,
+      "Token refresh failed.",
+      "apiErrors.token_refresh_failed",
+    );
   }
 }
 
@@ -1845,7 +2640,11 @@ export async function vcCreateRepository(body) {
     const { data } = await axiosInstance.post(VC.REPOS_CREATE, body);
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to create repository.", "apiErrors.failed_to_create_repository");
+    throwApiError(
+      err,
+      "Failed to create repository.",
+      "apiErrors.failed_to_create_repository",
+    );
   }
 }
 
@@ -1854,15 +2653,17 @@ export async function vcGetRepository(owner, repo) {
     const { data } = await axiosInstance.get(VC.REPO_DETAIL(owner, repo));
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load repository.", "apiErrors.failed_to_load_repository");
+    throwApiError(
+      err,
+      "Failed to load repository.",
+      "apiErrors.failed_to_load_repository",
+    );
   }
 }
 
 export async function vcGetRepositoryTree(owner, repo, params = {}) {
   try {
-    const { data } = await axiosInstance.get(
-      VC.REPO_TREE(owner, repo, params),
-    );
+    const { data } = await axiosInstance.get(VC.REPO_TREE(owner, repo, params));
     return data;
   } catch (err) {
     throwApiError(err, "Failed to load tree.", "apiErrors.failed_to_load_tree");
@@ -1876,6 +2677,10 @@ export async function vcGetRepositoryContents(owner, repo, path, params = {}) {
     );
     return data;
   } catch (err) {
-    throwApiError(err, "Failed to load contents.", "apiErrors.failed_to_load_contents");
+    throwApiError(
+      err,
+      "Failed to load contents.",
+      "apiErrors.failed_to_load_contents",
+    );
   }
 }

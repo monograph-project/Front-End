@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   CalendarRange,
@@ -81,7 +75,7 @@ function recordToBatchOption(record) {
   const academic = record?.academicYear;
   const ayName =
     typeof academic === "object" && academic != null
-      ? academic.name ?? ""
+      ? (academic.name ?? "")
       : "";
   const head = [name, year != null ? String(year) : "", ty]
     .filter(Boolean)
@@ -145,10 +139,7 @@ function FormSectionCard({
   children,
 }) {
   return (
-    <div
-      className="rounded-xl border bg-light-card-bg p-5 shadow-sm backdrop-blur-sm dark:border-dark-card-border border-default dark:bg-dark-card-bg dark:shadow-none sm:p-6"
-     
-    >
+    <div className="rounded-xl border bg-light-card-bg p-5 shadow-sm backdrop-blur-sm dark:border-dark-card-border border-default dark:bg-dark-card-bg dark:shadow-none sm:p-6">
       <div className="mb-5 flex gap-4">
         <div
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tintIconBox[tint]}`}
@@ -256,9 +247,7 @@ export default function StudentRegistrationWizard({
   );
 
   const roleOptions = useMemo(
-    () => [
-      { value: "STUDENT", label: t("studentForm.options.roleStudent") },
-    ],
+    () => [{ value: "STUDENT", label: t("studentForm.options.roleStudent") }],
     [t],
   );
 
@@ -387,8 +376,7 @@ export default function StudentRegistrationWizard({
       addressPostalCode: existingStudent.addressPostalCode ?? "",
       departmentId: deptSel,
       enrollmentDate:
-        existingStudent.enrollmentDate ||
-        new Date().toISOString().slice(0, 10),
+        existingStudent.enrollmentDate || new Date().toISOString().slice(0, 10),
       kankorId: existingStudent.kankorId ?? "",
       semester: existingStudent.semester || "1",
       batchId: batchSel,
@@ -431,7 +419,9 @@ export default function StudentRegistrationWizard({
           Array.isArray(q.queryKey) && q.queryKey[0] === "students",
       });
       if (studentId)
-        void queryClient.invalidateQueries({ queryKey: ["students", studentId] });
+        void queryClient.invalidateQueries({
+          queryKey: ["students", studentId],
+        });
       onCompleted?.();
     },
   });
@@ -541,11 +531,16 @@ export default function StudentRegistrationWizard({
         case 3:
           return watched?.email?.trim() || "—";
         case 4:
-          return [watched?.addressCity, watched?.addressPostalCode]
-            .filter(Boolean)
-            .join(", ") || "—";
+          return (
+            [watched?.addressCity, watched?.addressPostalCode]
+              .filter(Boolean)
+              .join(", ") || "—"
+          );
         case 5:
-          return [deptName, batchName].filter((x) => x && x !== "—").join(" · ") || "—";
+          return (
+            [deptName, batchName].filter((x) => x && x !== "—").join(" · ") ||
+            "—"
+          );
         default:
           return "";
       }
@@ -765,9 +760,7 @@ export default function StudentRegistrationWizard({
                   render={({ field }) => (
                     <Select
                       label={`${t("studentForm.fields.gender.label")} *`}
-                      placeholder={t(
-                        "studentForm.fields.gender.placeholder",
-                      )}
+                      placeholder={t("studentForm.fields.gender.placeholder")}
                       options={genderOptions}
                       value={field.value}
                       onValueChange={field.onChange}
@@ -779,16 +772,16 @@ export default function StudentRegistrationWizard({
                   label={`${t("studentForm.fields.dateOfBirth.label")} *`}
                   type="date"
                   register={register("dateOfBirth", {
-                    required: t(
-                      "studentForm.validation.dateOfBirthRequired",
-                    ),
+                    required: t("studentForm.validation.dateOfBirthRequired"),
                     validate: (v) => {
                       if (!v) return true;
                       const d = new Date(v);
                       const today = new Date();
                       d.setHours(0, 0, 0, 0);
                       today.setHours(0, 0, 0, 0);
-                      return d < today || t("studentForm.validation.dateOfBirthPast");
+                      return (
+                        d < today || t("studentForm.validation.dateOfBirthPast")
+                      );
                     },
                   })}
                   error={errors.dateOfBirth?.message}
@@ -872,9 +865,7 @@ export default function StudentRegistrationWizard({
               <Field
                 iconD={IC.contact}
                 label={`${t("studentForm.fields.addressStreet.label")} *`}
-                placeholder={t(
-                  "studentForm.fields.addressStreet.placeholder",
-                )}
+                placeholder={t("studentForm.fields.addressStreet.placeholder")}
                 register={register("addressStreet", {
                   required: t("studentForm.validation.addressStreetRequired"),
                 })}
@@ -896,9 +887,7 @@ export default function StudentRegistrationWizard({
                     "studentForm.fields.addressPostalCode.placeholder",
                   )}
                   register={register("addressPostalCode", {
-                    required: t(
-                      "studentForm.validation.addressPostalRequired",
-                    ),
+                    required: t("studentForm.validation.addressPostalRequired"),
                   })}
                   error={errors.addressPostalCode?.message}
                 />
@@ -946,9 +935,7 @@ export default function StudentRegistrationWizard({
                 {t("studentForm.batchesError")}
               </p>
             ) : null}
-            {!batchesLoading &&
-            !batchesError &&
-            batchOptions.length === 0 ? (
+            {!batchesLoading && !batchesError && batchOptions.length === 0 ? (
               <p className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning">
                 {t("studentForm.batchesEmpty")}
               </p>
@@ -972,9 +959,7 @@ export default function StudentRegistrationWizard({
                 render={({ field }) => (
                   <Select
                     label={`${t("studentForm.fields.department.label")} *`}
-                    placeholder={t(
-                      "studentForm.fields.department.placeholder",
-                    )}
+                    placeholder={t("studentForm.fields.department.placeholder")}
                     options={departmentOptions}
                     value={field.value}
                     onValueChange={field.onChange}
@@ -998,9 +983,7 @@ export default function StudentRegistrationWizard({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field
                   iconD={IC.calendar}
-                  label={`${t(
-                    "studentForm.fields.enrollmentDate.label",
-                  )} *`}
+                  label={`${t("studentForm.fields.enrollmentDate.label")} *`}
                   type="date"
                   register={register("enrollmentDate", {
                     required: t(
@@ -1011,9 +994,7 @@ export default function StudentRegistrationWizard({
                 />
                 <Field
                   label={t("studentForm.fields.kankorId.label")}
-                  placeholder={t(
-                    "studentForm.fields.kankorId.placeholder",
-                  )}
+                  placeholder={t("studentForm.fields.kankorId.placeholder")}
                   register={register("kankorId")}
                 />
               </div>
@@ -1028,9 +1009,7 @@ export default function StudentRegistrationWizard({
                   render={({ field }) => (
                     <Select
                       label={`${t("studentForm.fields.semester.label")} *`}
-                      placeholder={t(
-                        "studentForm.fields.semester.placeholder",
-                      )}
+                      placeholder={t("studentForm.fields.semester.placeholder")}
                       options={semesterOptions}
                       value={field.value}
                       onValueChange={field.onChange}
@@ -1069,9 +1048,7 @@ export default function StudentRegistrationWizard({
                 }}
                 render={({ field }) => (
                   <Select
-                    label={`${t(
-                      "studentForm.fields.status.label",
-                    )} *`}
+                    label={`${t("studentForm.fields.status.label")} *`}
                     options={statusOptions}
                     value={field.value}
                     onValueChange={field.onChange}
@@ -1246,18 +1223,12 @@ export default function StudentRegistrationWizard({
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className={[
-        "mx-auto w-full max-w-[min(100%,92rem)] pb-28",
-        className,
-      ]
+      className={["mx-auto w-full max-w-[min(100%,92rem)] pb-28", className]
         .filter(Boolean)
         .join(" ")}
     >
       <div className="card rounded-xl px-6 py-8 md:px-10 md:py-10">
-        <header
-          className="mb-8 border-default  flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-start sm:justify-between dark:border-dark-default"
-          
-        >
+        <header className="mb-8 border-default  flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-start sm:justify-between dark:border-dark-default">
           <div>
             <p
               className="text-[11px] font-semibold uppercase tracking-wider"
@@ -1311,7 +1282,9 @@ export default function StudentRegistrationWizard({
                     ].join(" ")}
                   >
                     <IconStep className="size-3.5 shrink-0" strokeWidth={2} />
-                    <span className="max-w-[8rem] truncate">{t(s.titleKey)}</span>
+                    <span className="max-w-[8rem] truncate">
+                      {t(s.titleKey)}
+                    </span>
                   </li>
                 );
               })}
@@ -1362,8 +1335,12 @@ export default function StudentRegistrationWizard({
                           !active && !done
                             ? "text-secondary dark:text-dark-secondary"
                             : "",
-                          active ? "dark:!text-[color:var(--color-dark-timeline-text)]" : "",
-                          done ? "dark:!text-[color:var(--color-chart-success)]" : "",
+                          active
+                            ? "dark:!text-[color:var(--color-dark-timeline-text)]"
+                            : "",
+                          done
+                            ? "dark:!text-[color:var(--color-chart-success)]"
+                            : "",
                         ].join(" ")}
                       >
                         {t(s.titleKey)}
@@ -1381,142 +1358,136 @@ export default function StudentRegistrationWizard({
           {/* ── Center form column (bounded width, visually centered between rails) ── */}
           <div className="min-w-0 flex-1 xl:flex xl:justify-center xl:px-2">
             <div className="w-full space-y-6 xl:max-w-[48rem] 2xl:max-w-[52rem]">
-            <div className="overflow-hidden rounded-2xl border border-(--color-light-success-border) bg-(--color-light-success-bg) p-4 sm:p-5 dark:border-(--color-dark-success-border) dark:bg-(--color-dark-success-bg)">
-              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-(--color-light-success-text) dark:text-(--color-dark-success-text)">
-                    {t("studentForm.progress.percent", {
-                      pct: progressPct,
-                    })}
-                  </p>
-                  <p className="mt-1 text-[11px] text-(--color-light-success-text) opacity-90 dark:text-(--color-dark-success-text)">
-                    {t("studentForm.progress.hint")}
-                  </p>
-                </div>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)">
-                <motion.div
-                  className="h-full rounded-full"
-                  style={{
-                    background: `linear-gradient(90deg, var(--color-chart-success), var(--color-light-timeline-accent))`,
-                  }}
-                  initial={false}
-                  animate={{ width: `${progressPct}%` }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 100,
-                    damping: 22,
-                    mass: 0.85,
-                  }}
-                />
-              </div>
-            </div>
-
-            <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
-              {stepTitle ? t(stepTitle) : ""}
-            </h2>
-
-            <LayoutGroup id="student-reg-flow">
-              <div className="min-h-[200px] space-y-5">
-                <div className="space-y-3">
-                  <AnimatePresence initial={false} mode="popLayout">
-                    {steps
-                      .filter((s) => s.id < step && s.id < 6)
-                      .map((s) => {
-                        const DoneIcon = s.icon;
-                        return (
-                          <motion.div
-                            key={`stack-${s.id}`}
-                            layout="position"
-                            initial={{ opacity: 0, y: 14 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -6 }}
-                            transition={{
-                              duration: 0.36,
-                              ease: motionEase,
-                            }}
-                            className="flex items-start gap-3 rounded-xl border border-(--color-light-border-default) bg-light-app-secondary px-4 py-3 shadow--xs dark:border-(--color-dark-border-default) dark:bg-(--color-dark-app-secondary) dark:shadow-[var(--shadow-dark-xs)]"
-                          >
-                            <span
-                              className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border-2 bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)"
-                              style={{
-                                borderColor:
-                                  "var(--color-chart-success)",
-                                color: "var(--color-chart-success)",
-                              }}
-                            >
-                              <DoneIcon className="size-4" strokeWidth={2} />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[11px] font-semibold text-primary dark:text-dark-primary">
-                                {t(s.titleKey)}
-                              </p>
-                              <p className="mt-0.5 truncate text-[11px] text-secondary dark:text-dark-secondary">
-                                {completedStepSnippet(s.id)}
-                              </p>
-                            </div>
-                            <CheckCircle2
-                              className="mt-1 size-4 shrink-0"
-                              strokeWidth={2}
-                              aria-hidden
-                              style={{ color: "var(--color-chart-success)" }}
-                            />
-                          </motion.div>
-                        );
+              <div className="overflow-hidden rounded-2xl border border-(--color-light-success-border) bg-(--color-light-success-bg) p-4 sm:p-5 dark:border-(--color-dark-success-border) dark:bg-(--color-dark-success-bg)">
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-(--color-light-success-text) dark:text-(--color-dark-success-text)">
+                      {t("studentForm.progress.percent", {
+                        pct: progressPct,
                       })}
-                  </AnimatePresence>
+                    </p>
+                    <p className="mt-1 text-[11px] text-(--color-light-success-text) opacity-90 dark:text-(--color-dark-success-text)">
+                      {t("studentForm.progress.hint")}
+                    </p>
+                  </div>
                 </div>
-                <AnimatePresence mode="wait">
-                  {stepContent()}
-                </AnimatePresence>
+                <div className="h-2 overflow-hidden rounded-full bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{
+                      background: `linear-gradient(90deg, var(--color-chart-success), var(--color-light-timeline-accent))`,
+                    }}
+                    initial={false}
+                    animate={{ width: `${progressPct}%` }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 100,
+                      damping: 22,
+                      mass: 0.85,
+                    }}
+                  />
+                </div>
               </div>
-            </LayoutGroup>
 
-            <footer
-              className="mt-10 flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between dark:border-dark-border-default"
-              
-            >
-              <div className="flex items-center gap-2 text-[11px] text-muted dark:text-dark-muted">
-                <Clock3 className="size-3.5 shrink-0 opacity-70" />
-                <span>{t("studentForm.savedHint")}</span>
-              </div>
-              <div className="flex flex-wrap justify-end gap-2">
-                {step > 1 ? (
-                  <Button type="button" variant="secondary" onClick={goPrev}>
-                    {t("studentForm.actions.back")}
-                  </Button>
-                ) : null}
-                {step < steps.length ? (
-                  <button
-                    type="button"
-                    onClick={() => void goNext()}
-                    disabled={
-                      (step === 5 &&
-                        (deptSelectDisabled || batchSelectDisabled)) ||
-                      createMutation.isPending ||
-                      updateMutation.isPending
-                    }
-                    className="btn-primary min-h-9 rounded-full px-6 text-xs"
-                  >
-                    {t("studentForm.actions.continue")}
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={
-                      createMutation.isPending || updateMutation.isPending
-                    }
-                    className="btn-primary min-h-9 min-w-40 rounded-full px-6 text-xs"
-                  >
-                    {createMutation.isPending || updateMutation.isPending
-                      ? t("studentForm.actions.submitting")
-                      : isEdit
-                        ? t("studentForm.actions.save")
-                        : t("studentForm.actions.create")}
-                  </button>
-                )}
-              </div>
-            </footer>
+              <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                {stepTitle ? t(stepTitle) : ""}
+              </h2>
+
+              <LayoutGroup id="student-reg-flow">
+                <div className="min-h-[200px] space-y-5">
+                  <div className="space-y-3">
+                    <AnimatePresence initial={false} mode="popLayout">
+                      {steps
+                        .filter((s) => s.id < step && s.id < 6)
+                        .map((s) => {
+                          const DoneIcon = s.icon;
+                          return (
+                            <motion.div
+                              key={`stack-${s.id}`}
+                              layout="position"
+                              initial={{ opacity: 0, y: 14 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -6 }}
+                              transition={{
+                                duration: 0.36,
+                                ease: motionEase,
+                              }}
+                              className="flex items-start gap-3 rounded-xl border border-(--color-light-border-default) bg-light-app-secondary px-4 py-3 shadow--xs dark:border-(--color-dark-border-default) dark:bg-(--color-dark-app-secondary) dark:shadow-[var(--shadow-dark-xs)]"
+                            >
+                              <span
+                                className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border-2 bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)"
+                                style={{
+                                  borderColor: "var(--color-chart-success)",
+                                  color: "var(--color-chart-success)",
+                                }}
+                              >
+                                <DoneIcon className="size-4" strokeWidth={2} />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-semibold text-primary dark:text-dark-primary">
+                                  {t(s.titleKey)}
+                                </p>
+                                <p className="mt-0.5 truncate text-[11px] text-secondary dark:text-dark-secondary">
+                                  {completedStepSnippet(s.id)}
+                                </p>
+                              </div>
+                              <CheckCircle2
+                                className="mt-1 size-4 shrink-0"
+                                strokeWidth={2}
+                                aria-hidden
+                                style={{ color: "var(--color-chart-success)" }}
+                              />
+                            </motion.div>
+                          );
+                        })}
+                    </AnimatePresence>
+                  </div>
+                  <AnimatePresence mode="wait">{stepContent()}</AnimatePresence>
+                </div>
+              </LayoutGroup>
+
+              <footer className="mt-10 flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between dark:border-dark-border-default">
+                <div className="flex items-center gap-2 text-[11px] text-muted dark:text-dark-muted">
+                  <Clock3 className="size-3.5 shrink-0 opacity-70" />
+                  <span>{t("studentForm.savedHint")}</span>
+                </div>
+                <div className="flex flex-wrap justify-end gap-2">
+                  {step > 1 ? (
+                    <Button type="button" variant="secondary" onClick={goPrev}>
+                      {t("studentForm.actions.back")}
+                    </Button>
+                  ) : null}
+                  {step < steps.length ? (
+                    <button
+                      type="button"
+                      onClick={() => void goNext()}
+                      disabled={
+                        (step === 5 &&
+                          (deptSelectDisabled || batchSelectDisabled)) ||
+                        createMutation.isPending ||
+                        updateMutation.isPending
+                      }
+                      className="btn-primary min-h-9   px-6 text-xs"
+                    >
+                      {t("studentForm.actions.continue")}
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={
+                        createMutation.isPending || updateMutation.isPending
+                      }
+                      className="btn-primary min-h-9 min-w-40 rounded-full px-6 text-xs"
+                    >
+                      {createMutation.isPending || updateMutation.isPending
+                        ? t("studentForm.actions.submitting")
+                        : isEdit
+                          ? t("studentForm.actions.save")
+                          : t("studentForm.actions.create")}
+                    </button>
+                  )}
+                </div>
+              </footer>
             </div>
           </div>
 
@@ -1529,10 +1500,7 @@ export default function StudentRegistrationWizard({
               <p className="mt-1 text-[11px] text-muted dark:text-dark-muted">
                 {t("studentForm.summary.subtitle")}
               </p>
-              <ul
-                className="mt-5 space-y-3 border-t pt-5 text-[11px] dark:border-dark-default border-default"
-                
-              >
+              <ul className="mt-5 space-y-3 border-t pt-5 text-[11px] dark:border-dark-default border-default">
                 <SummaryLine
                   label={t("studentForm.fields.username.label")}
                   value={
@@ -1596,10 +1564,7 @@ export default function StudentRegistrationWizard({
 
 function SummaryLine({ label, value }) {
   return (
-    <li
-      className="flex justify-between gap-3 border-b pb-2 last:border-0 last:pb-0 dark:border-dark-default border-default"
-      
-    >
+    <li className="flex justify-between gap-3 border-b pb-2 last:border-0 last:pb-0 dark:border-dark-default border-default">
       <span className="shrink-0 text-muted dark:text-dark-muted">{label}</span>
       <span className="min-w-0 text-right font-medium text-primary dark:text-dark-primary">
         {value}

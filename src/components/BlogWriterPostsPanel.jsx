@@ -11,7 +11,7 @@ export default function BlogWriterPostsPanel({
   const { t } = useTranslation();
 
   return (
-    <div className="rounded-md border border-default bg-shell p-5 dark:border-dark-default dark:bg-dark-shell">
+    <div className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-5 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
       <div>
         <p className="text-sm font-semibold text-primary dark:text-dark-primary">
           {t("blogAdmin.detail.writerPosts.title", { author })}
@@ -26,7 +26,7 @@ export default function BlogWriterPostsPanel({
             <Link
               key={item.id}
               to={`/admin/blogs/${item.id}`}
-              className="flex items-start justify-between gap-4 rounded-md border border-default bg-card p-4 transition-colors hover:bg-card-2 dark:border-dark-default dark:bg-dark-card dark:hover:bg-dark-card-2"
+              className="flex items-start justify-between gap-4 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 transition-colors hover:border-(--color-light-input-border-focus) dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:hover:border-(--color-dark-input-border-focus)"
             >
               <div>
                 <p className="text-sm font-semibold text-primary dark:text-dark-primary">

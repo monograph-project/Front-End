@@ -8,7 +8,11 @@ import { decodeJwtPayload } from "../lib/authSession";
 import { finalizeAuthProfile } from "./roleModel";
 import { authUsesCookieRefresh } from "./httpCredentials";
 import { enqueueBackendRefresh } from "./refreshCoordinator";
-import { clearAuthStorage, getStoredAccessToken } from "./storageBridge";
+import {
+  clearAuthStorage,
+  getStoredAccessToken,
+  hydrateTokensFromStorage,
+} from "./storageBridge";
 
 export async function fetchCurrentGatewayUser() {
   const { data } = await apiClient.get(AUTH.ME);
@@ -66,6 +70,21 @@ export async function hydrateFromCookieBootstrap() {
   if (!authUsesCookieRefresh()) return null;
   const next = await enqueueBackendRefresh();
   if (!next) return null;
+  try {
+    return await fetchCurrentGatewayUser();
+  } catch {
+    clearAuthStorage();
+    return null;
+  }
+}
+
+/** Cold-load when SPA manages bearer access + refresh tokens. */
+export async function hydrateFromStoredBearerSession() {
+  if (authUsesCookieRefresh()) return null;
+
+  hydrateTokensFromStorage();
+  if (!getStoredAccessToken()) return null;
+
   try {
     return await fetchCurrentGatewayUser();
   } catch {

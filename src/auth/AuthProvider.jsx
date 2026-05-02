@@ -7,10 +7,17 @@ import {
   useState,
 } from "react";
 import AuthBootstrapOverlay from "./AuthBootstrapOverlay";
-import { hydrateFromCookieBootstrap, logoutLocalGateway } from "./authService";
+import {
+  hydrateFromCookieBootstrap,
+  hydrateFromStoredBearerSession,
+  logoutLocalGateway,
+} from "./authService";
 import { authUsesCookieRefresh } from "./httpCredentials";
 import { userHasNormalizedRole } from "./routeRoleGate";
-import { clearAuthStorage, getStoredAccessToken } from "./storageBridge";
+import {
+  clearAuthStorage,
+  getStoredAccessToken,
+} from "./storageBridge";
 
 export const AuthReactContext = createContext(null);
 
@@ -24,9 +31,10 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!authUsesCookieRefresh()) return;
       try {
-        const nextUser = await hydrateFromCookieBootstrap();
+        const nextUser = authUsesCookieRefresh()
+          ? await hydrateFromCookieBootstrap()
+          : await hydrateFromStoredBearerSession();
         if (!cancelled && nextUser) setUser(nextUser);
       } finally {
         if (!cancelled) setCookieBootPending(false);

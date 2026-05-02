@@ -9,7 +9,8 @@ export const API_BASE_URL = stripSlash(
   typeof envApiBase === "string" ? envApiBase : "",
 );
 
-const gw = (path) => `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+const gw = (path) =>
+  `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 
 /** Append query object to URL (skips null/undefined). */
 export function withQuery(path, params = {}) {
@@ -60,7 +61,8 @@ export const USERS = {
     gw(`/api/v1/users/by-email/${encodeURIComponent(email)}`),
   AUTHOR: (id) => gw(`/api/v1/users/author/${id}`),
   CONTRIBUTOR: (id) => gw(`/api/v1/users/contributor/${id}`),
-  WITH_ROLE: (id, roleName) => gw(`/api/v1/users/${id}/${encodeURIComponent(roleName)}`),
+  WITH_ROLE: (id, roleName) =>
+    gw(`/api/v1/users/${id}/${encodeURIComponent(roleName)}`),
   SUSPEND: (id) => gw(`/api/v1/users/${id}/suspend`),
   ACTIVATE: (id) => gw(`/api/v1/users/${id}/activate`),
   LOCK: (id, durationMinutes = 30) =>
@@ -110,8 +112,7 @@ export const PERMISSIONS = {
 
 /** Blog Service — `/api/v1/articles` */
 export const BLOG = {
-  ARTICLES: (params = {}) =>
-    gw(withQuery("/api/v1/articles", params)),
+  ARTICLES: (params = {}) => gw(withQuery("/api/v1/articles", params)),
   ARTICLE_BY_ID: (articleId) => gw(`/api/v1/articles/${articleId}`),
   ARTICLES_BY_AUTHOR: (authorId, params = {}) =>
     gw(
@@ -137,9 +138,7 @@ export const BLOG = {
   DRAFT_FOR_USER: (userId) =>
     gw(`/api/v1/articles/drafts/users/${encodeURIComponent(userId)}`),
   WITH_FILES_AUTHOR: (author) =>
-    gw(
-      `/api/v1/articles/with-files/author/${encodeURIComponent(author)}`,
-    ),
+    gw(`/api/v1/articles/with-files/author/${encodeURIComponent(author)}`),
   UPDATE_JSON: (articleId, authorId) =>
     gw(
       `/api/v1/articles/${encodeURIComponent(articleId)}/author/${encodeURIComponent(authorId)}`,
@@ -238,14 +237,14 @@ export const FILE = {
 export const NOTIFICATIONS = {
   ROOT: (params = {}) => gw(withQuery("/api/v1/notifications", params)),
   BY_ID: (id) => gw(`/api/v1/notifications/${encodeURIComponent(id)}`),
-  RESEND: (id) =>
-    gw(`/api/v1/notifications/${encodeURIComponent(id)}/resend`),
+  RESEND: (id) => gw(`/api/v1/notifications/${encodeURIComponent(id)}/resend`),
   USER: (userId, params = {}) =>
     gw(
-      withQuery(
-        `/api/v1/notifications/user/${encodeURIComponent(userId)}`,
-        { page: 0, size: 20, ...params },
-      ),
+      withQuery(`/api/v1/notifications/user/${encodeURIComponent(userId)}`, {
+        page: 0,
+        size: 20,
+        ...params,
+      }),
     ),
   USER_BY_TYPE: (userId, type, params = {}) =>
     gw(
@@ -262,9 +261,7 @@ export const NOTIFICATIONS = {
       ),
     ),
   USER_UNREAD_COUNT: (userId) =>
-    gw(
-      `/api/v1/notifications/user/${encodeURIComponent(userId)}/unread-count`,
-    ),
+    gw(`/api/v1/notifications/user/${encodeURIComponent(userId)}/unread-count`),
   BY_STATUS: (status, params = {}) =>
     gw(
       withQuery(
@@ -281,8 +278,7 @@ export const NOTIFICATIONS = {
     ),
   BY_REFERENCE: (params) =>
     gw(withQuery(`/api/v1/notifications/reference`, params)),
-  ADMIN_RETRY_FAILED: () =>
-    gw("/api/v1/notifications/admin/retry-failed"),
+  ADMIN_RETRY_FAILED: () => gw("/api/v1/notifications/admin/retry-failed"),
   ADMIN_CLEANUP: (daysOld = 30) =>
     gw(`/api/v1/notifications/admin/cleanup?daysOld=${daysOld}`),
   ADMIN_STATS: (params = {}) =>
@@ -328,44 +324,87 @@ export const VC = {
 
 /** Student resource on the gateway (`VITE_API_BASE_URL`). */
 export const STUDENT = {
-  GETALL: gw("/students"),
-  GETBYID: (id) => gw(`/students/${id}`),
-  CREATE: gw("/students"),
-  UPDATE: (id) => gw(`/students/${id}`),
-  DELETE: (id) => gw(`/students/${id}`),
+  GETALL: gw("/api/student"),
+  GETBYID: (id) => gw(`/api/student/${id}`),
+  CREATE: gw("/api/student"),
+  UPDATE: (id) => gw(`/api/student/${id}`),
+  DELETE: (id) => gw(`/api/student/${id}`),
 };
 
 /** Departments on the gateway (`VITE_API_BASE_URL`). */
 export const DEPARTMENT = {
-  GETALL: gw("/departments"),
-  GETBYID: (id) => gw(`/departments/${id}`),
-  CREATE: gw("/departments"),
-  UPDATE: (id) => gw(`/departments/${id}`),
-  DELETE: (id) => gw(`/departments/${id}`),
+  GETALL: gw("/api/department"),
+  GETBYID: (id) => gw(`/api/department/${id}`),
+  CREATE: gw("/api/department"),
+  UPDATE: (id) => gw(`/api/department/${id}`),
+  DELETE: (id) => gw(`/api/department/${id}`),
 };
 
-/** Batches (intake cohorts) — same gateway as students. */
+/** Batches (intake cohorts) — faculty service `/api/batch`. */
 export const BATCH = {
-  GETALL: gw("/batches"),
-  GETBYID: (id) => gw(`/batches/${id}`),
+  LIST: (params = {}) => gw(withQuery("/api/batch", params)),
+  GETALL: gw("/api/batch"),
+  GETBYID: (id) => gw(`/api/batch/${encodeURIComponent(id)}`),
+  CREATE: gw("/api/batch"),
+  UPDATE: (id) => gw(`/api/batch/${encodeURIComponent(id)}`),
+  DELETE: (id) => gw(`/api/batch/${encodeURIComponent(id)}`),
+};
+
+/** Academic year — `/api/academic-year` */
+export const ACADEMIC_YEAR = {
+  LIST: (params = {}) => gw(withQuery("/api/academic-year", params)),
+  BY_ID: (id) =>
+    gw(`/api/academic-year/${encodeURIComponent(id)}`),
+  CREATE: gw("/api/academic-year"),
+  UPDATE: (id) =>
+    gw(`/api/academic-year/${encodeURIComponent(id)}`),
+  DELETE: (id) =>
+    gw(`/api/academic-year/${encodeURIComponent(id)}`),
+};
+
+/** Semester — `/api/semester` */
+export const SEMESTER = {
+  LIST: (params = {}) => gw(withQuery("/api/semester", params)),
+  BY_ID: (id) => gw(`/api/semester/${encodeURIComponent(id)}`),
+  CREATE: gw("/api/semester"),
+  UPDATE: (id) => gw(`/api/semester/${encodeURIComponent(id)}`),
+  DELETE: (id) => gw(`/api/semester/${encodeURIComponent(id)}`),
+};
+
+/** Faculty project — `/api/project` */
+export const FACULTY_PROJECT = {
+  LIST: (params = {}) => gw(withQuery("/api/project", params)),
+  BY_ID: (id) => gw(`/api/project/${encodeURIComponent(id)}`),
+  CREATE: gw("/api/project"),
+  UPDATE: (id) => gw(`/api/project/${encodeURIComponent(id)}`),
+  DELETE: (id) => gw(`/api/project/${encodeURIComponent(id)}`),
+};
+
+/** Student group — `/api/group` */
+export const FACULTY_GROUP = {
+  LIST: (params = {}) => gw(withQuery("/api/group", params)),
+  BY_ID: (id) => gw(`/api/group/${encodeURIComponent(id)}`),
+  CREATE: gw("/api/group"),
+  UPDATE: (id) => gw(`/api/group/${encodeURIComponent(id)}`),
+  DELETE: (id) => gw(`/api/group/${encodeURIComponent(id)}`),
 };
 
 /** Faculty-service teachers (same gateway base as students unless proxied). */
 export const TEACHER = {
-  GETALL: gw("/teachers"),
-  GETBYID: (id) => gw(`/teachers/${id}`),
-  CREATE: gw("/teachers"),
-  UPDATE: (id) => gw(`/teachers/${id}`),
-  DELETE: (id) => gw(`/teachers/${id}`),
+  GETALL: gw("/api/teacher"),
+  GETBYID: (id) => gw(`/api/teacher/${id}`),
+  CREATE: gw("/api/teacher"),
+  UPDATE: (id) => gw(`/api/teacher/${id}`),
+  DELETE: (id) => gw(`/api/teacher/${id}`),
 };
 
 /** Faculty-service employees. */
 export const EMPLOYEE = {
-  GETALL: gw("/employees"),
-  GETBYID: (id) => gw(`/employees/${id}`),
-  CREATE: gw("/employees"),
-  UPDATE: (id) => gw(`/employees/${id}`),
-  DELETE: (id) => gw(`/employees/${id}`),
+  GETALL: gw("/api/employee"),
+  GETBYID: (id) => gw(`/api/employee/${id}`),
+  CREATE: gw("/api/employee"),
+  UPDATE: (id) => gw(`/api/employee/${id}`),
+  DELETE: (id) => gw(`/api/employee/${id}`),
 };
 
 /**
@@ -377,6 +416,10 @@ export const ROUTES = {
   STUDENT,
   DEPARTMENT,
   BATCH,
+  ACADEMIC_YEAR,
+  SEMESTER,
+  FACULTY_PROJECT,
+  FACULTY_GROUP,
   TEACHER,
   EMPLOYEE,
 };

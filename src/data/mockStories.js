@@ -284,6 +284,7 @@ export function filterAndSortStories(tabStories, criteria) {
       const blob = [
         s.title,
         s.subtitle,
+        s.description,
         stripHtml(s.content || ""),
       ]
         .filter(Boolean)

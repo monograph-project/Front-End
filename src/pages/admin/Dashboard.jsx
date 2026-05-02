@@ -182,21 +182,22 @@ const STAT_SETS = {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const stats = STAT_SETS[user?.role] ?? STAT_SETS.student;
 
   return (
     <div className="flex flex-1 flex-col gap-[14px] overflow-y-auto bg-shell p-4 md:p-5 dark:bg-dark-shell">
       
 
       <div className=" grid grid-cols-2 lg:grid-cols-4  gap-3">
-        {[1,12,3,].map((s) => (
+        {stats.map((stat) => (
           <StatCard
-            key={s.label}
-            icon={s.icon}
-            label={s.label}
-            value={s.value}
-            delta={s.delta}
-            deltaDir={s.deltaDir}
-            period={s.period}
+            key={stat.label}
+            icon={stat.icon}
+            label={stat.label}
+            value={stat.value}
+            delta={stat.delta}
+            deltaDir={stat.deltaDir}
+            period={stat.period}
           />
         ))}
       </div>

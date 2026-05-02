@@ -1,11 +1,23 @@
-import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import {
+  ArrowUpDown,
+  BadgeCheck,
+  CalendarDays,
+  Columns3,
+  EyeOff,
+  Filter,
+  Hash,
+  LayoutGrid,
+  LayoutList,
+  ShieldCheck,
+  UserSquare2,
+} from "lucide-react";
 import {
   DropdownContent,
   DropdownItem,
-  DropdownLabel,
   DropdownMenuRoot,
   DropdownSeparator,
   DropdownTrigger,
@@ -19,121 +31,202 @@ import TableColumn from "../../components/TableColumn";
 import TableHeader from "../../components/TableHeader";
 import TableRow from "../../components/TableRow";
 import Pagination from "../../components/Pagination";
-import AvatarDemo from "./../../components/Avatar";
-import Checkbox from "./../../components/Checkbox";
-import Field from "../../components/Field";
+import AvatarDemo from "../../components/Avatar";
+import Checkbox from "../../components/Checkbox";
 import Button from "../../components/Button";
+import Field from "../../components/Field";
 import GlobalModal from "../../components/GlobalModal";
+import TableToolbar from "../../components/TableToolbar";
+import StatusPill, {
+  statusToPillVariant,
+} from "../../components/StatusPill";
+import { normalizeUserPayload } from "../../lib/roles";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { useDeleteUser, useUsersList } from "../../services/useApi";
 
-function Users() {
-  const { t } = useTranslation();
-  const [search, setSearch] = useState("");
-  const [editUser, setEditUser] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [deleteUserId, setDeleteUserId] = useState(null);
+const EMPTY = [];
+
+function unwrapUsersPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object") return EMPTY;
+  const nested =
+    payload.data ??
+    payload.content ??
+    payload.items ??
+    payload.records ??
+    payload.results ??
+    payload.users;
+  return Array.isArray(nested) ? nested : EMPTY;
+}
+
+function normalizeUserRow(raw) {
+  const user = normalizeUserPayload(raw);
+  const roles = Array.isArray(raw?.roles)
+    ? raw.roles.map((role) => String(role))
+    : EMPTY;
+  const firstRegistered =
+    raw?.createdAt ??
+    raw?.created_at ??
+    raw?.registered ??
+    raw?.registered_at ??
+    raw?.joined ??
+    raw?.updatedAt ??
+    raw?.updated_at ??
+    "";
+  const status = String(raw?.status ?? "ACTIVE").trim().toLowerCase() || "active";
+
+  return {
+    ...raw,
+    ...user,
+    id: user.id ?? raw?.id ?? "",
+    displayName:
+      user.fullName ||
+      [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
+      user.user_name ||
+      user.email ||
+      "",
+    roleKey: user.role ?? "student",
+    roles,
+    status,
+    registered: firstRegistered,
+  };
+}
+
+export default function Users() {
   const navigate = useNavigate();
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      user: "Test Admin",
-      email: "admin@test.com",
-      role: "admin",
-      status: "active",
-      registered: "2024-01-15",
-    },
-    {
-      id: 2,
-      user: "Elyas Admin",
-      email: "elyas@gmail.com",
-      role: "admin",
-      status: "active",
-      registered: "2024-01-10",
-    },
-    {
-      id: 3,
-      user: "John Teacher",
-      email: "teacher@school.com",
-      role: "teacher",
-      status: "active",
-      registered: "2024-01-12",
-    },
-    {
-      id: 4,
-      user: "Sam Student",
-      email: "student@school.edu",
-      role: "student",
-      status: "pending",
-      registered: "2024-01-20",
-    },
-    {
-      id: 5,
-      user: "Pat Staff",
-      email: "staff@school.edu",
-      role: "staff",
-      status: "suspended",
-      registered: "2024-01-18",
-    },
-    {
-      id: 6,
-      user: "Dana Dean",
-      email: "dean@school.edu",
-      role: "dean",
-      status: "rejected",
-      registered: "2024-01-05",
-    },
-    {
-      id: 7,
-      user: "Riley User",
-      email: "user@test.com",
-      role: "user",
-      status: "active",
-      registered: "2024-01-22",
-    },
-    {
-      id: 8,
-      user: "Mohammad Student",
-      email: "mohammad@gmail.com",
-      role: "student",
-      status: "pending",
-      registered: "2024-01-25",
-    },
-    {
-      id: 9,
-      user: "Alice Admin",
-      email: "alice@admin.com",
-      role: "admin",
-      status: "active",
-      registered: "2024-02-01",
-    },
-    {
-      id: 10,
-      user: "Bob Teacher",
-      email: "bob@teacher.com",
-      role: "teacher",
-      status: "suspended",
-      registered: "2024-02-10",
-    },
-  ]);
+  const queryClient = useQueryClient();
+  const { t, i18n } = useTranslation();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearch = useDebouncedValue(searchInput, 400);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [viewTab, setViewTab] = useState("list");
+  const [deleteUserId, setDeleteUserId] = useState(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
-  const headerData = [
-    { title: "" },
-    { title: t("adminUsers.table.id") },
-    { title: t("adminUsers.table.user") },
-    { title: t("adminUsers.table.role") },
-    { title: t("adminUsers.table.status") },
-    { title: t("adminUsers.table.registered") },
-    { title: t("adminUsers.table.actions") },
-  ];
-
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch = [user.user, user.email, user.role]
-      .join(" ")
-      .toLowerCase()
-      .includes(search.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || user.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  const deleteUserMutation = useDeleteUser({
+    showSuccessToast: false,
+    showErrorToast: false,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        predicate: (q) =>
+          Array.isArray(q.queryKey) && q.queryKey[0] === "users",
+      });
+    },
   });
+
+  const { data, isLoading, isError, error } = useUsersList();
+
+  const users = useMemo(
+    () => unwrapUsersPayload(data).map(normalizeUserRow).filter(Boolean),
+    [data],
+  );
+
+  const filteredUsers = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    return users.filter((user) => {
+      const matchesSearch =
+        !q ||
+        [
+          user.displayName,
+          user.email,
+          user.user_name,
+          user.username,
+          user.roleKey,
+          ...(Array.isArray(user.roles) ? user.roles : EMPTY),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      const matchesStatus =
+        statusFilter === "all" || user.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [debouncedSearch, statusFilter, users]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter]);
+
+  const totalElements = filteredUsers.length;
+  const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
+  const start = (page - 1) * pageSize;
+  const pageUsers = filteredUsers.slice(start, start + pageSize);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const deletingUser = filteredUsers.find(
+    (row) => String(row.id) === String(deleteUserId),
+  );
+
+  const headerData = useMemo(
+    () => [
+      { title: "" },
+      {
+        title: t("adminUsers.table.id"),
+        icon: (
+          <Hash className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+        ),
+      },
+      {
+        title: t("adminUsers.table.user"),
+        icon: (
+          <UserSquare2
+            className="size-3.5 shrink-0"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ),
+      },
+      {
+        title: t("adminUsers.table.role"),
+        icon: (
+          <ShieldCheck
+            className="size-3.5 shrink-0"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ),
+      },
+      {
+        title: t("adminUsers.table.status"),
+        hint: true,
+        icon: (
+          <BadgeCheck
+            className="size-3.5 shrink-0"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ),
+      },
+      {
+        title: t("adminUsers.table.registered"),
+        hint: true,
+        icon: (
+          <CalendarDays
+            className="size-3.5 shrink-0"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ),
+      },
+      {
+        title: t("adminUsers.table.actions"),
+        align: "center",
+      },
+    ],
+    [t],
+  );
+
+  const locale =
+    i18n.language === "ps"
+      ? "ps-AF"
+      : i18n.language === "prs"
+        ? "fa-AF"
+        : "en-US";
 
   const statusOptions = [
     { value: "all", label: t("adminShared.filters.allStatus") },
@@ -143,368 +236,492 @@ function Users() {
     { value: "suspended", label: t("adminShared.status.suspended") },
   ];
 
+  const exportToCSV = () => {
+    const headers = [
+      "ID",
+      "Full Name",
+      "Username",
+      "Email",
+      "Role",
+      "Status",
+      "Registered",
+    ];
+    const csvContent = [
+      headers.join(","),
+      ...filteredUsers.map((user) =>
+        [
+          user.id,
+          user.displayName,
+          user.user_name || user.username || "",
+          user.email || "",
+          user.roleKey,
+          user.status,
+          user.registered,
+        ]
+          .map((field) => `"${field ?? ""}"`)
+          .join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "users.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (deleteUserId == null || deleteSubmitting) return;
+    setDeleteSubmitting(true);
+    try {
+      await deleteUserMutation.mutateAsync(deleteUserId);
+      window.GooeyToaster?.success?.(t("adminUsers.delete.success"));
+      setDeleteUserId(null);
+    } catch (e) {
+      window.GooeyToaster?.error?.(
+        e?.message || t("adminUsers.delete.error"),
+      );
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 flex-col gap-[14px] overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+        <div className="flex h-64 items-center justify-center text-primary dark:text-dark-primary">
+          {t("adminUsers.loading")}
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-1 flex-col gap-[14px] overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+        <div className="flex h-64 flex-col items-center justify-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-light-error-bg dark:bg-dark-error-bg">
+            <Icon
+              d={IC.x}
+              className="h-5 w-5 text-light-error-text dark:text-dark-error-text"
+            />
+          </div>
+          <div className="text-center">
+            <p className="font-medium text-primary dark:text-dark-primary">
+              {t("apiErrors.failed_to_load_users")}
+            </p>
+            <p className="mt-1 max-w-md text-sm text-muted dark:text-dark-muted">
+              {error?.message}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col  bg-shell dark:bg-dark-shell">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-primary dark:text-dark-primary">
+          <h1 className="mb-1 text-2xl font-bold text-primary dark:text-dark-primary">
             {t("adminUsers.header.title")}
           </h1>
           <p className="text-muted dark:text-dark-muted">
-            {t("adminUsers.header.description", { count: filteredUsers.length })}
+            {t("adminUsers.header.description", {
+              count: totalElements,
+            })}
           </p>
         </div>
-      </div>
 
-      <div className=" rounded-md my-2  overflow-hidden border border-default dark:border-dark-default ">
-        <div className="flex flex-col px-3 sm:flex-row py-2 my-2 border-b border-default dark:border-dark-default gap-3">
-          <div className="relative">
-            <Icon
-              d={IC.search}
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 "
-            />
-            <input
-              type="text"
-              placeholder={t("adminUsers.filters.searchPlaceholder")}
-              className="w-full pl-10 pr-4 bg-transparent py-1.5 focus:border-default dark:focus:border-dark-default  rounded-md border border-default dark:border-dark-default    transition-all"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        <div className="flex items-center gap-3">
+          <div className="flex-none">
+            <DropdownMenuRoot>
+              <DropdownTrigger>{t("adminShared.labels.actions")}</DropdownTrigger>
+              <DropdownContent align="end">
+                <DropdownItem
+                  icon={<Icon d={IC.download} className="size-4" />}
+                  onClick={exportToCSV}
+                >
+                  {t("adminShared.actions.download")}
+                </DropdownItem>
+                <DropdownItem
+                  icon={<Icon d={IC.upload} className="size-4" />}
+                  onClick={() =>
+                    window.GooeyToaster?.info?.(
+                      t("adminUsers.toolbar.importPending"),
+                    )
+                  }
+                >
+                  {t("adminUsers.toolbar.import")}
+                </DropdownItem>
+              </DropdownContent>
+            </DropdownMenuRoot>
           </div>
 
-          <div className=" w-70">
-            <Select
-              options={statusOptions}
-              value={statusFilter}
-              onValueChange={setStatusFilter}
-            />
+          <div className="flex-none">
+            <Button
+              onClick={() =>
+                window.GooeyToaster?.info?.(t("adminUsers.actions.addPending"))
+              }
+            >
+              {t("adminUsers.actions.add")}
+            </Button>
           </div>
         </div>
-        <div className="px-3 py-3">
-          <Table>
-            <TableHeader headerData={headerData}></TableHeader>
-            <TableBody>
-              {filteredUsers?.map((user, index) => (
-                <TableRow key={index}>
-                  <TableColumn className={"w-6"}>
-                    <Checkbox />
-                  </TableColumn>
-                  <TableColumn className={'underline hover:text-muted'}>#{user.id}</TableColumn>
-                  <TableColumn>
-                    <div className="grid grid-cols-2 grid-rows-2 gap-1 w-30">
-                      <div className="row-span-2">
-                        <AvatarDemo />
-                      </div>
-                      <div>{user.email}</div>
-                      <div className="col-start-2 text-[10px]">{user.user}</div>
-                    </div>
-                  </TableColumn>
-                  <TableColumn>{t(`adminShared.roles.${user.role}`)}</TableColumn>
-                  <TableColumn>{t(`adminShared.status.${user.status}`)}</TableColumn>
-                  <TableColumn>{user.registered}</TableColumn>
-                  <TableColumn>
-                    <DropdownMenuRoot>
-                      <DropdownTrigger showArrow={false}>
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 15 15"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
-                            fill="currentColor"
-                            fillRule="evenodd"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </DropdownTrigger>
-                      {/* <AccountTrigger /> */}
+      </div>
 
-                      <DropdownContent>
-                        <DropdownLabel>{t("adminShared.labels.account")}</DropdownLabel>
-
-                        <DropdownItem
-                          icon={
-                            <svg
-                              width="15"
-                              height="15"
-                              viewBox="0 0 15 15"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M9.94969 7.49989C9.94969 8.85288 8.85288 9.94969 7.49989 9.94969C6.14691 9.94969 5.0501 8.85288 5.0501 7.49989C5.0501 6.14691 6.14691 5.0501 7.49989 5.0501C8.85288 5.0501 9.94969 6.14691 9.94969 7.49989ZM10.8632 8C10.6213 9.64055 9.20764 10.8997 7.49989 10.8997C5.79214 10.8997 4.37847 9.64055 4.13662 8H0.5C0.223858 8 0 7.77614 0 7.5C0 7.22386 0.223858 7 0.5 7H4.13659C4.37835 5.35935 5.79206 4.1001 7.49989 4.1001C9.20772 4.1001 10.6214 5.35935 10.8632 7H14.5C14.7761 7 15 7.22386 15 7.5C15 7.77614 14.7761 8 14.5 8H10.8632Z"
-                                fill="currentColor"
-                                fillRule="evenodd"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          }
-                          onClick={() => navigate(`/admin/users/${user.id}`)}
-                        >
-                          <span>{t("adminShared.actions.profile")}</span>
-                        </DropdownItem>
-                        <DropdownItem
-                          icon={
-                            <svg
-                              width="15"
-                              height="15"
-                              viewBox="0 0 15 15"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M9.94969 7.49989C9.94969 8.85288 8.85288 9.94969 7.49989 9.94969C6.14691 9.94969 5.0501 8.85288 5.0501 7.49989C5.0501 6.14691 6.14691 5.0501 7.49989 5.0501C8.85288 5.0501 9.94969 6.14691 9.94969 7.49989ZM10.8632 8C10.6213 9.64055 9.20764 10.8997 7.49989 10.8997C5.79214 10.8997 4.37847 9.64055 4.13662 8H0.5C0.223858 8 0 7.77614 0 7.5C0 7.22386 0.223858 7 0.5 7H4.13659C4.37835 5.35935 5.79206 4.1001 7.49989 4.1001C9.20772 4.1001 10.6214 5.35935 10.8632 7H14.5C14.7761 7 15 7.22386 15 7.5C15 7.77614 14.7761 8 14.5 8H10.8632Z"
-                                fill="currentColor"
-                                fillRule="evenodd"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          }
-                        >
-                          {t("adminShared.actions.settings")}
-                        </DropdownItem>
-
-                        <DropdownSeparator />
-
-                        <DropdownLabel>{t("adminShared.labels.actions")}</DropdownLabel>
-
-                        <DropdownItem
-                          icon={
-                            <svg
-                              width="15"
-                              height="15"
-                              viewBox="0 0 15 15"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M9.94969 7.49989C9.94969 8.85288 8.85288 9.94969 7.49989 9.94969C6.14691 9.94969 5.0501 8.85288 5.0501 7.49989C5.0501 6.14691 6.14691 5.0501 7.49989 5.0501C8.85288 5.0501 9.94969 6.14691 9.94969 7.49989ZM10.8632 8C10.6213 9.64055 9.20764 10.8997 7.49989 10.8997C5.79214 10.8997 4.37847 9.64055 4.13662 8H0.5C0.223858 8 0 7.77614 0 7.5C0 7.22386 0.223858 7 0.5 7H4.13659C4.37835 5.35935 5.79206 4.1001 7.49989 4.1001C9.20772 4.1001 10.6214 5.35935 10.8632 7H14.5C14.7761 7 15 7.22386 15 7.5C15 7.77614 14.7761 8 14.5 8H10.8632Z"
-                                fill="currentColor"
-                                fillRule="evenodd"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          }
-                          onClick={() => setEditUser(user)}
-                        >
-                          {t("adminShared.actions.archive")}
-                        </DropdownItem>
-
-                     
-                        <DropdownItem
-                          icon={
-                            <svg
-                              width="15"
-                              height="15"
-                              viewBox="0 0 15 15"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M7.50005 1.04999C7.74858 1.04999 7.95005 1.25146 7.95005 1.49999V8.41359L10.1819 6.18179C10.3576 6.00605 10.6425 6.00605 10.8182 6.18179C10.994 6.35753 10.994 6.64245 10.8182 6.81819L7.81825 9.81819C7.64251 9.99392 7.35759 9.99392 7.18185 9.81819L4.18185 6.81819C4.00611 6.64245 4.00611 6.35753 4.18185 6.18179C4.35759 6.00605 4.64251 6.00605 4.81825 6.18179L7.05005 8.41359V1.49999C7.05005 1.25146 7.25152 1.04999 7.50005 1.04999ZM2.5 10C2.77614 10 3 10.2239 3 10.5V12C3 12.5539 3.44565 13 3.99635 13H11.0012C11.5529 13 12 12.5528 12 12V10.5C12 10.2239 12.2239 10 12.5 10C12.7761 10 13 10.2239 13 10.5V12C13 13.1041 12.1062 14 11.0012 14H3.99635C2.89019 14 2 13.103 2 12V10.5C2 10.2239 2.22386 10 2.5 10Z"
-                                fill="currentColor"
-                                fillRule="evenodd"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          }
-                          variant="danger"
-onClick={() => setDeleteUserId(user.id)}
-                        >
-                          {t("adminShared.actions.delete")}
-                        </DropdownItem>
-                      </DropdownContent>
-                    </DropdownMenuRoot>
-                  </TableColumn>
-                </TableRow>
-              ))}
-              {filteredUsers.length === 0 && (
-                <TableRow>
-                  <TableColumn
-                    colSpan={headerData.length}
-                    className="text-center py-8 text-muted dark:text-dark-muted"
+      <div className="flex-1">
+        <Table
+          toolbar={
+            <TableToolbar>
+              <TableToolbar.Row
+                justify="between"
+                className="items-stretch gap-3 sm:items-center"
+              >
+                <TableToolbar.ViewTabs
+                  value={viewTab}
+                  onValueChange={(id) => {
+                    setViewTab(id);
+                    if (id === "board") {
+                      window.GooeyToaster?.info?.(
+                        t("adminUsers.toolbar.boardPending"),
+                      );
+                    }
+                  }}
+                  tabs={[
+                    {
+                      id: "list",
+                      label: t("adminUsers.toolbar.list"),
+                      icon: (
+                        <LayoutList
+                          className="size-3.5 shrink-0"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
+                      ),
+                    },
+                    {
+                      id: "board",
+                      label: t("adminUsers.toolbar.board"),
+                      icon: (
+                        <LayoutGrid
+                          className="size-3.5 shrink-0"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
+                      ),
+                    },
+                  ]}
+                />
+              </TableToolbar.Row>
+              <TableToolbar.Row justify="start" className="gap-2">
+                <div className="min-w-0 flex-1 sm:min-w-[12rem]">
+                  <Field
+                    id="users-search"
+                    placeholder={t("adminUsers.filters.searchPlaceholder")}
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    iconD={IC.search}
+                  />
+                </div>
+                <div className="w-full shrink-0 sm:w-48">
+                  <Select
+                    options={statusOptions}
+                    value={statusFilter}
+                    onValueChange={setStatusFilter}
+                  />
+                </div>
+                <TableToolbar.Section className="w-full shrink-0 justify-start sm:ml-auto sm:w-auto md:justify-end">
+                  <TableToolbar.IconButton
+                    type="button"
+                    aria-label={t("adminUsers.toolbar.filter")}
+                    icon={
+                      <Filter className="size-3.5 shrink-0" strokeWidth={2} />
+                    }
+                    onClick={() =>
+                      window.GooeyToaster?.info?.(
+                        t("adminUsers.toolbar.filtersPending"),
+                      )
+                    }
                   >
-                    {t("adminUsers.empty")}
-                  </TableColumn>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        <div>
-          <Pagination />
-        </div>
-        {editUser && (
-          <EditUserForm 
-            user={editUser} 
-            setEditUser={setEditUser} 
-            users={users} 
-            setUsers={setUsers} 
-          />
-        )}
-        {deleteUserId && (
-          <DeleteConfirmModal
-            userId={deleteUserId}
-            user={users.find(u => u.id === deleteUserId)}
-            setDeleteUserId={setDeleteUserId}
-            users={users}
-            setUsers={setUsers}
-          />
-        )}
+                    {t("adminUsers.toolbar.filter")}
+                  </TableToolbar.IconButton>
+                  <TableToolbar.IconButton
+                    type="button"
+                    aria-label={t("adminUsers.toolbar.sort")}
+                    icon={
+                      <ArrowUpDown
+                        className="size-3.5 shrink-0"
+                        strokeWidth={2}
+                      />
+                    }
+                    onClick={() =>
+                      window.GooeyToaster?.info?.(
+                        t("adminUsers.toolbar.sortPending"),
+                      )
+                    }
+                  >
+                    {t("adminUsers.toolbar.sort")}
+                  </TableToolbar.IconButton>
+                  <TableToolbar.IconButton
+                    type="button"
+                    aria-label={t("adminUsers.toolbar.columns")}
+                    icon={
+                      <Columns3 className="size-3.5 shrink-0" strokeWidth={2} />
+                    }
+                    onClick={() =>
+                      window.GooeyToaster?.info?.(
+                        t("adminUsers.toolbar.columnsPending"),
+                      )
+                    }
+                  >
+                    {t("adminUsers.toolbar.columns")}
+                  </TableToolbar.IconButton>
+                  <TableToolbar.IconButton
+                    type="button"
+                    aria-label={t("adminUsers.toolbar.hide")}
+                    icon={
+                      <EyeOff className="size-3.5 shrink-0" strokeWidth={2} />
+                    }
+                    onClick={() =>
+                      window.GooeyToaster?.info?.(
+                        t("adminUsers.toolbar.densityPending"),
+                      )
+                    }
+                  >
+                    {t("adminUsers.toolbar.hide")}
+                  </TableToolbar.IconButton>
+                </TableToolbar.Section>
+              </TableToolbar.Row>
+            </TableToolbar>
+          }
+        >
+          <TableHeader headerData={headerData} />
+          <TableBody>
+            {pageUsers.map((user) => (
+              <TableRow key={user.id}>
+                <TableColumn className="w-10">
+                  <Checkbox />
+                </TableColumn>
+
+                <TableColumn className="font-mono text-xs">
+                  #{String(user.id).padStart(2, "0")}
+                </TableColumn>
+
+                <TableColumn>
+                  <div className="flex items-center gap-3">
+                    <AvatarDemo />
+                    <div className="min-w-0">
+                      <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
+                        {user.displayName}
+                      </div>
+                      <div className="text-xs text-muted dark:text-dark-muted">
+                        {user.email || user.user_name || user.username}
+                      </div>
+                    </div>
+                  </div>
+                </TableColumn>
+
+                <TableColumn nowrap={false}>
+                  <span className="inline-flex max-w-[14rem] rounded-full border border-default bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold capitalize text-secondary dark:border-dark-default dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                    {t(`adminShared.roles.${user.roleKey}`)}
+                  </span>
+                </TableColumn>
+
+                <TableColumn>
+                  <StatusPill variant={statusToPillVariant(user.status)}>
+                    {t(`adminShared.status.${user.status}`)}
+                  </StatusPill>
+                </TableColumn>
+
+                <TableColumn className="whitespace-nowrap text-xs">
+                  {user.registered
+                    ? new Date(user.registered).toLocaleDateString(locale, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : "—"}
+                </TableColumn>
+
+                <TableColumn className="text-center">
+                  <DropdownMenuRoot>
+                    <DropdownTrigger showArrow={false}>
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 15 15"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
+                          fill="currentColor"
+                          fillRule="evenodd"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </DropdownTrigger>
+                    <DropdownContent align="end">
+                      <DropdownItem
+                        onClick={() => navigate(`/admin/users/${user.id}`)}
+                      >
+                        <span>{t("adminShared.actions.viewProfile")}</span>
+                      </DropdownItem>
+                      <DropdownItem>
+                        <span>{t("adminShared.actions.sendMessage")}</span>
+                      </DropdownItem>
+                      <DropdownSeparator />
+                      <DropdownItem
+                        variant="danger"
+                        onClick={() => setDeleteUserId(user.id)}
+                      >
+                        <span>{t("adminShared.actions.delete")}</span>
+                      </DropdownItem>
+                    </DropdownContent>
+                  </DropdownMenuRoot>
+                </TableColumn>
+              </TableRow>
+            ))}
+
+            {pageUsers.length === 0 && (
+              <TableRow className="table-advanced-tr--empty cursor-default">
+                <TableColumn
+                  colSpan={headerData.length}
+                  nowrap={false}
+                  className="py-12 text-center text-muted dark:text-dark-muted"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                      <Icon
+                        d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
+                        className="h-5 w-5 text-muted-foreground"
+                      />
+                    </div>
+                    <span className="font-medium">{t("adminUsers.empty")}</span>
+                    <span className="text-xs opacity-75">
+                      {t("adminUsers.emptyHint")}
+                    </span>
+                  </div>
+                </TableColumn>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={totalElements}
+          pageSize={pageSize}
+          onPageChange={(nextPage, nextSize) => {
+            if (nextSize !== pageSize) {
+              setPageSize(nextSize);
+              setPage(1);
+              return;
+            }
+            setPage(nextPage);
+          }}
+        />
+      </div>
+
+      {deleteUserId != null ? (
+        <UserDeleteModal
+          user={deletingUser}
+          onCancel={() => {
+            if (!deleteSubmitting) setDeleteUserId(null);
+          }}
+          onConfirm={confirmDeleteUser}
+          submitting={deleteSubmitting}
+        />
+      ) : null}
     </div>
   );
 }
 
-function DeleteConfirmModal({ userId, user, setDeleteUserId, users, setUsers }) {
-  const confirmDelete = () => {
-    setUsers(users.filter(u => u.id !== userId));
-    setDeleteUserId(null);
-  };
-
-  const cancelDelete = () => {
-    setDeleteUserId(null);
-  };
+function UserDeleteModal({ user, onCancel, onConfirm, submitting }) {
+  const { t } = useTranslation();
+  const displayName = user?.displayName?.trim()
+    ? user.displayName
+    : t("adminUsers.delete.fallbackName");
+  const emailDisplay = user?.email?.trim()
+    ? user.email
+    : t("adminUsers.delete.noEmail");
 
   return (
-    <GlobalModal open={true} setOpen={cancelDelete}>
-      <div className="w-[450px] max-h-[70vh] bg-shell dark:bg-dark-card p-6 rounded-xl shadow-2xl border border-default dark:border-dark-default flex flex-col z-[1000]">
-        <div className="flex items-start gap-3 mb-6 pb-4 border-b border-default dark:border-dark-default">
-          <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 text-red-600 dark:text-red-400">
-            <svg width="20" height="20" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7.5 1.125C7.74858 1.125 7.95 1.32647 7.95 1.575V7.3125L10.1819 5.08071C10.3576 4.90497 10.6425 4.90497 10.8182 5.08071C10.994 5.25645 10.994 5.54137 10.8182 5.71711L7.81825 8.71711C7.64251 8.89284 7.35759 8.89284 7.18185 8.71711L4.18185 5.71711C4.00611 5.54137 4.00611 5.25645 4.18185 5.08071C4.35759 4.90497 4.64251 4.90497 4.81825 5.08071L7.05 7.3125V1.575C7.05 1.32647 7.25152 1.125 7.5 1.125ZM2.625 9.75C2.90114 9.75 3.125 9.97411 3.125 10.25V12C3.125 12.5523 3.57268 13 4.00365 13H11.0012C11.5529 13 12 12.5528 12 12V10.25C12 9.97411 12.2239 9.75 12.5 9.75C12.7761 9.75 13 9.97411 13 10.25V12C13 13.1041 12.1062 14 11.0012 14H4.00365C2.89749 14 2 13.103 2 12V10.25C2 9.97411 2.22386 9.75 2.625 9.75Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"/>
+    <GlobalModal open={true} setOpen={() => (!submitting ? onCancel() : null)}>
+      <div className="z-1000 flex max-h-[70vh] w-full max-w-[450px] shrink-0 flex-col rounded-xl border border-default bg-light-card-bg p-6 shadow-2xl dark:border-dark-default dark:bg-dark-card-bg">
+        <div className="mb-6 flex shrink-0 items-start gap-3 border-b border-default pb-4 dark:border-dark-divider">
+          <div className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-light-error-bg text-light-error-text dark:bg-dark-error-bg dark:text-dark-error-text">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 15 15"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden
+            >
+              <path
+                d="M7.5 1.125C7.74858 1.125 7.95 1.32647 7.95 1.575V7.3125L10.1819 5.08071C10.3576 4.90497 10.6425 4.90497 10.8182 5.08071C10.994 5.25645 10.994 5.54137 10.8182 5.71711L7.81825 8.71711C7.64251 8.89284 7.35759 8.89284 7.18185 8.71711L4.18185 5.71711C4.00611 5.54137 4.00611 5.25645 4.18185 5.08071C4.35759 4.90497 4.64251 4.90497 4.81825 5.08071L7.05 7.3125V1.575C7.05 1.32647 7.25152 1.125 7.5 1.125ZM2.625 9.75C2.90114 9.75 3.125 9.97411 3.125 10.25V12C3.125 12.5523 3.57268 13 4.00365 13H11.0012C11.5529 13 12 12.5528 12 12V10.25C12 9.97411 12.2239 9.75 12.5 9.75C12.7761 9.75 13 9.97411 13 10.25V12C13 13.1041 12.1062 14 11.0012 14H4.00365C2.89749 14 2 13.103 2 12V10.25C2 9.97411 2.22386 9.75 2.625 9.75Z"
+                fill="currentColor"
+                fillRule="evenodd"
+                clipRule="evenodd"
+              />
             </svg>
           </div>
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-              Delete User
+          <div className="min-w-0">
+            <h2 className="mb-1 text-xl font-bold text-primary dark:text-dark-primary">
+              {t("adminUsers.delete.title")}
             </h2>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-2">
-              Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-gray-100">{user?.user}</span>?
+            <p className="mb-2 text-sm text-secondary dark:text-dark-secondary">
+              {t("adminUsers.delete.descriptionPrefix")}{" "}
+              <span className="font-semibold text-primary dark:text-dark-primary">
+                {displayName}
+              </span>
+              {t("adminUsers.delete.descriptionSuffix")}
             </p>
-            <p className="text-gray-600 dark:text-gray-300 text-xs mb-4">
-              Email: <span className="font-mono bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded text-xs">{user?.email}</span>
+            <p className="mb-4 text-xs text-muted dark:text-dark-muted">
+              <span className="font-medium">
+                {t("adminUsers.delete.emailLabel")}
+              </span>{" "}
+              <span className="rounded bg-light-app-tertiary px-2 py-0.5 font-mono text-secondary dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                {emailDisplay}
+              </span>
             </p>
-            <p className="text-red-600 dark:text-red-400 text-xs font-medium">
-              This action cannot be undone.
+            <p className="text-xs font-medium text-light-error-text dark:text-dark-error-text">
+              {t("adminUsers.delete.warning")}
             </p>
           </div>
         </div>
-        <div className="flex gap-3 pt-4 mt-auto border-t border-default dark:border-dark-default">
-      
-          <Button 
-            onClick={confirmDelete} 
-            variant="destructive" 
-            className="flex-1 text-sm h-10 font-medium"
+        <div className="mt-auto flex shrink-0 flex-wrap gap-3 border-t border-default pt-4 dark:border-dark-divider">
+          <Button
+            type="button"
+            variant="secondary"
+            className="min-w-24"
+            disabled={submitting}
+            onClick={onCancel}
           >
-            Delete User
+            {t("adminUsers.delete.cancel")}
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            className="min-w-24"
+            disabled={submitting}
+            onClick={() => void onConfirm()}
+          >
+            {submitting
+              ? t("studentForm.actions.submitting")
+              : t("adminUsers.delete.confirm")}
           </Button>
         </div>
       </div>
     </GlobalModal>
   );
 }
-
-function EditUserForm({ user, setEditUser, users, setUsers }) {
-  const { register, handleSubmit, setValue } = useForm({
-    defaultValues: {
-      user: user.user,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-      registered: user.registered,
-    },
-  });
-
-  useEffect(() => {
-    setValue("user", user.user);
-    setValue("email", user.email);
-    setValue("role", user.role);
-    setValue("status", user.status);
-    setValue("registered", user.registered);
-  }, [user, setValue]);
-
-  const onSubmit = (data) => {
-    setUsers(users.map(u => u.id === user.id ? { ...u, ...data } : u));
-    setEditUser(null);
-  };
-
-  return (
-    <GlobalModal open={true} setOpen={() => setEditUser(null)}>
-      <div className="w-[550px] max-h-[90vh] h-auto bg-shell dark:bg-dark-card p-6 rounded-lg shadow-xl flex flex-col z-[1000]">
-        <div className="flex items-center justify-between mb-6 pb-2">
-          <h2 className="text-lg font-bold text-primary dark:text-dark-primary">
-            Edit User Settings
-          </h2>
-        </div>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 flex-1 overflow-y-auto pr-1 -mr-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field
-              label="Full Name"
-              {...register("user", { required: "Name is required" })}
-              error={null}
-              required
-            />
-            <Field
-              label="Email"
-              type="email"
-              {...register("email", { required: "Email is required" })}
-              error={null}
-              required
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-<div>
-              <label className="text-[11px] font-semibold text-primary dark:text-dark-primary mb-1 block">
-                Role
-              </label>
-              <Select
-                options={[
-                  { value: "admin", label: "Admin" },
-                  { value: "teacher", label: "Teacher" },
-                  { value: "student", label: "Student" },
-                  { value: "staff", label: "Staff" },
-                  { value: "dean", label: "Dean" },
-                  { value: "user", label: "User" },
-                ]}
-                {...register("role")}
-              />
-            </div>
-<div>
-              <label className="text-[11px] font-semibold text-primary dark:text-dark-primary mb-1 block">
-                Status
-              </label>
-              <Select
-                options={[
-                  { value: "active", label: "Active" },
-                  { value: "pending", label: "Pending" },
-                  { value: "suspended", label: "Suspended" },
-                  { value: "rejected", label: "Rejected" },
-                ]}
-                {...register("status")}
-              />
-            </div>
-          </div>
-          <Field
-            label="Registered Date"
-            type="date"
-            {...register("registered")}
-            className="md:col-span-2"
-          />
-          <div className="flex gap-3 pt-4 mt-2 md:col-span-2">
-            <Button type="submit" className="flex-1 text-sm h-9">
-              Update
-            </Button>
-          
-          </div>
-        </form>
-      </div>
-    </GlobalModal>
-  );
-}
-
-export default Users;
-

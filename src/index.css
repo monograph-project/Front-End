@@ -19,7 +19,7 @@
   --color-blue-800: #002966;
   --color-blue-900: #001433;
   --color-blue-950: #000e24;
-  
+
   --color-default: #d9e1eb;
   --color-dark-default: #171717;
 
@@ -332,7 +332,7 @@
 
   /* Button Primary */
   .btn-primary {
-    @apply px-5 py-2.5 rounded-full font-semibold transition-all;
+    @apply px-5 py-2.5 rounded-xl font-semibold transition-all;
     background-color: var(--color-light-btn-primary-bg);
     color: var(--color-light-btn-primary-text);
     box-shadow: var(--shadow-sm);
@@ -375,7 +375,7 @@
 
   /* Button Secondary */
   .btn-secondary {
-    @apply px-5 py-2.5 rounded-full font-semibold transition-all;
+    @apply px-5 py-2.5 rounded-xl font-semibold transition-all;
     background-color: var(--color-light-btn-secondary-bg);
     color: var(--color-light-btn-secondary-text);
     border: 1px solid var(--color-light-input-border);
@@ -407,7 +407,7 @@
 
   /* Button Tertiary */
   .btn-tertiary {
-    @apply px-5 py-2.5 rounded-full font-semibold transition-all;
+    @apply px-5 py-2.5 rounded-xl font-semibold transition-all;
     background-color: var(--color-light-btn-tertiary-bg);
     color: var(--color-light-btn-tertiary-text);
     border: 1px solid var(--color-light-btn-tertiary-border);
@@ -782,15 +782,15 @@
     background-color: var(--color-dark-card-bg);
   }
 
-  .table-advanced-tbody > tr > td {
+  .table-advanced-tbody>tr>td {
     border-bottom: 1px solid var(--color-light-border-subtle);
   }
 
-  .dark .table-advanced-tbody > tr > td {
+  .dark .table-advanced-tbody>tr>td {
     border-bottom-color: var(--color-dark-border-subtle);
   }
 
-  .table-advanced-tbody > tr:last-child > td {
+  .table-advanced-tbody>tr:last-child>td {
     border-bottom: none;
   }
 

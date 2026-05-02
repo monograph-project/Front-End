@@ -1,16 +1,17 @@
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useParams } from "react-router-dom";
 import {
   eachDayOfInterval,
-  eachMonthOfInterval,
   endOfWeek,
+  endOfYear,
   format,
-  getDate,
-  getISODay,
-  isSameYear,
   startOfWeek,
   startOfYear,
 } from "date-fns";
 import {
+  Activity,
+  ArrowLeft,
   BookOpen,
   CheckCircle2,
   Clock3,
@@ -23,36 +24,91 @@ import {
   Target,
   Users,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import Select from "../../components/Select";
-import {
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-  ZAxis,
-} from "recharts";
+import TableToolbar from "../../components/TableToolbar";
 import { cn } from "../../lib/utils";
 
-const yearOptions = [2026, 2025, 2024, 2023];
-const yearSelectOptions = yearOptions.map((year) => ({
-  label: String(year),
-  value: String(year),
-}));
-const weekdayTicks = [0, 2, 4];
-const weekdayLabels = {
-  0: "Mon",
-  2: "Wed",
-  4: "Fri",
-};
-const heatColors = [
-  "var(--color-shell)",
-  "rgba(22, 163, 74, 0.18)",
-  "rgba(22, 163, 74, 0.36)",
-  "rgba(22, 163, 74, 0.62)",
-  "var(--color-success)",
+/** GitHub-style green ramp using theme chart success (see `index.css`). */
+const HEAT_GREEN_FILLS = [
+  "var(--color-light-app-tertiary)",
+  "color-mix(in srgb, var(--color-chart-success) 14%, transparent)",
+  "color-mix(in srgb, var(--color-chart-success) 28%, transparent)",
+  "color-mix(in srgb, var(--color-chart-success) 45%, transparent)",
+  "color-mix(in srgb, var(--color-chart-success) 62%, transparent)",
+  "color-mix(in srgb, var(--color-chart-success) 78%, transparent)",
+  "var(--color-chart-success)",
 ];
+
+const WEEKDAY_ROW_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+function heatLevelIndex(count, max) {
+  if (max <= 0 || count <= 0) return 0;
+  const t = count / max;
+  return Math.min(
+    HEAT_GREEN_FILLS.length - 1,
+    Math.floor(t * HEAT_GREEN_FILLS.length),
+  );
+}
+
+/** Deterministic per-day count for this repository + contributor (demo until API exists). */
+function repoDayContributionCount(owner, repo, contributorId, seed, day) {
+  const iso = format(day, "yyyy-MM-dd");
+  const key = `${owner}|${repo}|${contributorId}|${iso}|${seed}`;
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i += 1) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h) % 13;
+}
+
+function buildRepoContributionYear(owner, repo, contributorId, seed, year) {
+  const ys = startOfYear(new Date(year, 0, 1));
+  const ye = endOfYear(new Date(year, 0, 1));
+  const gridStart = startOfWeek(ys, { weekStartsOn: 0 });
+  const gridEnd = endOfWeek(ye, { weekStartsOn: 0 });
+  const allDays = eachDayOfInterval({ start: gridStart, end: gridEnd });
+  const weeks = [];
+  for (let i = 0; i < allDays.length; i += 7) {
+    const slice = allDays.slice(i, i + 7);
+    if (slice.length === 7) weeks.push(slice);
+  }
+
+  const inYear = (d) => d.getFullYear() === year;
+  let maxCount = 1;
+  let totalContributions = 0;
+
+  const weekColumns = weeks.map((week) =>
+    week.map((day) => {
+      if (!inYear(day)) {
+        return { day, count: 0, inYear: false };
+      }
+      const count = repoDayContributionCount(
+        owner,
+        repo,
+        contributorId,
+        seed,
+        day,
+      );
+      if (count > maxCount) maxCount = count;
+      totalContributions += count;
+      return { day, count, inYear: true };
+    }),
+  );
+
+  return { weekColumns, maxCount, totalContributions };
+}
+
+/** Match admin `Projects.jsx` surfaces (tokens from `index.css`). */
+const SURFACE_CARD =
+  "rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
+const SURFACE_INSET =
+  "rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
+const SURFACE_BADGE =
+  "inline-flex items-center gap-2 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-muted";
+const PILL_STATUS =
+  "inline-flex rounded-full border border-(--color-light-card-border) bg-(--color-light-input-bg) px-2.5 py-1 text-[11px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-input-bg) dark:text-dark-secondary";
 
 const contributors = [
   {
@@ -178,11 +234,11 @@ const documentSections = [
   },
 ];
 
-const proposalTabs = [
-  { id: "overview", label: "Overview" },
-  { id: "proposal", label: "Proposal" },
-  { id: "documents", label: "Documents" },
-  { id: "activity", label: "Activity" },
+const proposalTabDefs = [
+  { id: "overview", label: "Overview", Icon: Target },
+  { id: "proposal", label: "Proposal", Icon: BookOpen },
+  { id: "documents", label: "Documents", Icon: FileText },
+  { id: "activity", label: "Activity", Icon: Activity },
 ];
 
 const proposalSections = [
@@ -235,122 +291,13 @@ const repositoryActivity = [
   },
 ];
 
-const getContributionValue = (date, contributor, year) => {
-  const isoDay = getISODay(date);
-  const seasonalShift = year % 9;
-  const base =
-    (getDate(date) * (contributor.id + 3) + contributor.seed + seasonalShift) %
-    9;
-  const weekdayBonus = isoDay <= 5 ? 1 : 0;
-  const pulseBoost = getDate(date) % 11 === 0 ? 2 : 0;
-  return Math.max(0, Math.min(10, base + weekdayBonus + pulseBoost - 1));
-};
-
-const getContributionLevel = (value) => {
-  if (value === 0) return 0;
-  if (value <= 2) return 1;
-  if (value <= 4) return 2;
-  if (value <= 7) return 3;
-  return 4;
-};
-
-const buildYearCalendarData = (year, contributor) => {
-  const yearDate = new Date(year, 0, 1);
-  const yearStart = startOfYear(yearDate);
-  const yearEnd = new Date(year, 11, 31);
-  const calendarStart = startOfWeek(yearStart, { weekStartsOn: 1 });
-  const calendarEnd = endOfWeek(yearEnd, { weekStartsOn: 1 });
-  const allDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-
-  const monthLabels = eachMonthOfInterval({ start: yearStart, end: yearEnd })
-    .map((monthDate) => ({
-      value: Math.floor(
-        eachDayOfInterval({
-          start: calendarStart,
-          end: monthDate,
-        }).length / 7,
-      ),
-      label: format(monthDate, "MMM"),
-    }))
-    .filter(
-      (item, index, arr) =>
-        arr.findIndex((value) => value.value === item.value) === index,
-    );
-
-  const points = allDays.map((date, index) => {
-    const weekIndex = Math.floor(index / 7);
-    const weekday = getISODay(date) - 1;
-    const inYear = isSameYear(date, yearDate);
-    const contributionCount = inYear
-      ? getContributionValue(date, contributor, year)
-      : 0;
-    const contributionLevel = getContributionLevel(contributionCount);
-
-    return {
-      x: weekIndex,
-      y: weekday,
-      z: 24,
-      dateLabel: format(date, "EEEE, MMMM d, yyyy"),
-      inYear,
-      contributionCount,
-      contributionLevel,
-    };
-  });
-
-  return { points, monthLabels };
-};
-
-const getSpacedMonthLabels = (labels, minGap = 4) =>
-  labels.filter((label, index) => {
-    if (index === 0) return true;
-    return label.value - labels[index - 1].value >= minGap;
-  });
-
-function ContributionCell({ cx, cy, payload }) {
+function SectionCard({ icon, title, value, note }) {
+  const IconComp = icon;
   return (
-    <rect
-      x={cx - 4}
-      y={cy - 4}
-      rx={2}
-      ry={2}
-      width={8}
-      height={8}
-      fill={
-        payload.inYear
-          ? heatColors[payload.contributionLevel]
-          : "var(--color-shell)"
-      }
-      stroke="var(--color-default)"
-      opacity={payload.inYear ? 1 : 0.42}
-    />
-  );
-}
-
-function ContributionTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-
-  const point = payload[0].payload;
-  if (!point.inYear) return null;
-
-  return (
-    <div className="rounded-md border border-default bg-card px-3 py-2 shadow-card dark:border-dark-default dark:bg-dark-card">
-      <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-        {point.contributionCount} contribution
-        {point.contributionCount === 1 ? "" : "s"}
-      </p>
-      <p className="mt-1 text-xs text-muted dark:text-dark-muted">
-        {point.dateLabel}
-      </p>
-    </div>
-  );
-}
-
-function SectionCard({ icon: Icon, title, value, note }) {
-  return (
-    <div className="rounded-md border border-default bg-card p-4 dark:border-dark-default dark:bg-dark-card">
+    <div className={`${SURFACE_CARD} p-4 md:p-5`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
             {title}
           </p>
           <p className="mt-3 text-2xl font-bold text-primary dark:text-dark-primary">
@@ -360,8 +307,10 @@ function SectionCard({ icon: Icon, title, value, note }) {
             {note}
           </p>
         </div>
-        <div className="rounded-md bg-shell p-3 dark:bg-dark-shell">
-          <Icon className="h-5 w-5 text-primary dark:text-dark-primary" />
+        <div
+          className={`${SURFACE_INSET} flex shrink-0 items-center justify-center p-3`}
+        >
+          <IconComp className="size-5 text-primary dark:text-dark-primary" />
         </div>
       </div>
     </div>
@@ -369,77 +318,115 @@ function SectionCard({ icon: Icon, title, value, note }) {
 }
 
 function ProjectWorkspace() {
+  const { owner, repo } = useParams();
+  const { t } = useTranslation();
+  const displayOwner = owner ? decodeURIComponent(owner) : "";
+  const displayRepo = repo ? decodeURIComponent(repo) : "";
   const [selectedContributorId, setSelectedContributorId] = useState(
     contributors[0].id,
   );
-  const [selectedYear, setSelectedYear] = useState(2026);
+  const [contributionYear, setContributionYear] = useState(() =>
+    new Date().getFullYear(),
+  );
   const [activeTab, setActiveTab] = useState("overview");
 
   const selectedContributor =
     contributors.find((item) => item.id === selectedContributorId) ||
     contributors[0];
 
-  const chartData = useMemo(
-    () => buildYearCalendarData(selectedYear, selectedContributor),
-    [selectedContributor, selectedYear],
-  );
-  const spacedMonthLabels = useMemo(
-    () => getSpacedMonthLabels(chartData.monthLabels, 4),
-    [chartData.monthLabels],
+  const repoPath =
+    displayOwner && displayRepo
+      ? `${displayOwner}/${displayRepo}`
+      : t("adminProjectWorkspace.activity.repoPlaceholder");
+
+  const contributionModel = useMemo(
+    () =>
+      buildRepoContributionYear(
+        displayOwner || "owner",
+        displayRepo || "repo",
+        selectedContributor.id,
+        selectedContributor.seed,
+        contributionYear,
+      ),
+    [
+      displayOwner,
+      displayRepo,
+      selectedContributor.id,
+      selectedContributor.seed,
+      contributionYear,
+    ],
   );
 
-  const totalContributions = chartData.points.reduce(
-    (sum, point) => sum + point.contributionCount,
-    0,
-  );
+  const { weekColumns, maxCount, totalContributions } = contributionModel;
+
+  const yearOptions = useMemo(() => {
+    const y = new Date().getFullYear();
+    return [y - 2, y - 1, y, y + 1].map((v) => ({
+      value: String(v),
+      label: String(v),
+    }));
+  }, []);
 
   return (
-    <div className="flex min-h-screen flex-1 overflow-y-auto bg-shell p-4 dark:bg-dark-shell md:p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <Link
+          to="/admin/projects"
+          className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-muted transition-colors hover:text-primary dark:text-dark-muted dark:hover:text-dark-primary"
+        >
+          <ArrowLeft className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+          {t("adminProjectWorkspace.backToProjects")}
+        </Link>
+
+        <section className={`${SURFACE_CARD} p-4 md:p-5`}>
           <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-md border border-default bg-shell px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:border-dark-default dark:bg-dark-shell dark:text-dark-muted">
-                <GitBranch className="h-3.5 w-3.5" />
-                Project workspace
+              <div className={SURFACE_BADGE}>
+                <GitBranch className="size-3.5 shrink-0" aria-hidden />
+                {t("adminProjectWorkspace.badge.label")}
               </div>
-              <h1 className="mt-4 text-3xl font-bold tracking-tight text-primary dark:text-dark-primary">
-                Faculty Portal Research Workspace
+              <h1 className="mt-4 text-2xl font-bold tracking-tight text-primary dark:text-dark-primary">
+                {displayRepo
+                  ? displayRepo.replace(/-/g, " ")
+                  : t("adminProjectWorkspace.defaultTitle")}
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-secondary dark:text-dark-secondary">
-                A full academic project view that combines implementation
-                activity, proposal structure, document readiness, and milestone
-                tracking in one place.
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted dark:text-dark-muted">
+                {displayOwner && displayRepo
+                  ? t("adminProjectWorkspace.subtitle", {
+                      owner: displayOwner,
+                      repo: displayRepo,
+                    })
+                  : t("adminProjectWorkspace.defaultDescription")}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 xl:min-w-[360px]">
-              <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
-                <p className="text-xs text-muted dark:text-dark-muted">
+              <div className={`${SURFACE_INSET} p-4`}>
+                <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
                   Project phase
                 </p>
                 <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                   Validation and proposal review
                 </p>
               </div>
-              <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
-                <p className="text-xs text-muted dark:text-dark-muted">
+              <div className={`${SURFACE_INSET} p-4`}>
+                <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
                   Completion
                 </p>
                 <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                   78%
                 </p>
               </div>
-              <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
-                <p className="text-xs text-muted dark:text-dark-muted">
+              <div className={`${SURFACE_INSET} p-4`}>
+                <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
                   Lead supervisor
                 </p>
                 <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                   Dr. Sarah Johnson
                 </p>
               </div>
-              <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
-                <p className="text-xs text-muted dark:text-dark-muted">
+              <div className={`${SURFACE_INSET} p-4`}>
+                <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
                   Repository sync
                 </p>
                 <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
@@ -450,7 +437,7 @@ function ProjectWorkspace() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <SectionCard
             icon={FolderKanban}
             title="Active tasks"
@@ -477,33 +464,38 @@ function ProjectWorkspace() {
           />
         </section>
 
-        <section className="rounded-md border border-default bg-card p-4 dark:border-dark-default dark:bg-dark-card">
-          <div className="flex flex-wrap gap-2">
-            {proposalTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "rounded-md px-4 py-2 text-sm font-semibold transition-colors",
-                  activeTab === tab.id
-                    ? "bg-primary text-white"
-                    : "border border-default bg-shell text-primary hover:bg-card-2 dark:border-dark-default dark:bg-dark-shell dark:text-dark-primary dark:hover:bg-dark-card-2",
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+        <section className={`${SURFACE_CARD} overflow-hidden p-0`}>
+          <TableToolbar className="rounded-none! border-0 border-b border-(--color-light-card-border) bg-(--color-light-card-bg)! dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)!">
+            <TableToolbar.Row justify="start">
+              <TableToolbar.ViewTabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                tabs={proposalTabDefs.map((tab) => {
+                  const TabGlyph = tab.Icon;
+                  return {
+                    id: tab.id,
+                    label: tab.label,
+                    icon: (
+                      <TabGlyph
+                        className="size-3.5 shrink-0"
+                        strokeWidth={2}
+                        aria-hidden
+                      />
+                    ),
+                  };
+                })}
+              />
+            </TableToolbar.Row>
+          </TableToolbar>
         </section>
 
         {activeTab === "overview" && (
           <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
             <div className="space-y-6">
-              <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+              <div className={`${SURFACE_CARD} p-4 md:p-5`}>
                 <div className="flex items-center gap-2">
                   <Target className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                  <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
                     Research scope
                   </h2>
                 </div>
@@ -515,7 +507,7 @@ function ProjectWorkspace() {
                   methodology, and literature review evolve over time.
                 </p>
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                  <div className={`${SURFACE_INSET} p-4`}>
                     <p className="text-sm font-semibold text-primary dark:text-dark-primary">
                       Main objective
                     </p>
@@ -524,7 +516,7 @@ function ProjectWorkspace() {
                       versioning, contribution maps, and proposal review.
                     </p>
                   </div>
-                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                  <div className={`${SURFACE_INSET} p-4`}>
                     <p className="text-sm font-semibold text-primary dark:text-dark-primary">
                       Current focus
                     </p>
@@ -536,10 +528,10 @@ function ProjectWorkspace() {
                 </div>
               </div>
 
-              <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+              <div className={`${SURFACE_CARD} p-4 md:p-5`}>
                 <div className="flex items-center gap-2">
                   <ScrollText className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                  <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
                     Proposal sections
                   </h2>
                 </div>
@@ -547,13 +539,13 @@ function ProjectWorkspace() {
                   {documentSections.map((section) => (
                     <div
                       key={section.key}
-                      className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell"
+                      className={`${SURFACE_INSET} p-4`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <p className="font-semibold text-primary dark:text-dark-primary">
                           {section.title}
                         </p>
-                        <span className="rounded-md border border-default bg-card px-2.5 py-1 text-xs font-medium text-secondary dark:border-dark-default dark:bg-dark-card dark:text-dark-secondary">
+                        <span className={PILL_STATUS}>
                           {section.status}
                         </span>
                       </div>
@@ -567,10 +559,10 @@ function ProjectWorkspace() {
             </div>
 
             <div className="space-y-6">
-              <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+              <div className={`${SURFACE_CARD} p-4 md:p-5`}>
                 <div className="flex items-center gap-2">
                   <Clock3 className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                  <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
                     Milestones
                   </h2>
                 </div>
@@ -578,13 +570,13 @@ function ProjectWorkspace() {
                   {milestones.map((milestone) => (
                     <div
                       key={milestone.title}
-                      className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell"
+                      className={`${SURFACE_INSET} p-4`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <p className="font-semibold text-primary dark:text-dark-primary">
                           {milestone.title}
                         </p>
-                        <span className="rounded-md border border-default bg-card px-2.5 py-1 text-xs font-medium text-secondary dark:border-dark-default dark:bg-dark-card dark:text-dark-secondary">
+                        <span className={PILL_STATUS}>
                           {milestone.status}
                         </span>
                       </div>
@@ -599,10 +591,10 @@ function ProjectWorkspace() {
                 </div>
               </div>
 
-              <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+              <div className={`${SURFACE_CARD} p-4 md:p-5`}>
                 <div className="flex items-center gap-2">
                   <LibraryBig className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                  <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
                     Document readiness
                   </h2>
                 </div>
@@ -618,10 +610,10 @@ function ProjectWorkspace() {
         )}
 
         {activeTab === "proposal" && (
-          <section className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+          <section className={`${SURFACE_CARD} p-4 md:p-5`}>
             <div className="flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-primary dark:text-dark-primary" />
-              <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
+              <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
                 Proposal view
               </h2>
             </div>
@@ -629,7 +621,7 @@ function ProjectWorkspace() {
               {proposalSections.map((section) => (
                 <div
                   key={section.title}
-                  className="rounded-md border border-default bg-shell p-5 dark:border-dark-default dark:bg-dark-shell"
+                  className={`${SURFACE_INSET} p-4 md:p-5`}
                 >
                   <h3 className="text-base font-semibold text-primary dark:text-dark-primary">
                     {section.title}
@@ -645,10 +637,10 @@ function ProjectWorkspace() {
 
         {activeTab === "documents" && (
           <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-            <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+            <div className={`${SURFACE_CARD} p-4 md:p-5`}>
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary dark:text-dark-primary" />
-                <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
                   Research documents
                 </h2>
               </div>
@@ -656,7 +648,7 @@ function ProjectWorkspace() {
                 {documentSections.map((section) => (
                   <div
                     key={section.key}
-                    className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell"
+                    className={`${SURFACE_INSET} p-4`}
                   >
                     <p className="font-semibold text-primary dark:text-dark-primary">
                       {section.title}
@@ -669,10 +661,10 @@ function ProjectWorkspace() {
               </div>
             </div>
 
-            <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+            <div className={`${SURFACE_CARD} p-4 md:p-5`}>
               <div className="flex items-center gap-2">
                 <GitBranch className="h-4 w-4 text-primary dark:text-dark-primary" />
-                <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
                   Recent document changes
                 </h2>
               </div>
@@ -680,7 +672,7 @@ function ProjectWorkspace() {
                 {repositoryActivity.map((item) => (
                   <div
                     key={item.file}
-                    className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell"
+                    className={`${SURFACE_INSET} p-4`}
                   >
                     <p className="text-sm font-semibold text-primary dark:text-dark-primary">
                       {item.file}
@@ -700,38 +692,46 @@ function ProjectWorkspace() {
 
         {activeTab === "activity" && (
           <section className="space-y-6">
-            <div className="rounded-md border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+            <div className={`${SURFACE_CARD} p-4 md:p-5`}>
               <div className="flex flex-col gap-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="max-w-2xl">
-                    <div className="inline-flex items-center gap-2 rounded-md border border-default bg-shell px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted dark:border-dark-default dark:bg-dark-shell dark:text-dark-muted">
-                      <GitBranch className="h-3.5 w-3.5" />
-                      Contribution activity
+                    <div className={SURFACE_BADGE}>
+                      <Activity
+                        className="size-3.5 shrink-0"
+                        aria-hidden
+                      />
+                      {t("adminProjectWorkspace.activity.badge")}
                     </div>
                     <p className="mt-4 text-2xl font-bold text-primary dark:text-dark-primary">
-                      Team activity and document change rhythm
+                      {t("adminProjectWorkspace.activity.title")}
                     </p>
                     <p className="mt-2 text-sm leading-7 text-secondary dark:text-dark-secondary">
-                      Member selection now lives above the chart, and the
-                      horizontal scroll is isolated to the chart surface only so
-                      the rest of the page stays fixed.
+                      {t("adminProjectWorkspace.activity.subtitle")}
                     </p>
                   </div>
 
-                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell lg:max-w-sm">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted dark:text-dark-muted">
-                      Selected cycle
+                  <div className={`${SURFACE_INSET} p-4 lg:max-w-md lg:shrink-0`}>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                      {t("adminProjectWorkspace.activity.repoScope")}
                     </p>
-                    <div className="mt-3">
-                      <Select
-                        value={String(selectedYear)}
-                        onChange={(value) => setSelectedYear(Number(value))}
-                        options={yearSelectOptions}
-                        placeholder="Select year"
-                      />
+                    <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                      {repoPath}
+                    </p>
+                    <div className="mt-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                        {t("adminProjectWorkspace.activity.referenceYear")}
+                      </p>
+                      <div className="mt-2 max-w-[200px]">
+                        <Select
+                          value={String(contributionYear)}
+                          onChange={(v) => setContributionYear(Number(v))}
+                          options={yearOptions}
+                        />
+                      </div>
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                      Switch years without affecting the rest of the workspace.
+                    <p className="mt-3 text-xs leading-relaxed text-muted dark:text-dark-muted">
+                      {t("adminProjectWorkspace.activity.yearHint")}
                     </p>
                   </div>
                 </div>
@@ -746,14 +746,14 @@ function ProjectWorkspace() {
                         type="button"
                         onClick={() => setSelectedContributorId(person.id)}
                         className={cn(
-                          "rounded-md border p-4 text-left transition-all duration-200",
+                          "rounded-xl border p-4 text-left transition-colors duration-200",
                           isActive
-                            ? "border-primary bg-shell shadow-[0_0_0_1px_rgba(10,10,10,0.06)] dark:border-dark-primary dark:bg-dark-shell"
-                            : "border-default bg-card hover:border-primary/20 hover:bg-shell dark:border-dark-default dark:bg-dark-card dark:hover:border-dark-primary/30 dark:hover:bg-dark-shell",
+                            ? "border-(--color-light-input-border-focus) bg-light-app-tertiary shadow-sm ring-2 ring-blue-500/15 dark:border-(--color-dark-input-border-focus) dark:bg-dark-app-tertiary dark:ring-blue-400/15"
+                            : "border-(--color-light-card-border) bg-(--color-light-card-bg) hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:bg-dark-app-tertiary",
                         )}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary text-sm font-semibold text-white dark:bg-dark-primary dark:text-dark-shell">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-(--color-light-btn-primary-bg) text-sm font-semibold text-(--color-light-btn-primary-text) dark:bg-(--color-dark-btn-primary-bg) dark:text-(--color-dark-btn-primary-text)">
                             {person.initials}
                           </div>
                           <div className="min-w-0">
@@ -766,7 +766,9 @@ function ProjectWorkspace() {
                           </div>
                         </div>
                         <div className="mt-4 grid grid-cols-3 gap-2">
-                          <div className="rounded-md border border-default bg-card px-2 py-2 text-center dark:border-dark-default dark:bg-dark-card">
+                          <div
+                            className={`${SURFACE_INSET} px-2 py-2 text-center`}
+                          >
                             <p className="text-[11px] text-muted dark:text-dark-muted">
                               Progress
                             </p>
@@ -774,7 +776,9 @@ function ProjectWorkspace() {
                               {person.completion}%
                             </p>
                           </div>
-                          <div className="rounded-md border border-default bg-card px-2 py-2 text-center dark:border-dark-default dark:bg-dark-card">
+                          <div
+                            className={`${SURFACE_INSET} px-2 py-2 text-center`}
+                          >
                             <p className="text-[11px] text-muted dark:text-dark-muted">
                               Tasks
                             </p>
@@ -782,7 +786,9 @@ function ProjectWorkspace() {
                               {person.tasksDone}
                             </p>
                           </div>
-                          <div className="rounded-md border border-default bg-card px-2 py-2 text-center dark:border-dark-default dark:bg-dark-card">
+                          <div
+                            className={`${SURFACE_INSET} px-2 py-2 text-center`}
+                          >
                             <p className="text-[11px] text-muted dark:text-dark-muted">
                               Docs
                             </p>
@@ -797,7 +803,7 @@ function ProjectWorkspace() {
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-4">
-                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                  <div className={`${SURFACE_INSET} p-4`}>
                     <p className="text-xs text-muted dark:text-dark-muted">
                       Selected member
                     </p>
@@ -805,7 +811,7 @@ function ProjectWorkspace() {
                       {selectedContributor.name}
                     </p>
                   </div>
-                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                  <div className={`${SURFACE_INSET} p-4`}>
                     <p className="text-xs text-muted dark:text-dark-muted">
                       Contributions
                     </p>
@@ -813,7 +819,7 @@ function ProjectWorkspace() {
                       {totalContributions}
                     </p>
                   </div>
-                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                  <div className={`${SURFACE_INSET} p-4`}>
                     <p className="text-xs text-muted dark:text-dark-muted">
                       Commits
                     </p>
@@ -821,7 +827,7 @@ function ProjectWorkspace() {
                       {selectedContributor.commits}
                     </p>
                   </div>
-                  <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
+                  <div className={`${SURFACE_INSET} p-4`}>
                     <p className="text-xs text-muted dark:text-dark-muted">
                       Review score
                     </p>
@@ -833,20 +839,25 @@ function ProjectWorkspace() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-md border border-default bg-card dark:border-dark-default dark:bg-dark-card">
-              <div className="flex flex-col gap-4 border-b border-default px-6 py-5 dark:border-dark-default lg:flex-row lg:items-start lg:justify-between">
+            <div className={`${SURFACE_CARD} overflow-hidden p-0`}>
+              <div className="flex flex-col gap-4 border-b border-light-divider px-4 py-4 md:px-5 md:py-5 dark:border-dark-divider lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="text-2xl font-bold text-primary dark:text-dark-primary">
-                    {totalContributions} contributions in {selectedYear}
+                    {t("adminProjectWorkspace.activity.heatmapHeading", {
+                      total: totalContributions,
+                      year: contributionYear,
+                    })}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                    {selectedContributor.name} contribution history for the full
-                    year. Hover a square to inspect the exact day and count.
+                    {t("adminProjectWorkspace.activity.heatmapSubheading", {
+                      name: selectedContributor.name,
+                      repo: repoPath,
+                    })}
                   </p>
                 </div>
-                <div className="rounded-md border border-default bg-shell px-4 py-3 dark:border-dark-default dark:bg-dark-shell lg:max-w-sm">
+                <div className={`${SURFACE_INSET} px-4 py-3 lg:max-w-sm`}>
                   <p className="text-xs text-muted dark:text-dark-muted">
-                    Contributor note
+                    {t("adminProjectWorkspace.activity.contributorNote")}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-primary dark:text-dark-primary">
                     {selectedContributor.note}
@@ -854,102 +865,123 @@ function ProjectWorkspace() {
                 </div>
               </div>
 
-              <div className="px-6 py-5">
-                <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-default pb-4 dark:border-dark-default">
+              <div className="px-4 py-4 md:px-5 md:py-5">
+                <div className={`${SURFACE_INSET} p-4`}>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-light-divider pb-4 dark:border-dark-divider">
                     <div>
                       <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                        Yearly contribution map
+                        {t("adminProjectWorkspace.activity.calendarTitle")}
                       </p>
                       <p className="mt-1 text-xs text-muted dark:text-dark-muted">
-                        Only this chart area scrolls horizontally.
+                        {t("adminProjectWorkspace.activity.chartHint", {
+                          owner: displayOwner || "—",
+                          repo: displayRepo || "—",
+                        })}
                       </p>
-                    </div>
-                    <div className="rounded-md border border-default bg-card px-3 py-2 text-xs text-secondary dark:border-dark-default dark:bg-dark-card dark:text-dark-secondary">
-                      Scroll sideways inside the chart if needed
                     </div>
                   </div>
 
-                  <div className="mt-4 max-w-full overflow-hidden">
-                    <div className="overflow-x-auto overflow-y-hidden overscroll-x-contain pb-2 [&_*:focus]:outline-none [&_*:focus-visible]:outline-none">
-                      <div className="h-[230px] min-w-[980px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <ScatterChart
-                            margin={{ top: 22, right: 18, bottom: 28, left: 10 }}
+                  <div className="mt-4 max-w-full overflow-x-auto pb-1">
+                    <div className="flex min-w-0 gap-2">
+                      <div className="flex shrink-0 flex-col gap-[3px] pr-1">
+                        {WEEKDAY_ROW_KEYS.map((key) => (
+                          <span
+                            key={key}
+                            className="flex h-3 w-7 shrink-0 items-center text-[10px] font-medium text-muted dark:text-dark-muted"
                           >
-                            <XAxis
-                              type="number"
-                              dataKey="x"
-                              ticks={spacedMonthLabels.map((item) => item.value)}
-                              tickFormatter={(value) =>
-                                spacedMonthLabels.find(
-                                  (item) => item.value === value,
-                                )?.label || ""
-                              }
-                              axisLine={false}
-                              tickLine={false}
-                              tick={{ fontSize: 11, fill: "#999999" }}
-                              height={28}
-                              orientation="top"
-                              interval={0}
-                              tickMargin={6}
-                            />
-                            <YAxis
-                              type="number"
-                              dataKey="y"
-                              domain={[0, 6]}
-                              ticks={weekdayTicks}
-                              reversed
-                              tickFormatter={(value) => weekdayLabels[value]}
-                              axisLine={false}
-                              tickLine={false}
-                              tick={{ fontSize: 11, fill: "#999999" }}
-                              width={42}
-                            />
-                            <ZAxis type="number" dataKey="z" range={[24, 24]} />
-                            <Tooltip
-                              cursor={false}
-                              content={<ContributionTooltip />}
-                              wrapperStyle={{ outline: "none" }}
-                            />
-                            <Scatter
-                              data={chartData.points}
-                              shape={<ContributionCell />}
-                            />
-                          </ScatterChart>
-                        </ResponsiveContainer>
+                            {t(
+                              `adminProjectWorkspace.activity.weekdaysShort.${key}`,
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex min-w-0 gap-[3px]">
+                        {weekColumns.map((week, wi) => (
+                          <div
+                            key={wi}
+                            className="flex flex-col gap-[3px]"
+                          >
+                            {week.map((cell) => {
+                              const level = cell.inYear
+                                ? heatLevelIndex(cell.count, maxCount)
+                                : 0;
+                              const fill =
+                                cell.inYear && level > 0
+                                  ? HEAT_GREEN_FILLS[level]
+                                  : undefined;
+                              const title = cell.inYear
+                                ? t(
+                                    "adminProjectWorkspace.activity.tooltipContributions",
+                                    {
+                                      count: cell.count,
+                                      date: format(cell.day, "MMM d, yyyy"),
+                                      repo: repoPath,
+                                    },
+                                  )
+                                : "";
+
+                              return (
+                                <button
+                                  key={cell.day.toISOString()}
+                                  type="button"
+                                  title={title}
+                                  aria-label={title}
+                                  className={cn(
+                                    "size-3 shrink-0 rounded-sm border transition-colors",
+                                    cell.inYear
+                                      ? "border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
+                                      : "border-transparent opacity-40 dark:opacity-30",
+                                    cell.inYear &&
+                                      level === 0 &&
+                                      "bg-light-app-tertiary dark:bg-dark-app-tertiary",
+                                  )}
+                                  style={
+                                    fill
+                                      ? { backgroundColor: fill }
+                                      : undefined
+                                  }
+                                />
+                              );
+                            })}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between gap-4 text-sm text-muted dark:text-dark-muted">
-                    <p>Less consistent</p>
-                    <div className="flex items-center gap-2">
-                      {heatColors.map((color, index) => (
+                  <div className="mt-4 flex flex-wrap items-center justify-end gap-3 text-xs text-muted dark:text-dark-muted">
+                    <span>{t("adminProjectWorkspace.activity.legendLess")}</span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      {HEAT_GREEN_FILLS.map((color, index) => (
                         <span
-                          key={`${color}-${index}`}
-                          className="h-4 w-4 rounded-md border border-default dark:border-dark-default"
-                          style={{ backgroundColor: color }}
+                          key={`heat-${String(index)}`}
+                          className="size-3 rounded-sm border border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
+                          style={{
+                            backgroundColor:
+                              index === 0
+                                ? "var(--color-light-app-tertiary)"
+                                : color,
+                          }}
                         />
                       ))}
                     </div>
-                    <p>More consistent</p>
+                    <span>
+                      {t("adminProjectWorkspace.activity.legendMore")}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-md border border-default bg-card p-4 dark:border-dark-default dark:bg-dark-card">
+            <div className={`${SURFACE_CARD} p-4 md:p-5`}>
               <div className="flex items-center gap-2">
                 <Info className="h-4 w-4 text-muted dark:text-dark-muted" />
                 <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                  Activity interpretation
+                  {t("adminProjectWorkspace.activity.interpretTitle")}
                 </p>
               </div>
               <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                Each block represents one day of work. The contribution view can
-                reflect code commits, proposal edits, document updates, and task
-                reviews tracked across the project repository.
+                {t("adminProjectWorkspace.activity.interpretBody")}
               </p>
             </div>
           </section>

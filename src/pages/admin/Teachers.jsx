@@ -37,13 +37,8 @@ import Button from "../../components/Button";
 import Field from "../../components/Field";
 import GlobalModal from "../../components/GlobalModal";
 import TableToolbar from "../../components/TableToolbar";
-import StatusPill, {
-  statusToPillVariant,
-} from "../../components/StatusPill";
-import {
-  useDeleteTeacher,
-  useTeachersPage,
-} from "../../services/useApi";
+import StatusPill, { statusToPillVariant } from "../../components/StatusPill";
+import { useDeleteTeacher, useTeachersPage } from "../../services/useApi";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 const EMPTY = [];
@@ -304,7 +299,10 @@ export default function Teachers() {
           className=""
           toolbar={
             <TableToolbar>
-              <TableToolbar.Row justify="between" className="items-stretch gap-3 sm:items-center">
+              <TableToolbar.Row
+                justify="between"
+                className="items-stretch gap-3 sm:items-center"
+              >
                 <TableToolbar.ViewTabs
                   value={viewTab}
                   onValueChange={(id) => {
@@ -343,9 +341,7 @@ export default function Teachers() {
                 <div className="min-w-0 flex-1 sm:min-w-[12rem]">
                   <Field
                     id="teachers-search"
-                    placeholder={t(
-                      "adminTeachers.filters.searchPlaceholder",
-                    )}
+                    placeholder={t("adminTeachers.filters.searchPlaceholder")}
                     value={searchInput}
                     onChange={(event) => setSearchInput(event.target.value)}
                     iconD={IC.search}
@@ -363,10 +359,7 @@ export default function Teachers() {
                     type="button"
                     aria-label={t("adminTeachers.toolbar.filter")}
                     icon={
-                      <Filter
-                        className="size-3.5 shrink-0"
-                        strokeWidth={2}
-                      />
+                      <Filter className="size-3.5 shrink-0" strokeWidth={2} />
                     }
                     onClick={() =>
                       window.GooeyToaster?.info?.(
@@ -386,9 +379,7 @@ export default function Teachers() {
                       />
                     }
                     onClick={() =>
-                      window.GooeyToaster?.info?.(
-                        "Column sort coming soon",
-                      )
+                      window.GooeyToaster?.info?.("Column sort coming soon")
                     }
                   >
                     {t("adminTeachers.toolbar.sort")}
@@ -397,10 +388,7 @@ export default function Teachers() {
                     type="button"
                     aria-label={t("adminTeachers.toolbar.columns")}
                     icon={
-                      <Columns3
-                        className="size-3.5 shrink-0"
-                        strokeWidth={2}
-                      />
+                      <Columns3 className="size-3.5 shrink-0" strokeWidth={2} />
                     }
                     onClick={() =>
                       window.GooeyToaster?.info?.(
@@ -427,124 +415,124 @@ export default function Teachers() {
             </TableToolbar>
           }
         >
-            <TableHeader headerData={headerData} />
-            <TableBody>
-              {teachers.map((teacher) => (
-                <TableRow key={teacher.id}>
-                  <TableColumn className="w-10">
-                    <Checkbox />
-                  </TableColumn>
+          <TableHeader headerData={headerData} />
+          <TableBody>
+            {teachers.map((teacher) => (
+              <TableRow key={teacher.id}>
+                <TableColumn className="w-10">
+                  <Checkbox />
+                </TableColumn>
 
-                  <TableColumn className="font-mono text-xs">
-                    #{String(teacher.id).padStart(2, "0")}
-                  </TableColumn>
+                <TableColumn className="font-mono text-xs">
+                  #{String(teacher.code).padStart(2, "0")}
+                </TableColumn>
 
-                  <TableColumn>
-                    <div className="flex items-center gap-3">
-                      <AvatarDemo />
-                      <div className="min-w-0">
-                        <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
-                          {teacher.firstName} {teacher.lastName}
-                        </div>
-                        <div className="text-xs text-muted dark:text-dark-muted">
-                          {teacher.email}
-                        </div>
+                <TableColumn>
+                  <div className="flex items-center gap-3">
+                    <AvatarDemo />
+                    <div className="min-w-0">
+                      <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
+                        {teacher.firstName} {teacher.lastName}
+                      </div>
+                      <div className="text-xs text-muted dark:text-dark-muted">
+                        {teacher.email}
                       </div>
                     </div>
-                  </TableColumn>
+                  </div>
+                </TableColumn>
 
-                  <TableColumn nowrap={false}>
-                    <span className="inline-flex max-w-[14rem] rounded-full border border-default bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold capitalize text-secondary dark:border-dark-default dark:bg-dark-app-tertiary dark:text-dark-secondary">
-                      {teacher.department}
-                    </span>
-                  </TableColumn>
+                <TableColumn nowrap={false}>
+                  <span className="inline-flex max-w-[14rem] rounded-full border border-default bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold capitalize text-secondary dark:border-dark-default dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                    {teacher.department}
+                  </span>
+                </TableColumn>
 
-                  <TableColumn>
-                    <StatusPill variant={statusToPillVariant(teacher.status)}>
-                      {t(`adminShared.status.${teacher.status}`)}
-                    </StatusPill>
-                  </TableColumn>
+                <TableColumn>
+                  <StatusPill variant={statusToPillVariant(teacher.status)}>
+                    {t(`adminShared.status.${teacher.status}`)}
+                  </StatusPill>
+                </TableColumn>
 
-                  <TableColumn className="whitespace-nowrap text-xs">
-                    {new Date(teacher.joined).toLocaleDateString(locale, {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </TableColumn>
+                <TableColumn className="whitespace-nowrap text-xs">
+                  {new Date(teacher.joined).toLocaleDateString(locale, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </TableColumn>
 
-                  <TableColumn className="text-center">
-                    <DropdownMenuRoot>
-                      <DropdownTrigger showArrow={false}>
-                        <svg
-                          width="15"
-                          height="15"
-                          viewBox="0 0 15 15"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
-                            fill="currentColor"
-                            fillRule="evenodd"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </DropdownTrigger>
-                      <DropdownContent align="end">
-                        <DropdownItem onClick={() => handleViewProfile(teacher)}>
-                          <span>{t("adminShared.actions.viewProfile")}</span>
-                        </DropdownItem>
-                        <DropdownItem
-                          onClick={() =>
-                            navigate(`/admin/teacher/${teacher.id}/edit`)
-                          }
-                        >
-                          <span>{t("adminShared.actions.editDetails")}</span>
-                        </DropdownItem>
-                        <DropdownItem>
-                          <span>{t("adminShared.actions.sendMessage")}</span>
-                        </DropdownItem>
-
-                        <DropdownSeparator />
-
-                        <DropdownItem
-                          variant="danger"
-                          onClick={() => setDeleteTeacherId(teacher.id)}
-                        >
-                          <span>{t("adminTeachers.actions.remove")}</span>
-                        </DropdownItem>
-                      </DropdownContent>
-                    </DropdownMenuRoot>
-                  </TableColumn>
-                </TableRow>
-              ))}
-
-              {teachers.length === 0 && (
-                <TableRow className="table-advanced-tr--empty cursor-default">
-                  <TableColumn
-                    colSpan={headerData.length}
-                    nowrap={false}
-                    className="py-12 text-center text-muted dark:text-dark-muted"
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                        <Icon
-                          d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
-                          className="h-5 w-5 text-muted-foreground"
+                <TableColumn className="text-center">
+                  <DropdownMenuRoot>
+                    <DropdownTrigger showArrow={false}>
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 15 15"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
+                          fill="currentColor"
+                          fillRule="evenodd"
+                          clipRule="evenodd"
                         />
-                      </div>
-                      <span className="font-medium">
-                        {t("adminTeachers.empty.title")}
-                      </span>
-                      <span className="text-xs opacity-75">
-                        {t("adminTeachers.empty.description")}
-                      </span>
+                      </svg>
+                    </DropdownTrigger>
+                    <DropdownContent align="end">
+                      <DropdownItem onClick={() => handleViewProfile(teacher)}>
+                        <span>{t("adminShared.actions.viewProfile")}</span>
+                      </DropdownItem>
+                      <DropdownItem
+                        onClick={() =>
+                          navigate(`/admin/teacher/${teacher.id}/edit`)
+                        }
+                      >
+                        <span>{t("adminShared.actions.editDetails")}</span>
+                      </DropdownItem>
+                      <DropdownItem>
+                        <span>{t("adminShared.actions.sendMessage")}</span>
+                      </DropdownItem>
+
+                      <DropdownSeparator />
+
+                      <DropdownItem
+                        variant="danger"
+                        onClick={() => setDeleteTeacherId(teacher.id)}
+                      >
+                        <span>{t("adminTeachers.actions.remove")}</span>
+                      </DropdownItem>
+                    </DropdownContent>
+                  </DropdownMenuRoot>
+                </TableColumn>
+              </TableRow>
+            ))}
+
+            {teachers.length === 0 && (
+              <TableRow className="table-advanced-tr--empty cursor-default">
+                <TableColumn
+                  colSpan={headerData.length}
+                  nowrap={false}
+                  className="py-12 text-center text-muted dark:text-dark-muted"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                      <Icon
+                        d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
+                        className="h-5 w-5 text-muted-foreground"
+                      />
                     </div>
-                  </TableColumn>
-                </TableRow>
-              )}
-            </TableBody>
+                    <span className="font-medium">
+                      {t("adminTeachers.empty.title")}
+                    </span>
+                    <span className="text-xs opacity-75">
+                      {t("adminTeachers.empty.description")}
+                    </span>
+                  </div>
+                </TableColumn>
+              </TableRow>
+            )}
+          </TableBody>
         </Table>
       </div>
 
@@ -582,8 +570,7 @@ export default function Teachers() {
 function TeacherDeleteModal({ teacher, onCancel, onConfirm, submitting }) {
   const { t } = useTranslation();
   const displayName =
-    teacher &&
-    `${teacher.firstName ?? ""} ${teacher.lastName ?? ""}`.trim();
+    teacher && `${teacher.firstName ?? ""} ${teacher.lastName ?? ""}`.trim();
   const namePhrase = displayName
     ? `\u201c${displayName}\u201d`
     : t("adminTeachers.delete.fallbackName");

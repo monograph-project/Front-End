@@ -1,20 +1,30 @@
 import { useTranslation } from "react-i18next";
 
-export default function BlogWriterPanel({ blog, blogs }) {
+export default function BlogWriterPanel({
+  blog,
+  blogs = [],
+  totalsOverride,
+}) {
   const { t } = useTranslation();
-  const totalPosts = blogs.filter((item) => item.author === blog.author).length;
-  const publishedPosts = blogs.filter(
-    (item) => item.author === blog.author && item.status === "published",
-  ).length;
-  const pendingPosts = blogs.filter(
-    (item) => item.author === blog.author && item.status === "pending",
-  ).length;
+  const totalPosts =
+    totalsOverride?.total ??
+    blogs.filter((item) => item.author === blog.author).length;
+  const publishedPosts =
+    totalsOverride?.published ??
+    blogs.filter(
+      (item) => item.author === blog.author && item.status === "published",
+    ).length;
+  const pendingPosts =
+    totalsOverride?.pending ??
+    blogs.filter(
+      (item) => item.author === blog.author && item.status === "pending",
+    ).length;
 
   return (
-    <div className="rounded-md border border-default bg-shell p-5 dark:border-dark-default dark:bg-dark-shell">
+    <div className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-5 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-base font-bold text-white dark:bg-dark-primary dark:text-dark-shell">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-(--color-light-btn-primary-bg) text-base font-semibold text-(--color-light-btn-primary-text) dark:bg-(--color-dark-btn-primary-bg) dark:text-(--color-dark-btn-primary-text)">
             {blog.author
               .split(" ")
               .map((part) => part[0])
@@ -31,7 +41,7 @@ export default function BlogWriterPanel({ blog, blogs }) {
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-md border border-default bg-card p-3 dark:border-dark-default dark:bg-dark-card">
+          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
             <p className="text-xs text-muted dark:text-dark-muted">
               {t("blogAdmin.detail.writer.posts")}
             </p>
@@ -39,7 +49,7 @@ export default function BlogWriterPanel({ blog, blogs }) {
               {totalPosts}
             </p>
           </div>
-          <div className="rounded-md border border-default bg-card p-3 dark:border-dark-default dark:bg-dark-card">
+          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
             <p className="text-xs text-muted dark:text-dark-muted">
               {t("blogAdmin.detail.writer.published")}
             </p>
@@ -47,7 +57,7 @@ export default function BlogWriterPanel({ blog, blogs }) {
               {publishedPosts}
             </p>
           </div>
-          <div className="rounded-md border border-default bg-card p-3 dark:border-dark-default dark:bg-dark-card">
+          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
             <p className="text-xs text-muted dark:text-dark-muted">
               {t("blogAdmin.detail.writer.pending")}
             </p>

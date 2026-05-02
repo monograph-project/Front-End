@@ -12,7 +12,9 @@ function Button({
   ...rest
 }) {
   const base =
-    "inline-flex items-center justify-center gap-2 font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-semibold min-h-9 transition-colors " +
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/25 " +
+    "dark:focus-visible:ring-blue-400/20 disabled:pointer-events-none disabled:opacity-55 disabled:cursor-not-allowed";
 
   const variants = {
     primary: "btn-primary",
@@ -20,8 +22,7 @@ function Button({
     tertiary: "btn-tertiary",
     ghost: "btn-ghost",
     danger:
-      "px-5 py-2.5 rounded-full font-semibold transition-all text-white " +
-      "bg-(--color-light-error-text) hover:opacity-95 active:opacity-90 " +
+      "rounded-xl px-5 py-2.5 text-white bg-(--color-light-error-text) hover:opacity-95 active:opacity-90 " +
       "dark:bg-(--color-dark-error-border)",
   };
 

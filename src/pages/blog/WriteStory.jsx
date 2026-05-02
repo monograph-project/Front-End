@@ -5,7 +5,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link } from "react-router-dom";
+import { gooeyToast } from "goey-toast";
+import { Link, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   Bell,
   Eye,
@@ -24,6 +27,12 @@ import {
   DropdownTrigger,
 } from "../../components/DropdownMenu";
 import { useAuth } from "../../context/AuthContext";
+import { htmlToArticleBlocks } from "../../lib/htmlToArticleBlocks";
+import {
+  useCreateArticle,
+  useCreateArticleWithFiles,
+  useCreateDraftArticle,
+} from "../../services/useApi";
 
 const STORAGE_KEY = "draft_story_v2";
 
@@ -132,8 +141,17 @@ function ToolChip({ title: label, children, onClick }) {
   );
 }
 
+function mapAudienceToVisibility(v) {
+  if (v === "unlisted") return "UNLISTED";
+  if (v === "members") return "MEMBERS_ONLY";
+  return "PUBLIC";
+}
+
 export default function WriteStory() {
+  const { t } = useTranslation();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const userInitial =
     (
@@ -152,7 +170,7 @@ export default function WriteStory() {
       visibility: "public",
       cover: null,
       body: "",
-      savedNote: "",
+      restoredAt: null,
     };
 
     try {
@@ -168,9 +186,8 @@ export default function WriteStory() {
         visibility: data.visibility || "public",
         cover: data.cover || null,
         body: data.body || "",
-        savedNote: data.lastSaved
-          ? `Restored ${new Date(data.lastSaved).toLocaleString()}`
-          : "Restored draft",
+        restoredAt:
+          typeof data.lastSaved === "number" ? data.lastSaved : null,
       };
     } catch {
       return defaults;
@@ -181,8 +198,11 @@ export default function WriteStory() {
   const [subtitle, setSubtitle] = useState(initialDraft.subtitle);
   const [tags, setTags] = useState(initialDraft.tags);
   const [visibility, setVisibility] = useState(initialDraft.visibility);
+  /** Data URL preview (local autosave); optional uploaded file below. */
   const [cover, setCover] = useState(initialDraft.cover);
-  const [savedNote, setSavedNote] = useState(initialDraft.savedNote);
+  const [coverFile, setCoverFile] = useState(null);
+  const [contentKind, setContentKind] = useState("WEBLOG");
+  const [savedNote, setSavedNote] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewHTML, setPreviewHTML] = useState("");
   const [isBodyEmpty, setIsBodyEmpty] = useState(
@@ -194,9 +214,54 @@ export default function WriteStory() {
   const titleRef = useRef(null);
   const saveTimeoutRef = useRef(null);
 
+  const createJson = useCreateArticle({
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      const nextId = data?.id ?? data?.articleId;
+      if (nextId) navigate(`/story/${nextId}`);
+    },
+    showSuccessToast: true,
+    toastSuccess: t("writerStory.success.published"),
+  });
+
+  const createMultipart = useCreateArticleWithFiles({
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      const nextId = data?.id ?? data?.articleId;
+      if (nextId) navigate(`/story/${nextId}`);
+    },
+    showSuccessToast: true,
+    toastSuccess: t("writerStory.success.published"),
+  });
+
+  const saveDraft = useCreateDraftArticle({
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      const nextId = data?.id ?? data?.articleId;
+      if (nextId) {
+        gooeyToast.success(t("writerStory.success.draftWithId", { id: nextId }));
+      }
+    },
+    showSuccessToast: false,
+  });
+
+  const submitBusy =
+    createJson.isPending || createMultipart.isPending || saveDraft.isPending;
+
   useEffect(() => {
     titleRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (!initialDraft.restoredAt) return;
+    setSavedNote(
+      t("writerStory.autosave.restoredAt", {
+        time: new Date(initialDraft.restoredAt).toLocaleString(),
+      }),
+    );
+    const tid = window.setTimeout(() => setSavedNote(""), 5200);
+    return () => window.clearTimeout(tid);
+  }, [initialDraft.restoredAt, t]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -218,7 +283,7 @@ export default function WriteStory() {
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    setSavedNote("Saved");
+    setSavedNote(t("writerStory.autosave.localSaved"));
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -227,7 +292,7 @@ export default function WriteStory() {
     saveTimeoutRef.current = setTimeout(() => {
       setSavedNote("");
     }, 2000);
-  }, [cover, subtitle, tags, title, visibility]);
+  }, [cover, subtitle, tags, title, visibility, t]);
 
   useEffect(() => {
     const intervalId = setInterval(autosave, 5000);
@@ -397,6 +462,7 @@ export default function WriteStory() {
   const handleCover = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    setCoverFile(file);
 
     const reader = new FileReader();
     reader.onload = (loadEvent) => setCover(loadEvent.target?.result || null);
@@ -404,11 +470,97 @@ export default function WriteStory() {
   };
 
   const canPublish =
-    Boolean(title.trim()) && !isBodyEmpty && Boolean((editorRef.current?.innerText || "").trim());
+    Boolean(title.trim()) &&
+    !isBodyEmpty &&
+    Boolean((editorRef.current?.innerText || "").trim()) &&
+    Boolean(user?.id);
+
+  const buildArticlePayload = () => {
+    const tagsArr = tags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    let blocks = htmlToArticleBlocks(editorRef.current);
+    if (!blocks.length) {
+      blocks = [
+        {
+          type: "TEXT",
+          order: 0,
+          data: { text: (editorRef.current?.innerText || "").trim() || " " },
+        },
+      ];
+    }
+    const subtitleStr = subtitle.trim();
+    const desc = subtitleStr || (tagsArr.length ? tagsArr.join(", ") : undefined);
+    return {
+      title: title.trim(),
+      subtitle: subtitleStr || undefined,
+      description: desc,
+      blocks,
+      tags: tagsArr.length ? tagsArr : [],
+      keywords: tagsArr.length ? tagsArr : undefined,
+      visibility: mapAudienceToVisibility(visibility),
+      contentType: contentKind === "MONOGRAPH" ? "MONOGRAPH" : "WEBLOG",
+      coverImageUrl:
+        typeof cover === "string" && cover.startsWith("http") ? cover : undefined,
+    };
+  };
 
   const handlePublish = () => {
+    if (!user?.id) {
+      gooeyToast.error(t("writerStory.error.signInRequired"));
+      return;
+    }
     autosave();
-    alert("Publish clicked. Wire this to your blog API.");
+
+    const base = buildArticlePayload();
+
+    if (coverFile instanceof File) {
+      const fd = new FormData();
+      fd.append("title", base.title);
+      if (base.description != null && base.description !== "")
+        fd.append("description", String(base.description));
+      fd.append("blocks", JSON.stringify(base.blocks ?? []));
+      fd.append(
+        "tags",
+        Array.isArray(base.tags) ? base.tags.join(",") : String(base.tags ?? ""),
+      );
+      fd.append("visibility", String(base.visibility ?? "PUBLIC"));
+      fd.append(
+        "contentType",
+        base.contentType === "MONOGRAPH" ? "MONOGRAPH" : "WEBLOG",
+      );
+      if (base.subtitle) fd.append("subtitle", base.subtitle);
+      fd.append("coverImage", coverFile);
+      createMultipart.mutate({
+        authorUserId: user.id,
+        formData: fd,
+      });
+      return;
+    }
+
+    createJson.mutate({ userId: user.id, ...base });
+  };
+
+  const handleSaveDraft = () => {
+    if (!user?.id) {
+      gooeyToast.error(t("writerStory.error.signInRequired"));
+      return;
+    }
+    if (!title.trim()) {
+      gooeyToast.error(t("writerStory.error.titleRequired"));
+      return;
+    }
+
+    autosave();
+
+    const base = buildArticlePayload();
+
+    if (coverFile instanceof File) {
+      gooeyToast.success(t("writerStory.warning.draftCoverDeferred"));
+    }
+
+    saveDraft.mutate({ userId: user.id, ...base });
   };
 
   const handlePreview = () => {
@@ -435,7 +587,7 @@ export default function WriteStory() {
             Campus
           </Link>
           <span className="hidden text-sm text-neutral-400 sm:inline dark:text-neutral-500">
-            Draft
+            {t("writerStory.meta.draft")}
           </span>
           {savedNote ? (
             <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
@@ -447,12 +599,14 @@ export default function WriteStory() {
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <button
             type="button"
-            disabled={!canPublish}
+            disabled={!canPublish || submitBusy}
             onClick={handlePublish}
             className="rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-35"
             style={{ backgroundColor: M.green }}
           >
-            Publish
+            {submitBusy && (createJson.isPending || createMultipart.isPending)
+              ? t("writerStory.publishing")
+              : t("writerStory.publish")}
           </button>
 
           <DropdownMenuRoot modal={false}>
@@ -460,7 +614,7 @@ export default function WriteStory() {
               compactIcon
               showArrow={false}
               className="!size-9 rounded-full border-0 bg-transparent hover:bg-neutral-100 dark:hover:bg-zinc-800"
-              aria-label="More options"
+              aria-label={t("writerStory.menu.more")}
             >
               <MoreHorizontal className="size-[18px] text-neutral-600 dark:text-neutral-400" />
             </DropdownTrigger>
@@ -472,15 +626,16 @@ export default function WriteStory() {
                   handlePreview();
                 }}
               >
-                Preview story
+                {t("writerStory.menu.preview")}
               </DropdownItem>
               <DropdownItem
+                disabled={submitBusy || !user?.id}
                 onSelect={(e) => {
                   e.preventDefault();
-                  autosave();
+                  handleSaveDraft();
                 }}
               >
-                Save draft now
+                {t("writerStory.menu.saveDraft")}
               </DropdownItem>
               <DropdownSeparator />
               <div
@@ -491,7 +646,7 @@ export default function WriteStory() {
                   to="/"
                   className="rounded-md px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-zinc-800"
                 >
-                  ← Back to home
+                  {t("writerStory.menu.backHome")}
                 </Link>
               </div>
               <DropdownSeparator />
@@ -500,33 +655,55 @@ export default function WriteStory() {
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 <label className="text-[11px] font-semibold uppercase text-neutral-400 dark:text-neutral-500">
-                  Subtitle
+                  {t("writerStory.fields.subtitle")}
                 </label>
                 <textarea
                   value={subtitle}
                   onChange={(e) => setSubtitle(e.target.value)}
                   rows={2}
-                  placeholder="Optional — appears under the headline"
+                  placeholder={t("writerStory.placeholders.subtitle")}
                   className="mb-3 w-full resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400 dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-500"
                 />
                 <label className="text-[11px] font-semibold uppercase text-neutral-400 dark:text-neutral-500">
-                  Tags
+                  {t("writerStory.fields.tags")}
                 </label>
                 <input
                   type="text"
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
                   className="mb-3 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 dark:border-zinc-700 dark:bg-zinc-900"
-                  placeholder="science, essay, tutorial"
+                  placeholder={t("writerStory.placeholders.tags")}
                 />
                 <Select
-                  label="Audience"
+                  label={t("writerStory.fields.audience")}
                   value={visibility}
                   onChange={(val) => setVisibility(val)}
                   options={[
-                    { value: "public", label: "Public" },
-                    { value: "unlisted", label: "Unlisted" },
-                    { value: "members", label: "Members only" },
+                    { value: "public", label: t("writerStory.audience.public") },
+                    {
+                      value: "unlisted",
+                      label: t("writerStory.audience.unlisted"),
+                    },
+                    {
+                      value: "members",
+                      label: t("writerStory.audience.members"),
+                    },
+                  ]}
+                  className="mb-3"
+                />
+                <Select
+                  label={t("writerStory.fields.format")}
+                  value={contentKind}
+                  onChange={(val) => setContentKind(val)}
+                  options={[
+                    {
+                      value: "WEBLOG",
+                      label: t("writerStory.format.weblog"),
+                    },
+                    {
+                      value: "MONOGRAPH",
+                      label: t("writerStory.format.monograph"),
+                    },
                   ]}
                   className="mb-3"
                 />
@@ -534,7 +711,9 @@ export default function WriteStory() {
                   htmlFor="writer-cover-v2"
                   className="block cursor-pointer rounded-lg border border-dashed border-neutral-300 px-3 py-2 text-center text-xs font-medium text-neutral-600 transition-colors hover:border-[#1a8917]/50 hover:bg-[rgba(26,137,23,0.04)] dark:border-zinc-600 dark:text-neutral-400"
                 >
-                  {cover ? "Replace cover image" : "Add cover image"}
+                  {cover
+                    ? t("writerStory.cover.replace")
+                    : t("writerStory.cover.add")}
                 </label>
                 <input
                   id="writer-cover-v2"
@@ -549,7 +728,7 @@ export default function WriteStory() {
 
           <button
             type="button"
-            title="Notifications"
+            title={t("writerStory.notificationsBell")}
             className="flex size-9 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-zinc-800"
           >
             <Bell className="size-[18px]" strokeWidth={1.85} />
@@ -567,7 +746,7 @@ export default function WriteStory() {
             ref={titleRef}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title"
+            placeholder={t("writerStory.placeholders.title")}
             className="font-blog-display w-full border-0 bg-transparent px-0 py-2 text-[2.625rem] font-bold leading-[1.06] tracking-tight text-neutral-900 outline-none placeholder:text-neutral-400 sm:text-[2.875rem] dark:text-neutral-50 dark:placeholder:text-zinc-500"
           />
         </div>
@@ -576,7 +755,7 @@ export default function WriteStory() {
           <input
             value={subtitle}
             onChange={(e) => setSubtitle(e.target.value)}
-            placeholder="Optional subtitle…"
+            placeholder={t("writerStory.placeholders.optionalSubtitle")}
             className="font-blog-serif w-full border-0 bg-transparent px-0 py-1 text-[1.2rem] font-normal italic leading-snug text-neutral-600 outline-none placeholder:text-neutral-400 sm:text-xl dark:text-zinc-400 dark:placeholder:text-zinc-500"
           />
         </div>
@@ -647,7 +826,7 @@ export default function WriteStory() {
         <div className="relative mt-8 min-h-[50vh]">
           {isBodyEmpty && (
             <div className="pointer-events-none absolute left-0 top-1 select-none font-blog-serif text-xl font-normal leading-[1.8] text-neutral-400 dark:text-zinc-500">
-              Tell your story…
+              {t("writerStory.bodyPlaceholder")}
             </div>
           )}
           <div
@@ -671,17 +850,17 @@ export default function WriteStory() {
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-zinc-500">
-                  Preview
+                  {t("writerStory.preview.badge")}
                 </p>
                 <h2 className="font-blog-display mt-1 text-2xl font-bold text-neutral-900 dark:text-neutral-50 md:text-3xl">
-                  {title || "Untitled story"}
+                  {title || t("writerStory.preview.untitled")}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setPreviewOpen(false)}
                 className="rounded-full p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-zinc-800"
-                aria-label="Close preview"
+                aria-label={t("writerStory.preview.closeAria")}
               >
                 <X className="size-5" />
               </button>
@@ -705,7 +884,8 @@ export default function WriteStory() {
               className="blog-article-prose mt-6 text-neutral-900 dark:text-neutral-100"
               dangerouslySetInnerHTML={{
                 __html:
-                  previewHTML || "<p>Start writing to see your preview.</p>",
+                  previewHTML ||
+                  `<p>${t("writerStory.preview.emptyBody")}</p>`,
               }}
             />
           </div>

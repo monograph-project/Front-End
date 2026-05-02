@@ -4,7 +4,7 @@ export default function BlogOverviewPanel({ blog, formattedDate }) {
   const { t } = useTranslation();
 
   return (
-    <div className="rounded-md border border-default bg-shell p-5 dark:border-dark-default dark:bg-dark-shell">
+    <div className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-5 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
       <div className="grid gap-4 md:grid-cols-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">

@@ -2476,3 +2476,130 @@ Extracted result from source:
 
 - No custom endpoints declared in application code.
 
+---
+
+## 8. Faculty registry service (`{main-url}/api/...`)
+
+**Base:** same gateway as students (`VITE_API_BASE_URL`). Paths below are prefixed with **`/api`**. Responses may be **JSON arrays** or **Spring `Page`** envelopes (`content` / `data`); the client unwraps lists in `apiRoute.facultyListItems`.
+
+Pagination (when supported by the service):
+
+```
+?page=0&size=10&sort=name,asc
+```
+
+### Academic year (`/api/academic-year`)
+
+| Method | Path |
+| --- | --- |
+| GET | `/api/academic-year` |
+| POST | `/api/academic-year` |
+| GET | `/api/academic-year/{id}` |
+| PUT | `/api/academic-year/{id}` |
+| DELETE | `/api/academic-year/{id}` |
+
+**POST/PUT JSON body (typical)**
+
+```json
+{
+  "name": "2025-2026",
+  "startDate": "2025-01-01",
+  "endDate": "2026-01-01",
+  "calendarType": "SOLAR"
+}
+```
+
+### Department (`/api/department`)
+
+Documented and used in admin settings; see existing `DEPARTMENT` routes in `RouteConfig.js`.
+
+### Semester (`/api/semester`)
+
+| Method | Path |
+| --- | --- |
+| GET | `/api/semester` |
+| POST | `/api/semester` |
+| GET | `/api/semester/{id}` |
+| PUT | `/api/semester/{id}` |
+| DELETE | `/api/semester/{id}` |
+
+**POST/PUT JSON (typical)**
+
+```json
+{
+  "academicYear": "academicYearId",
+  "type": "SPRING",
+  "name": "Semester 1",
+  "startDate": "2026-03-01",
+  "endDate": "2026-08-30"
+}
+```
+
+### Batch (`/api/batch`)
+
+| Method | Path |
+| --- | --- |
+| GET | `/api/batch` |
+| POST | `/api/batch` |
+| GET | `/api/batch/{id}` |
+| PUT | `/api/batch/{id}` |
+| DELETE | `/api/batch/{id}` |
+
+**POST/PUT JSON (typical)**
+
+```json
+{
+  "name": "Batch 2025",
+  "year": 2025,
+  "type": "UNDERGRAD",
+  "startDate": "2025-09-01",
+  "endDate": "2026-06-30",
+  "description": "optional",
+  "isActive": true,
+  "academicYear": "academicYearId"
+}
+```
+
+### Project (`/api/project`)
+
+| Method | Path |
+| --- | --- |
+| GET | `/api/project` |
+| POST | `/api/project` |
+| GET | `/api/project/{id}` |
+| PUT | `/api/project/{id}` |
+| DELETE | `/api/project/{id}` |
+
+**POST JSON (typical)**
+
+```json
+{
+  "projectName": "Project Name",
+  "group": "groupId",
+  "teacher": "teacherId",
+  "projectRepository": "repositoryId"
+}
+```
+
+### Group (`/api/group`)
+
+| Method | Path |
+| --- | --- |
+| GET | `/api/group` |
+| POST | `/api/group` |
+| GET | `/api/group/{id}` |
+| PUT | `/api/group/{id}` |
+| DELETE | `/api/group/{id}` |
+
+**POST JSON (typical)**
+
+```json
+{
+  "name": "Group A",
+  "groupMembers": ["studentId1", "studentId2"],
+  "groupLeader": "studentId1"
+}
+```
+
+Frontend integration (`RouteConfig.ACADEMIC_YEAR`, `SEMESTER`, `BATCH.*`, `FACULTY_PROJECT`, `FACULTY_GROUP`), Axios helpers and TanStack hooks live in **`apiRoute.js`** / **`useApi.js`**. **GET hooks** disable `gooeyToast` by default (`notifyOnError: false`); **create / update / delete** mutations keep success/error toasts via `useApiMutation`.
+

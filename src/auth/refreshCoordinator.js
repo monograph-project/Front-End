@@ -2,6 +2,7 @@ import axios from "axios";
 import { buildAuthSession } from "../lib/authSession";
 import { AUTH } from "../services/RouteConfig";
 import { apiWithCredentialsEnabled, authUsesCookieRefresh } from "./httpCredentials";
+import { persistTokens } from "./storageBridge";
 import { tokenMemory } from "./tokenMemory";
 
 let inflight = null;
@@ -30,7 +31,7 @@ async function executeRefreshInner() {
         ? String(session.refresh_token)
         : refreshFromMemory ?? null;
 
-    tokenMemory.setPair(nextAccess, nextRefresh ?? null);
+    persistTokens(nextAccess, nextRefresh ?? null);
 
     if (typeof window !== "undefined") {
       window.dispatchEvent(

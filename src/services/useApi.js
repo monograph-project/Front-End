@@ -555,7 +555,7 @@ export function useDeleteEmployee(options) {
 }
 
 export function useDepartments(queryOptions = {}) {
-  const { notifyOnError = true, ...rest } = queryOptions;
+  const { notifyOnError = false, ...rest } = queryOptions;
   const q = useQuery({
     queryKey: ["departments"],
     queryFn: Api.getDepartments,
@@ -566,7 +566,7 @@ export function useDepartments(queryOptions = {}) {
 }
 
 export function useBatches(queryOptions = {}) {
-  const { notifyOnError = true, ...rest } = queryOptions;
+  const { notifyOnError = false, ...rest } = queryOptions;
   const q = useQuery({
     queryKey: ["batches"],
     queryFn: Api.getBatches,
@@ -576,8 +576,21 @@ export function useBatches(queryOptions = {}) {
   return q;
 }
 
+export function useBatch(id, queryOptions = {}) {
+  const { enabled = Boolean(id), notifyOnError = false, ...rest } =
+    queryOptions;
+  const q = useQuery({
+    queryKey: ["batches", "detail", id],
+    queryFn: () => Api.getBatchById(id),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_batches");
+  return q;
+}
+
 export function useDepartment(id, queryOptions = {}) {
-  const { enabled = Boolean(id), notifyOnError = true, ...rest } = queryOptions;
+  const { enabled = Boolean(id), notifyOnError = false, ...rest } = queryOptions;
   const q = useQuery({
     queryKey: ["departments", id],
     queryFn: () => Api.getDepartmentById(id),
@@ -611,6 +624,235 @@ export function useDeleteDepartment(options) {
     mutationFn: Api.deleteDepartment,
     mutationKey: ["departments", "delete"],
     toastSuccess: "Department removed successfully",
+    ...options,
+  });
+}
+
+/* ─── Faculty registry: academic year, semester, batch, project, group ─────── */
+
+export function useAcademicYears(params = {}, queryOptions = {}) {
+  const { notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["academic-years", params],
+    queryFn: () => Api.getAcademicYears(params),
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_academic_years");
+  return q;
+}
+
+export function useAcademicYear(id, queryOptions = {}) {
+  const { enabled = Boolean(id), notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["academic-years", "detail", id],
+    queryFn: () => Api.getAcademicYearById(id),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_academic_year");
+  return q;
+}
+
+export function useCreateAcademicYear(options) {
+  return useApiMutation({
+    mutationFn: Api.createAcademicYear,
+    mutationKey: ["academic-years", "create"],
+    toastSuccess: "Academic year created",
+    ...options,
+  });
+}
+
+export function useUpdateAcademicYear(options) {
+  return useApiMutation({
+    mutationFn: ({ id, ...body }) => Api.updateAcademicYear(id, body),
+    mutationKey: ["academic-years", "update"],
+    toastSuccess: "Academic year updated",
+    ...options,
+  });
+}
+
+export function useDeleteAcademicYear(options) {
+  return useApiMutation({
+    mutationFn: Api.deleteAcademicYear,
+    mutationKey: ["academic-years", "delete"],
+    toastSuccess: "Academic year removed",
+    ...options,
+  });
+}
+
+export function useSemesters(params = {}, queryOptions = {}) {
+  const { notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["semesters", params],
+    queryFn: () => Api.getSemesters(params),
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_semesters");
+  return q;
+}
+
+export function useSemester(id, queryOptions = {}) {
+  const { enabled = Boolean(id), notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["semesters", "detail", id],
+    queryFn: () => Api.getSemesterById(id),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_semester");
+  return q;
+}
+
+export function useCreateSemester(options) {
+  return useApiMutation({
+    mutationFn: Api.createSemester,
+    mutationKey: ["semesters", "create"],
+    toastSuccess: "Semester created",
+    ...options,
+  });
+}
+
+export function useUpdateSemester(options) {
+  return useApiMutation({
+    mutationFn: ({ id, ...body }) => Api.updateSemester(id, body),
+    mutationKey: ["semesters", "update"],
+    toastSuccess: "Semester updated",
+    ...options,
+  });
+}
+
+export function useDeleteSemester(options) {
+  return useApiMutation({
+    mutationFn: Api.deleteSemester,
+    mutationKey: ["semesters", "delete"],
+    toastSuccess: "Semester removed",
+    ...options,
+  });
+}
+
+export function useCreateBatch(options) {
+  return useApiMutation({
+    mutationFn: Api.createBatch,
+    mutationKey: ["batches", "create"],
+    toastSuccess: "Batch created",
+    ...options,
+  });
+}
+
+export function useUpdateBatch(options) {
+  return useApiMutation({
+    mutationFn: ({ id, ...body }) => Api.updateBatch(id, body),
+    mutationKey: ["batches", "update"],
+    toastSuccess: "Batch updated",
+    ...options,
+  });
+}
+
+export function useDeleteBatch(options) {
+  return useApiMutation({
+    mutationFn: Api.deleteBatch,
+    mutationKey: ["batches", "delete"],
+    toastSuccess: "Batch removed",
+    ...options,
+  });
+}
+
+export function useFacultyProjects(params = {}, queryOptions = {}) {
+  const { notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["faculty-projects", params],
+    queryFn: () => Api.getFacultyProjects(params),
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_projects");
+  return q;
+}
+
+export function useFacultyProject(id, queryOptions = {}) {
+  const { enabled = Boolean(id), notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["faculty-projects", "detail", id],
+    queryFn: () => Api.getFacultyProjectById(id),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_project");
+  return q;
+}
+
+export function useCreateFacultyProject(options) {
+  return useApiMutation({
+    mutationFn: Api.createFacultyProject,
+    mutationKey: ["faculty-projects", "create"],
+    toastSuccess: "Project created",
+    ...options,
+  });
+}
+
+export function useUpdateFacultyProject(options) {
+  return useApiMutation({
+    mutationFn: ({ id, ...body }) => Api.updateFacultyProject(id, body),
+    mutationKey: ["faculty-projects", "update"],
+    toastSuccess: "Project updated",
+    ...options,
+  });
+}
+
+export function useDeleteFacultyProject(options) {
+  return useApiMutation({
+    mutationFn: Api.deleteFacultyProject,
+    mutationKey: ["faculty-projects", "delete"],
+    toastSuccess: "Project removed",
+    ...options,
+  });
+}
+
+export function useFacultyGroups(params = {}, queryOptions = {}) {
+  const { notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["faculty-groups", params],
+    queryFn: () => Api.getFacultyGroups(params),
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_groups");
+  return q;
+}
+
+export function useFacultyGroup(id, queryOptions = {}) {
+  const { enabled = Boolean(id), notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["faculty-groups", "detail", id],
+    queryFn: () => Api.getFacultyGroupById(id),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_group");
+  return q;
+}
+
+export function useCreateFacultyGroup(options) {
+  return useApiMutation({
+    mutationFn: Api.createFacultyGroup,
+    mutationKey: ["faculty-groups", "create"],
+    toastSuccess: "Group created",
+    ...options,
+  });
+}
+
+export function useUpdateFacultyGroup(options) {
+  return useApiMutation({
+    mutationFn: ({ id, ...body }) => Api.updateFacultyGroup(id, body),
+    mutationKey: ["faculty-groups", "update"],
+    toastSuccess: "Group updated",
+    ...options,
+  });
+}
+
+export function useDeleteFacultyGroup(options) {
+  return useApiMutation({
+    mutationFn: Api.deleteFacultyGroup,
+    mutationKey: ["faculty-groups", "delete"],
+    toastSuccess: "Group removed",
     ...options,
   });
 }
@@ -747,7 +989,7 @@ export function useUsersStatsCountMutation(options = {}) {
 /* ─── Roles ─────────────────────────────────────────────────────────────────── */
 
 export function useRoles(queryOptions = {}) {
-  const { notifyOnError = true, ...rest } = queryOptions;
+  const { notifyOnError = false, ...rest } = queryOptions;
   const q = useQuery({
     queryKey: ["roles"],
     queryFn: Api.listRoles,
@@ -827,7 +1069,7 @@ export function useCreatePermission(options) {
 }
 
 export function usePermissionsByClient(clientId, queryOptions = {}) {
-  const { enabled = Boolean(clientId), notifyOnError = true, ...rest } =
+  const { enabled = Boolean(clientId), notifyOnError = false, ...rest } =
     queryOptions;
   const q = useQuery({
     queryKey: ["permissions", "client", clientId],

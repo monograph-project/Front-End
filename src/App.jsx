@@ -148,7 +148,10 @@ export default function App() {
             <Route path="department" element={<Department />} />
             <Route path="department/:id" element={<DepartmentProfile />} />
             <Route path="projects" element={<Projects />} />
-            <Route path="projects/:id" element={<ProjectWorkspace />} />
+            <Route
+              path="projects/:owner/:repo"
+              element={<ProjectWorkspace />}
+            />
             <Route path="blogs" element={<Blog />} />
             <Route path="blogs/:id" element={<BlogDetailPage />} />
             <Route path="setting" element={<Setting />} />
