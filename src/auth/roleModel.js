@@ -1,4 +1,5 @@
-const FACET_PRIORITY = ["admin", "dean", "teacher", "staff", "student", "user"];
+/** Primary shell when multiple facets exist (dean→admin, staff→teacher at token layer). */
+const FACET_PRIORITY = ["admin", "teacher", "student", "author", "user"];
 
 const IGNORE_REALM = new Set(
   ["OFFLINE_ACCESS", "UMA_AUTHORIZATION"].map((s) => s.toUpperCase()),
@@ -44,9 +45,18 @@ function matchFacetFromToken(upper) {
     upper === "STAFF" ||
     upper === "HR" ||
     upper === "FACULTY_STAFF"
-  )
-    return "staff";
-  if (upper === "DEAN") return "dean";
+  ) {
+    return "teacher";
+  }
+  if (upper === "DEAN") return "admin";
+  if (
+    upper === "AUTHOR" ||
+    upper === "BLOG_AUTHOR" ||
+    upper === "CONTENT_AUTHOR" ||
+    upper === "BLOG_WRITER"
+  ) {
+    return "author";
+  }
   return null;
 }
 
@@ -81,9 +91,10 @@ export function normalizeFacetKey(input) {
     admin: "admin",
     teacher: "teacher",
     student: "student",
-    staff: "staff",
-    employee: "staff",
-    dean: "dean",
+    staff: "teacher",
+    employee: "teacher",
+    dean: "admin",
+    author: "author",
     user: "user",
   };
   return map[v] ?? null;
@@ -120,7 +131,10 @@ export function finalizeAuthProfile(baseUser, tokenParsed) {
   const explicitRole = typeof apiLike?.role === "string" ? apiLike.role : "";
   if (explicitRole && !Array.isArray(apiLike.roles)) list.push(explicitRole);
 
-  const normalizedRoles = collectFacetsFromRawRoles(list);
+  let normalizedRoles = collectFacetsFromRawRoles(list);
+  if (!normalizedRoles.length) {
+    normalizedRoles = ["student", "user"];
+  }
   const role = pickPrimaryFacet(normalizedRoles);
 
   return {

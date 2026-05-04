@@ -29,23 +29,12 @@ const SURFACE_CARD =
 const SURFACE_INSET =
   "rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
 
-function SummaryStat({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  active = false,
-  onClick,
-}) {
+function SummaryStat({ label, value, hint, icon: Icon, active = false }) {
   return (
     <button
       type="button"
-      onClick={onClick}
       className={cn(
-        `${SURFACE_CARD} cursor-pointer p-4 text-left transition-colors duration-200`,
-        active
-          ? "border-(--color-light-input-border-focus) ring-2 ring-blue-500/15 dark:border-(--color-dark-input-border-focus) dark:ring-blue-400/15"
-          : "hover:border-(--color-light-input-border-focus) dark:hover:border-(--color-dark-input-border-focus)",
+        `${SURFACE_CARD} border-(--color-light-input-border-focus) ring-2 ring-blue-500/15 dark:border-(--color-dark-input-border-focus) dark:ring-blue-400/15  cursor-pointer p-4 text-left transition-colors duration-200`,
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -140,8 +129,7 @@ function Blogs() {
 
     return result.sort((a, b) => {
       if (sortBy === "title") return a.title.localeCompare(b.title);
-      if (sortBy === "oldest")
-        return new Date(a.date) - new Date(b.date);
+      if (sortBy === "oldest") return new Date(a.date) - new Date(b.date);
       return new Date(b.date) - new Date(a.date);
     });
   }, [activeStatus, blogs, query, sortBy]);
@@ -191,9 +179,7 @@ function Blogs() {
   };
 
   const publishedRate =
-    blogs.length > 0
-      ? Math.round((counts.published / blogs.length) * 100)
-      : 0;
+    blogs.length > 0 ? Math.round((counts.published / blogs.length) * 100) : 0;
 
   const hasFilters =
     activeStatus !== "all" || query.trim() || sortBy !== "newest";
@@ -264,7 +250,7 @@ function Blogs() {
     updateMutation.isPending;
 
   return (
-    <div className="flex min-h-screen flex-1 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+    <div className="flex min-h-screen flex-1 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
       <div className="mx-auto w-full max-w-7xl space-y-6">
         <section className={`${SURFACE_CARD} overflow-hidden`}>
           <div className="relative border-b border-light-divider px-4 py-6 dark:border-dark-divider md:px-6 md:py-7">
@@ -276,34 +262,12 @@ function Blogs() {
                   <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
                   {t("blogAdmin.header.eyebrow")}
                 </div>
-                <h1 className="mt-4 text-3xl font-bold tracking-tight text-primary dark:text-dark-primary md:text-4xl">
+                <h1 className="mt-4 text-2xl font-semibold tracking-tight text-primary dark:text-dark-primary md:text-2xl">
                   {t("blogAdmin.header.title")}
                 </h1>
                 <p className="mt-4 max-w-2xl text-base leading-7 text-secondary dark:text-dark-secondary">
                   {t("blogAdmin.header.description")}
                 </p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[320px]">
-                <div className={`${SURFACE_INSET} p-4`}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-                    {t("blogAdmin.header.publishRate")}
-                  </p>
-                  <p className="mt-3 text-3xl font-bold text-primary dark:text-dark-primary">
-                    {publishedRate}%
-                  </p>
-                  <p className="mt-2 text-sm text-secondary dark:text-dark-secondary">
-                    {t("blogAdmin.header.publishRateHint")}
-                  </p>
-                </div>
-                <div className={`${SURFACE_INSET} p-4 md:col-span-2`}>
-                  <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                    {t("blogAdmin.header.ruleTitle")}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                    {t("blogAdmin.header.ruleDescription")}
-                  </p>
-                </div>
               </div>
             </div>
           </div>
@@ -336,7 +300,6 @@ function Blogs() {
 
                 <div className="grid w-full gap-3 sm:grid-cols-[minmax(0,1fr)_200px] lg:max-w-xl">
                   <div className="flex flex-col gap-1">
-                    
                     <div className="relative">
                       <Search
                         className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted dark:text-dark-muted"
@@ -347,7 +310,9 @@ function Blogs() {
                         type="search"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder={t("blogAdmin.collection.searchPlaceholder")}
+                        placeholder={t(
+                          "blogAdmin.collection.searchPlaceholder",
+                        )}
                         className="h-8 w-full rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) py-1.5 pl-9 pr-3.5 text-xs text-(--color-light-text-primary) outline-none transition-colors placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
                       />
                     </div>
@@ -391,12 +356,12 @@ function Blogs() {
                   </span>
                   {hasFilters && (
                     <Button
+                      icon={<X className="h-4 w-4" strokeWidth={2} />}
                       type="button"
                       variant="tertiary"
                       className="gap-2"
                       onClick={clearFilters}
                     >
-                      <X className="h-4 w-4" strokeWidth={2} />
                       {t("blogAdmin.filters.clear")}
                     </Button>
                   )}
@@ -422,7 +387,11 @@ function Blogs() {
                 <p className="font-semibold text-primary dark:text-dark-primary">
                   {t("blogAdmin.error")}
                 </p>
-                <Button type="button" variant="secondary" onClick={() => refetch()}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => refetch()}
+                >
                   {t("blogAdmin.retry")}
                 </Button>
               </div>
@@ -478,7 +447,7 @@ function Blogs() {
                         variant="secondary"
                         disabled={
                           busy ||
-                          (pagination?.hasNext === false) ||
+                          pagination?.hasNext === false ||
                           (pagination == null
                             ? page + 1 >= totalPages
                             : page >= totalPages - 1)

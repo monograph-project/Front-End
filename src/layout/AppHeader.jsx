@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
+import { ChevronRight, Compass } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import {
   TbLayoutSidebarLeftCollapse,
@@ -26,6 +27,7 @@ import IC from "../components/IC";
 import Icon from "../components/Icon";
 import NotificationDropdown from "../components/NotificationDropdown";
 import SearchableSelect from "../components/SearchableSelect";
+import { formatHeaderFullPath, splitPathFragments } from "../lib/headerPath";
 import { useTheme } from "../context/themContext";
 import { useAuth } from "../context/AuthContext";
 
@@ -84,6 +86,57 @@ const NOTIFICATIONS = [
   },
 ];
 
+/** Styled path trail beside the sidebar control. */
+function RouteTrail({ pathname }) {
+  const { t } = useTranslation();
+  const full = formatHeaderFullPath(pathname);
+  const parts = splitPathFragments(pathname);
+  const hasParts = parts.length > 0;
+
+  return (
+    <nav
+      className="min-w-0 hidden md:block flex-1 overflow-hidden ps-1"
+      aria-label={t("appHeader.routeLocation")}
+      title={full}
+    >
+      <div className="flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap rounded-2xl   px-2.5 py-1.5  sm:px-3 sm:py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+          <span className="inline-flex shrink-0 items-center rounded-full bg-(--color-light-card-bg) px-2.5 py-1 text-[11px] font-semibold tracking-wide text-primary dark:bg-(--color-dark-card-bg) dark:text-dark-primary sm:text-xs">
+            {t("appHeader.routeHome")}
+          </span>
+
+          {hasParts
+            ? parts.map((seg, idx) => {
+                const last = idx === parts.length - 1;
+                return (
+                  <span
+                    key={`${seg}-${idx}`}
+                    className="inline-flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2"
+                  >
+                    <ChevronRight
+                      className="size-3 shrink-0 text-muted dark:text-dark-muted sm:size-3.5"
+                      strokeWidth={1.8}
+                      aria-hidden
+                    />
+                    <span
+                      className={`min-w-0 max-w-[8.25rem] capitalize truncate  px-2.5 py-1 text-[11px] sm:max-w-[12rem] sm:text-xs md:max-w-none ${
+                        last
+                          ? "bg-(--color-light-card-bg) font-semibold text-primary shadow-xs dark:bg-(--color-dark-card-bg) dark:text-dark-primary"
+                          : "font-medium text-secondary dark:text-dark-secondary"
+                      }`}
+                    >
+                      {seg}
+                    </span>
+                  </span>
+                );
+              })
+            : null}
+        </div>
+      </div>
+    </nav>
+  );
+}
+
 function HeaderIconButton({ onClick, active = false, ariaLabel, children }) {
   return (
     <button
@@ -116,11 +169,7 @@ function isPublicStoriesPath(pathname) {
 function NotificationButton({ unreadCount, active, onClick, ariaLabel }) {
   return (
     <div className="relative">
-      <HeaderIconButton
-        onClick={onClick}
-        active={active}
-        ariaLabel={ariaLabel}
-      >
+      <HeaderIconButton onClick={onClick} active={active} ariaLabel={ariaLabel}>
         <Icon d={IC.bell} className="size-3.5 stroke-[1.5] sm:size-4" />
         {unreadCount > 0 && (
           <span className="absolute top-0.5 right-0.5 min-w-[14px] h-3.5 px-0.5 flex items-center justify-center rounded-full bg-success text-[8px] font-bold text-success-light leading-none">
@@ -219,20 +268,10 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
   }, [logout]);
 
   return (
-    <header className="sticky top-0 z-20 flex h-11 shrink-0 items-center gap-1 border-b border-default/80 bg-white px-2 dark:border-dark-default dark:bg-dark-shell sm:h-14 sm:gap-2 md:gap-3 md:px-4 lg:px-5">
-      {/* Mobile menu toggle + title area */}
-      <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
-        <div
-          onClick={handleSidebarToggle}
-          className="group rounded-xl border border-default p-1 transition-all hover:border-light dark:border-dark-default hover:dark:border-dark-default sm:p-1.5"
-        >
-          {collapsed ? (
-            <TbLayoutSidebarRightCollapse className="text-[1.1rem] sm:text-xl" />
-          ) : (
-            <TbLayoutSidebarLeftCollapse className="cursor-pointer text-[1.1rem] sm:text-xl" />
-          )}
-        </div>
-        {/* Route-specific title slots can mount here */}
+    <header className="sticky top-0 z-20 flex h-11 shrink-0 items-center gap-2 border-b border-(--color-light-card-border) bg-(--color-light-card-bg)/88 px-2 backdrop-blur-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)/90 sm:h-14 sm:gap-2.5 md:gap-3 md:px-4 lg:px-5">
+      {/* Sidebar + route */}
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+        <RouteTrail pathname={pathname} />
       </div>
 
       {/* Stories filter — lg+ only (see header responsive rules) */}
@@ -319,28 +358,31 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
               </DropdownSubTrigger>
               <DropdownSubContent>
                 {hasRole("admin") && (
-                  <DropdownItem onClick={() => navigateToFacetDashboard("admin")}>
+                  <DropdownItem
+                    onClick={() => navigateToFacetDashboard("admin")}
+                  >
                     {t("adminShared.roles.admin")}
                   </DropdownItem>
                 )}
-                {hasRole("dean") && (
-                  <DropdownItem onClick={() => navigateToFacetDashboard("dean")}>
-                    {t("adminShared.roles.dean")}
-                  </DropdownItem>
-                )}
-                {hasRole("staff") && (
-                  <DropdownItem onClick={() => navigateToFacetDashboard("staff")}>
-                    {t("adminShared.roles.staff")}
-                  </DropdownItem>
-                )}
                 {hasRole("teacher") && (
-                  <DropdownItem onClick={() => navigateToFacetDashboard("teacher")}>
+                  <DropdownItem
+                    onClick={() => navigateToFacetDashboard("teacher")}
+                  >
                     {t("adminShared.roles.teacher")}
                   </DropdownItem>
                 )}
                 {(hasRole("student") || hasRole("user")) && (
-                  <DropdownItem onClick={() => navigateToFacetDashboard("student")}>
+                  <DropdownItem
+                    onClick={() => navigateToFacetDashboard("student")}
+                  >
                     {t("adminShared.roles.student")}
+                  </DropdownItem>
+                )}
+                {hasRole("author") && (
+                  <DropdownItem
+                    onClick={() => navigateToFacetDashboard("author")}
+                  >
+                    {t("adminShared.roles.author")}
                   </DropdownItem>
                 )}
               </DropdownSubContent>

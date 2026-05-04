@@ -68,7 +68,7 @@ const Select = ({
         <RadixSelect.Portal>
           <RadixSelect.Content
             className="
-              overflow-hidden w-(--radix-select-trigger-width) rounded-xl border
+              z-[1100] overflow-hidden w-(--radix-select-trigger-width) rounded-xl border
               bg-(--color-light-card-bg) text-(--color-light-text-primary) border-(--color-light-card-border)
               dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-text-primary) dark:border-(--color-dark-card-border)
               shadow-md

@@ -2597,9 +2597,16 @@ Documented and used in admin settings; see existing `DEPARTMENT` routes in `Rout
 {
   "name": "Group A",
   "groupMembers": ["studentId1", "studentId2"],
-  "groupLeader": "studentId1"
+  "groupLeader": "studentId1",
+  "academicYear": "academicYearId"
 }
 ```
+
+`academicYear` is optional; omit or send `null` when not tied to a specific academic year.
+
+**Response (typical)**
+
+Nested `academicYearResponse` (or equivalent) may echo the selected year (`id`, `name`, `startDate`, `endDate`, `calendarType`) alongside `groupMembers`, `groupLeader`, and `name`.
 
 Frontend integration (`RouteConfig.ACADEMIC_YEAR`, `SEMESTER`, `BATCH.*`, `FACULTY_PROJECT`, `FACULTY_GROUP`), Axios helpers and TanStack hooks live in **`apiRoute.js`** / **`useApi.js`**. **GET hooks** disable `gooeyToast` by default (`notifyOnError: false`); **create / update / delete** mutations keep success/error toasts via `useApiMutation`.
 

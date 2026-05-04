@@ -4,16 +4,18 @@ import Field from "./Field";
 import SearchableSelect from "./SearchableSelect";
 import Select from "./Select";
 import SettingsSectionCard from "./SettingsSectionCard";
+import { useLanguage } from "../context/LanguageContext";
 
 const languageOptions = [
   { value: "en", label: "English", description: "Default administrative language" },
-  { value: "fa", label: "Dari / Persian", description: "Regional faculty support" },
+  { value: "prs", label: "Dari / Persian", description: "Regional faculty support" },
   { value: "ps", label: "Pashto", description: "Localized student communication" },
-  { value: "ar", label: "Arabic", description: "Additional regional option" },
 ];
 
 export default function LanguageSettingsTab() {
   const { t } = useTranslation();
+  const { lang, setLang } = useLanguage();
+
   return (
     <div className="space-y-6">
       <SettingsSectionCard
@@ -27,7 +29,8 @@ export default function LanguageSettingsTab() {
                 {t("settings.language.fields.defaultPlatformLanguage")}
               </span>
               <Select
-                defaultValue="en"
+                value={lang}
+                onChange={setLang}
                 options={languageOptions.map(({ value, label }) => ({
                   value,
                   label: t(`settings.language.options.${value}.label`, label),
@@ -40,7 +43,7 @@ export default function LanguageSettingsTab() {
               </span>
               <SearchableSelect
                 multiple
-                defaultValue={["en", "fa", "ps"]}
+                defaultValue={["en", "prs", "ps"]}
                 options={languageOptions.map((item) => ({
                   ...item,
                   label: t(`settings.language.options.${item.value}.label`, item.label),

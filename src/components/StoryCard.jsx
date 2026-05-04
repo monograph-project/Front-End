@@ -74,7 +74,7 @@ export default function StoryCard({ story, variant = "default" }) {
   if (variant === "featured") {
     return (
       <Link to={`/story/${story.id}`} className="group block">
-        <div className="relative mb-6 aspect-[16/10] overflow-hidden rounded-md bg-muted/30 dark:bg-dark-card">
+        <div className="relative mb-5 aspect-[16/10] overflow-hidden rounded-md bg-muted/30 dark:bg-dark-card sm:mb-6">
           {story.cover_image ? (
             <img
               src={story.cover_image}
@@ -96,11 +96,11 @@ export default function StoryCard({ story, variant = "default" }) {
           <p className="text-sm font-medium text-primary dark:text-dark-primary">
             {story.author_name || "Anonymous"}
           </p>
-          <h2 className="font-blog-display text-3xl font-bold leading-[1.15] tracking-tight text-primary sm:text-[2rem] dark:text-dark-primary">
+          <h2 className="font-blog-display text-[1.75rem] font-bold leading-[1.15] tracking-tight text-primary sm:text-[2rem] dark:text-dark-primary">
             {story.title}
           </h2>
           {story.subtitle && (
-            <p className="font-blog-serif line-clamp-2 max-w-[640px] text-lg leading-relaxed text-secondary dark:text-dark-secondary">
+            <p className="font-blog-serif line-clamp-3 max-w-[640px] text-base leading-relaxed text-secondary sm:text-lg dark:text-dark-secondary">
               {story.subtitle}
             </p>
           )}
@@ -138,7 +138,7 @@ export default function StoryCard({ story, variant = "default" }) {
   return (
     <Link
       to={`/story/${story.id}`}
-      className="group flex gap-6 sm:gap-8 lg:gap-10"
+      className="group flex flex-col-reverse gap-5 sm:flex-row sm:gap-8 lg:gap-10"
     >
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -167,7 +167,7 @@ export default function StoryCard({ story, variant = "default" }) {
           )}
         </div>
         {story.tags?.length > 0 && (
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-wrap gap-2 pt-1">
             {story.tags.slice(0, 2).map((tag) => (
               <Link
                 key={tag}
@@ -182,7 +182,7 @@ export default function StoryCard({ story, variant = "default" }) {
         )}
       </div>
       {story.cover_image ? (
-        <div className="size-28 shrink-0 overflow-hidden rounded-sm sm:size-36">
+        <div className="aspect-[16/10] w-full shrink-0 overflow-hidden rounded-sm sm:size-36 sm:aspect-auto">
           <img
             src={story.cover_image}
             alt=""

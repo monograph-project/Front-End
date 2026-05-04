@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
+  CheckCheck,
   ArrowUpDown,
   BadgeCheck,
   CalendarDays,
@@ -12,6 +13,10 @@ import {
   Hash,
   LayoutGrid,
   LayoutList,
+  Lock,
+  MailCheck,
+  PauseCircle,
+  PlayCircle,
   ShieldCheck,
   UserSquare2,
 } from "lucide-react";
@@ -36,15 +41,43 @@ import Checkbox from "../../components/Checkbox";
 import Button from "../../components/Button";
 import Field from "../../components/Field";
 import GlobalModal from "../../components/GlobalModal";
+import SensitiveActionModal from "../../components/SensitiveActionModal";
 import TableToolbar from "../../components/TableToolbar";
-import StatusPill, {
-  statusToPillVariant,
-} from "../../components/StatusPill";
+import StatusPill, { statusToPillVariant } from "../../components/StatusPill";
 import { normalizeUserPayload } from "../../lib/roles";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
-import { useDeleteUser, useUsersList } from "../../services/useApi";
+import {
+  useAssignPermissionRole,
+  useAssignRoleToUser,
+  useDeleteUser,
+  usePermissionsByClient,
+  useLockUser,
+  useRemovePermissionRole,
+  useRemoveRoleFromUser,
+  useRoles,
+  useSuspendUser,
+  useUsersList,
+  useActivateUser,
+  useVerifyUserEmailByAdmin,
+} from "../../services/useApi";
 
 const EMPTY = [];
+const PERMISSIONS_CLIENT_ID =
+  import.meta.env.VITE_PERMISSIONS_CLIENT_ID ?? "file-service";
+
+const USER_ROLE_ACTIONS = {
+  assignRole: "assignRole",
+  removeRole: "removeRole",
+  assignPermission: "assignPermission",
+  removePermission: "removePermission",
+};
+
+const USER_ACCOUNT_ACTIONS = {
+  suspend: "suspend",
+  activate: "activate",
+  lock: "lock",
+  verifyEmail: "verifyEmail",
+};
 
 function unwrapUsersPayload(payload) {
   if (Array.isArray(payload)) return payload;
@@ -73,7 +106,10 @@ function normalizeUserRow(raw) {
     raw?.updatedAt ??
     raw?.updated_at ??
     "";
-  const status = String(raw?.status ?? "ACTIVE").trim().toLowerCase() || "active";
+  const status =
+    String(raw?.status ?? "ACTIVE")
+      .trim()
+      .toLowerCase() || "active";
 
   return {
     ...raw,
@@ -92,6 +128,87 @@ function normalizeUserRow(raw) {
   };
 }
 
+function toUniqueRoleNames(values) {
+  return Array.from(
+    new Set(
+      (Array.isArray(values) ? values : EMPTY)
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function extractUserRealmRoles(user) {
+  return toUniqueRoleNames([user?.roleKey, ...(user?.roles ?? [])]);
+}
+
+function extractNamedItems(values) {
+  if (!Array.isArray(values)) return EMPTY;
+  return values
+    .map((item) =>
+      String(
+        item?.name ??
+          item?.roleName ??
+          item?.role ??
+          item?.authority ??
+          item?.permissionName ??
+          item?.roleKey ??
+          item?.id ??
+          item ??
+          "",
+      ).trim(),
+    )
+    .filter(Boolean);
+}
+
+function extractUserPermissionRoles(user, clientId) {
+  const exactClientId = String(clientId ?? "").trim();
+  const buckets = [
+    ...(Array.isArray(user?.permissionRoles) ? [user.permissionRoles] : EMPTY),
+    ...(Array.isArray(user?.clientRoles) ? [user.clientRoles] : EMPTY),
+    ...(Array.isArray(user?.permissions) ? [user.permissions] : EMPTY),
+    ...(Array.isArray(user?.authorities) ? [user.authorities] : EMPTY),
+  ];
+
+  const directRoles = extractNamedItems(buckets.flat());
+
+  const scopedSources = [
+    user?.clientRoleMappings,
+    user?.permissionRoleMappings,
+    user?.client_permissions,
+    user?.clientPermissions,
+  ].filter((value) => value && typeof value === "object");
+
+  const scopedRoles = scopedSources.flatMap((source) => {
+    if (Array.isArray(source)) {
+      return source
+        .filter((item) => {
+          const itemClientId = String(
+            item?.clientId ?? item?.client_id ?? item?.client ?? "",
+          ).trim();
+          return !exactClientId || itemClientId === exactClientId;
+        })
+        .flatMap((item) =>
+          extractNamedItems([
+            item?.name,
+            item?.roleName,
+            item?.role,
+            ...(Array.isArray(item?.roles) ? item.roles : EMPTY),
+            ...(Array.isArray(item?.permissions) ? item.permissions : EMPTY),
+          ]),
+        );
+    }
+
+    if (exactClientId && Array.isArray(source[exactClientId])) {
+      return extractNamedItems(source[exactClientId]);
+    }
+
+    return EMPTY;
+  });
+
+  return toUniqueRoleNames([...directRoles, ...scopedRoles]);
+}
+
 export default function Users() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -104,24 +221,119 @@ export default function Users() {
   const [viewTab, setViewTab] = useState("list");
   const [deleteUserId, setDeleteUserId] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [roleDialog, setRoleDialog] = useState(null);
+  const [roleDraft, setRoleDraft] = useState({
+    roleName: "",
+    clientId: PERMISSIONS_CLIENT_ID,
+  });
+  const [accountDialog, setAccountDialog] = useState(null);
+  const [lockDurationMinutes, setLockDurationMinutes] = useState("30");
+
+  const roleActionType = roleDialog?.type ?? null;
+  const isPermissionAction =
+    roleActionType === USER_ROLE_ACTIONS.assignPermission ||
+    roleActionType === USER_ROLE_ACTIONS.removePermission;
+
+  const closeRoleDialog = () => {
+    setRoleDialog(null);
+    setRoleDraft({
+      roleName: "",
+      clientId: PERMISSIONS_CLIENT_ID,
+    });
+  };
+  const closeAccountDialog = () => {
+    setAccountDialog(null);
+    setLockDurationMinutes("30");
+  };
+
+  const invalidateUsersQuery = () =>
+    queryClient.invalidateQueries({
+      predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === "users",
+    });
 
   const deleteUserMutation = useDeleteUser({
     showSuccessToast: false,
     showErrorToast: false,
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        predicate: (q) =>
-          Array.isArray(q.queryKey) && q.queryKey[0] === "users",
-      });
+      void invalidateUsersQuery();
+    },
+  });
+  const assignRoleMutation = useAssignRoleToUser({
+    onSuccess: () => {
+      void invalidateUsersQuery();
+      closeRoleDialog();
+    },
+  });
+  const removeRoleMutation = useRemoveRoleFromUser({
+    onSuccess: () => {
+      void invalidateUsersQuery();
+      closeRoleDialog();
+    },
+  });
+  const assignPermissionMutation = useAssignPermissionRole({
+    onSuccess: () => {
+      void invalidateUsersQuery();
+      closeRoleDialog();
+    },
+  });
+  const removePermissionMutation = useRemovePermissionRole({
+    onSuccess: () => {
+      void invalidateUsersQuery();
+      closeRoleDialog();
+    },
+  });
+  const suspendUserMutation = useSuspendUser({
+    onSuccess: () => {
+      void invalidateUsersQuery();
+      closeAccountDialog();
+    },
+  });
+  const activateUserMutation = useActivateUser({
+    onSuccess: () => {
+      void invalidateUsersQuery();
+      closeAccountDialog();
+    },
+  });
+  const lockUserMutation = useLockUser({
+    onSuccess: () => {
+      void invalidateUsersQuery();
+      closeAccountDialog();
+    },
+  });
+  const verifyEmailMutation = useVerifyUserEmailByAdmin({
+    onSuccess: () => {
+      void invalidateUsersQuery();
+      closeAccountDialog();
     },
   });
 
-  const { data, isLoading, isError, error } = useUsersList();
+  const { data, isError, error } = useUsersList();
+  const { data: rolesData } = useRoles();
+  const { data: permissionsData, isLoading: permissionsLoading } =
+    usePermissionsByClient(roleDraft.clientId, {
+      enabled: Boolean(isPermissionAction && roleDraft.clientId.trim()),
+    });
 
   const users = useMemo(
     () => unwrapUsersPayload(data).map(normalizeUserRow).filter(Boolean),
     [data],
   );
+  const availableRoles = useMemo(() => {
+    const list = rolesData?.roles ?? [];
+    return list
+      .map((role) =>
+        String(role?.name ?? role?.roleKey ?? role?.id ?? "").trim(),
+      )
+      .filter(Boolean);
+  }, [rolesData]);
+  const availablePermissionRoles = useMemo(() => {
+    const list = permissionsData?.permissions ?? [];
+    return list
+      .map((item) =>
+        String(item?.name ?? item?.roleKey ?? item?.id ?? "").trim(),
+      )
+      .filter(Boolean);
+  }, [permissionsData]);
 
   const filteredUsers = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
@@ -161,6 +373,50 @@ export default function Users() {
   const deletingUser = filteredUsers.find(
     (row) => String(row.id) === String(deleteUserId),
   );
+  const roleDialogUser = roleDialog?.user ?? null;
+  const roleDialogUserRoles = useMemo(() => {
+    return extractUserRealmRoles(roleDialogUser);
+  }, [roleDialogUser]);
+  const roleDialogUserPermissionRoles = useMemo(
+    () => extractUserPermissionRoles(roleDialogUser, roleDraft.clientId),
+    [roleDialogUser, roleDraft.clientId],
+  );
+  const realmRoleOptions = useMemo(() => {
+    const currentRoles = new Set(roleDialogUserRoles);
+    const source =
+      roleActionType === USER_ROLE_ACTIONS.removeRole
+        ? roleDialogUserRoles
+        : availableRoles.filter((roleName) => !currentRoles.has(roleName));
+    return source.map((roleName) => ({
+      value: roleName,
+      label: roleName,
+    }));
+  }, [availableRoles, roleActionType, roleDialogUserRoles]);
+  const permissionRoleOptions = useMemo(() => {
+    const currentRoles = new Set(roleDialogUserPermissionRoles);
+    const source =
+      roleActionType === USER_ROLE_ACTIONS.removePermission
+        ? availablePermissionRoles.filter((roleName) =>
+            currentRoles.has(roleName),
+          )
+        : availablePermissionRoles.filter(
+            (roleName) => !currentRoles.has(roleName),
+          );
+    return source.map((roleName) => ({
+      value: roleName,
+      label: roleName,
+    }));
+  }, [availablePermissionRoles, roleActionType, roleDialogUserPermissionRoles]);
+  const roleOperationSubmitting =
+    assignRoleMutation.isPending ||
+    removeRoleMutation.isPending ||
+    assignPermissionMutation.isPending ||
+    removePermissionMutation.isPending;
+  const accountOperationSubmitting =
+    suspendUserMutation.isPending ||
+    activateUserMutation.isPending ||
+    lockUserMutation.isPending ||
+    verifyEmailMutation.isPending;
 
   const headerData = useMemo(
     () => [
@@ -282,27 +538,102 @@ export default function Users() {
       window.GooeyToaster?.success?.(t("adminUsers.delete.success"));
       setDeleteUserId(null);
     } catch (e) {
-      window.GooeyToaster?.error?.(
-        e?.message || t("adminUsers.delete.error"),
-      );
+      window.GooeyToaster?.error?.(e?.message || t("adminUsers.delete.error"));
     } finally {
       setDeleteSubmitting(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-1 flex-col gap-[14px] overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
-        <div className="flex h-64 items-center justify-center text-primary dark:text-dark-primary">
-          {t("adminUsers.loading")}
-        </div>
-      </div>
-    );
-  }
+  const openRoleDialog = (type, user) => {
+    const defaultRoleName =
+      type === USER_ROLE_ACTIONS.removeRole
+        ? (extractUserRealmRoles(user).find(Boolean) ?? "")
+        : "";
+    setRoleDialog({ type, user });
+    setRoleDraft({
+      roleName: defaultRoleName,
+      clientId: PERMISSIONS_CLIENT_ID,
+    });
+  };
+
+  const submitRoleOperation = async () => {
+    if (!roleDialog?.user?.id) return;
+    const roleName = roleDraft.roleName.trim();
+    const clientId = roleDraft.clientId.trim();
+    if (!roleName) return;
+
+    if (roleActionType === USER_ROLE_ACTIONS.assignRole) {
+      await assignRoleMutation.mutateAsync({
+        roleName,
+        userId: roleDialog.user.id,
+      });
+      return;
+    }
+
+    if (roleActionType === USER_ROLE_ACTIONS.removeRole) {
+      await removeRoleMutation.mutateAsync({
+        roleName,
+        userId: roleDialog.user.id,
+      });
+      return;
+    }
+
+    if (!clientId) return;
+
+    if (roleActionType === USER_ROLE_ACTIONS.assignPermission) {
+      await assignPermissionMutation.mutateAsync({
+        clientId,
+        roleName,
+        userId: roleDialog.user.id,
+      });
+      return;
+    }
+
+    if (roleActionType === USER_ROLE_ACTIONS.removePermission) {
+      await removePermissionMutation.mutateAsync({
+        clientId,
+        roleName,
+        userId: roleDialog.user.id,
+      });
+    }
+  };
+
+  const openAccountDialog = (type, user) => {
+    setAccountDialog({ type, user });
+    setLockDurationMinutes("30");
+  };
+
+  const submitAccountOperation = async () => {
+    if (!accountDialog?.user?.id) return;
+    const userId = accountDialog.user.id;
+
+    if (accountDialog.type === USER_ACCOUNT_ACTIONS.suspend) {
+      await suspendUserMutation.mutateAsync(userId);
+      return;
+    }
+
+    if (accountDialog.type === USER_ACCOUNT_ACTIONS.activate) {
+      await activateUserMutation.mutateAsync(userId);
+      return;
+    }
+
+    if (accountDialog.type === USER_ACCOUNT_ACTIONS.verifyEmail) {
+      await verifyEmailMutation.mutateAsync(userId);
+      return;
+    }
+
+    if (accountDialog.type === USER_ACCOUNT_ACTIONS.lock) {
+      const durationMinutes = Math.max(
+        1,
+        Number.parseInt(lockDurationMinutes, 10) || 30,
+      );
+      await lockUserMutation.mutateAsync({ id: userId, durationMinutes });
+    }
+  };
 
   if (isError) {
     return (
-      <div className="flex flex-1 flex-col gap-[14px] overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+      <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
         <div className="flex h-64 flex-col items-center justify-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-light-error-bg dark:bg-dark-error-bg">
             <Icon
@@ -324,7 +655,7 @@ export default function Users() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="mb-1 text-2xl font-bold text-primary dark:text-dark-primary">
@@ -340,7 +671,9 @@ export default function Users() {
         <div className="flex items-center gap-3">
           <div className="flex-none">
             <DropdownMenuRoot>
-              <DropdownTrigger>{t("adminShared.labels.actions")}</DropdownTrigger>
+              <DropdownTrigger>
+                {t("adminShared.labels.actions")}
+              </DropdownTrigger>
               <DropdownContent align="end">
                 <DropdownItem
                   icon={<Icon d={IC.download} className="size-4" />}
@@ -502,14 +835,14 @@ export default function Users() {
         >
           <TableHeader headerData={headerData} />
           <TableBody>
-            {pageUsers.map((user) => (
+            {pageUsers.map((user, index) => (
               <TableRow key={user.id}>
                 <TableColumn className="w-10">
                   <Checkbox />
                 </TableColumn>
 
                 <TableColumn className="font-mono text-xs">
-                  #{String(user.id).padStart(2, "0")}
+                  #{index + 1}
                 </TableColumn>
 
                 <TableColumn>
@@ -572,6 +905,85 @@ export default function Users() {
                       >
                         <span>{t("adminShared.actions.viewProfile")}</span>
                       </DropdownItem>
+                      <DropdownItem
+                        onClick={() =>
+                          openRoleDialog(USER_ROLE_ACTIONS.assignRole, user)
+                        }
+                        icon={<CheckCheck className="size-4" />}
+                      >
+                        <span>{t("adminUsers.operations.assignRole")}</span>
+                      </DropdownItem>
+                      <DropdownItem
+                        onClick={() =>
+                          openRoleDialog(USER_ROLE_ACTIONS.removeRole, user)
+                        }
+                        icon={<ShieldCheck className="size-4" />}
+                      >
+                        <span>{t("adminUsers.operations.removeRole")}</span>
+                      </DropdownItem>
+                      <DropdownItem
+                        onClick={() =>
+                          openRoleDialog(
+                            USER_ROLE_ACTIONS.assignPermission,
+                            user,
+                          )
+                        }
+                        icon={<CheckCheck className="size-4" />}
+                      >
+                        <span>
+                          {t("adminUsers.operations.assignClientRole")}
+                        </span>
+                      </DropdownItem>
+                      <DropdownItem
+                        onClick={() =>
+                          openRoleDialog(
+                            USER_ROLE_ACTIONS.removePermission,
+                            user,
+                          )
+                        }
+                        icon={<ShieldCheck className="size-4" />}
+                      >
+                        <span>
+                          {t("adminUsers.operations.removeClientRole")}
+                        </span>
+                      </DropdownItem>
+                      <DropdownSeparator />
+                      <DropdownItem
+                        onClick={() =>
+                          openAccountDialog(USER_ACCOUNT_ACTIONS.suspend, user)
+                        }
+                        icon={<PauseCircle className="size-4" />}
+                      >
+                        <span>{t("adminUsers.operations.suspendUser")}</span>
+                      </DropdownItem>
+                      <DropdownItem
+                        onClick={() =>
+                          openAccountDialog(USER_ACCOUNT_ACTIONS.activate, user)
+                        }
+                        icon={<PlayCircle className="size-4" />}
+                      >
+                        <span>{t("adminUsers.operations.activateUser")}</span>
+                      </DropdownItem>
+                      <DropdownItem
+                        onClick={() =>
+                          openAccountDialog(USER_ACCOUNT_ACTIONS.lock, user)
+                        }
+                        icon={<Lock className="size-4" />}
+                      >
+                        <span>{t("adminUsers.operations.lockUser")}</span>
+                      </DropdownItem>
+                      <DropdownItem
+                        onClick={() =>
+                          openAccountDialog(
+                            USER_ACCOUNT_ACTIONS.verifyEmail,
+                            user,
+                          )
+                        }
+                        icon={<MailCheck className="size-4" />}
+                      >
+                        <span>{t("adminUsers.operations.verifyEmail")}</span>
+                      </DropdownItem>
+                      <DropdownSeparator />
                       <DropdownItem>
                         <span>{t("adminShared.actions.sendMessage")}</span>
                       </DropdownItem>
@@ -641,7 +1053,305 @@ export default function Users() {
           submitting={deleteSubmitting}
         />
       ) : null}
+
+      {roleDialog ? (
+        <UserRoleOperationModal
+          actionType={roleActionType}
+          user={roleDialogUser}
+          draft={roleDraft}
+          setDraft={setRoleDraft}
+          onCancel={() => {
+            if (!roleOperationSubmitting) closeRoleDialog();
+          }}
+          onConfirm={() => void submitRoleOperation()}
+          submitting={roleOperationSubmitting}
+          isPermissionAction={isPermissionAction}
+          realmRoleOptions={realmRoleOptions}
+          permissionRoleOptions={permissionRoleOptions}
+          permissionsLoading={permissionsLoading}
+        />
+      ) : null}
+
+      {accountDialog ? (
+        <UserAccountOperationModal
+          actionType={accountDialog.type}
+          user={accountDialog.user}
+          lockDurationMinutes={lockDurationMinutes}
+          setLockDurationMinutes={setLockDurationMinutes}
+          onCancel={() => {
+            if (!accountOperationSubmitting) closeAccountDialog();
+          }}
+          onConfirm={() => void submitAccountOperation()}
+          submitting={accountOperationSubmitting}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function getRoleOperationCopy(t, actionType) {
+  switch (actionType) {
+    case USER_ROLE_ACTIONS.assignRole:
+      return {
+        title: t("adminUsers.operations.assignRole"),
+        description: t("adminUsers.operations.assignRoleDescription"),
+        confirmLabel: t("adminUsers.operations.assignRole"),
+      };
+    case USER_ROLE_ACTIONS.removeRole:
+      return {
+        title: t("adminUsers.operations.removeRole"),
+        description: t("adminUsers.operations.removeRoleDescription"),
+        confirmLabel: t("adminUsers.operations.removeRole"),
+      };
+    case USER_ROLE_ACTIONS.assignPermission:
+      return {
+        title: t("adminUsers.operations.assignClientRole"),
+        description: t("adminUsers.operations.assignClientRoleDescription"),
+        confirmLabel: t("adminUsers.operations.assignClientRole"),
+      };
+    case USER_ROLE_ACTIONS.removePermission:
+      return {
+        title: t("adminUsers.operations.removeClientRole"),
+        description: t("adminUsers.operations.removeClientRoleDescription"),
+        confirmLabel: t("adminUsers.operations.removeClientRole"),
+      };
+    default:
+      return {
+        title: t("adminUsers.operations.assignRole"),
+        description: "",
+        confirmLabel: t("adminUsers.operations.assignRole"),
+      };
+  }
+}
+
+function UserRoleOperationModal({
+  actionType,
+  user,
+  draft,
+  setDraft,
+  onCancel,
+  onConfirm,
+  submitting,
+  isPermissionAction,
+  realmRoleOptions,
+  permissionRoleOptions,
+  permissionsLoading,
+}) {
+  const { t } = useTranslation();
+  const copy = getRoleOperationCopy(t, actionType);
+  const displayName = user?.displayName?.trim()
+    ? user.displayName
+    : t("adminUsers.delete.fallbackName");
+  const emailDisplay = user?.email?.trim()
+    ? user.email
+    : user?.user_name?.trim() ||
+      user?.username?.trim() ||
+      t("adminUsers.delete.noEmail");
+  const selectedRoleOptions = isPermissionAction
+    ? permissionRoleOptions
+    : realmRoleOptions;
+  const disableConfirm =
+    submitting ||
+    !draft.roleName.trim() ||
+    (isPermissionAction && !draft.clientId.trim());
+
+  return (
+    <GlobalModal
+      variant="center"
+      open={true}
+      setOpen={() => (!submitting ? onCancel() : null)}
+      isClose
+      title={copy.title}
+      subtitle={copy.description}
+      sheetClassName="sm:max-w-[min(34rem,92vw)]"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="tertiary"
+            disabled={submitting}
+            onClick={onCancel}
+          >
+            {t("adminUsers.delete.cancel")}
+          </Button>
+          <Button
+            type="button"
+            variant={actionType?.includes("remove") ? "danger" : "primary"}
+            disabled={disableConfirm}
+            onClick={onConfirm}
+          >
+            {submitting
+              ? t("studentForm.actions.submitting")
+              : copy.confirmLabel}
+          </Button>
+        </>
+      }
+      className="max-w-xl"
+    >
+      <div className="space-y-4">
+        <div className="rounded-xl border border-default bg-light-app-tertiary p-4 dark:border-dark-default dark:bg-dark-app-tertiary">
+          <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+            {displayName}
+          </p>
+          <p className="mt-1 text-xs text-muted dark:text-dark-muted">
+            {emailDisplay}
+          </p>
+        </div>
+
+        {isPermissionAction ? (
+          <Field
+            id="user-role-client-id"
+            label={t("adminUsers.operations.clientIdLabel")}
+            placeholder={PERMISSIONS_CLIENT_ID}
+            value={draft.clientId}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                clientId: event.target.value,
+                roleName: "",
+              }))
+            }
+          />
+        ) : null}
+
+        <Select
+          label={t(
+            isPermissionAction
+              ? "adminUsers.operations.clientRoleLabel"
+              : "adminUsers.operations.realmRoleLabel",
+          )}
+          placeholder={t("settings.roles.placeholders.chooseRole")}
+          value={draft.roleName}
+          onValueChange={(value) =>
+            setDraft((current) => ({ ...current, roleName: value }))
+          }
+          options={selectedRoleOptions}
+        />
+
+        {!selectedRoleOptions.length ? (
+          <p className="text-xs text-muted dark:text-dark-muted">
+            {isPermissionAction && permissionsLoading
+              ? t("adminUsers.operations.loadingClientRoles")
+              : t("adminUsers.operations.noRolesAvailable")}
+          </p>
+        ) : null}
+        <p className="text-xs font-medium text-light-error-text dark:text-dark-error-text">
+          {t("adminUsers.delete.warning")}
+        </p>
+      </div>
+    </GlobalModal>
+  );
+}
+
+function getUserAccountOperationCopy(t, actionType) {
+  switch (actionType) {
+    case USER_ACCOUNT_ACTIONS.suspend:
+      return {
+        title: t("adminUsers.operations.suspendUser"),
+        description: t("adminUsers.operations.suspendUserDescription"),
+        confirmLabel: t("adminUsers.operations.suspendUser"),
+        confirmVariant: "danger",
+      };
+    case USER_ACCOUNT_ACTIONS.activate:
+      return {
+        title: t("adminUsers.operations.activateUser"),
+        description: t("adminUsers.operations.activateUserDescription"),
+        confirmLabel: t("adminUsers.operations.activateUser"),
+        confirmVariant: "primary",
+      };
+    case USER_ACCOUNT_ACTIONS.lock:
+      return {
+        title: t("adminUsers.operations.lockUser"),
+        description: t("adminUsers.operations.lockUserDescription"),
+        confirmLabel: t("adminUsers.operations.lockUser"),
+        confirmVariant: "danger",
+      };
+    case USER_ACCOUNT_ACTIONS.verifyEmail:
+      return {
+        title: t("adminUsers.operations.verifyEmail"),
+        description: t("adminUsers.operations.verifyEmailDescription"),
+        confirmLabel: t("adminUsers.operations.verifyEmail"),
+        confirmVariant: "primary",
+      };
+    default:
+      return {
+        title: "",
+        description: "",
+        confirmLabel: "",
+        confirmVariant: "primary",
+      };
+  }
+}
+
+function UserAccountOperationModal({
+  actionType,
+  user,
+  lockDurationMinutes,
+  setLockDurationMinutes,
+  onCancel,
+  onConfirm,
+  submitting,
+}) {
+  const { t } = useTranslation();
+  const copy = getUserAccountOperationCopy(t, actionType);
+  const displayName = user?.displayName?.trim()
+    ? user.displayName
+    : t("adminUsers.delete.fallbackName");
+  const emailDisplay = user?.email?.trim()
+    ? user.email
+    : user?.user_name?.trim() ||
+      user?.username?.trim() ||
+      t("adminUsers.delete.noEmail");
+  const disableConfirm =
+    submitting ||
+    (actionType === USER_ACCOUNT_ACTIONS.lock &&
+      !(Number.parseInt(lockDurationMinutes, 10) > 0));
+
+  return (
+    <SensitiveActionModal
+      open={true}
+      setOpen={() => (!submitting ? onCancel() : null)}
+      title={copy.title}
+      subtitle={copy.description}
+      className="max-w-xl"
+      summaryItems={[
+        {
+          label: t("adminUsers.table.user"),
+          value: displayName,
+        },
+        {
+          label: t("adminUsers.delete.emailLabel"),
+          value: emailDisplay,
+          mono: true,
+        },
+      ]}
+      cancelLabel={t("adminUsers.delete.cancel")}
+      confirmLabel={
+        submitting ? t("studentForm.actions.submitting") : copy.confirmLabel
+      }
+      confirmVariant={copy.confirmVariant}
+      onConfirm={onConfirm}
+      submitting={submitting}
+      confirmDisabled={disableConfirm}
+      warning={
+        actionType === USER_ACCOUNT_ACTIONS.suspend ||
+        actionType === USER_ACCOUNT_ACTIONS.lock
+          ? t("adminUsers.delete.warning")
+          : undefined
+      }
+    >
+      {actionType === USER_ACCOUNT_ACTIONS.lock ? (
+        <Field
+          id="user-lock-duration"
+          type="number"
+          min="1"
+          label={t("adminUsers.operations.lockDurationLabel")}
+          placeholder="30"
+          value={lockDurationMinutes}
+          onChange={(event) => setLockDurationMinutes(event.target.value)}
+        />
+      ) : null}
+    </SensitiveActionModal>
   );
 }
 
@@ -655,73 +1365,27 @@ function UserDeleteModal({ user, onCancel, onConfirm, submitting }) {
     : t("adminUsers.delete.noEmail");
 
   return (
-    <GlobalModal open={true} setOpen={() => (!submitting ? onCancel() : null)}>
-      <div className="z-1000 flex max-h-[70vh] w-full max-w-[450px] shrink-0 flex-col rounded-xl border border-default bg-light-card-bg p-6 shadow-2xl dark:border-dark-default dark:bg-dark-card-bg">
-        <div className="mb-6 flex shrink-0 items-start gap-3 border-b border-default pb-4 dark:border-dark-divider">
-          <div className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-light-error-bg text-light-error-text dark:bg-dark-error-bg dark:text-dark-error-text">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 15 15"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden
-            >
-              <path
-                d="M7.5 1.125C7.74858 1.125 7.95 1.32647 7.95 1.575V7.3125L10.1819 5.08071C10.3576 4.90497 10.6425 4.90497 10.8182 5.08071C10.994 5.25645 10.994 5.54137 10.8182 5.71711L7.81825 8.71711C7.64251 8.89284 7.35759 8.89284 7.18185 8.71711L4.18185 5.71711C4.00611 5.54137 4.00611 5.25645 4.18185 5.08071C4.35759 4.90497 4.64251 4.90497 4.81825 5.08071L7.05 7.3125V1.575C7.05 1.32647 7.25152 1.125 7.5 1.125ZM2.625 9.75C2.90114 9.75 3.125 9.97411 3.125 10.25V12C3.125 12.5523 3.57268 13 4.00365 13H11.0012C11.5529 13 12 12.5528 12 12V10.25C12 9.97411 12.2239 9.75 12.5 9.75C12.7761 9.75 13 9.97411 13 10.25V12C13 13.1041 12.1062 14 11.0012 14H4.00365C2.89749 14 2 13.103 2 12V10.25C2 9.97411 2.22386 9.75 2.625 9.75Z"
-                fill="currentColor"
-                fillRule="evenodd"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-          <div className="min-w-0">
-            <h2 className="mb-1 text-xl font-bold text-primary dark:text-dark-primary">
-              {t("adminUsers.delete.title")}
-            </h2>
-            <p className="mb-2 text-sm text-secondary dark:text-dark-secondary">
-              {t("adminUsers.delete.descriptionPrefix")}{" "}
-              <span className="font-semibold text-primary dark:text-dark-primary">
-                {displayName}
-              </span>
-              {t("adminUsers.delete.descriptionSuffix")}
-            </p>
-            <p className="mb-4 text-xs text-muted dark:text-dark-muted">
-              <span className="font-medium">
-                {t("adminUsers.delete.emailLabel")}
-              </span>{" "}
-              <span className="rounded bg-light-app-tertiary px-2 py-0.5 font-mono text-secondary dark:bg-dark-app-tertiary dark:text-dark-secondary">
-                {emailDisplay}
-              </span>
-            </p>
-            <p className="text-xs font-medium text-light-error-text dark:text-dark-error-text">
-              {t("adminUsers.delete.warning")}
-            </p>
-          </div>
-        </div>
-        <div className="mt-auto flex shrink-0 flex-wrap gap-3 border-t border-default pt-4 dark:border-dark-divider">
-          <Button
-            type="button"
-            variant="secondary"
-            className="min-w-24"
-            disabled={submitting}
-            onClick={onCancel}
-          >
-            {t("adminUsers.delete.cancel")}
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            className="min-w-24"
-            disabled={submitting}
-            onClick={() => void onConfirm()}
-          >
-            {submitting
-              ? t("studentForm.actions.submitting")
-              : t("adminUsers.delete.confirm")}
-          </Button>
-        </div>
-      </div>
-    </GlobalModal>
+    <SensitiveActionModal
+      open={true}
+      setOpen={() => (!submitting ? onCancel() : null)}
+      title={t("adminUsers.delete.title")}
+      subtitle={`${t("adminUsers.delete.descriptionPrefix")} ${displayName}${t("adminUsers.delete.descriptionSuffix")}`}
+      summaryItems={[
+        {
+          label: t("adminUsers.delete.emailLabel"),
+          value: emailDisplay,
+          mono: true,
+        },
+      ]}
+      warning={t("adminUsers.delete.warning")}
+      cancelLabel={t("adminUsers.delete.cancel")}
+      confirmLabel={
+        submitting
+          ? t("studentForm.actions.submitting")
+          : t("adminUsers.delete.confirm")
+      }
+      onConfirm={onConfirm}
+      submitting={submitting}
+    />
   );
 }

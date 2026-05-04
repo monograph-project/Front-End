@@ -160,13 +160,13 @@ export default function Home() {
       </section>
 
       <BlogShell>
-        <div className="pb-16 pt-6 sm:pt-10 lg:pb-24">
-          <div className="sticky top-0 z-[35] mb-6 border-b border-light-divider bg-(--color-light-app-bg)/95 py-3 backdrop-blur-md dark:border-dark-divider dark:bg-dark-shell/95 sm:top-0">
-            <div className="flex flex-wrap items-center gap-8">
+        <div className="pb-14 pt-5 sm:pt-8 lg:pb-24">
+          <div className="sticky top-0 z-[35] mb-5 border-b border-light-divider bg-(--color-light-app-bg)/95 py-3 backdrop-blur-md dark:border-dark-divider dark:bg-dark-shell/95">
+            <div className="-mx-1 flex items-center gap-4 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-8">
               <button
                 type="button"
                 onClick={() => setContentTab("monograph")}
-                className={`relative pb-3 text-sm font-medium transition-colors ${
+                className={`relative shrink-0 pb-3 text-sm font-medium transition-colors ${
                   contentTab === "monograph"
                     ? "text-primary dark:text-dark-primary"
                     : "text-muted hover:text-secondary dark:text-dark-muted dark:hover:text-dark-secondary"
@@ -180,7 +180,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setContentTab("weblog")}
-                className={`relative pb-3 text-sm font-medium transition-colors ${
+                className={`relative shrink-0 pb-3 text-sm font-medium transition-colors ${
                   contentTab === "weblog"
                     ? "text-primary dark:text-dark-primary"
                     : "text-muted hover:text-secondary dark:text-dark-muted dark:hover:text-dark-secondary"
@@ -207,8 +207,8 @@ export default function Home() {
             </div>
           )}
 
-          <div className="mb-10 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) sm:p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="mb-8 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) sm:mb-10 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
               <div className="relative min-w-0 flex-1">
                 <Search
                   className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted dark:text-dark-muted"
@@ -227,7 +227,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setAdvancedOpen((v) => !v)}
-                className="flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 text-sm font-medium text-secondary transition-colors hover:border-(--color-light-input-border-focus) hover:text-primary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary dark:hover:text-dark-primary"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 text-sm font-medium text-secondary transition-colors hover:border-(--color-light-input-border-focus) hover:text-primary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary dark:hover:text-dark-primary sm:w-auto"
                 aria-expanded={advancedOpen}
               >
                 <SlidersHorizontal className="size-4" aria-hidden />
@@ -360,11 +360,11 @@ export default function Home() {
                 {hasActiveFilters ? t("publicHome.filteredSuffix") : ""}
               </p>
 
-              <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_minmax(260px,320px)] lg:gap-16">
+              <div className="grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] xl:gap-16">
                 <div>
                   {showMonographPlaceholder ? (
-                    <div className="rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary px-8 py-16 text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-                      <h2 className="font-blog-display text-2xl font-bold text-primary dark:text-dark-primary">
+                    <div className="rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary px-5 py-12 text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary sm:px-8 sm:py-16">
+                      <h2 className="font-blog-display text-xl font-bold text-primary dark:text-dark-primary sm:text-2xl">
                         {t("publicHome.tabs.monographs")}
                       </h2>
                       <p className="mx-auto mt-3 max-w-lg text-secondary dark:text-dark-secondary">
@@ -394,8 +394,8 @@ export default function Home() {
                       ))}
                     </motion.div>
                   ) : (
-                    <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-8 py-16 text-center dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-                      <h2 className="font-blog-display text-2xl font-bold text-primary dark:text-dark-primary">
+                    <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-5 py-12 text-center dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) sm:px-8 sm:py-16">
+                      <h2 className="font-blog-display text-xl font-bold text-primary dark:text-dark-primary sm:text-2xl">
                         {t("publicHome.empty.title")}
                       </h2>
                       <p className="mx-auto mt-3 max-w-md text-secondary dark:text-dark-secondary">
@@ -420,7 +420,31 @@ export default function Home() {
                   )}
                 </div>
 
-                <aside className="hidden border-s border-light-divider ps-6 dark:border-dark-divider lg:block">
+                <aside className="border-t border-light-divider pt-8 dark:border-dark-divider xl:hidden">
+                  <section>
+                    <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-secondary dark:text-dark-secondary">
+                      {t("publicHome.staffPicks", { scope: scopeLabel })}
+                    </h2>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {staffPicks.length ? (
+                        staffPicks.map((story) => (
+                          <div
+                            key={story.id}
+                            className="overflow-hidden rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+                          >
+                            <StoryCard story={story} variant="sidebar" />
+                          </div>
+                        ))
+                      ) : (
+                        <p className="rounded-xl border border-(--color-light-card-border) px-4 py-6 text-center text-sm text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted sm:col-span-2">
+                          {t("publicHome.empty.title")}
+                        </p>
+                      )}
+                    </div>
+                  </section>
+                </aside>
+
+                <aside className="hidden border-s border-light-divider ps-6 dark:border-dark-divider xl:block">
                   <div className="sticky top-28 space-y-10">
                     <section>
                       <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-secondary dark:text-dark-secondary">

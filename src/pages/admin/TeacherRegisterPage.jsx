@@ -9,7 +9,7 @@ export default function TeacherRegisterPage() {
   const { t } = useTranslation();
 
   return (
-    <div className="flex min-h-screen flex-1 flex-col gap-4 overflow-y-auto bg-light-app-bg p-4 dark:bg-dark-shell md:p-6">
+    <div className="flex min-h-screen flex-1 flex-col gap-4 overflow-y-auto bg-light-app-bg p-4 dark:bg-dark-card-bg md:p-6">
       <button
         type="button"
         onClick={() => navigate("/admin/teacher")}

@@ -9,6 +9,7 @@
   "apiErrors.failed_to_update_student": "Failed to update student.",
   "apiErrors.failed_to_delete_student": "Failed to delete student.",
   "apiErrors.failed_to_load_departments": "Failed to load departments.",
+  "apiErrors.failed_to_load_faculties": "Failed to load faculties.",
   "apiErrors.failed_to_load_batches": "Failed to load batches.",
   "apiErrors.failed_to_load_department": "Failed to load department.",
   "apiErrors.failed_to_create_department": "Failed to create department.",

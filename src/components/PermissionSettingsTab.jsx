@@ -169,7 +169,7 @@ export default function PermissionSettingsTab() {
       </SettingsSectionCard>
 
       <GlobalModal
-        variant="sheet"
+        variant="center"
         open={createOpen}
         setOpen={closeModal}
         isClose

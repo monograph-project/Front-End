@@ -10,6 +10,7 @@ import {
   AUTH,
   STUDENT,
   DEPARTMENT,
+  FACULTY,
   BATCH,
   ACADEMIC_YEAR,
   SEMESTER,
@@ -270,6 +271,28 @@ function normalizeStudentRecord(raw) {
     batch:
       batchObj && typeof batchObj === "object" ? batchObj : (raw.batch ?? null),
     role: raw.role ?? "STUDENT",
+    keycloakId:
+      raw.keycloakId ??
+      raw.keycloak_id ??
+      raw.keycloakUserId ??
+      raw.keycloak_user_id ??
+      raw.keycloakSubject ??
+      raw.keycloak_subject ??
+      raw.realmUserId ??
+      raw.realm_user_id ??
+      "",
+    /** Gateway `users.id` when the backend links the Student row to the user service. */
+    linkedApplicationUserId: (() => {
+      const u =
+        raw.applicationUserId ??
+        raw.application_user_id ??
+        raw.gatewayUserId ??
+        raw.gateway_user_id;
+      if (u != null && String(u).trim() !== "") return String(u).trim();
+      if (typeof raw.user === "object" && raw.user?.id != null)
+        return String(raw.user.id);
+      return "";
+    })(),
     addressStreet: addr.street ?? raw.addressStreet ?? "",
     addressCity: addr.city ?? raw.addressCity ?? "",
     addressPostalCode:
@@ -284,6 +307,31 @@ function normalizeStudentRecord(raw) {
 
 function batchFromRoot(v) {
   return v != null && `${v}`.trim() !== "";
+}
+
+/** Whether a faculty `/api/student` row belongs to the signed-in gateway user (Keycloak `sub`/user UUID or username/email). */
+export function studentEntityMatchesGatewayUser(gatewayUser, studentNorm) {
+  if (!gatewayUser || !studentNorm?.id) return false;
+  const gId =
+    gatewayUser.id != null ? String(gatewayUser.id).trim() : "";
+  const sk =
+    studentNorm.keycloakId != null
+      ? String(studentNorm.keycloakId).trim()
+      : "";
+  if (gId && sk && gId === sk) return true;
+  const sa =
+    studentNorm.linkedApplicationUserId != null
+      ? String(studentNorm.linkedApplicationUserId).trim()
+      : "";
+  if (gId && sa && gId === sa) return true;
+  const gun = normalizeLoginIdentifier(
+    gatewayUser.username ?? gatewayUser.user_name ?? "",
+  );
+  const sun = normalizeLoginIdentifier(studentNorm.username ?? "");
+  if (gun && sun && gun === sun) return true;
+  const ge = normalizeEmail(gatewayUser.email ?? "");
+  const se = normalizeEmail(studentNorm.email ?? "");
+  return Boolean(ge && se && ge === se);
 }
 
 function toDateInputValue(v) {
@@ -370,8 +418,10 @@ function facultyListItems(data) {
   if (page && typeof page === "object") {
     if (Array.isArray(page.content)) return page.content;
     if (Array.isArray(page.data)) return page.data;
+    if (Array.isArray(page.faculties)) return page.faculties;
     if (Array.isArray(page.items)) return page.items;
     if (Array.isArray(page.records)) return page.records;
+    if (Array.isArray(page.results)) return page.results;
   }
   return [];
 }
@@ -477,9 +527,7 @@ function normalizeStudentsList(payload) {
 
 export async function getStudents() {
   try {
-    const { data } = await axiosInstance.get(
-      STUDENTS.GETALL
-     );
+    const { data } = await axiosInstance.get(STUDENT.GETALL);
     return normalizeStudentsList(data);
   } catch (err) {
     if (err?.response?.status === 404) return [];
@@ -520,6 +568,228 @@ export async function getStudentById(id) {
       "Failed to load student.",
       "apiErrors.failed_to_load_student",
     );
+  }
+}
+
+/** Best-effort: resolve `/api/student` row for dashboard & faculty APIs (student id, not gateway user id). */
+export async function fetchLinkedStudentForGatewayUser(gatewayUser) {
+  if (!gatewayUser) return null;
+  const gid =
+    gatewayUser.id != null ? String(gatewayUser.id).trim() : "";
+
+  const tryNormalize = async (getter) => {
+    try {
+      const { data } = await getter();
+      return normalizeStudentRecord(data);
+    } catch (err) {
+      if (err?.response?.status === 404) return null;
+      throw err;
+    }
+  };
+
+  let row =
+    gid !== ""
+      ? await tryNormalize(() => axiosInstance.get(STUDENT.BY_KEYCLOAK(gid)))
+      : null;
+  if (!row?.id) {
+    row = await tryNormalize(() => axiosInstance.get(STUDENT.ME));
+  }
+  if (!row?.id) {
+    const uname = normalizeLoginIdentifier(
+      gatewayUser.username ?? gatewayUser.user_name ?? "",
+    );
+    try {
+      const page = await getStudentsPage({
+        page: 0,
+        size: 250,
+        search: uname,
+      });
+      const list = page?.content ?? [];
+      row =
+        list
+          .map((item) => normalizeStudentRecord(item))
+          .find((s) => studentEntityMatchesGatewayUser(gatewayUser, s)) ?? null;
+      if (!row?.id && list.length === 250) {
+        const pageWide = await getStudentsPage({
+          page: 0,
+          size: 500,
+        });
+        row =
+          (pageWide.content ?? [])
+            .map((item) => normalizeStudentRecord(item))
+            .find((s) => studentEntityMatchesGatewayUser(gatewayUser, s)) ??
+          null;
+      }
+    } catch {
+      row = null;
+    }
+  }
+  return row?.id ? row : null;
+}
+
+function unwrapListPayload(payload) {
+  if (payload == null) return [];
+  if (Array.isArray(payload)) return payload;
+  const nested =
+    payload.content ??
+    payload.data ??
+    payload.items ??
+    payload.repositories ??
+    payload.repos ??
+    [];
+  return Array.isArray(nested) ? nested : [];
+}
+
+function repoSlugsFromActivityEvents(events) {
+  const out = [];
+  if (!Array.isArray(events)) return out;
+  const seen = new Set();
+  for (const ev of events) {
+    const slug = typeof ev.repo === "string" ? ev.repo.trim() : "";
+    if (!slug || slug.includes("//")) continue;
+    const parts = slug.split("/").filter(Boolean);
+    if (parts.length !== 2) continue;
+    const key = `${parts[0]}/${parts[1]}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ ownerUsername: parts[0], repositoryName: parts[1] });
+  }
+  return out;
+}
+
+/**
+ * Lists repositories owned by `ownerAccountId` (gateway / VC account id returned by `/api/v1/repos/owner/{ownerId}`).
+ * Optional `activityUsernameFallback` restores slugs via the activity feed if the primary list is empty/unavailable (username-based VC paths).
+ *
+ * @param {string} ownerAccountId
+ * @param {{ activityUsernameFallback?: string; activityLimit?: number }} options
+ */
+export async function vcListRepositoriesWithFallback(
+  ownerAccountId,
+  options = {},
+) {
+  const ownerKey = String(ownerAccountId ?? "").trim();
+  if (!ownerKey) return [];
+  try {
+    const { data } = await axiosInstance.get(VC.REPOS_OWNED_BY(ownerKey));
+    const list = unwrapListPayload(data);
+    const normalized = list.map(normalizeVcRepoListItem).filter(Boolean);
+    if (normalized.length) return normalized;
+  } catch (err) {
+    if (![400, 404, 422].includes(err?.response?.status)) {
+      console.warn("[vcListRepositories]", err?.message ?? err);
+    }
+  }
+
+  const activityLogin =
+    typeof options.activityUsernameFallback === "string"
+      ? options.activityUsernameFallback.trim()
+      : "";
+  if (!activityLogin) return [];
+
+  try {
+    const { data } = await axiosInstance.get(
+      VC.USER_ACTIVITY(activityLogin, {
+        limit: options.activityLimit ?? 120,
+      }),
+    );
+    return repoSlugsFromActivityEvents(
+      Array.isArray(data) ? data : [],
+    ).map((slug) =>
+      normalizeVcRepoListItem({
+        ownerUsername: slug.ownerUsername,
+        repositoryName: slug.repositoryName,
+      }),
+    );
+  } catch (err) {
+    if (![404, 422].includes(err?.response?.status)) {
+      console.warn("[vcListRepositories:fallback]", err?.message ?? err);
+    }
+  }
+  return [];
+}
+
+/** @param raw {object} VC list row (e.g. `RepositoryResponse`) */
+function normalizeVcRepoListItem(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const repoName =
+    raw.repositoryName ??
+    raw.repository_name ??
+    raw.name ??
+    raw.repo ??
+    "";
+  let ownerUsername =
+    raw.ownerUsername ??
+    raw.owner_username ??
+    raw.owner_login ??
+    "";
+  const ownerObj = raw.owner ?? raw.Owner ?? null;
+  if (!ownerUsername && ownerObj != null && typeof ownerObj === "object") {
+    const o = ownerObj;
+    ownerUsername =
+      (o.username != null && String(o.username).trim()) ||
+      (o.userName != null && String(o.userName).trim()) ||
+      (o.login != null && String(o.login).trim()) ||
+      (o.email != null && String(o.email).trim()) ||
+      "";
+  }
+  if (
+    typeof ownerUsername !== "string" ||
+    typeof repoName !== "string" ||
+    !repoName.trim()
+  )
+    return null;
+  if (!ownerUsername.trim()) ownerUsername = String(raw.username ?? "").trim();
+  if (!ownerUsername.trim() && ownerObj?.id != null)
+    ownerUsername = String(ownerObj.id);
+  if (!ownerUsername.trim()) return null;
+  let branchHeadCount = null;
+  const bh = raw.branchHeads ?? raw.branch_heads;
+  if (bh && typeof bh === "object" && !Array.isArray(bh)) {
+    branchHeadCount = Object.keys(bh).length;
+  }
+  return {
+    ...raw,
+    repositoryId:
+      raw.id ?? raw.repositoryId ?? raw.repository_id ?? null,
+    ownerUsername: ownerUsername.trim(),
+    repositoryName: repoName.trim(),
+    ownerUserId: ownerObj?.id ?? raw.ownerUserId ?? raw.owner_id ?? null,
+    visibility:
+      raw.visibility ?? raw.repository_visibility ?? raw.visibilityType ?? "",
+    description: typeof raw.description === "string" ? raw.description : "",
+    cloneUrl: raw.cloneUrl ?? raw.clone_url ?? "",
+    updatedAt:
+      raw.updatedAt ??
+      raw.updated_at ??
+      raw.createdAt ??
+      raw.created_at ??
+      "",
+    branchHeadCount,
+  };
+}
+
+export async function vcListPullRequests(owner, repo) {
+  if (!owner || !repo)
+    throwClientApiError("Owner and repository are required.");
+  try {
+    const { data } = await axiosInstance.get(VC.REPO_PULLS(owner, repo));
+    return unwrapListPayload(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(err, "Failed to load pull requests.");
+  }
+}
+
+export async function vcGetRepoTaskDashboard(owner, repo) {
+  if (!owner || !repo)
+    throwClientApiError("Owner and repository are required.");
+  try {
+    const { data } = await axiosInstance.get(VC.REPO_TASK_DASHBOARD(owner, repo));
+    return data ?? {};
+  } catch (err) {
+    if (err?.response?.status === 404) return {};
+    throwApiError(err, "Failed to load task dashboard.");
   }
 }
 
@@ -777,6 +1047,12 @@ function normalizeEmployeeRecord(raw) {
     (typeof raw.faculty === "string" ? raw.faculty : "") ||
     facultyNested?.name ||
     "";
+  const facultyId =
+    raw.facultyId ??
+    raw.faculty_id ??
+    facultyNested?.id ??
+    facultyNested?.facultyId ??
+    "";
 
   return {
     ...raw,
@@ -788,6 +1064,7 @@ function normalizeEmployeeRecord(raw) {
     grandFatherName: raw.grandFatherName ?? raw.grand_father_name ?? "",
     email: raw.email ?? "",
     phone: raw.phone ?? "",
+    facultyId: facultyId != null ? String(facultyId) : "",
     faculty: facultyLabel ? String(facultyLabel) : "",
     department: departmentLabel ? String(departmentLabel) : "",
     role: raw.role ?? "EMPLOYEE",
@@ -916,18 +1193,56 @@ function normalizeDepartmentRecord(raw) {
 
   const headNested =
     typeof raw.head === "object" && raw.head !== null ? raw.head : null;
+  const headOfDepartmentNested =
+    typeof raw.headOfDepartment === "object" && raw.headOfDepartment !== null
+      ? raw.headOfDepartment
+      : null;
   const facultyNested =
     typeof raw.faculty === "object" && raw.faculty !== null ? raw.faculty : null;
 
   const statusRaw = raw.status ?? raw.state ?? raw.departmentStatus ?? "";
-  const createdRaw =
-    raw.created ??
-    raw.createdAt ??
-    raw.created_at ??
-    raw.createdDate ??
-    raw.created_date ??
-    raw.creationDate ??
-    null;
+  const pickLikelyDate = (...values) => {
+    for (const value of values) {
+      if (value == null || value === "") continue;
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) return value;
+    }
+    return null;
+  };
+  const createdRaw = pickLikelyDate(
+    raw.created,
+    raw.createdAt,
+    raw.created_at,
+    raw.createdDate,
+    raw.created_date,
+    raw.creationDate,
+  );
+  const updatedRaw = pickLikelyDate(
+    raw.updatedAt,
+    raw.updateAt,
+    raw.updated_at,
+    raw.updatedDate,
+    raw.updated_date,
+  );
+  const headFirstName =
+    headOfDepartmentNested?.firstName ??
+    headNested?.firstName ??
+    raw.headFirstName ??
+    raw.head_first_name ??
+    "";
+  const headLastName =
+    headOfDepartmentNested?.lastName ??
+    headNested?.lastName ??
+    raw.headLastName ??
+    raw.head_last_name ??
+    "";
+  const headFullName = [headFirstName, headLastName].filter(Boolean).join(" ").trim();
+  const facultyId =
+    raw.facultyId ??
+    raw.faculty_id ??
+    facultyNested?.id ??
+    facultyNested?.facultyId ??
+    "";
 
   return {
     ...raw,
@@ -939,8 +1254,22 @@ function normalizeDepartmentRecord(raw) {
       raw.departmentName ??
       raw.department_name ??
       "",
+    field: raw.field ?? raw.focusArea ?? raw.departmentField ?? "",
+    description: raw.description ?? raw.summary ?? "",
+    email: raw.email ?? facultyNested?.email ?? "",
+    phone: raw.phone ?? facultyNested?.phone ?? "",
+    shortName:
+      raw.shortName ??
+      raw.short_name ??
+      raw.abbreviation ??
+      raw.alias ??
+      "",
     head:
+      headFullName ||
       (typeof raw.head === "string" ? raw.head : "") ||
+      (typeof raw.headOfDepartment === "string" ? raw.headOfDepartment : "") ||
+      headOfDepartmentNested?.name ||
+      headOfDepartmentNested?.fullName ||
       headNested?.email ||
       headNested?.name ||
       headNested?.fullName ||
@@ -955,13 +1284,117 @@ function normalizeDepartmentRecord(raw) {
         ? statusRaw.trim().toLowerCase()
         : "inactive",
     created: createdRaw,
+    updatedAt: updatedRaw,
+    facultyId: facultyId != null ? String(facultyId) : "",
+    faculty: facultyNested,
     facultyName:
       raw.facultyName ??
       raw.faculty_name ??
       facultyNested?.name ??
       facultyNested?.title ??
       "",
+    headOfDepartment: headOfDepartmentNested,
+    headOfDepartmentId:
+      raw.headOfDepartmentId ??
+      raw.head_of_department_id ??
+      headOfDepartmentNested?.id ??
+      headNested?.id ??
+      "",
+    headEmail:
+      headOfDepartmentNested?.email ??
+      headNested?.email ??
+      raw.headEmail ??
+      "",
+    headPhone:
+      headOfDepartmentNested?.phone ??
+      headNested?.phone ??
+      raw.headPhone ??
+      "",
+    headFacultyPosition:
+      headOfDepartmentNested?.facultyPosition ??
+      headNested?.facultyPosition ??
+      "",
+    headEducationRank:
+      headOfDepartmentNested?.educationRank ??
+      headNested?.educationRank ??
+      "",
   };
+}
+
+function normalizeFacultyRecord(raw) {
+  if (raw == null || typeof raw !== "object") return null;
+  const id = raw.id ?? raw.facultyId ?? raw.faculty_id ?? raw.uuid ?? "";
+  const name =
+    raw.name ??
+    raw.title ??
+    raw.facultyName ??
+    raw.faculty_name ??
+    raw.displayName ??
+    "";
+
+  return {
+    ...raw,
+    id,
+    name: String(name || id || ""),
+    code: raw.code ?? raw.facultyCode ?? raw.faculty_code ?? "",
+  };
+}
+
+function normalizeFacultiesList(payload) {
+  return facultyListItems(payload).map(normalizeFacultyRecord).filter(Boolean);
+}
+
+export async function getFaculties() {
+  try {
+    const { data } = await axiosInstance.get(FACULTY.GETALL);
+    return normalizeFacultiesList(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to load faculties.",
+      "apiErrors.failed_to_load_faculties",
+    );
+  }
+}
+
+export async function getFacultyById(id) {
+  try {
+    const { data } = await axiosInstance.get(FACULTY.GETBYID(id));
+    return normalizeFacultyRecord(data);
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load faculty.",
+      "apiErrors.failed_to_load_faculties",
+    );
+  }
+}
+
+export async function createFaculty(body) {
+  try {
+    const { data } = await axiosInstance.post(FACULTY.CREATE, body);
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to create faculty.");
+  }
+}
+
+export async function updateFaculty(id, body) {
+  try {
+    const { data } = await axiosInstance.put(FACULTY.UPDATE(id), body);
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to update faculty.");
+  }
+}
+
+export async function deleteFaculty(id) {
+  try {
+    await axiosInstance.delete(FACULTY.DELETE(id));
+  } catch (err) {
+    throwApiError(err, "Failed to delete faculty.");
+  }
 }
 
 function normalizeDepartmentsList(payload) {
@@ -1213,6 +1646,82 @@ export async function getFacultyProjects(query = {}) {
 export async function getFacultyProjectById(id) {
   try {
     const { data } = await axiosInstance.get(FACULTY_PROJECT.BY_ID(id));
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load project.",
+      "apiErrors.failed_to_load_faculty_project",
+    );
+  }
+}
+
+export async function getFacultyProjectByStudentId(id, studentId) {
+  try {
+    const { data } = await axiosInstance.get(
+      FACULTY_PROJECT.BY_ID_AND_STUDENT(id, studentId),
+    );
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load project.",
+      "apiErrors.failed_to_load_faculty_project",
+    );
+  }
+}
+
+export async function getFacultyProjectByTeacherId(id, teacherId) {
+  try {
+    const { data } = await axiosInstance.get(
+      FACULTY_PROJECT.BY_ID_AND_TEACHER(id, teacherId),
+    );
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load project.",
+      "apiErrors.failed_to_load_faculty_project",
+    );
+  }
+}
+
+export async function getFacultyProjectsByStudentId(studentId) {
+  try {
+    const { data } = await axiosInstance.get(FACULTY_PROJECT.BY_STUDENT(studentId));
+    return facultyListItems(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to load projects.",
+      "apiErrors.failed_to_load_faculty_projects",
+    );
+  }
+}
+
+export async function getFacultyProjectsByTeacherId(teacherId) {
+  try {
+    const { data } = await axiosInstance.get(FACULTY_PROJECT.BY_TEACHER(teacherId));
+    return facultyListItems(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to load projects.",
+      "apiErrors.failed_to_load_faculty_projects",
+    );
+  }
+}
+
+export async function findFacultyProjectByTeacherAndStudent(
+  teacherId,
+  studentId,
+) {
+  try {
+    const { data } = await axiosInstance.get(
+      FACULTY_PROJECT.BY_TEACHER_AND_STUDENT(teacherId, studentId),
+    );
     return data;
   } catch (err) {
     throwApiError(

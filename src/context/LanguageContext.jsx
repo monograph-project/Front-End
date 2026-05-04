@@ -8,6 +8,12 @@ import {
 import i18n, { setDocumentDirection } from "../i18n";
 
 const STORAGE_KEY = "app_language";
+const SUPPORTED_LANGUAGES = ["en", "prs", "ps"];
+
+function normalizeLanguage(value) {
+  if (value === "fa") return "prs";
+  return SUPPORTED_LANGUAGES.includes(value) ? value : "en";
+}
 
 const LanguageContext = createContext({
   lang: "en",
@@ -17,16 +23,17 @@ const LanguageContext = createContext({
 export const LanguageProvider = ({ children, defaultLang }) => {
   const initial =
     typeof window !== "undefined"
-      ? window.localStorage.getItem(STORAGE_KEY) ||
-        defaultLang ||
-        i18n.language ||
-        "en"
-      : defaultLang || i18n.language || "en";
+      ? normalizeLanguage(
+          window.localStorage.getItem(STORAGE_KEY) ||
+            defaultLang ||
+            i18n.language,
+        )
+      : normalizeLanguage(defaultLang || i18n.language);
 
   const [lang, setLangState] = useState(initial);
 
   const setLang = useCallback((next) => {
-    const nextLang = next || "en";
+    const nextLang = normalizeLanguage(next);
     try {
       window.localStorage.setItem(STORAGE_KEY, nextLang);
     } catch (e) {

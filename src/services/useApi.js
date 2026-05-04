@@ -565,6 +565,56 @@ export function useDepartments(queryOptions = {}) {
   return q;
 }
 
+export function useFaculties(queryOptions = {}) {
+  const { notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["faculties"],
+    queryFn: Api.getFaculties,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculties");
+  return q;
+}
+
+export function useFaculty(id, queryOptions = {}) {
+  const { enabled = Boolean(id), notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["faculties", "detail", id],
+    queryFn: () => Api.getFacultyById(id),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculties");
+  return q;
+}
+
+export function useCreateFaculty(options) {
+  return useApiMutation({
+    mutationFn: Api.createFaculty,
+    mutationKey: ["faculties", "create"],
+    toastSuccess: "Faculty created",
+    ...options,
+  });
+}
+
+export function useUpdateFaculty(options) {
+  return useApiMutation({
+    mutationFn: ({ id, ...body }) => Api.updateFaculty(id, body),
+    mutationKey: ["faculties", "update"],
+    toastSuccess: "Faculty updated",
+    ...options,
+  });
+}
+
+export function useDeleteFaculty(options) {
+  return useApiMutation({
+    mutationFn: Api.deleteFaculty,
+    mutationKey: ["faculties", "delete"],
+    toastSuccess: "Faculty removed",
+    ...options,
+  });
+}
+
 export function useBatches(queryOptions = {}) {
   const { notifyOnError = false, ...rest } = queryOptions;
   const q = useQuery({
@@ -780,6 +830,84 @@ export function useFacultyProject(id, queryOptions = {}) {
   return q;
 }
 
+export function useFacultyProjectByStudent(projectId, studentId, queryOptions = {}) {
+  const {
+    enabled = Boolean(projectId && studentId),
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["faculty-projects", "detail", projectId, "student", studentId],
+    queryFn: () => Api.getFacultyProjectByStudentId(projectId, studentId),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_project");
+  return q;
+}
+
+export function useFacultyProjectByTeacher(projectId, teacherId, queryOptions = {}) {
+  const {
+    enabled = Boolean(projectId && teacherId),
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["faculty-projects", "detail", projectId, "teacher", teacherId],
+    queryFn: () => Api.getFacultyProjectByTeacherId(projectId, teacherId),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_project");
+  return q;
+}
+
+export function useFacultyProjectsByStudent(studentId, queryOptions = {}) {
+  const { enabled = Boolean(studentId), notifyOnError = false, ...rest } =
+    queryOptions;
+  const q = useQuery({
+    queryKey: ["faculty-projects", "student", studentId],
+    queryFn: () => Api.getFacultyProjectsByStudentId(studentId),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_projects");
+  return q;
+}
+
+export function useFacultyProjectsByTeacher(teacherId, queryOptions = {}) {
+  const { enabled = Boolean(teacherId), notifyOnError = false, ...rest } =
+    queryOptions;
+  const q = useQuery({
+    queryKey: ["faculty-projects", "teacher", teacherId],
+    queryFn: () => Api.getFacultyProjectsByTeacherId(teacherId),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_projects");
+  return q;
+}
+
+export function useFacultyProjectByTeacherAndStudent(
+  teacherId,
+  studentId,
+  queryOptions = {},
+) {
+  const {
+    enabled = Boolean(teacherId && studentId),
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["faculty-projects", "teacher", teacherId, "student", studentId],
+    queryFn: () => Api.findFacultyProjectByTeacherAndStudent(teacherId, studentId),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_project");
+  return q;
+}
+
 export function useCreateFacultyProject(options) {
   return useApiMutation({
     mutationFn: Api.createFacultyProject,
@@ -971,6 +1099,15 @@ export function useLockUser(options) {
       Api.lockUser(id, durationMinutes),
     mutationKey: ["users", "lock"],
     toastSuccess: "Account lock applied.",
+    ...options,
+  });
+}
+
+export function useVerifyUserEmailByAdmin(options) {
+  return useApiMutation({
+    mutationFn: Api.verifyUserEmailByAdmin,
+    mutationKey: ["users", "verify-email"],
+    toastSuccess: "Email verified",
     ...options,
   });
 }
@@ -1700,5 +1837,132 @@ export function useVcRepositoryContents(
     ...rest,
   });
   useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_file");
+  return q;
+}
+
+/** `/api/student` row keyed to the signed-in gateway user (`sub` ⇄ Keycloak fields on Student). */
+export function useLinkedStudentRecord(gatewayUser, queryOptions = {}) {
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    ...rest
+  } = queryOptions;
+  const gid = gatewayUser?.id ?? "";
+  const uname =
+    typeof gatewayUser?.username === "string"
+      ? gatewayUser.username.trim()
+      : "";
+
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(gatewayUser != null && (gid !== "" || uname !== ""));
+
+  const q = useQuery({
+    queryKey: ["students", "linked-profile", gid, uname],
+    queryFn: () => Api.fetchLinkedStudentForGatewayUser(gatewayUser),
+    enabled,
+    staleTime: 60_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_student",
+  );
+  return q;
+}
+
+/**
+ * Loads repositories owned by `ownerAccountId` (gateway user id passed to `GET …/api/v1/repos/{ownerId}`).
+ * @param {string | null | undefined} ownerAccountId
+ * @param {{ activityUsernameFallback?: string; notifyOnError?: boolean; enabled?: boolean } & Omit<import("@tanstack/react-query").UseQueryOptions, "queryKey"|"queryFn">} queryOptions
+ */
+export function useVcRepositoriesForViewer(ownerAccountId, queryOptions = {}) {
+  const ownerKey =
+    typeof ownerAccountId === "string"
+      ? ownerAccountId.trim()
+      : `${ownerAccountId ?? ""}`.trim();
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    activityUsernameFallback,
+    ...rest
+  } = queryOptions;
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(ownerKey.length);
+
+  const q = useQuery({
+    queryKey: ["vc", "repos", "by-owner-account", ownerKey, activityUsernameFallback ?? ""],
+    queryFn: () =>
+      Api.vcListRepositoriesWithFallback(ownerKey, {
+        activityUsernameFallback:
+          typeof activityUsernameFallback === "string"
+            ? activityUsernameFallback
+            : "",
+      }),
+    enabled,
+    staleTime: 30_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
+  return q;
+}
+
+export function useVcRepoPullRequests(owner, repo, queryOptions = {}) {
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    ...rest
+  } = queryOptions;
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(owner && repo);
+
+  const q = useQuery({
+    queryKey: ["vc", "repos", "pulls", owner, repo],
+    queryFn: () => Api.vcListPullRequests(owner, repo),
+    enabled,
+    staleTime: 15_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
+  return q;
+}
+
+export function useVcRepoTaskDashboard(owner, repo, queryOptions = {}) {
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    ...rest
+  } = queryOptions;
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(owner && repo);
+
+  const q = useQuery({
+    queryKey: ["vc", "repos", "task-dashboard", owner, repo],
+    queryFn: () => Api.vcGetRepoTaskDashboard(owner, repo),
+    enabled,
+    staleTime: 15_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
   return q;
 }

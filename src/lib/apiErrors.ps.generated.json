@@ -9,6 +9,7 @@
   "apiErrors.failed_to_update_student": "زده‌کوونکی تازه کول ناکام شول.",
   "apiErrors.failed_to_delete_student": "زده‌کوونکی ړنګول ناکام شول.",
   "apiErrors.failed_to_load_departments": "څانګې پورته کول ناکام شول.",
+  "apiErrors.failed_to_load_faculties": "پوهنځي پورته کول ناکام شول.",
   "apiErrors.failed_to_load_batches": "بیچونه پورته کول ناکام شول.",
   "apiErrors.failed_to_load_department": "څانګه پورته کول ناکام شول.",
   "apiErrors.failed_to_create_department": "څانګه جوړول ناکام شول.",

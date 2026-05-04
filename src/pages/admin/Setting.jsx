@@ -27,7 +27,6 @@ const SURFACE_CARD =
 function Setting() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("system");
-  const [appearance, setAppearance] = useState("system");
   const tabs = [
     { id: "system", label: t("settings.tabs.system"), icon: SlidersHorizontal },
     {
@@ -52,7 +51,7 @@ function Setting() {
   ];
 
   return (
-    <div className="min-h-screen flex-1 bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+    <div className="min-h-screen flex-1 bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
       <div className="mx-auto w-full max-w-7xl space-y-6">
         <section className={`${SURFACE_CARD} overflow-hidden`}>
           <div className="border-b border-light-divider px-4 py-5 dark:border-dark-divider md:px-6">
@@ -88,12 +87,7 @@ function Setting() {
           {activeTab === "academic" && <AcademicRegistrySettingsTab />}
           {activeTab === "notifications" && <NotificationSettingsTab />}
           {activeTab === "language" && <LanguageSettingsTab />}
-          {activeTab === "theme" && (
-            <ThemeSettingsTab
-              appearance={appearance}
-              setAppearance={setAppearance}
-            />
-          )}
+          {activeTab === "theme" && <ThemeSettingsTab />}
           {activeTab === "security" && <SecuritySettingsTab />}
         </div>
       </div>

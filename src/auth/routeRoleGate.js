@@ -1,28 +1,55 @@
 import { normalizeFacetKey } from "./roleModel";
 
 /**
- * Check if a facet list from the session satisfies a logical role gate
- * (handles `student` vs `user`, `employee` vs `staff`, casing).
+ * Legacy route / UI role names → facets stored on the session after normalization.
+ * @param {string} roleInput
+ * @returns {string[]}
  */
-export function userHasNormalizedRole(normalizedRoles, roleInput) {
-  if (!normalizedRoles?.length) return false;
-  const canon = normalizedRoles.map((x) => String(x).toLowerCase());
+export function routeRoleAliases(roleInput) {
+  const x = String(roleInput ?? "").trim().toLowerCase();
+  if (x === "staff" || x === "employee") return ["teacher"];
+  if (x === "dean") return ["admin"];
+  return [x];
+}
+
+function canonList(normalizedRoles) {
+  if (!Array.isArray(normalizedRoles) || normalizedRoles.length === 0) return [];
+  return normalizedRoles.map((r) => String(r).toLowerCase());
+}
+
+/**
+ * Strict facet match for `hasRole` (no legacy alias expansion except student↔user).
+ */
+export function userHasAppFacet(normalizedRoles, roleInput) {
+  const canon = canonList(normalizedRoles);
+  if (!canon.length) return false;
+  const rawLow = String(roleInput ?? "").trim().toLowerCase();
   const k = normalizeFacetKey(roleInput.trim());
-  const rawLow = roleInput.trim().toLowerCase();
 
   if (k === "student" || rawLow === "student") {
     return canon.some((x) => x === "student" || x === "user");
   }
-
-  const targets = new Set();
-  if (k) targets.add(String(k).toLowerCase());
-  if (rawLow) targets.add(rawLow);
-  if (rawLow === "employee" || rawLow === "staff") {
-    targets.add("staff");
-    targets.add("employee");
+  if (rawLow === "user" || k === "user") {
+    return canon.includes("user") || canon.includes("student");
   }
 
-  return [...targets].some((t) => canon.includes(t));
+  if (k) return canon.includes(k);
+  return canon.includes(rawLow);
+}
+
+/**
+ * Route / RBAC: legacy labels in `allowedRoles` expand to current facets.
+ */
+export function userMatchesRouteAllowedRole(normalizedRoles, roleInput) {
+  const aliases = routeRoleAliases(roleInput);
+  return aliases.some((a) => userHasAppFacet(normalizedRoles, a));
+}
+
+/**
+ * @deprecated Prefer `userHasAppFacet` or `userMatchesRouteAllowedRole`.
+ */
+export function userHasNormalizedRole(normalizedRoles, roleInput) {
+  return userMatchesRouteAllowedRole(normalizedRoles, roleInput);
 }
 
 /** Match route `allowedRoles` lists — `student` gates also allow reader `user`. */
@@ -32,6 +59,6 @@ export function normalizedUserMatchesRoutes(
   mode = "any",
 ) {
   if (!allowed.length) return true;
-  const test = (r) => userHasNormalizedRole(normalizedRoles, r);
+  const test = (r) => userMatchesRouteAllowedRole(normalizedRoles, r);
   return mode === "all" ? allowed.every(test) : allowed.some(test);
 }

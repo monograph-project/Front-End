@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Briefcase,
@@ -31,6 +25,7 @@ import FacultyRegistrationShell, {
 import {
   useCreateEmployee,
   useEmployee,
+  useFaculties,
   useUpdateEmployee,
 } from "../services/useApi";
 
@@ -75,15 +70,6 @@ const FACULTY_POSITION_VALUES = FACULTY_POSITION_GROUPS.flatMap(
   (g) => g.values,
 );
 
-const selectLikeClass = `
-  inline-flex h-8 w-full cursor-pointer items-center rounded-xl px-3.5 text-xs
-  border transition-colors outline-none
-  bg-(--color-light-input-bg) text-(--color-light-text-primary) border-(--color-light-input-border)
-  dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:border-dark-input-border
-  focus-visible:border-(--color-light-input-border-focus) focus-visible:ring-2 focus-visible:ring-blue-500/15
-  dark:focus-visible:border-(--color-dark-input-border-focus) dark:focus-visible:ring-blue-400/15
-`.replace(/\s+/g, " ").trim();
-
 const tintIconBox = {
   violet:
     "bg-violet-100 text-violet-600 dark:bg-violet-950/60 dark:text-violet-300",
@@ -126,35 +112,44 @@ function FormSectionCard({
   );
 }
 
-function GroupedPositionSelect({ label, value, onChange, error, t }) {
-  return (
-    <div className="flex flex-col gap-1">
-      {label ? (
-        <label className="text-[11px] font-semibold text-primary dark:text-dark-primary">
-          {label}
-        </label>
-      ) : null}
-      <select
-        className={selectLikeClass}
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">{t("employeeForm.facultyPosition.placeholder")}</option>
-        {FACULTY_POSITION_GROUPS.map((g) => (
-          <optgroup key={g.titleKey} label={t(g.titleKey)}>
-            {g.values.map((v) => (
-              <option key={v} value={v}>
-                {t(`employeeForm.facultyPosition.${v}`)}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-      {error ? (
-        <p className="text-[11px] text-error dark:text-red-400">{error}</p>
-      ) : null}
-    </div>
+function normalizeFacultiesPayload(data) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.faculties)) return data.faculties;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.content)) return data.content;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+}
+
+function recordToFacultyOption(record) {
+  const id =
+    record?.id ?? record?.facultyId ?? record?.uuid ?? record?.code ?? "";
+  const label =
+    record?.name ??
+    record?.title ??
+    record?.facultyName ??
+    (id !== "" && id != null ? String(id) : "") ??
+    "—";
+  const value = String(id !== "" && id != null ? id : label);
+  return { value, label: String(label || value), raw: record };
+}
+
+function matchFacultySelection(entity, options) {
+  if (!entity || !options?.length) return "";
+  const byId =
+    entity.facultyId != null && `${entity.facultyId}`.trim() !== ""
+      ? String(entity.facultyId)
+      : "";
+  if (byId && options.some((o) => o.value === byId)) return byId;
+  const name = entity.faculty;
+  if (!name) return "";
+  const found = options.find(
+    (o) =>
+      String(o.label).toLowerCase().trim() ===
+      String(name).toLowerCase().trim(),
   );
+  return found?.value ?? "";
 }
 
 export default function EmployeeRegistrationWizard({
@@ -170,6 +165,12 @@ export default function EmployeeRegistrationWizard({
   const isEdit = mode === "edit" && Boolean(employeeId);
 
   const {
+    data: facultiesData,
+    isLoading: facultiesLoading,
+    isError: facultiesError,
+  } = useFaculties({ notifyOnError: false });
+
+  const {
     data: existingEmployee,
     isLoading: employeeLoading,
     isError: employeeFetchError,
@@ -177,6 +178,15 @@ export default function EmployeeRegistrationWizard({
     enabled: isEdit,
     notifyOnError: false,
   });
+
+  const facultyOptions = useMemo(() => {
+    return normalizeFacultiesPayload(facultiesData).map((r) =>
+      recordToFacultyOption(r),
+    );
+  }, [facultiesData]);
+
+  const facultySelectDisabled =
+    facultiesLoading || !!facultiesError || facultyOptions.length === 0;
 
   const educationRankOptions = useMemo(
     () =>
@@ -189,6 +199,17 @@ export default function EmployeeRegistrationWizard({
 
   const roleOptions = useMemo(
     () => [{ value: "EMPLOYEE", label: t("employeeForm.roles.EMPLOYEE") }],
+    [t],
+  );
+
+  const facultyPositionOptions = useMemo(
+    () =>
+      FACULTY_POSITION_GROUPS.flatMap((group) =>
+        group.values.map((value) => ({
+          value,
+          label: t(`employeeForm.facultyPosition.${value}`),
+        })),
+      ),
     [t],
   );
 
@@ -264,6 +285,10 @@ export default function EmployeeRegistrationWizard({
       pos && FACULTY_POSITION_VALUES.includes(String(pos).toUpperCase())
         ? String(pos).toUpperCase()
         : "";
+    const facultySelection = matchFacultySelection(
+      existingEmployee,
+      facultyOptions,
+    );
 
     reset({
       username: existingEmployee.username ?? "",
@@ -279,7 +304,7 @@ export default function EmployeeRegistrationWizard({
       addressCity: existingEmployee.addressCity ?? "",
       addressPostalCode: existingEmployee.addressPostalCode ?? "",
       addressProvince: existingEmployee.addressProvince ?? "",
-      faculty: existingEmployee.faculty ?? "",
+      faculty: facultySelection || existingEmployee.facultyId || "",
       educationRank:
         existingEmployee.educationRank &&
         EDUCATION_RANK_VALUES.includes(existingEmployee.educationRank)
@@ -287,10 +312,16 @@ export default function EmployeeRegistrationWizard({
           : "BACHELOR",
       facultyPosition: posOk,
       hireDate:
-        existingEmployee.hireDate ||
-        new Date().toISOString().slice(0, 10),
+        existingEmployee.hireDate || new Date().toISOString().slice(0, 10),
     });
-  }, [isEdit, employeeId, employeeLoading, existingEmployee, reset]);
+  }, [
+    isEdit,
+    employeeId,
+    employeeLoading,
+    existingEmployee,
+    facultyOptions,
+    reset,
+  ]);
 
   const watched = useWatch({ control });
   const progressPct = Math.round((step / steps.length) * 100);
@@ -366,12 +397,18 @@ export default function EmployeeRegistrationWizard({
 
   const goPrev = () => setStep((s) => Math.max(s - 1, 1));
 
-  const advanceStep = () =>
-    setStep((s) => Math.min(s + 1, steps.length));
+  const advanceStep = () => setStep((s) => Math.min(s + 1, steps.length));
+
+  const facultyLabel =
+    facultyOptions.find((o) => o.value === watched?.faculty)?.label ??
+    watched?.faculty ??
+    "—";
 
   const educationLabel =
     educationRankOptions.find((o) => o.value === watched?.educationRank)
-      ?.label ?? watched?.educationRank ?? "—";
+      ?.label ??
+    watched?.educationRank ??
+    "—";
 
   const positionReadable = useMemo(() => {
     const v = watched?.facultyPosition;
@@ -383,65 +420,6 @@ export default function EmployeeRegistrationWizard({
     .filter(Boolean)
     .join(" ")
     .trim();
-
-  const completedSnippet = useCallback(
-    (stepId) => {
-      switch (stepId) {
-        case 1:
-          return watched?.username?.trim()
-            ? `@${watched.username.trim()}`
-            : "—";
-        case 2:
-          return (
-            [
-              watched?.firstName,
-              watched?.lastName,
-              watched?.fatherName,
-              watched?.grandFatherName,
-            ]
-              .filter(Boolean)
-              .join(" · ") || "—"
-          );
-        case 3:
-          return watched?.email?.trim()
-            ? `${watched.email} · ${watched?.phone ?? ""}`
-            : "—";
-        case 4:
-          return [watched?.addressCity, watched?.addressPostalCode]
-            .filter(Boolean)
-            .join(", ") || "—";
-        case 5:
-          return (
-            [
-              watched?.faculty?.trim(),
-              educationLabel,
-              positionReadable,
-              watched?.hireDate,
-            ]
-              .filter(Boolean)
-              .join(" · ") || "—"
-          );
-        default:
-          return "";
-      }
-    },
-    [
-      educationLabel,
-      positionReadable,
-      watched?.username,
-      watched?.firstName,
-      watched?.lastName,
-      watched?.fatherName,
-      watched?.grandFatherName,
-      watched?.email,
-      watched?.phone,
-      watched?.addressCity,
-      watched?.addressPostalCode,
-      watched?.faculty,
-      watched?.hireDate,
-    ],
-  );
-
   const stepTitle = steps.find((s) => s.id === step)?.titleKey;
 
   const eduRankOpt = educationRankOptions.find(
@@ -756,14 +734,29 @@ export default function EmployeeRegistrationWizard({
               title={t("employeeForm.section.placementTitle")}
               subtitle={t("employeeForm.section.placementSub")}
             >
-              <Field
-                iconD={IC.globe}
-                label={`${t("employeeForm.fields.faculty.label")} *`}
-                placeholder={t("employeeForm.fields.faculty.placeholder")}
-                register={register("faculty", {
+              <Controller
+                name="faculty"
+                control={control}
+                rules={{
                   required: t("employeeForm.validation.facultyRequired"),
-                })}
-                error={errors.faculty?.message}
+                }}
+                render={({ field, fieldState }) => (
+                  <div className="flex flex-col gap-1">
+                    <Select
+                      label={`${t("employeeForm.fields.faculty.label")} *`}
+                      placeholder={t("employeeForm.fields.faculty.placeholder")}
+                      options={facultyOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={facultySelectDisabled}
+                    />
+                    {fieldState.error?.message ? (
+                      <p className="text-[11px] text-error dark:text-red-400">
+                        {fieldState.error.message}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
               />
               <Controller
                 name="educationRank"
@@ -786,16 +779,27 @@ export default function EmployeeRegistrationWizard({
                 name="facultyPosition"
                 control={control}
                 rules={{
-                  required: t("employeeForm.validation.facultyPositionRequired"),
+                  required: t(
+                    "employeeForm.validation.facultyPositionRequired",
+                  ),
                 }}
                 render={({ field, fieldState }) => (
-                  <GroupedPositionSelect
-                    label={`${t("employeeForm.fields.facultyPosition.label")} *`}
-                    value={field.value}
-                    onChange={field.onChange}
-                    error={fieldState.error?.message}
-                    t={t}
-                  />
+                  <div className="flex flex-col gap-1">
+                    <Select
+                      label={`${t("employeeForm.fields.facultyPosition.label")} *`}
+                      placeholder={t(
+                        "employeeForm.facultyPosition.placeholder",
+                      )}
+                      options={facultyPositionOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                    />
+                    {fieldState.error?.message ? (
+                      <p className="text-[11px] text-error dark:text-red-400">
+                        {fieldState.error.message}
+                      </p>
+                    ) : null}
+                  </div>
                 )}
               />
             </FormSectionCard>
@@ -819,8 +823,7 @@ export default function EmployeeRegistrationWizard({
                     d.setHours(0, 0, 0, 0);
                     today.setHours(0, 0, 0, 0);
                     return (
-                      d <= today ||
-                      t("employeeForm.validation.hireDateFuture")
+                      d <= today || t("employeeForm.validation.hireDateFuture")
                     );
                   },
                 })}
@@ -885,7 +888,7 @@ export default function EmployeeRegistrationWizard({
                 />
                 <FacultyReviewRow
                   k={t("employeeForm.fields.faculty.label")}
-                  v={watched?.faculty}
+                  v={facultyLabel !== "—" ? facultyLabel : ""}
                 />
                 <FacultyReviewRow
                   k={t("teacherForm.fields.educationRank.label")}
@@ -923,12 +926,7 @@ export default function EmployeeRegistrationWizard({
     );
   }
 
-  if (
-    isEdit &&
-    !employeeLoading &&
-    employeeFetchError &&
-    !existingEmployee
-  ) {
+  if (isEdit && !employeeLoading && employeeFetchError && !existingEmployee) {
     return (
       <div
         className={[className, "mx-auto w-full max-w-[min(100%,92rem)] py-16"]
@@ -946,9 +944,7 @@ export default function EmployeeRegistrationWizard({
     <>
       <FacultySummaryLine
         label={t("studentForm.fields.username.label")}
-        value={
-          watched?.username?.trim() ? `@${watched.username.trim()}` : "—"
-        }
+        value={watched?.username?.trim() ? `@${watched.username.trim()}` : "—"}
       />
       <FacultySummaryLine
         label={t("studentForm.summary.fullName")}
@@ -956,7 +952,7 @@ export default function EmployeeRegistrationWizard({
       />
       <FacultySummaryLine
         label={t("employeeForm.fields.faculty.label")}
-        value={watched?.faculty?.trim() || "—"}
+        value={facultyLabel !== "—" ? facultyLabel : "—"}
       />
       <FacultySummaryLine
         label={t("teacherForm.fields.educationRank.label")}
@@ -1004,7 +1000,6 @@ export default function EmployeeRegistrationWizard({
       progressPercentKey="studentForm.progress.percent"
       progressHintKey="studentForm.progress.hint"
       stackUpToExclusive={6}
-      completedSnippet={completedSnippet}
       stepContent={
         <AnimatePresence mode="wait">{stepContent()}</AnimatePresence>
       }

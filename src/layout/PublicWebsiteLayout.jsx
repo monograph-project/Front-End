@@ -4,6 +4,9 @@ import PublicWebsiteHeader from "./PublicWebsiteHeader";
 
 /**
  * Marketing-style public shell for blogs: top nav only, no dashboard sidebar / AppHeader.
+ * Authentication and RBAC are enforced on **child routes** (see `App.jsx`): public pages stay
+ * open, while `/write`, `/library`, and `/writer/profile` sit under a `ProtectedRoute` layout
+ * that requires a signed-in user with one of `PUBLIC_SITE_MEMBER_ROLES`.
  */
 export default function PublicWebsiteLayout() {
   return (

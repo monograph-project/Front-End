@@ -9,6 +9,7 @@
   "apiErrors.failed_to_update_student": "به‌روزرسانی دانش‌آموز ناموفق بود.",
   "apiErrors.failed_to_delete_student": "حذف دانش‌آموز ناموفق بود.",
   "apiErrors.failed_to_load_departments": "بارگذاری دپارتمان‌ها ناموفق بود.",
+  "apiErrors.failed_to_load_faculties": "بارگذاری دانشکده‌ها ناموفق بود.",
   "apiErrors.failed_to_load_batches": "بارگذاری دسته‌ها ناموفق بود.",
   "apiErrors.failed_to_load_department": "بارگذاری دپارتمان ناموفق بود.",
   "apiErrors.failed_to_create_department": "ایجاد دپارتمان ناموفق بود.",

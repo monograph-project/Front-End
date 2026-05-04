@@ -19,11 +19,26 @@ const CARD_SHADOW =
   "shadow-[0_22px_50px_-14px_rgba(15,23,42,0.14)] dark:shadow-[0_24px_55px_-12px_rgba(0,0,0,0.55)]";
 
 const integration = [
-  { Icon: MessageSquare, wrap: "bg-violet-100 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300" },
-  { Icon: LayoutGrid, wrap: "bg-sky-100 text-sky-700 dark:bg-sky-950/70 dark:text-sky-300" },
-  { Icon: Cloud, wrap: "bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300" },
-  { Icon: Mail, wrap: "bg-rose-100 text-rose-700 dark:bg-rose-950/65 dark:text-rose-300" },
-  { Icon: FileText, wrap: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/65 dark:text-emerald-300" },
+  {
+    Icon: MessageSquare,
+    wrap: "bg-violet-100 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300",
+  },
+  {
+    Icon: LayoutGrid,
+    wrap: "bg-sky-100 text-sky-700 dark:bg-sky-950/70 dark:text-sky-300",
+  },
+  {
+    Icon: Cloud,
+    wrap: "bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300",
+  },
+  {
+    Icon: Mail,
+    wrap: "bg-rose-100 text-rose-700 dark:bg-rose-950/65 dark:text-rose-300",
+  },
+  {
+    Icon: FileText,
+    wrap: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/65 dark:text-emerald-300",
+  },
 ];
 
 function cardMotion(delay) {
@@ -38,25 +53,9 @@ export default function PublicLandingHero() {
   const { t } = useTranslation();
 
   return (
-    <section className="relative overflow-hidden border-b border-light-divider bg-(--color-light-app-bg) dark:border-dark-divider dark:bg-dark-shell">
+    <section className="relative overflow-hidden  bg-light-app-bg  dark:bg-dark-shell">
       {/* Fine dot texture + grid (reference: soft lattice) */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.42] dark:opacity-[0.22]"
-        style={{
-          backgroundImage: `radial-gradient(circle at center, var(--color-light-border-subtle) 1.1px, transparent 1.2px)`,
-          backgroundSize: "22px 22px",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-40 dark:opacity-25"
-        style={{
-          backgroundImage: `linear-gradient(to right, var(--color-light-border-subtle) 1px, transparent 1px),
-            linear-gradient(to bottom, var(--color-light-border-subtle) 1px, transparent 1px)`,
-          backgroundSize: "64px 64px",
-        }}
-      />
+     
 
       {/* Warm pink / apricot bloom behind collage */}
       <div
@@ -128,7 +127,11 @@ export default function PublicLandingHero() {
           >
             <div className="flex items-start gap-2.5">
               <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600 dark:bg-sky-950/70 dark:text-sky-400">
-                <Sparkles className="size-[18px]" strokeWidth={1.85} aria-hidden />
+                <Sparkles
+                  className="size-[18px]"
+                  strokeWidth={1.85}
+                  aria-hidden
+                />
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold leading-snug text-primary dark:text-dark-primary">
@@ -152,7 +155,10 @@ export default function PublicLandingHero() {
                 aria-hidden
               />
               <div className="min-w-0">
-                <Sparkles className="mb-1 size-[14px] text-violet-500 dark:text-violet-400" strokeWidth={1.85} />
+                <Sparkles
+                  className="mb-1 size-[14px] text-violet-500 dark:text-violet-400"
+                  strokeWidth={1.85}
+                />
                 <p className="text-[11px] font-medium leading-snug text-primary dark:text-dark-primary">
                   {t("publicHome.hero.card.smallBubble")}
                 </p>
@@ -197,12 +203,13 @@ export default function PublicLandingHero() {
           >
             <div className="flex gap-2">
               <div className="flex min-h-10 flex-1 items-center rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3 py-2 text-[12px] text-muted shadow-inner dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-dark-muted">
-                <Search className="me-2 size-[15px] shrink-0 opacity-70" aria-hidden />
+                <Search
+                  className="me-2 size-[15px] shrink-0 opacity-70"
+                  aria-hidden
+                />
                 <span>{t("publicHome.hero.card.searchBar")}</span>
               </div>
-              <span
-                className="inline-flex h-10 shrink-0 items-center gap-1 rounded-full bg-neutral-950 px-3.5 text-[11px] font-semibold uppercase tracking-wide text-white dark:bg-white dark:text-neutral-950 sm:gap-1.5 sm:px-4"
-              >
+              <span className="inline-flex h-10 shrink-0 items-center gap-1 rounded-full bg-neutral-950 px-3.5 text-[11px] font-semibold uppercase tracking-wide text-white dark:bg-white dark:text-neutral-950 sm:gap-1.5 sm:px-4">
                 {t("publicHome.hero.card.askAi")}
                 <ArrowRight className="size-3 sm:size-3.5" aria-hidden />
               </span>

@@ -5,14 +5,30 @@ import IC from "../components/IC";
 import Icon from "../components/Icon";
 import { useAuth } from "../context/AuthContext";
 import { useSidebar } from "../context/SidebarContext";
-import { getFacultyDashboardPath } from "../lib/roles";
+import { getFacultyDashboardPath, resolveShellBasePath } from "../lib/roles";
+import {
+  TbLayoutSidebarLeftCollapse,
+  TbLayoutSidebarRightCollapse,
+} from "react-icons/tb";
 export default function AppSidebar() {
   const { collapsed, handleSidebarToggle, isMobile } = useSidebar();
   const small = collapsed;
   const { t } = useTranslation();
   const location = useLocation();
-  const { user } = useAuth();
-  const basePath = getFacultyDashboardPath(user?.role) ?? "/teacher";
+  const { user, hasRole } = useAuth();
+  const primaryRole = user?.role;
+  const roleForHome =
+    primaryRole === "user" ? "student" : primaryRole || "student";
+  const basePath = getFacultyDashboardPath(roleForHome) ?? "/student";
+  const pathnameShell = resolveShellBasePath(location.pathname, primaryRole);
+  const navRole =
+    pathnameShell === "/staff"
+      ? "teacher"
+      : pathnameShell === "/dean"
+        ? "admin"
+        : primaryRole === "user"
+          ? "student"
+          : primaryRole || "student";
 
   // Role-specific navigation items (paths must match App.jsx)
   const roleNavItems = {
@@ -148,34 +164,22 @@ export default function AppSidebar() {
         path: `${basePath}/dashboard`,
       },
       {
-        key: "projects",
-        labelKey: "sidebar.student.projects",
+        key: "workspace",
+        labelKey: "sidebar.student.workspace",
         icon: IC.projects,
-        path: `${basePath}/projects`,
-      },
-      {
-        key: "repositories",
-        labelKey: "sidebar.student.repositories",
-        icon: IC.projects,
-        path: `${basePath}/repositories`,
-      },
-      {
-        key: "tasks",
-        labelKey: "sidebar.student.tasks",
-        icon: IC.deals,
-        path: `${basePath}/tasks`,
-      },
-      {
-        key: "contributors",
-        labelKey: "sidebar.student.contributors",
-        icon: IC.contact,
-        path: `${basePath}/contributors`,
+        path: `${basePath}/workspace`,
       },
       {
         key: "notifications",
         labelKey: "sidebar.student.notifications",
         icon: IC.reports,
         path: `${basePath}/notifications`,
+      },
+      {
+        key: "settings",
+        labelKey: "sidebar.student.settings",
+        icon: IC.settings,
+        path: `${basePath}/settings`,
       },
     ],
     staff: [
@@ -214,6 +218,32 @@ export default function AppSidebar() {
         labelKey: "sidebar.staff.reports",
         icon: IC.reports,
         path: `${basePath}/reports`,
+      },
+    ],
+    author: [
+      {
+        key: "dashboard",
+        labelKey: "sidebar.author.dashboard",
+        icon: IC.dashboard,
+        path: `${basePath}/dashboard`,
+      },
+      {
+        key: "writing",
+        labelKey: "sidebar.author.writing",
+        icon: IC.notes,
+        path: `${basePath}/writing`,
+      },
+      {
+        key: "published",
+        labelKey: "sidebar.author.published",
+        icon: IC.projects,
+        path: `${basePath}/published`,
+      },
+      {
+        key: "notifications",
+        labelKey: "sidebar.author.notifications",
+        icon: IC.bell,
+        path: `${basePath}/notifications`,
       },
     ],
     dean: [
@@ -262,83 +292,30 @@ export default function AppSidebar() {
     ],
   };
 
-  const navItems = [...(roleNavItems[user?.role] || roleNavItems.teacher)];
+  const primaryNav = [...(roleNavItems[navRole] || roleNavItems.teacher)];
 
-  // Role-specific favorites
-  const roleFavItems = {
-    admin: [
-      {
-        key: "userStats",
-        labelKey: "sidebar.admin.userStats",
-        icon: IC.reports,
-        count: "1,250",
-      },
-      {
-        key: "activeSessions",
-        labelKey: "sidebar.admin.sessions",
-        icon: IC.meeting,
-        count: "45",
-      },
-    ],
-    teacher: [
-      {
-        key: "recentStudents",
-        labelKey: "sidebar.teacher.recentStudents",
-        icon: IC.contact,
-        count: "28",
-      },
-      {
-        key: "pendingGrades",
-        labelKey: "sidebar.teacher.pendingGrades",
-        icon: IC.notes,
-        count: "12",
-      },
-    ],
-    student: [
-      {
-        key: "dueAssignments",
-        labelKey: "sidebar.student.dueAssignments",
-        icon: IC.notes,
-        count: "5",
-      },
-      {
-        key: "upcomingClasses",
-        labelKey: "sidebar.student.classes",
-        icon: IC.calendar,
-        count: "3",
-      },
-    ],
-    staff: [
-      {
-        key: "openTasks",
-        labelKey: "sidebar.staff.openTasks",
-        icon: IC.deals,
-        count: "18",
-      },
-      {
-        key: "meetings",
-        labelKey: "sidebar.meetings",
-        icon: IC.meeting,
-        count: "4",
-      },
-    ],
-    dean: [
-      {
-        key: "programs",
-        labelKey: "sidebar.dean.programs",
-        icon: IC.company,
-        count: "6",
-      },
-      {
-        key: "alerts",
-        labelKey: "sidebar.dean.alerts",
-        icon: IC.bell,
-        count: "2",
-      },
-    ],
-  };
+  const authorAddonNav =
+    hasRole("author") && primaryRole && primaryRole !== "author"
+      ? [
+          {
+            key: "author-writing",
+            labelKey: "sidebar.author.writing",
+            icon: IC.notes,
+            path: "/author/writing",
+          },
+          {
+            key: "author-published",
+            labelKey: "sidebar.author.published",
+            icon: IC.projects,
+            path: "/author/published",
+          },
+        ]
+      : [];
 
-  const favItems = roleFavItems[user?.role] || roleFavItems.teacher;
+  const navItems =
+    primaryRole === "author"
+      ? [...(roleNavItems.author || [])]
+      : [...primaryNav, ...authorAddonNav];
 
   const isActive = (path) => {
     if (path === "/") {
@@ -349,18 +326,27 @@ export default function AppSidebar() {
 
   return (
     <aside
-      className={` flex flex-col h-full shrink-0 transition-width  duration-100 ease  overflow-hidden bg-shell dark:bg-dark-shell  ltr:border-r rtl:border-l border-default dark:border-dark-default ${isMobile ? "border-none" : ""}  ${collapsed ? "w-16 min-w-16" : "w-65 min-w-65"}`}
+      className={` flex transition-all flex-col h-full shrink-0 transition-width  duration-100 ease  overflow-hidden bg-shell dark:bg-dark-app-secondary  ltr:border-r rtl:border-l border-default dark:border-dark-app-tertiary ${isMobile ? "border-none" : ""}  ${collapsed ? "w-16 min-w-16" : "w-65 min-w-65"}`}
     >
       <div
-        className={` ${collapsed ? "px-4 py-4.5" : "px-2.5 py-4"} flex min-h-14 items-center border-b border-default   dark:border-dark-default ${collapsed ? " justify-center" : " justify-between"}`}
-        onClick={handleSidebarToggle}
+        className={` ${collapsed ? "px-4 py-4.5" : "px-2.5 py-4"} relative flex min-h-14 items-center border-b border-default   dark:border-dark-default ${collapsed ? " justify-center" : " justify-between"}`}
       >
-        {!collapsed && (
-          <button className="ml-auto p-1 hover:bg-accent/20 rounded">
-            <Icon d={IC.menu} className="w-4 h-4" />
+        <div
+          className={`absolute  ltr:right-0 rtl:left-5 top-2/4 -translate-2/4 `}
+        >
+          <button
+            type="button"
+            onClick={handleSidebarToggle}
+            aria-label={t("appHeader.toggleSidebar")}
+            className="group flex shrink-0 items-center rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) p-1 text-secondary transition-colors hover:border-(--color-light-input-border-focus) hover:bg-(--color-light-nav-hover-bg) hover:text-primary dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-dark-secondary dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary sm:p-1.5"
+          >
+            {collapsed ? (
+              <TbLayoutSidebarRightCollapse className="text-[1rem] sm:text-[18px]" />
+            ) : (
+              <TbLayoutSidebarLeftCollapse className="text-[1rem] sm:text-[18px]" />
+            )}
           </button>
-        )}
-        {collapsed && <Icon d={IC.menu} className="w-4 h-4 cursor-pointer" />}
+        </div>
       </div>
 
       {/* Nav */}
@@ -379,9 +365,6 @@ export default function AppSidebar() {
               className={` relative hover:bg-dark-btn-primary-bg  group   text-left ${active ? " font-bold dark:text-white bg-dark-btn-primary-bg bg-accent/10" : "  font-normal"} ${collapsed ? "p-2.25" : " py-2.25 px-2.5"} mb-0.5 text-xs relative transition-all duration-150 ${collapsed || isMobile ? " justify-center" : " justify-start"}  cursor-pointer    flex items-center gap-2.25 w-full rounded-lg border-none no-underline`}
               key={item.key}
             >
-              {active && !collapsed && (
-                <div className=" absolute ltr:-left-0.5  rtl:-right-0.5 top-[10%] bottom-[10%]  border-2 border-light-badge-border  rounded-3xl" />
-              )}
               <Icon
                 d={item.icon}
                 className={`  group-hover:text-dark-text-primary    group-hover:translate-y-0.5 transition-all  size-4 ${active ? " text-dark-text-primary stroke-2 " : "text-light-text-primary  stroke-[1.5] dark:text-dark-text-primary"}`}

@@ -41,7 +41,14 @@ function Button({
         .join(" ")}
       {...rest}
     >
-      {icon && <span>{icon}</span>}
+      {icon ? (
+        <span
+          className="inline-flex shrink-0 items-center justify-center [&>svg]:size-[1.05rem] [&>svg]:shrink-0"
+          aria-hidden
+        >
+          {icon}
+        </span>
+      ) : null}
       <span>{children}</span>
     </button>
   );

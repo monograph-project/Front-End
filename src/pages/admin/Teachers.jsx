@@ -35,9 +35,10 @@ import AvatarDemo from "../../components/Avatar";
 import Checkbox from "../../components/Checkbox";
 import Button from "../../components/Button";
 import Field from "../../components/Field";
-import GlobalModal from "../../components/GlobalModal";
 import TableToolbar from "../../components/TableToolbar";
 import StatusPill, { statusToPillVariant } from "../../components/StatusPill";
+import OperationsDropdown from "../../components/OperationsDropdown";
+import SensitiveActionModal from "../../components/SensitiveActionModal";
 import { useDeleteTeacher, useTeachersPage } from "../../services/useApi";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
@@ -237,19 +238,8 @@ export default function Teachers() {
       setDeleteSubmitting(false);
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-1 flex-col gap-[14px] overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
-        <div className="flex h-64 items-center justify-center text-primary dark:text-dark-primary">
-          {t("adminTeachers.loading")}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="mb-1 text-2xl font-bold text-primary dark:text-dark-primary">
@@ -264,23 +254,22 @@ export default function Teachers() {
 
         <div className="flex items-center gap-3">
           <div className="flex-none">
-            <DropdownMenuRoot>
-              <DropdownTrigger>Actions</DropdownTrigger>
-              <DropdownContent align="end">
-                <DropdownItem
-                  icon={<Icon d={IC.download} className="size-4" />}
-                  onClick={() => handleAction("export")}
-                >
-                  Export
-                </DropdownItem>
-                <DropdownItem
-                  icon={<Icon d={IC.upload} className="size-4" />}
-                  onClick={() => handleAction("import")}
-                >
-                  Import
-                </DropdownItem>
-              </DropdownContent>
-            </DropdownMenuRoot>
+            <OperationsDropdown
+              items={[
+                {
+                  key: "export",
+                  icon: <Icon d={IC.download} className="size-4" />,
+                  label: t("adminShared.actions.download"),
+                  onClick: () => handleAction("export"),
+                },
+                {
+                  key: "import",
+                  icon: <Icon d={IC.upload} className="size-4" />,
+                  label: t("adminShared.actions.import"),
+                  onClick: () => handleAction("import"),
+                },
+              ]}
+            />
           </div>
 
           <div className="flex-none">
@@ -554,98 +543,37 @@ export default function Teachers() {
       </div>
 
       {deleteTeacherId != null ? (
-        <TeacherDeleteModal
-          teacher={deletingTeacher}
-          onCancel={() => {
-            if (!deleteSubmitting) setDeleteTeacherId(null);
+        <SensitiveActionModal
+          open={true}
+          setOpen={(open) => {
+            if (!open && !deleteSubmitting) setDeleteTeacherId(null);
           }}
+          title={t("adminTeachers.delete.title")}
+          subtitle={`${t("adminTeachers.delete.descriptionPrefix")} ${
+            deletingTeacher
+              ? `“${`${deletingTeacher.firstName ?? ""} ${deletingTeacher.lastName ?? ""}`.trim()}”`
+              : t("adminTeachers.delete.fallbackName")
+          }${t("adminTeachers.delete.descriptionSuffix")}`}
+          summaryItems={[
+            {
+              label: t("adminTeachers.delete.emailLabel"),
+              value:
+                deletingTeacher?.email?.trim() ||
+                t("adminTeachers.delete.noEmail"),
+              mono: true,
+            },
+          ]}
+          warning={t("adminTeachers.delete.warning")}
+          cancelLabel={t("adminTeachers.delete.cancel")}
+          confirmLabel={
+            deleteSubmitting
+              ? t("studentForm.actions.submitting")
+              : t("adminTeachers.delete.confirm")
+          }
           onConfirm={confirmDeleteTeacher}
           submitting={deleteSubmitting}
         />
       ) : null}
     </div>
-  );
-}
-
-function TeacherDeleteModal({ teacher, onCancel, onConfirm, submitting }) {
-  const { t } = useTranslation();
-  const displayName =
-    teacher && `${teacher.firstName ?? ""} ${teacher.lastName ?? ""}`.trim();
-  const namePhrase = displayName
-    ? `\u201c${displayName}\u201d`
-    : t("adminTeachers.delete.fallbackName");
-  const emailDisplay = teacher?.email?.trim()
-    ? teacher.email
-    : t("adminTeachers.delete.noEmail");
-
-  return (
-    <GlobalModal open={true} setOpen={() => (!submitting ? onCancel() : null)}>
-      <div className="z-1000 flex max-h-[70vh] w-full max-w-[450px] shrink-0 flex-col rounded-xl border border-default bg-light-card-bg p-6 shadow-2xl dark:border-dark-default dark:bg-dark-card-bg">
-        <div className="mb-6 flex shrink-0 items-start gap-3 border-b border-default pb-4 dark:border-dark-divider">
-          <div className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-light-error-bg text-light-error-text dark:bg-dark-error-bg dark:text-dark-error-text">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 15 15"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden
-            >
-              <path
-                d="M7.5 1.125C7.74858 1.125 7.95 1.32647 7.95 1.575V7.3125L10.1819 5.08071C10.3576 4.90497 10.6425 4.90497 10.8182 5.08071C10.994 5.25645 10.994 5.54137 10.8182 5.71711L7.81825 8.71711C7.64251 8.89284 7.35759 8.89284 7.18185 8.71711L4.18185 5.71711C4.00611 5.54137 4.00611 5.25645 4.18185 5.08071C4.35759 4.90497 4.64251 4.90497 4.81825 5.08071L7.05 7.3125V1.575C7.05 1.32647 7.25152 1.125 7.5 1.125ZM2.625 9.75C2.90114 9.75 3.125 9.97411 3.125 10.25V12C3.125 12.5523 3.57268 13 4.00365 13H11.0012C11.5529 13 12 12.5528 12 12V10.25C12 9.97411 12.2239 9.75 12.5 9.75C12.7761 9.75 13 9.97411 13 10.25V12C13 13.1041 12.1062 14 11.0012 14H4.00365C2.89749 14 2 13.103 2 12V10.25C2 9.97411 2.22386 9.75 2.625 9.75Z"
-                fill="currentColor"
-                fillRule="evenodd"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-          <div className="min-w-0">
-            <h2 className="mb-1 text-xl font-bold text-primary dark:text-dark-primary">
-              {t("adminTeachers.delete.title")}
-            </h2>
-            <p className="mb-2 text-sm text-secondary dark:text-dark-secondary">
-              {t("adminTeachers.delete.descriptionPrefix")}{" "}
-              <span className="font-semibold text-primary dark:text-dark-primary">
-                {namePhrase}
-              </span>
-              {t("adminTeachers.delete.descriptionSuffix")}
-            </p>
-            <p className="mb-4 text-xs text-muted dark:text-dark-muted">
-              <span className="font-medium">
-                {t("adminTeachers.delete.emailLabel")}
-              </span>{" "}
-              <span className="rounded bg-light-app-tertiary px-2 py-0.5 font-mono text-secondary dark:bg-dark-app-tertiary dark:text-dark-secondary">
-                {emailDisplay}
-              </span>
-            </p>
-            <p className="text-xs font-medium text-light-error-text dark:text-dark-error-text">
-              {t("adminTeachers.delete.warning")}
-            </p>
-          </div>
-        </div>
-        <div className="mt-auto flex shrink-0 flex-wrap gap-3 border-t border-default pt-4 dark:border-dark-divider">
-          <Button
-            type="button"
-            variant="secondary"
-            className="min-w-24"
-            disabled={submitting}
-            onClick={onCancel}
-          >
-            {t("adminTeachers.delete.cancel")}
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            className="min-w-24"
-            disabled={submitting}
-            onClick={() => void onConfirm()}
-          >
-            {submitting
-              ? t("studentForm.actions.submitting")
-              : t("adminTeachers.delete.confirm")}
-          </Button>
-        </div>
-      </div>
-    </GlobalModal>
   );
 }

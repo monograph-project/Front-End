@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Select from "./Select";
 import SettingsSectionCard from "./SettingsSectionCard";
 import { cn } from "../lib/utils";
+import { useTheme } from "../context/themContext";
 
 const themeCards = [
   {
@@ -25,8 +26,10 @@ const themeCards = [
   },
 ];
 
-export default function ThemeSettingsTab({ appearance, setAppearance }) {
+export default function ThemeSettingsTab() {
   const { t } = useTranslation();
+  const { appearance, setAppearance } = useTheme();
+
   return (
     <div className="space-y-6">
       <SettingsSectionCard
@@ -46,7 +49,7 @@ export default function ThemeSettingsTab({ appearance, setAppearance }) {
                 className={cn(
                   "flex items-center justify-between gap-4 rounded-md border px-4 py-4 text-left transition-colors",
                   appearance === theme.id
-                    ? "border-primary/20 bg-shell dark:border-dark-primary/20 dark:bg-dark-shell"
+                    ? " border-dark-btn-primary-bg     dark:border-dark-primary/20 "
                     : "border-default bg-card dark:border-dark-default dark:bg-dark-card",
                 )}
               >
@@ -87,12 +90,18 @@ export default function ThemeSettingsTab({ appearance, setAppearance }) {
             <Select
               defaultValue="comfortable"
               options={[
-                { value: "compact", label: t("settings.theme.density.compact") },
+                {
+                  value: "compact",
+                  label: t("settings.theme.density.compact"),
+                },
                 {
                   value: "comfortable",
                   label: t("settings.theme.density.comfortable"),
                 },
-                { value: "spacious", label: t("settings.theme.density.spacious") },
+                {
+                  value: "spacious",
+                  label: t("settings.theme.density.spacious"),
+                },
               ]}
             />
           </div>
@@ -108,7 +117,10 @@ export default function ThemeSettingsTab({ appearance, setAppearance }) {
                   value: "collapsible",
                   label: t("settings.theme.sidebar.collapsible"),
                 },
-                { value: "icon-only", label: t("settings.theme.sidebar.iconOnly") },
+                {
+                  value: "icon-only",
+                  label: t("settings.theme.sidebar.iconOnly"),
+                },
               ]}
             />
           </div>

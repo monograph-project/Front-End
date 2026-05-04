@@ -78,7 +78,7 @@ export default function StudentProfile() {
 
   if (isLoading || (isFetching && !student)) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-light-app-bg p-6 dark:bg-dark-shell md:p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-light-app-bg p-6 dark:bg-dark-card-bg md:p-8">
         <div
           className="h-10 w-10 animate-spin rounded-full border-2 border-(--color-light-card-border) border-t-(--color-light-text-primary) dark:border-(--color-dark-card-border) dark:border-t-(--color-dark-text-primary)"
           aria-hidden
@@ -92,7 +92,7 @@ export default function StudentProfile() {
 
   if (isError) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-light-app-bg p-6 text-center dark:bg-dark-shell md:p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-light-app-bg p-6 text-center dark:bg-dark-card-bg md:p-8">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-light-error-bg dark:bg-dark-error-bg">
           <Icon
             d={IC.x}
@@ -111,7 +111,7 @@ export default function StudentProfile() {
 
   if (!student || !student.id) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-light-app-bg p-6 dark:bg-dark-shell md:p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-light-app-bg p-6 dark:bg-dark-card-bg md:p-8">
         <p className="text-lg font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
           {t("studentProfile.notFound")}
         </p>
@@ -146,7 +146,7 @@ export default function StudentProfile() {
   const genderLabel = GENDER_I18N[g] ? t(GENDER_I18N[g]) : displayOrDash(student.gender, "");
 
   return (
-    <div className="flex-1 overflow-y-auto bg-light-app-bg p-4 dark:bg-dark-shell md:p-6">
+    <div className="flex-1 overflow-y-auto bg-light-app-bg p-4 dark:bg-dark-card-bg md:p-6">
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-1 items-start gap-3">

@@ -122,7 +122,7 @@ export default function UserProfile() {
   };
 
   return (
-    <div className="flex-1 p-4 md:p-8 bg-shell dark:bg-dark-shell">
+    <div className="flex-1 p-4 md:p-8 bg-shell dark:bg-dark-card-bg">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
 <div className="flex items-start justify-between border-b border-default dark:border-dark-default pb-3 gap-6 mb-8">

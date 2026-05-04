@@ -368,7 +368,7 @@ function ProjectWorkspace() {
   }, []);
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <Link
           to="/admin/projects"

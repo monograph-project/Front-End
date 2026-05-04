@@ -297,9 +297,28 @@ export const VC_AUTH = {
 
 export const VC = {
   REPOS_CREATE: gw("/api/v1/repos"),
+  /**
+   * List repositories belonging to `{ownerId}` (`RepositoryResponse` rows).
+   * Typical VC controller: `@RequestMapping("/api/v1/repos")` + `GET "/{ownerId}"`.
+   * Student workspace sends the gateway user id (`AuthProvider` `user.id`).
+   */
+  REPOS_BY_ID: (repoId) => gw(`/api/v1/repos/${encodeURIComponent(repoId)}`),
+  REPOS_OWNED_BY: (ownerId) =>
+    gw(`/api/v1/repos/owner/${encodeURIComponent(ownerId)}`),
+  /** Activity feed parsing can recover `owner/repo` slugs when no list endpoint exists. */
+  USER_ACTIVITY: (username, params = {}) =>
+    gw(withQuery(`/api/v1/repos/${encodeURIComponent(username)}/activity`, params)),
   REPO_DETAIL: (owner, repo) =>
     gw(
       `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+    ),
+  REPO_PULLS: (owner, repo) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`,
+    ),
+  REPO_TASK_DASHBOARD: (owner, repo) =>
+    gw(
+      `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/dashboard`,
     ),
   REPO_TREE: (owner, repo, params = {}) =>
     gw(
@@ -326,6 +345,10 @@ export const VC = {
 export const STUDENT = {
   GETALL: gw("/api/student"),
   GETBYID: (id) => gw(`/api/student/${id}`),
+  /** Resolved student row for the current gateway session / Keycloak subject. */
+  ME: gw("/api/student/me"),
+  BY_KEYCLOAK: (keycloakSubject) =>
+    gw(`/api/student/by-keycloak/${encodeURIComponent(keycloakSubject)}`),
   CREATE: gw("/api/student"),
   UPDATE: (id) => gw(`/api/student/${id}`),
   DELETE: (id) => gw(`/api/student/${id}`),
@@ -338,6 +361,15 @@ export const DEPARTMENT = {
   CREATE: gw("/api/department"),
   UPDATE: (id) => gw(`/api/department/${id}`),
   DELETE: (id) => gw(`/api/department/${id}`),
+};
+
+/** Faculties on the gateway (`VITE_API_BASE_URL`). */
+export const FACULTY = {
+  GETALL: gw("/api/faculty"),
+  GETBYID: (id) => gw(`/api/faculty/${encodeURIComponent(id)}`),
+  CREATE: gw("/api/faculty"),
+  UPDATE: (id) => gw(`/api/faculty/${encodeURIComponent(id)}`),
+  DELETE: (id) => gw(`/api/faculty/${encodeURIComponent(id)}`),
 };
 
 /** Batches (intake cohorts) — faculty service `/api/batch`. */
@@ -375,6 +407,22 @@ export const SEMESTER = {
 export const FACULTY_PROJECT = {
   LIST: (params = {}) => gw(withQuery("/api/project", params)),
   BY_ID: (id) => gw(`/api/project/${encodeURIComponent(id)}`),
+  BY_ID_AND_STUDENT: (id, studentId) =>
+    gw(
+      `/api/project/${encodeURIComponent(id)}/student/${encodeURIComponent(studentId)}`,
+    ),
+  BY_ID_AND_TEACHER: (id, teacherId) =>
+    gw(
+      `/api/project/${encodeURIComponent(id)}/teacher/${encodeURIComponent(teacherId)}`,
+    ),
+  BY_STUDENT: (studentId) =>
+    gw(`/api/project/student/${encodeURIComponent(studentId)}`),
+  BY_TEACHER: (teacherId) =>
+    gw(`/api/project/teacher/${encodeURIComponent(teacherId)}`),
+  BY_TEACHER_AND_STUDENT: (teacherId, studentId) =>
+    gw(
+      `/api/project/teacher/${encodeURIComponent(teacherId)}/student/${encodeURIComponent(studentId)}`,
+    ),
   CREATE: gw("/api/project"),
   UPDATE: (id) => gw(`/api/project/${encodeURIComponent(id)}`),
   DELETE: (id) => gw(`/api/project/${encodeURIComponent(id)}`),
@@ -415,6 +463,7 @@ export const ROUTES = {
   AUTH,
   STUDENT,
   DEPARTMENT,
+  FACULTY,
   BATCH,
   ACADEMIC_YEAR,
   SEMESTER,

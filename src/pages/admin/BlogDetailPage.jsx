@@ -257,7 +257,7 @@ export default function BlogDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[50vh] flex-1 flex-col items-center justify-center gap-3 bg-light-app-bg px-4 dark:bg-dark-shell">
+      <div className="flex min-h-[50vh] flex-1 flex-col items-center justify-center gap-3 bg-light-app-bg px-4 dark:bg-dark-card-bg">
         <Loader2
           className="size-9 animate-spin text-(--color-chart-success)"
           strokeWidth={2}
@@ -272,7 +272,7 @@ export default function BlogDetailPage() {
 
   if (isError || !blog) {
     return (
-      <div className="flex min-h-screen flex-1 items-center justify-center bg-light-app-bg px-4 dark:bg-dark-shell">
+      <div className="flex min-h-screen flex-1 items-center justify-center bg-light-app-bg px-4 dark:bg-dark-card-bg">
         <div className={cn(SURFACE_CARD, "max-w-md p-8 text-center shadow-md")}>
           <h1 className="text-2xl font-bold text-primary dark:text-dark-primary">
             {t("blogAdmin.detail.notFound.title")}
@@ -341,7 +341,7 @@ export default function BlogDetailPage() {
   const panelBlog = blog;
 
   return (
-    <div className="min-h-screen flex-1 bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+    <div className="min-h-screen flex-1 bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <section className={SURFACE_CARD}>
           <div className="border-b border-light-divider px-4 py-5 dark:border-dark-divider md:px-6">

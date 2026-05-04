@@ -5,7 +5,7 @@ import { useAuth } from "../auth/useAuth";
 
 function rolesList(user) {
   const raw = user?.normalizedRoles;
-  if (!Array.isArray(raw)) return undefined;
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
   return raw.map((r) => String(r));
 }
 
@@ -14,12 +14,16 @@ function rolesList(user) {
  *   children: import("react").ReactNode;
  *   allowedRoles?: string[];
  *   roleMode?: "any" | "all";
+ *   authenticateOnly?: boolean;
  * }} props
+ * When `authenticateOnly` is true, only a signed-in session is required (`allowedRoles` ignored).
+ * Otherwise `allowedRoles` must be a non-empty list (empty array is treated as misconfiguration → unauthorized).
  */
 export default function ProtectedRoute({
   children,
   allowedRoles,
   roleMode = "any",
+  authenticateOnly = false,
 }) {
   const location = useLocation();
   const { hydrated, user, isAuthenticated } = useAuth();
@@ -34,10 +38,20 @@ export default function ProtectedRoute({
     );
   }
 
-  if (
-    allowedRoles?.length &&
-    !normalizedUserMatchesRoutes(rolesList(user), allowedRoles, roleMode)
-  ) {
+  if (authenticateOnly) {
+    return children;
+  }
+
+  if (!allowedRoles?.length) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  const list = rolesList(user);
+  if (!list?.length) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  if (!normalizedUserMatchesRoutes(list, allowedRoles, roleMode)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

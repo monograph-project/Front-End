@@ -183,6 +183,7 @@ export default function StudentRegistrationWizard({
     isError: departmentsError,
   } = useDepartments({ notifyOnError: false });
 
+  console.log(departmentsData)
   const {
     data: batchesData,
     isLoading: batchesLoading,

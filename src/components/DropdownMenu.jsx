@@ -46,7 +46,7 @@ export const DropdownTrigger = React.forwardRef(
                 )
               : cn(
                   icon || showArrow
-                    ? "w-full rounded-md px-3 py-2 text-sm font-medium"
+                    ? "w-full rounded-xl px-3 py-2 text-sm font-medium"
                     : "w-fit cursor-pointer justify-center rounded-full text-sm font-medium",
                   "border-(--color-light-input-border) bg-(--color-light-input-bg) text-(--color-light-text-secondary) dark:border-(--color-dark-input-border) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-secondary)",
                   "hover:text-(--color-light-text-primary) dark:hover:text-(--color-dark-text-primary)",
@@ -93,7 +93,7 @@ export const DropdownContent = React.forwardRef(
         sideOffset={sideOffset}
         align={align}
         className={cn(
-          " z-50 min-w-56 overflow-hidden rounded-md  p-1 ",
+          "z-50 min-w-56 overflow-hidden rounded-xl p-1.5",
           "border shadow-md",
           "bg-(--color-light-card-bg) text-(--color-light-text-primary) border-(--color-light-card-border)",
           "dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-text-primary) dark:border-(--color-dark-card-border)",
@@ -114,10 +114,14 @@ DropdownContent.displayName = "DropdownContent";
 /* ─────────────────────────────────────────────── */
 /* Item */
 const itemVariants = {
-  default: "text-primary dark:text-white",
-  danger: "text-error dark:text-red-700",
-  success: "text-success dark:text-green-700",
-  warning: "text-warning dark:text-orange-700",
+  default:
+    "text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)",
+  danger:
+    "text-(--color-light-error-text) dark:text-(--color-dark-error-text)",
+  success:
+    "text-(--color-light-success-text) dark:text-(--color-dark-success-text)",
+  warning:
+    "text-(--color-light-warning-text) dark:text-(--color-dark-warning-text)",
 };
 
 export const DropdownItem = React.forwardRef(
@@ -125,8 +129,8 @@ export const DropdownItem = React.forwardRef(
     <DropdownMenu.Item
       ref={ref}
       className={cn(
-        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-normal rtl:flex-row-reverse",
-        "cursor-pointer select-none   outline-none transition-colors",
+        "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-normal rtl:flex-row-reverse",
+        "cursor-pointer select-none outline-none transition-colors",
         "hover:bg-(--color-light-nav-hover-bg) dark:hover:bg-(--color-dark-card-hover) data-highlighted:bg-(--color-light-nav-active-bg) dark:data-highlighted:bg-(--color-dark-card-hover)",
         "ltr:text-left rtl:text-right",
         itemVariants[variant],
@@ -139,7 +143,7 @@ export const DropdownItem = React.forwardRef(
           {icon}
         </span>
       )}
-      <span className="flex-1 min-w-0">{children}</span>
+      <span className="min-w-0 flex-1">{children}</span>
       {data && (
         <span className="shrink-0 ltr:ml-auto rtl:mr-auto text-(--color-light-text-tertiary) dark:text-(--color-dark-text-tertiary)">
           {data}
@@ -158,7 +162,7 @@ export const DropdownCheckboxItem = React.forwardRef(
       ref={ref}
       checked={checked}
       className={cn(
-        "relative flex w-full items-center rounded-md py-2 pl-8 pr-2 text-sm",
+        "relative flex w-full items-center rounded-xl py-2 pl-8 pr-2 text-sm",
         "cursor-pointer select-none outline-none transition-colors",
         "text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)",
         "hover:bg-(--color-light-nav-hover-bg) dark:hover:bg-(--color-dark-card-hover) data-highlighted:bg-(--color-light-nav-active-bg) dark:data-highlighted:bg-(--color-dark-card-hover)",
@@ -185,7 +189,7 @@ export const DropdownRadioItem = React.forwardRef(
     <DropdownMenu.RadioItem
       ref={ref}
       className={cn(
-        "relative flex w-full items-center transition-all rounded-md py-2 pl-8 pr-2 text-sm",
+        "relative flex w-full items-center transition-all rounded-xl py-2 pl-8 pr-2 text-sm",
         "cursor-pointer select-none outline-none transition-colors",
         "text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)",
         "hover:bg-(--color-light-nav-hover-bg) dark:hover:bg-(--color-dark-card-hover) data-highlighted:bg-(--color-light-nav-active-bg) dark:data-highlighted:bg-(--color-dark-card-hover)",
@@ -211,7 +215,7 @@ export const DropdownSubTrigger = React.forwardRef(
     <DropdownMenu.SubTrigger
       ref={ref}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium rtl:flex-row-reverse",
+        "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium rtl:flex-row-reverse",
         "cursor-pointer select-none outline-none transition-colors",
         "group text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)",
         "hover:bg-(--color-light-nav-hover-bg) dark:hover:bg-(--color-dark-card-hover) data-highlighted:bg-(--color-light-nav-active-bg) dark:data-highlighted:bg-(--color-dark-card-hover)",
@@ -225,7 +229,7 @@ export const DropdownSubTrigger = React.forwardRef(
         </span>
       )}
       <span className="flex-1 ltr:text-left rtl:text-right">{children}</span>
-      <ChevronRightIcon className="h-4 w-4 shrink-0 group-hover:rotate-90 rtl:rotate-180 rtl:group-hover:-rotate-90" />
+      <ChevronRightIcon className="h-4 w-4 shrink-0 text-(--color-light-text-muted) transition-transform group-hover:rotate-90 dark:text-(--color-dark-text-muted) rtl:rotate-180 rtl:group-hover:-rotate-90" />
     </DropdownMenu.SubTrigger>
   ),
 );
@@ -237,7 +241,7 @@ export const DropdownSubContent = React.forwardRef(
       <DropdownMenu.SubContent
         ref={ref}
         className={cn(
-          "z-50 min-w-48 rounded-md border p-1",
+          "z-50 min-w-48 rounded-xl border p-1.5",
           "shadow-md",
           "bg-(--color-light-card-bg) text-(--color-light-text-primary) border-(--color-light-card-border)",
           "dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-text-primary) dark:border-(--color-dark-card-border)",

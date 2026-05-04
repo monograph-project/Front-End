@@ -28,6 +28,32 @@
   --color-light-app-secondary: #fcfdff;
   --color-light-app-tertiary: #edf4ff;
 
+  /* Shell canvas — matches authenticated main column */
+  --app-canvas-overlay-light: radial-gradient(
+      ellipse 120% 80% at 12% -8%,
+      rgba(0, 102, 255, 0.07),
+      transparent 52%
+    ),
+    radial-gradient(ellipse 90% 60% at 88% 0%, rgba(0, 102, 255, 0.05), transparent 48%),
+    linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #f7f8fa 42%,
+      #f7f8fa 100%
+    );
+  --app-canvas-overlay-dark: radial-gradient(
+      ellipse 110% 70% at 10% -6%,
+      rgba(51, 133, 255, 0.14),
+      transparent 55%
+    ),
+    radial-gradient(ellipse 100% 55% at 92% 4%, rgba(8, 43, 102, 0.45), transparent 50%),
+    linear-gradient(
+      180deg,
+      #141820 0%,
+      #111111 48%,
+      #0f1114 100%
+    );
+
   /* Card & Surface */
   --color-light-card-bg: #ffffff;
   --color-light-card-border: #e4e8ef;
@@ -45,6 +71,13 @@
   --color-light-input-border: #d9e1eb;
   --color-light-input-border-focus: #3385ff;
   --color-light-input-placeholder: #98a2b3;
+
+  /* Checkbox - Light */
+  --color-light-checkbox-bg: #ffffff;
+  --color-light-checkbox-border: #d9e1eb;
+  --color-light-checkbox-checked-bg: #0066ff;
+  --color-light-checkbox-checked-border: #0066ff;
+  --color-light-checkbox-check: #ffffff;
 
   /* Button Colors */
   --color-light-btn-primary-bg: #0066ff;
@@ -100,6 +133,7 @@
 
   /* App Background */
   --color-dark-shell: #111111;
+  --color-dark-app-bg: #111111;
   --color-dark-app-secondary: #171717;
   --color-dark-app-tertiary: #1e1f22;
 
@@ -120,6 +154,13 @@
   --color-dark-input-border: #30343c;
   --color-dark-input-border-focus: #3385ff;
   --color-dark-input-placeholder: #7f8da3;
+
+  /* Checkbox - Dark */
+  --color-dark-checkbox-bg: #111111;
+  --color-dark-checkbox-border: #30343c;
+  --color-dark-checkbox-checked-bg: #3385ff;
+  --color-dark-checkbox-checked-border: #3385ff;
+  --color-dark-checkbox-check: #ffffff;
 
   /* Button Colors */
   --color-dark-btn-primary-bg: #0066ff;
@@ -302,6 +343,22 @@
 }
 
 @layer utilities {
+  /**
+   * Authenticated app main column: soft mesh + depth without heavy imagery.
+   * Keeps light surfaces reading “white” while adding intentional atmosphere.
+   */
+  .app-main-canvas {
+    background-color: var(--color-light-nav-bg);
+    background-image: var(--app-canvas-overlay-light);
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+
+  .dark .app-main-canvas {
+    background-color: var(--color-dark-app-bg);
+    background-image: var(--app-canvas-overlay-dark);
+  }
+
   .font-persian {
     font-family: IRANYekanX, sans-serif;
   }
@@ -1001,5 +1058,19 @@
     background-color: var(--color-dark-card-hover);
     border-color: var(--color-dark-border-default);
     color: var(--color-dark-text-primary);
+  }
+
+  /* Keep toast notifications above modal overlays and sheets. */
+  [data-sonner-toaster] {
+    position: fixed !important;
+    z-index: 2147483647 !important;
+  }
+
+  [data-sonner-toast] {
+    z-index: 2147483647 !important;
+  }
+
+  .gooey-wrapper {
+    z-index: 2147483647 !important;
   }
 }

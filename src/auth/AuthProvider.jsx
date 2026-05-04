@@ -13,7 +13,7 @@ import {
   logoutLocalGateway,
 } from "./authService";
 import { authUsesCookieRefresh } from "./httpCredentials";
-import { userHasNormalizedRole } from "./routeRoleGate";
+import { userHasAppFacet } from "./routeRoleGate";
 import {
   clearAuthStorage,
   getStoredAccessToken,
@@ -84,7 +84,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const hasRole = useCallback(
-    (role) => userHasNormalizedRole(user?.normalizedRoles, role),
+    (role) => userHasAppFacet(user?.normalizedRoles, role),
     [user?.normalizedRoles],
   );
 
@@ -104,7 +104,11 @@ export function AuthProvider({ children }) {
     () => hasRole("student") || hasRole("user"),
     [hasRole],
   );
-  const isEmployeeCb = useCallback(() => hasRole("staff"), [hasRole]);
+  const isEmployeeCb = useCallback(() => {
+    const ut = String(user?.user_type ?? "").toLowerCase();
+    return ut === "staff" || ut === "employee";
+  }, [user?.user_type]);
+  const isAuthorCb = useCallback(() => hasRole("author"), [hasRole]);
 
   const value = useMemo(
     () => ({
@@ -128,10 +132,12 @@ export function AuthProvider({ children }) {
       isTeacher: isTeacherCb,
       isStudent: isStudentCb,
       isEmployee: isEmployeeCb,
+      isAuthor: isAuthorCb,
     }),
     [
       hydrated,
       isAdminCb,
+      isAuthorCb,
       isEmployeeCb,
       isStudentCb,
       isTeacherCb,

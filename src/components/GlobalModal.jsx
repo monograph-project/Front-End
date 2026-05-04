@@ -22,13 +22,14 @@ export default function GlobalModal({
   overlayClassName,
 }) {
   const close = () => setOpen?.(false);
+  const MotionDiv = motion.div;
   const hasHeaderBar =
     Boolean(title || subtitle) || (Boolean(isClose) && variant === "sheet");
 
   return createPortal(
     <AnimatePresence>
       {open ? (
-        <motion.div
+        <MotionDiv
           key="modal-root"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -46,7 +47,7 @@ export default function GlobalModal({
             if (variant === "center") close();
           }}
         >
-          <motion.div
+          <MotionDiv
             role="dialog"
             aria-modal="true"
             aria-labelledby={title ? "global-modal-title" : undefined}
@@ -55,7 +56,11 @@ export default function GlobalModal({
                 ? { x: 48, opacity: 0 }
                 : { scale: 0.96, opacity: 0 }
             }
-            animate={variant === "sheet" ? { x: 0, opacity: 1 } : { scale: 1, opacity: 1 }}
+            animate={
+              variant === "sheet"
+                ? { x: 0, opacity: 1 }
+                : { scale: 1, opacity: 1 }
+            }
             exit={
               variant === "sheet"
                 ? { x: 48, opacity: 0 }
@@ -66,7 +71,7 @@ export default function GlobalModal({
               variant === "sheet"
                 ? "flex h-full max-h-[100dvh] w-full flex-col bg-(--color-light-card-bg) shadow-2xl dark:bg-(--color-dark-card-bg) sm:max-w-[min(28rem,100vw)] sm:border-s sm:border-light-divider sm:dark:border-dark-divider"
                 : cn(
-                    "relative w-full max-h-[min(640px,calc(100vh-3rem))] overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-lg dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)",
+                    "relative flex w-full max-h-[min(640px,calc(100vh-3rem))] min-h-0 flex-col overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-lg dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)",
                     className ?? "max-w-lg",
                   ),
               sheetClassName,
@@ -95,7 +100,7 @@ export default function GlobalModal({
                   {title ? (
                     <h2
                       id="global-modal-title"
-                      className="font-blog-display text-lg font-semibold tracking-tight text-primary dark:text-dark-primary"
+                      className=" text-lg font-normal tracking-tight text-primary dark:text-dark-primary"
                     >
                       {title}
                     </h2>
@@ -133,8 +138,8 @@ export default function GlobalModal({
                 {footer}
               </div>
             ) : null}
-          </motion.div>
-        </motion.div>
+          </MotionDiv>
+        </MotionDiv>
       ) : null}
     </AnimatePresence>,
     document.body,

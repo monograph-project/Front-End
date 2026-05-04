@@ -1,10 +1,11 @@
 import { GooeyToaster } from "goey-toast";
 import "goey-toast/styles.css";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import GuestRoute from "./routes/GuestRoute";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import { ThemeProvider } from "./context/themContext";
 import Applayout from "./layout/AppLayout";
+import { StudentActivityProvider } from "./context/StudentActivityContext";
 import AppSidebar from "./layout/AppSideBar";
 import PublicWebsiteLayout from "./layout/PublicWebsiteLayout";
 import Login from "./pages/Login";
@@ -29,12 +30,16 @@ import Department from "./pages/admin/Departments";
 import Blog from "./pages/admin/Blogs";
 import BlogDetailPage from "./pages/admin/BlogDetailPage";
 import Setting from "./pages/admin/Setting";
-import StudentProjects from "./pages/student/Projects";
-import StudentRepositories from "./pages/student/Repositories";
-import StudentTasks from "./pages/student/Tasks";
-import StudentContributors from "./pages/student/Contributors";
+import StudentDashboard from "./pages/student/Dashboard";
+import StudentWorkspace from "./pages/student/StudentWorkspace";
+import StudentNewRepository from "./pages/student/StudentNewRepository";
+import StudentSettings from "./pages/student/Settings";
 import StudentNotifications from "./pages/student/Notifications";
-import StudentDashboard from "./pages/admin/Dashboard";
+import StudentRepositoryLayout from "./pages/student/StudentRepositoryLayout";
+import StudentRepoCode from "./pages/student/StudentRepoCode";
+import StudentRepoPullRequests from "./pages/student/StudentRepoPullRequests";
+import StudentRepoTasks from "./pages/student/StudentRepoTasks";
+import StudentRepoContributors from "./pages/student/StudentRepoContributors";
 import Home from "./pages/blog/Home";
 import UserProfile from "./pages/admin/Profile";
 import NotificationDetail from "./pages/admin/NotificationDetail";
@@ -49,9 +54,15 @@ import TeacherProfile from "./pages/admin/TeacherProfile";
 import EmployeeProfile from "./pages/admin/EmployeeProfile";
 import DepartmentProfile from "./pages/admin/DepartmentProfile";
 import ProjectWorkspace from "./pages/admin/ProjectWorkspace";
+import ProjectRegistrationPage from "./pages/admin/ProjectRegistrationPage";
+import GroupRegistrationPage from "./pages/admin/GroupRegistrationPage";
 import About from "./pages/public/About";
 import Download from "./pages/public/Download";
 import Documentation from "./pages/public/Documentation";
+import AuthorDashboard from "./pages/author/AuthorDashboard";
+import AuthorPublished from "./pages/author/AuthorPublished";
+import AuthorNotifications from "./pages/author/AuthorNotifications";
+import { PUBLIC_SITE_MEMBER_ROLES } from "./auth/appRoles";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
@@ -67,29 +78,16 @@ export default function App() {
             <Route path="download" element={<Download />} />
             <Route path="documentation" element={<Documentation />} />
             <Route
-              path="write"
               element={
-                <ProtectedRoute allowedRoles={[]}>
-                  <WriteStory />
+                <ProtectedRoute allowedRoles={[...PUBLIC_SITE_MEMBER_ROLES]}>
+                  <Outlet />
                 </ProtectedRoute>
               }
-            />
-            <Route
-              path="library"
-              element={
-                <ProtectedRoute allowedRoles={[]}>
-                  <ReaderLibrary />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="writer/profile"
-              element={
-                <ProtectedRoute allowedRoles={[]}>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
+            >
+              <Route path="write" element={<WriteStory />} />
+              <Route path="library" element={<ReaderLibrary />} />
+              <Route path="writer/profile" element={<Profile />} />
+            </Route>
           </Route>
 
           <Route
@@ -149,6 +147,22 @@ export default function App() {
             <Route path="department/:id" element={<DepartmentProfile />} />
             <Route path="projects" element={<Projects />} />
             <Route
+              path="projects/register"
+              element={<ProjectRegistrationPage />}
+            />
+            <Route
+              path="projects/register/:id"
+              element={<ProjectRegistrationPage />}
+            />
+            <Route
+              path="projects/groups/register"
+              element={<GroupRegistrationPage />}
+            />
+            <Route
+              path="projects/groups/register/:id"
+              element={<GroupRegistrationPage />}
+            />
+            <Route
               path="projects/:owner/:repo"
               element={<ProjectWorkspace />}
             />
@@ -176,26 +190,42 @@ export default function App() {
             path="/student"
             element={
               <ProtectedRoute allowedRoles={["student"]}>
-                <Applayout>
-                  <AppSidebar />
-                </Applayout>
+                <StudentActivityProvider>
+                  <Applayout>
+                    <AppSidebar />
+                  </Applayout>
+                </StudentActivityProvider>
               </ProtectedRoute>
             }
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<StudentDashboard />} />
-            <Route path="projects" element={<StudentProjects />} />
-            <Route path="repositories" element={<StudentRepositories />} />
-            <Route path="tasks" element={<StudentTasks />} />
-            <Route path="contributors" element={<StudentContributors />} />
+            <Route path="projects" element={<Navigate to="workspace" replace />} />
+            <Route path="repositories" element={<Navigate to="workspace" replace />} />
+            <Route path="tasks" element={<Navigate to="workspace" replace />} />
+            <Route path="contributors" element={<Navigate to="workspace" replace />} />
+            <Route path="workspace" element={<StudentWorkspace />} />
+            <Route
+              path="workspace/repositories/new"
+              element={<StudentNewRepository />}
+            />
             <Route path="notifications" element={<StudentNotifications />} />
+            <Route path="settings" element={<StudentSettings />} />
+            <Route path="repository/:owner/:repo" element={<StudentRepositoryLayout />}>
+              <Route index element={<StudentRepoCode />} />
+              <Route path="pull-requests" element={<StudentRepoPullRequests />} />
+              <Route path="tasks" element={<StudentRepoTasks />} />
+              <Route path="contributors" element={<StudentRepoContributors />} />
+            </Route>
           </Route>
 
           <Route
             path="/staff"
             element={
-              <ProtectedRoute allowedRoles={["staff"]}>
-                <Applayout />
+              <ProtectedRoute allowedRoles={["teacher"]}>
+                <Applayout>
+                  <AppSidebar />
+                </Applayout>
               </ProtectedRoute>
             }
           >
@@ -206,8 +236,10 @@ export default function App() {
           <Route
             path="/dean"
             element={
-              <ProtectedRoute allowedRoles={["dean"]}>
-                <Applayout />
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <Applayout>
+                  <AppSidebar />
+                </Applayout>
               </ProtectedRoute>
             }
           >
@@ -215,10 +247,32 @@ export default function App() {
             <Route path="dashboard" element={<Dashboard />} />
           </Route>
 
+          <Route
+            path="/author"
+            element={
+              <ProtectedRoute allowedRoles={["author"]}>
+                <Applayout>
+                  <AppSidebar />
+                </Applayout>
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AuthorDashboard />} />
+            <Route path="writing" element={<WriteStory />} />
+            <Route path="published" element={<AuthorPublished />} />
+            <Route path="notifications" element={<AuthorNotifications />} />
+          </Route>
+
           <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-        <GooeyToaster position="top-right" />
+        <GooeyToaster
+          position="top-right"
+          toastOptions={{
+            style: { zIndex: 2147483647 },
+          }}
+        />
       </BrowserRouter>
     </ThemeProvider>
   );

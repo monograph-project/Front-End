@@ -41,7 +41,7 @@ function LayoutContent({ children }) {
             handleSidebarToggle={handleSidebarToggle}
             onMenuToggle={() => setMobileMenuOpen(true)}
           />
-          <div className="relative flex-1 bg-shell dark:bg-dark-shell">
+          <div className="app-main-canvas relative flex-1">
             <NavigationRouteLoader />
             <Outlet />
           </div>

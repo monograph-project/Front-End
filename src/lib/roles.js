@@ -10,6 +10,7 @@ const ROLE_ROUTE_BASE = {
   student: "/student/dashboard",
   staff: "/staff/dashboard",
   dean: "/dean/dashboard",
+  author: "/author/dashboard",
 };
 
 function upperList(arr) {
@@ -58,15 +59,25 @@ function deriveAppRole(userTypeRaw, realmRolesUpper, inheritedRolesUpper) {
     all.has("STAFF") ||
     all.has("EMPLOYEE")
   ) {
-    return "staff";
+    return "teacher";
   }
-  if (ut === "DEAN" || all.has("DEAN")) return "dean";
+  if (ut === "DEAN" || all.has("DEAN")) return "admin";
   if (ut === "STUDENT" || all.has("STUDENT")) return "student";
   /*
    * Keycloak defaults (e.g. default-roles-*, offline_access) only → SPA `student`,
    * so `/student/*` ProtectedRoute accepts the session (was `user`).
    */
   if (ut === "USER") return "student";
+
+  if (
+    ut === "AUTHOR" ||
+    all.has("AUTHOR") ||
+    all.has("BLOG_AUTHOR") ||
+    all.has("CONTENT_AUTHOR") ||
+    all.has("BLOG_WRITER")
+  ) {
+    return "author";
+  }
 
   return "student";
 }
@@ -128,6 +139,17 @@ export function postLoginPath(user) {
 }
 
 /**
+ * Primary dashboard URL for the signed-in user (faculty app or author workspace).
+ */
+export function getDashboardPathForUser(user) {
+  if (!user || typeof user.role !== "string") return null;
+  const r = user.role.toLowerCase();
+  if (r === "author") return ROLE_ROUTE_BASE.author;
+  if (r === "user") return ROLE_ROUTE_BASE.student;
+  return ROLE_ROUTE_BASE[r] ?? ROLE_ROUTE_BASE.student;
+}
+
+/**
  * Sidebar / header base dashboard path keyed by SPA role (`admin`, `teacher`, …).
  */
 export function getFacultyDashboardPath(role) {
@@ -142,7 +164,42 @@ export function getFacultyDashboardPath(role) {
       return "/staff";
     case "dean":
       return "/dean";
+    case "author":
+      return "/author";
+    case "user":
+      return "/student";
     default:
       return "/student";
   }
+}
+
+const SHELL_PREFIXES = [
+  "/admin",
+  "/teacher",
+  "/student",
+  "/author",
+  "/staff",
+  "/dean",
+];
+
+/**
+ * Resolves the active app shell prefix from the URL so sidebar links stay on
+ * `/staff/*` or `/dean/*` when those shells are used, while facets are admin/teacher.
+ *
+ * @param {string} pathname
+ * @param {string} [primaryRole]
+ * @returns {string}
+ */
+export function resolveShellBasePath(pathname, primaryRole) {
+  const raw = typeof pathname === "string" ? pathname : "";
+  const normalized = raw.startsWith("/") ? raw : `/${raw}`;
+  const hit = SHELL_PREFIXES.find(
+    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`),
+  );
+  if (hit) return hit;
+  const r =
+    typeof primaryRole === "string" && primaryRole.trim()
+      ? primaryRole.trim().toLowerCase()
+      : "student";
+  return getFacultyDashboardPath(r === "user" ? "student" : r) ?? "/student";
 }

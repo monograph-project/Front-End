@@ -136,7 +136,7 @@ export default function RoleSettingsTab() {
       </SettingsSectionCard>
 
       <GlobalModal
-        variant="sheet"
+        variant="center"
         open={createOpen}
         setOpen={closeCreateModal}
         isClose
