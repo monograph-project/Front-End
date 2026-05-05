@@ -1,54 +1,97 @@
 import { createContext, useState, useContext, useEffect } from "react";
 
 const ThemeContext = createContext();
+const STORAGE_KEY = "theme";
+const APPEARANCE_OPTIONS = ["light", "dark", "system"];
+
+function getSystemTheme() {
+  if (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches
+  ) {
+    return "dark";
+  }
+
+  return "light";
+}
+
+function normalizeAppearance(value) {
+  return APPEARANCE_OPTIONS.includes(value) ? value : "system";
+}
 
 export const ThemeProvider = ({ children }) => {
+  const [appearance, setAppearanceState] = useState("system");
   const [theme, setTheme] = useState("light");
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // This code will only run on the client side
-    const savedTheme = localStorage.getItem("theme");
+    let savedAppearance = "system";
 
-    // If there's a saved theme, use it
-    // Otherwise, check browser's preferred color scheme
-    let initialTheme = savedTheme;
-    if (!savedTheme) {
-      // Check if browser prefers dark mode
-      if (
-        window.matchMedia &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches
-      ) {
-        initialTheme = "dark";
-      } else {
-        initialTheme = "light";
-      }
+    try {
+      savedAppearance = normalizeAppearance(localStorage.getItem(STORAGE_KEY));
+    } catch (e) {
+      savedAppearance = "system";
     }
 
-    setTheme(initialTheme);
+    setAppearanceState(savedAppearance);
+    setTheme(savedAppearance === "system" ? getSystemTheme() : savedAppearance);
     setIsInitialized(true);
   }, []);
 
   useEffect(() => {
-    if (isInitialized) {
-      // Save to localStorage
-      localStorage.setItem("theme", theme);
+    if (!isInitialized) return;
 
-      // Apply/remove dark class from html element
-      if (theme === "dark") {
+    const resolvedTheme = appearance === "system" ? getSystemTheme() : appearance;
+    setTheme(resolvedTheme);
+
+    try {
+      localStorage.setItem(STORAGE_KEY, appearance);
+    } catch (e) {
+      // ignore storage failures
+    }
+
+    if (resolvedTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [appearance, isInitialized]);
+
+  useEffect(() => {
+    if (!isInitialized || appearance !== "system" || !window.matchMedia) return;
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onSystemThemeChange = (event) => {
+      const resolvedTheme = event.matches ? "dark" : "light";
+      setTheme(resolvedTheme);
+
+      if (resolvedTheme === "dark") {
         document.documentElement.classList.add("dark");
       } else {
         document.documentElement.classList.remove("dark");
       }
-    }
-  }, [theme, isInitialized]);
+    };
+
+    media.addEventListener?.("change", onSystemThemeChange);
+    return () => media.removeEventListener?.("change", onSystemThemeChange);
+  }, [appearance, isInitialized]);
+
+  const setAppearance = (nextAppearance) => {
+    setAppearanceState(normalizeAppearance(nextAppearance));
+  };
 
   const toggleTheme = () => {
-    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
+    setAppearanceState((prevAppearance) => {
+      const currentTheme =
+        prevAppearance === "system" ? getSystemTheme() : prevAppearance;
+      return currentTheme === "light" ? "dark" : "light";
+    });
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, appearance, setAppearance, toggleTheme }}
+    >
       {children}
     </ThemeContext.Provider>
   );

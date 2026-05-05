@@ -1,6 +1,9 @@
+/** @typedef {'monograph' | 'weblog'} PublishType */
+
 export const MOCK_STORIES = [
   {
     id: "1",
+    publish_type: "monograph",
     title: "Designing for Focus in a Noisy Digital World",
     subtitle:
       "How we structure reading and writing so students and faculty can think clearly.",
@@ -48,6 +51,7 @@ export const MOCK_STORIES = [
   },
   {
     id: "2",
+    publish_type: "monograph",
     title: "Why Group Projects Need Clear Roles",
     subtitle:
       "A practical framework for repositories, invites, and teacher oversight.",
@@ -83,6 +87,7 @@ export const MOCK_STORIES = [
   },
   {
     id: "3",
+    publish_type: "weblog",
     title: "From Topic to Thread: Writing Like Medium",
     subtitle:
       "Public stories sit beside private coursework — here is how we separate them.",
@@ -121,6 +126,7 @@ export const MOCK_STORIES = [
   },
   {
     id: "4",
+    publish_type: "weblog",
     title: "Staff Workflows That Scale Across Departments",
     subtitle: "Notes, calendar, and reports for everyday faculty operations.",
     author_name: "Ops Team",
@@ -152,7 +158,210 @@ export const MOCK_STORIES = [
       <img src="https://images.unsplash.com/photo-1551836022-4ce78478a77d?w=800&q=80" alt="Faculty dashboard" loading="lazy">
     `.trim(),
   },
+  {
+    id: "5",
+    publish_type: "monograph",
+    title: "Synthesis of Campus Learning Analytics, 2024–2026",
+    subtitle:
+      "A structured review of engagement signals, cohort outcomes, and privacy boundaries.",
+    author_name: "Institutional Research",
+    created_date: "2026-03-05T08:00:00.000Z",
+    reading_time: 22,
+    claps_count: 189,
+    cover_image:
+      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&q=80",
+    tags: ["Science", "Data", "Education"],
+    content: `
+      <p>This monograph summarizes multi-year telemetry and survey data across faculties, with methodological notes and reproducible aggregation steps.</p>
+      <h2>Executive summary</h2>
+      <p>We correlate library usage, LMS activity, and capstone completions while preserving student anonymity according to institutional policy.</p>
+      <blockquote><p>Analytics should clarify, never surveil.</p></blockquote>
+    `.trim(),
+  },
+  {
+    id: "6",
+    publish_type: "monograph",
+    title: "Ethics of Generative Assistants in Undergraduate Writing",
+    subtitle:
+      "Policy recommendations for citation, originality checks, and classroom norms.",
+    author_name: "Dr. Leyla Hosseini",
+    created_date: "2026-02-14T11:30:00.000Z",
+    reading_time: 18,
+    claps_count: 96,
+    cover_image:
+      "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1200&q=80",
+    tags: ["AI", "Culture", "Writing"],
+    content: `
+      <p>This document was peer-reviewed within the humanities faculty council before campus-wide publication.</p>
+      <h2>Scope</h2>
+      <p>We define acceptable use of language models in drafts, revision, and research synthesis.</p>
+    `.trim(),
+  },
+  {
+    id: "7",
+    publish_type: "weblog",
+    title: "Lab notes: quick wins with our new CI template",
+    subtitle: "Three patterns that cut flaky builds in half this month.",
+    author_name: "Dev Guild",
+    created_date: "2026-04-18T09:00:00.000Z",
+    reading_time: 3,
+    claps_count: 31,
+    tags: ["Programming", "Technology"],
+    content: `
+      <p>Short post: cache layers, matrix builds, and artifact retention defaults that worked for us.</p>
+    `.trim(),
+  },
+  {
+    id: "8",
+    publish_type: "weblog",
+    title: "Campus reading week: what we’re bookmarking",
+    subtitle: "Essays, talks, and threads the newsroom loved last week.",
+    author_name: "Student Voice",
+    created_date: "2026-04-22T16:45:00.000Z",
+    reading_time: 4,
+    claps_count: 18,
+    tags: ["Culture", "Community"],
+    content: `
+      <p>A rolling list of weblogs and monographs worth your attention—no paywall, no noise.</p>
+    `.trim(),
+  },
 ];
+
+function stripHtml(html) {
+  if (!html || typeof html !== "string") return "";
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function endOfDayIso(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(`${dateStr}T23:59:59.999`);
+  return Number.isNaN(d.getTime()) ? null : d.getTime();
+}
+
+function startOfDayIso(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(`${dateStr}T00:00:00.000Z`);
+  return Number.isNaN(d.getTime()) ? null : d.getTime();
+}
+
+/**
+ * @param {typeof MOCK_STORIES} stories
+ * @param {'monograph' | 'weblog'} publishType
+ */
+export function storiesByPublishType(stories, publishType) {
+  return stories.filter(
+    (s) => (s.publish_type || "weblog") === publishType,
+  );
+}
+
+/**
+ * @param {typeof MOCK_STORIES} tabStories — already filtered by publish type
+ * @param {{ query?: string, author?: string, tag?: string, dateFrom?: string, dateTo?: string, minRead?: string, maxRead?: string, sort?: string }} criteria
+ */
+export function filterAndSortStories(tabStories, criteria) {
+  const q = (criteria.query || "").trim().toLowerCase();
+  const authorQ = (criteria.author || "").trim().toLowerCase();
+  const tagFilter = (criteria.tag || "").trim();
+  const minRead = criteria.minRead !== "" && criteria.minRead != null
+    ? Number(criteria.minRead)
+    : null;
+  const maxRead = criteria.maxRead !== "" && criteria.maxRead != null
+    ? Number(criteria.maxRead)
+    : null;
+  const fromTs = startOfDayIso(criteria.dateFrom);
+  const toTs = endOfDayIso(criteria.dateTo);
+  const sort = criteria.sort || "newest";
+
+  let out = [...tabStories];
+
+  if (q) {
+    out = out.filter((s) => {
+      const blob = [
+        s.title,
+        s.subtitle,
+        s.description,
+        stripHtml(s.content || ""),
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return blob.includes(q);
+    });
+  }
+
+  if (authorQ) {
+    out = out.filter((s) =>
+      (s.author_name || "").toLowerCase().includes(authorQ),
+    );
+  }
+
+  if (tagFilter && tagFilter !== "__all__") {
+    const t = tagFilter.toLowerCase();
+    out = out.filter((s) =>
+      s.tags?.some((tag) => tag.toLowerCase() === t),
+    );
+  }
+
+  if (fromTs != null) {
+    out = out.filter(
+      (s) => new Date(s.created_date).getTime() >= fromTs,
+    );
+  }
+  if (toTs != null) {
+    out = out.filter(
+      (s) => new Date(s.created_date).getTime() <= toTs,
+    );
+  }
+
+  if (minRead != null && !Number.isNaN(minRead)) {
+    out = out.filter((s) => (s.reading_time || 0) >= minRead);
+  }
+  if (maxRead != null && !Number.isNaN(maxRead)) {
+    out = out.filter((s) => (s.reading_time || 0) <= maxRead);
+  }
+
+  const byDate = (a, b) =>
+    new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
+  const byDateAsc = (a, b) =>
+    new Date(a.created_date).getTime() - new Date(b.created_date).getTime();
+
+  switch (sort) {
+    case "oldest":
+      out.sort(byDateAsc);
+      break;
+    case "claps":
+      out.sort(
+        (a, b) => (b.claps_count ?? 0) - (a.claps_count ?? 0),
+      );
+      break;
+    case "read_short":
+      out.sort(
+        (a, b) => (a.reading_time || 0) - (b.reading_time || 0),
+      );
+      break;
+    case "read_long":
+      out.sort(
+        (a, b) => (b.reading_time || 0) - (a.reading_time || 0),
+      );
+      break;
+    default:
+      out.sort(byDate);
+  }
+
+  return out;
+}
+
+export function collectAllTags(stories) {
+  const set = new Set();
+  for (const s of stories) {
+    (s.tags || []).forEach((t) => set.add(t));
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
 
 export function getStoryById(id) {
   return MOCK_STORIES.find((s) => String(s.id) === String(id)) ?? null;

@@ -14,37 +14,72 @@ export const DropdownMenuRoot = DropdownMenu.Root;
 /* ─────────────────────────────────────────────── */
 /* Trigger */
 export const DropdownTrigger = React.forwardRef(
-  ({ children, icon, showArrow = true, className, ...props }, ref) => (
-    <DropdownMenu.Trigger asChild>
-      <button
-        ref={ref}
-        className={cn(
-          `flex ${icon || showArrow ? "w-full px-3 py-2" : "w-fit rounded-full flex items-center cursor-pointer justify-center"} group items-center  gap-2 rounded-md border  text-sm font-medium transition-colors`,
-          " bg-transparent dark:focus:outline-none dark:bg-transparent dark:border-dark-light border-transparent  text-secondary dark:text-white",
-          "hover:bg-card-2   dark:hover:bg-dark-card hover:text-primary",
-          "",
+  (
+    {
+      children,
+      icon,
+      showArrow = true,
+      /** Header-style circular avatar/account control — no muted overlay on icons */
+      compactIcon = false,
+      className,
+      ...props
+    },
+    ref,
+  ) => {
+    const iconOnly =
+      compactIcon ||
+      Boolean(icon != null && !children && showArrow === false);
 
-          className,
-        )}
-        {...props}
-      >
-        {icon && (
-          <span className="text-muted  dark:text-white group-hover:dark:text-white">
-            {icon}
-          </span>
-        )}
+    return (
+      <DropdownMenu.Trigger asChild>
+        <button
+          ref={ref}
+          className={cn(
+            "group flex items-center gap-2 border transition-colors rtl:flex-row-reverse",
+            "outline-none",
+            iconOnly
+              ? cn(
+                  "size-9 shrink-0 cursor-pointer justify-center gap-0 overflow-hidden rounded-full border-transparent bg-transparent p-0 shadow-none sm:size-10",
+                  "hover:bg-transparent dark:hover:bg-transparent",
+                  "data-[state=open]:bg-transparent dark:data-[state=open]:bg-transparent",
+                  "focus-visible:ring-2 focus-visible:ring-blue-500/30 dark:focus-visible:ring-blue-400/35",
+                )
+              : cn(
+                  icon || showArrow
+                    ? "w-full rounded-xl px-3 py-2 text-sm font-medium"
+                    : "w-fit cursor-pointer justify-center rounded-full text-sm font-medium",
+                  "border-(--color-light-input-border) bg-(--color-light-input-bg) text-(--color-light-text-secondary) dark:border-(--color-dark-input-border) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-secondary)",
+                  "hover:text-(--color-light-text-primary) dark:hover:text-(--color-dark-text-primary)",
+                  "focus-visible:ring-2 focus-visible:ring-blue-500/15 dark:focus-visible:ring-blue-400/15",
+                ),
+            className,
+          )}
+          {...props}
+        >
+          {icon && (
+            <span
+              className={cn(
+                "flex shrink-0 items-center justify-center leading-none",
+                !iconOnly &&
+                  "text-(--color-light-text-muted) group-hover:text-(--color-light-text-secondary) dark:text-(--color-dark-text-muted) dark:group-hover:text-(--color-dark-text-secondary)",
+              )}
+            >
+              {icon}
+            </span>
+          )}
         {children && (
-          <span className="flex-1 truncate text-left text-gray-600 dark:text-gray-200 dark:group-hover:text-white">
+          <span className="flex-1 truncate ltr:text-left rtl:text-right text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary) group-hover:text-(--color-light-text-primary) dark:group-hover:text-(--color-dark-text-primary)">
             {children}
           </span>
         )}
 
-        {showArrow && (
-          <ChevronRightIcon className="h-4 w-4 dark:group-hover:text-white group-hover:rotate-90 transition-transform data-[state=open]:rotate-90" />
-        )}
-      </button>
-    </DropdownMenu.Trigger>
-  ),
+          {showArrow && (
+            <ChevronRightIcon className="h-4 w-4 shrink-0 transition-transform group-hover:rotate-90 data-[state=open]:rotate-90 rtl:rotate-180 rtl:group-hover:-rotate-90 rtl:data-[state=open]:-rotate-90 text-(--color-light-text-muted) dark:text-(--color-dark-text-muted) group-hover:text-(--color-light-text-secondary) dark:group-hover:text-(--color-dark-text-secondary)" />
+          )}
+        </button>
+      </DropdownMenu.Trigger>
+    );
+  },
 );
 DropdownTrigger.displayName = "DropdownTrigger";
 
@@ -58,8 +93,10 @@ export const DropdownContent = React.forwardRef(
         sideOffset={sideOffset}
         align={align}
         className={cn(
-"z-[10001] min-w-56 overflow-hidden rounded-md border p-1 shadow-2xl border-2",
-          "bg-card dark:bg-dark-card dark:border-none border-default text-primary dark:tex-white",
+          "z-50 min-w-56 overflow-hidden rounded-xl p-1.5",
+          "border shadow-md",
+          "bg-(--color-light-card-bg) text-(--color-light-text-primary) border-(--color-light-card-border)",
+          "dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-text-primary) dark:border-(--color-dark-card-border)",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
           "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
@@ -77,10 +114,14 @@ DropdownContent.displayName = "DropdownContent";
 /* ─────────────────────────────────────────────── */
 /* Item */
 const itemVariants = {
-  default: "text-primary dark:text-white",
-  danger: "text-error dark:text-red-700",
-  success: "text-success dark:text-green-700",
-  warning: "text-warning dark:text-orange-700",
+  default:
+    "text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)",
+  danger:
+    "text-(--color-light-error-text) dark:text-(--color-dark-error-text)",
+  success:
+    "text-(--color-light-success-text) dark:text-(--color-dark-success-text)",
+  warning:
+    "text-(--color-light-warning-text) dark:text-(--color-dark-warning-text)",
 };
 
 export const DropdownItem = React.forwardRef(
@@ -88,20 +129,26 @@ export const DropdownItem = React.forwardRef(
     <DropdownMenu.Item
       ref={ref}
       className={cn(
-        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium",
-        "cursor-pointer select-none   outline-none transition-colors",
-        "hover:bg-accent-light  dark:hover:bg-dark-accent-light  data-highlighted:bg-accent-light",
-
+        "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-normal rtl:flex-row-reverse",
+        "cursor-pointer select-none outline-none transition-colors",
+        "hover:bg-(--color-light-nav-hover-bg) dark:hover:bg-(--color-dark-card-hover) data-highlighted:bg-(--color-light-nav-active-bg) dark:data-highlighted:bg-(--color-dark-card-hover)",
+        "ltr:text-left rtl:text-right",
         itemVariants[variant],
         className,
       )}
       {...props}
     >
       {icon && (
-        <span className="h-4 w-4 text-muted dark:text-white">{icon}</span>
+        <span className="h-4 w-4 shrink-0 text-(--color-light-text-muted) dark:text-(--color-dark-text-muted)">
+          {icon}
+        </span>
       )}
-      <span className="flex-1">{children}</span>
-      {data && <span className="text-dark-accent-light">{data}</span>}
+      <span className="min-w-0 flex-1">{children}</span>
+      {data && (
+        <span className="shrink-0 ltr:ml-auto rtl:mr-auto text-(--color-light-text-tertiary) dark:text-(--color-dark-text-tertiary)">
+          {data}
+        </span>
+      )}
     </DropdownMenu.Item>
   ),
 );
@@ -115,10 +162,10 @@ export const DropdownCheckboxItem = React.forwardRef(
       ref={ref}
       checked={checked}
       className={cn(
-        "relative flex w-full items-center rounded-md py-2 pl-8 pr-2 text-sm",
+        "relative flex w-full items-center rounded-xl py-2 pl-8 pr-2 text-sm",
         "cursor-pointer select-none outline-none transition-colors",
-        "text-primary",
-        "hover:bg-accent-light data-highlighted:bg-accent-light",
+        "text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)",
+        "hover:bg-(--color-light-nav-hover-bg) dark:hover:bg-(--color-dark-card-hover) data-highlighted:bg-(--color-light-nav-active-bg) dark:data-highlighted:bg-(--color-dark-card-hover)",
         "data-[disabled]:opacity-50",
         className,
       )}
@@ -142,10 +189,10 @@ export const DropdownRadioItem = React.forwardRef(
     <DropdownMenu.RadioItem
       ref={ref}
       className={cn(
-        "relative flex w-full items-center transition-all dark:text-dark-primary dark:hover:bg-dark-accent-light rounded-md py-2 pl-8 pr-2 text-sm",
+        "relative flex w-full items-center transition-all rounded-xl py-2 pl-8 pr-2 text-sm",
         "cursor-pointer select-none outline-none transition-colors",
-        "text-primary",
-        "hover:bg-accent-light data-highlighted:bg-accent-light dark:data-highlighted:bg-dark-card-2",
+        "text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)",
+        "hover:bg-(--color-light-nav-hover-bg) dark:hover:bg-(--color-dark-card-hover) data-highlighted:bg-(--color-light-nav-active-bg) dark:data-highlighted:bg-(--color-dark-card-hover)",
         className,
       )}
       {...props}
@@ -168,17 +215,21 @@ export const DropdownSubTrigger = React.forwardRef(
     <DropdownMenu.SubTrigger
       ref={ref}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium",
+        "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium rtl:flex-row-reverse",
         "cursor-pointer select-none outline-none transition-colors",
-        "text-primary",
-        " group  dark:text-white  dark:data-highlighted:bg-dark-accent-light dark:hover:text-white   data-highlighted:bg-accent-light",
+        "group text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)",
+        "hover:bg-(--color-light-nav-hover-bg) dark:hover:bg-(--color-dark-card-hover) data-highlighted:bg-(--color-light-nav-active-bg) dark:data-highlighted:bg-(--color-dark-card-hover)",
         className,
       )}
       {...props}
     >
-      {icon && <span className="h-4 w-4 text-muted">{icon}</span>}
-      <span className="flex-1">{children}</span>
-      <ChevronRightIcon className="h-4 w-4 group-hover:rotate-90" />
+      {icon && (
+        <span className="h-4 w-4 shrink-0 text-(--color-light-text-muted) dark:text-(--color-dark-text-muted)">
+          {icon}
+        </span>
+      )}
+      <span className="flex-1 ltr:text-left rtl:text-right">{children}</span>
+      <ChevronRightIcon className="h-4 w-4 shrink-0 text-(--color-light-text-muted) transition-transform group-hover:rotate-90 dark:text-(--color-dark-text-muted) rtl:rotate-180 rtl:group-hover:-rotate-90" />
     </DropdownMenu.SubTrigger>
   ),
 );
@@ -190,8 +241,10 @@ export const DropdownSubContent = React.forwardRef(
       <DropdownMenu.SubContent
         ref={ref}
         className={cn(
-          "z-50 min-w-48 rounded-md border p-1",
-          "bg-card dark:bg-dark-card dark:border-none border-default text-primary",
+          "z-50 min-w-48 rounded-xl border p-1.5",
+          "shadow-md",
+          "bg-(--color-light-card-bg) text-(--color-light-text-primary) border-(--color-light-card-border)",
+          "dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-text-primary) dark:border-(--color-dark-card-border)",
           className,
         )}
         {...props}
@@ -208,7 +261,7 @@ export const DropdownLabel = React.forwardRef(
     <DropdownMenu.Label
       ref={ref}
       className={cn(
-        "px-3 py-1 text-xs font-semibold uppercase text-muted dark:text-secondary",
+        "px-3 py-1 text-xs font-semibold uppercase text-(--color-light-text-muted) dark:text-(--color-dark-text-muted)",
         className,
       )}
       {...props}
@@ -225,7 +278,10 @@ export const DropdownSeparator = React.forwardRef(
   ({ className, ...props }, ref) => (
     <DropdownMenu.Separator
       ref={ref}
-      className={cn("my-1 h-px bg-default dark:bg-dark-badge", className)}
+      className={cn(
+        "my-1 h-px bg-(--color-light-divider) dark:bg-(--color-dark-divider)",
+        className,
+      )}
       {...props}
     />
   ),
@@ -234,7 +290,7 @@ DropdownSeparator.displayName = "DropdownSeparator";
 export const DropdownShortcut = ({ className, ...props }) => (
   <span
     className={cn(
-      "ml-auto text-xs tracking-widest dark:text-primary text-dark-primary",
+      "ml-auto text-xs tracking-widest text-(--color-light-text-tertiary) dark:text-(--color-dark-text-tertiary)",
       className,
     )}
     {...props}

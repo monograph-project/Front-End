@@ -6,7 +6,6 @@ import RevenueCard from "../../components/RevenueCard";
 import StatCard from "../../components/StatCard";
 import TopCountryCard from "../../components/TopContriesCard";
 import { useAuth } from "../../context/AuthContext";
-import { getDashboardView } from "../../lib/roles";
 
 const STAT_SETS = {
   admin: [
@@ -183,42 +182,20 @@ const STAT_SETS = {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const view = getDashboardView(user?.role);
-  const stats = STAT_SETS[view];
+  const stats = STAT_SETS[user?.role] ?? STAT_SETS.student;
 
   return (
-    <div className="flex flex-1 flex-col gap-[14px] overflow-y-auto bg-shell p-4 md:p-5 dark:bg-dark-shell">
-      <div className="rounded-xl border border-default bg-card px-4 py-3 dark:border-dark-default dark:bg-dark-card">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-          Role
-        </p>
-        <p className="mt-0.5 text-sm font-bold text-primary capitalize dark:text-dark-primary">
-          {user?.role ?? "guest"}
-        </p>
-        <p className="mt-1 text-xs text-secondary dark:text-dark-secondary">
-          {view === "student" &&
-            "Projects, groups, and collaboration are scoped to you — admins control who teaches which groups."}
-          {view === "teacher" &&
-            "You work with groups and rosters assigned by an admin; grading and lessons stay in those groups."}
-          {view === "admin" &&
-            "Full directory and configuration; connect APIs to enforce permissions on the server."}
-          {view === "dean" &&
-            "Oversight across students and programs; sensitive actions can remain admin-only in the API."}
-          {view === "staff" &&
-            "Operational tools — calendar, notes, and tasks without full admin rights."}
-        </p>
-      </div>
-
+    <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto bg-shell p-4 md:p-5 dark:bg-dark-card-bg">
       <div className=" grid grid-cols-2 lg:grid-cols-4  gap-3">
-        {stats.map((s) => (
+        {stats.map((stat) => (
           <StatCard
-            key={s.label}
-            icon={s.icon}
-            label={s.label}
-            value={s.value}
-            delta={s.delta}
-            deltaDir={s.deltaDir}
-            period={s.period}
+            key={stat.label}
+            icon={stat.icon}
+            label={stat.label}
+            value={stat.value}
+            delta={stat.delta}
+            deltaDir={stat.deltaDir}
+            period={stat.period}
           />
         ))}
       </div>

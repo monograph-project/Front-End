@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import NavigationRouteLoader from "../components/NavigationRouteLoader";
 import { useSidebar } from "../context/SidebarContext";
 import AppHeader from "./AppHeader";
 function LayoutContent({ children }) {
@@ -40,7 +41,8 @@ function LayoutContent({ children }) {
             handleSidebarToggle={handleSidebarToggle}
             onMenuToggle={() => setMobileMenuOpen(true)}
           />
-          <div className="flex-1 bg-shell dark:bg-dark-shell">
+          <div className="app-main-canvas relative flex-1">
+            <NavigationRouteLoader />
             <Outlet />
           </div>
         </div>

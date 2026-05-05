@@ -59,7 +59,7 @@ function NotificationDetail() {
 
   if (loading) {
     return (
-      <div className="flex-1 overflow-y-auto p-4 md:p-5 flex items-center justify-center bg-shell dark:bg-dark-shell">
+      <div className="flex-1 overflow-y-auto p-4 md:p-5 flex items-center justify-center bg-shell dark:bg-dark-card-bg">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
       </div>
     );
@@ -67,7 +67,7 @@ function NotificationDetail() {
 
   if (!notification) {
     return (
-      <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col items-center justify-center bg-shell dark:bg-dark-shell text-center">
+      <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col items-center justify-center bg-shell dark:bg-dark-card-bg text-center">
         <div className="text-5xl mb-4 text-muted">📧</div>
         <h2 className="text-2xl font-bold text-primary dark:text-dark-primary mb-2">
           {t("adminNotificationDetail.notFound.title")}
@@ -130,7 +130,7 @@ function NotificationDetail() {
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 min-h-screen md:p-8 bg-shell dark:bg-dark-shell">
+    <div className="flex-1 overflow-y-auto p-4 min-h-screen md:p-8 bg-shell dark:bg-dark-card-bg">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-start justify-between mb-8 pb-6 border-b border-default dark:border-dark-default gap-6">

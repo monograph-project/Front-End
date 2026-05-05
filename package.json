@@ -19,7 +19,8 @@
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/themes": "^3.3.0",
-    "@react-keycloak/web": "^3.4.0",
+    "@react-oauth/google": "^0.12.2",
+    "@syncfusion/ej2-react-documenteditor": "^33.2.4",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-query": "^5.99.2",
     "@tanstack/react-query-devtools": "^5.96.2",
@@ -41,12 +42,11 @@
     "react-router-dom": "^7.14.0",
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.5.0",
-    "tailwindcss": "^4.2.1"
+    "tailwindcss": "^4.2.1",
+    "zod": "^4.4.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",

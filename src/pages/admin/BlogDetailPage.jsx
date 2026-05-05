@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   ArrowLeft,
@@ -7,112 +7,225 @@ import {
   CalendarDays,
   CheckCheck,
   Clock3,
-  Eye,
   Heart,
+  Loader2,
   MessageCircle,
   NotebookText,
   PanelsTopLeft,
   Send,
   Share2,
-  Star,
   UserRound,
   XCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router-dom";
-import { cn } from "../../lib/utils";
-import {
-  getAdminBlogById,
-  loadAdminBlogs,
-  saveAdminBlogs,
-} from "../../data/adminBlogs";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import ArticleBlocksReader from "../../components/ArticleBlocksReader";
 import BlogDetailTabs from "../../components/BlogDetailTabs";
+import BlogMoreBlogsPanel from "../../components/BlogMoreBlogsPanel";
 import BlogOverviewPanel from "../../components/BlogOverviewPanel";
+import BlogReviewPanel from "../../components/BlogReviewPanel";
 import BlogWriterPanel from "../../components/BlogWriterPanel";
 import BlogWriterPostsPanel from "../../components/BlogWriterPostsPanel";
-import BlogReviewPanel from "../../components/BlogReviewPanel";
-import BlogMoreBlogsPanel from "../../components/BlogMoreBlogsPanel";
+import Button from "../../components/Button";
+import StatusPill from "../../components/StatusPill";
+import {
+  derivePlainTextPreview,
+  mapArticleToAdminBlog,
+} from "../../lib/adminArticleMap";
+import { cn } from "../../lib/utils";
+import {
+  useArticle,
+  useArticles,
+  useArticlesByAuthor,
+  useDeleteArticle,
+  usePublishArticle,
+  useUpdateArticle,
+} from "../../services/useApi";
 
-const statusStyles = {
+const SURFACE_CARD =
+  "rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
+const SURFACE_SUB =
+  "rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
+
+/** Pills inside writer posts links (dense list). */
+const writerPostStatusStyles = {
   pending:
-    "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20",
+    "bg-(--color-light-warning-bg) text-(--color-light-warning-text) ring-1 ring-inset ring-(--color-light-warning-border) dark:bg-(--color-dark-warning-bg) dark:text-(--color-dark-warning-text) dark:ring-(--color-dark-warning-border)",
   accepted:
-    "bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-200 dark:bg-sky-500/15 dark:text-sky-200 dark:ring-sky-400/20",
+    "bg-light-app-tertiary text-primary ring-1 ring-inset ring-(--color-light-card-border) dark:bg-dark-app-tertiary dark:text-dark-primary dark:ring-(--color-dark-card-border)",
   published:
-    "bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/20",
+    "bg-(--color-light-success-bg) text-(--color-light-success-text) ring-1 ring-inset ring-(--color-light-success-border) dark:bg-(--color-dark-success-bg) dark:text-(--color-dark-success-text) dark:ring-(--color-dark-success-border)",
   rejected:
-    "bg-rose-100 text-rose-800 ring-1 ring-inset ring-rose-200 dark:bg-rose-500/15 dark:text-rose-200 dark:ring-rose-400/20",
+    "bg-(--color-light-error-bg) text-(--color-light-error-text) ring-1 ring-inset ring-(--color-light-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text) dark:ring-(--color-dark-error-border)",
   draft:
-    "bg-slate-200 text-slate-700 ring-1 ring-inset ring-slate-300 dark:bg-slate-500/15 dark:text-slate-200 dark:ring-slate-400/20",
+    "bg-light-app-tertiary text-secondary ring-1 ring-inset ring-(--color-light-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary dark:ring-(--color-dark-card-border)",
 };
 
-function AdminActionButton({
-  children,
-  tone = "default",
-  className,
-  ...props
-}) {
-  const toneClass =
-    tone === "primary"
-      ? "bg-primary text-white hover:opacity-90"
-      : tone === "success"
-        ? "bg-emerald-600 text-white hover:bg-emerald-700"
-        : tone === "danger"
-          ? "bg-rose-600 text-white hover:bg-rose-700"
-          : "border border-default  text-primary hover:-2 dark:border-dark-default  dark:text-dark-primary dark:hover:bg-dark-card-2";
+function blogUiStatusToPill(status) {
+  const s = (status ?? "").toLowerCase();
+  if (s === "published") return "success";
+  if (s === "pending") return "warning";
+  if (s === "rejected") return "error";
+  if (s === "accepted") return "info";
+  return "neutral";
+}
+
+function ModerationToolbar({ blog, onPublish, onReject, onDraft, busy }) {
+  const { t } = useTranslation();
+  const ui = blog?.status;
 
   return (
-    <button
-      type="button"
-      className={cn(
-        "inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
-        toneClass,
-        className,
+    <div className="flex flex-wrap gap-2">
+      {ui === "pending" && (
+        <>
+          <Button
+            type="button"
+            variant="primary"
+            className="gap-2"
+            disabled={busy}
+            onClick={() => onPublish()}
+          >
+            <CheckCheck className="size-4" strokeWidth={2} />
+            {t("blogAdmin.detail.actions.publishArticle")}
+          </Button>
+          <Button type="button" variant="danger" disabled={busy} onClick={() => onReject()}>
+            <XCircle className="size-4" strokeWidth={2} />
+            {t("blogAdmin.detail.actions.rejectArticle")}
+          </Button>
+        </>
       )}
-      {...props}
-    >
-      {children}
-    </button>
+      {ui === "published" && (
+        <Button
+          type="button"
+          variant="tertiary"
+          disabled={busy}
+          onClick={() => onDraft()}
+        >
+          {t("blogAdmin.actions.moveToDraft")}
+        </Button>
+      )}
+      {(ui === "draft" || ui === "accepted" || ui === "rejected") && (
+        <Button
+          type="button"
+          variant="primary"
+          disabled={busy}
+          onClick={() => onPublish()}
+        >
+          <Send className="size-4" strokeWidth={2} />
+          {t("blogAdmin.actions.publishNow")}
+        </Button>
+      )}
+    </div>
   );
 }
 
 export default function BlogDetailPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { id } = useParams();
-  const [blogs, setBlogs] = useState(() => loadAdminBlogs());
-  const [activeTab, setActiveTab] = useState("overview");
+  const queryClient = useQueryClient();
+  const articleId = id ? String(id) : "";
 
-  useEffect(() => {
-    saveAdminBlogs(blogs);
-  }, [blogs]);
+  const {
+    data: article,
+    isLoading,
+    isError,
+    refetch,
+  } = useArticle(articleId, {
+    enabled: Boolean(articleId),
+  });
 
-  const blog = useMemo(
-    () =>
-      blogs.find((item) => String(item.id) === String(id)) ||
-      getAdminBlogById(id),
-    [blogs, id],
+  const { data: listing } = useArticles(
+    { page: 0, pageSize: 12 },
+    { notifyOnError: false },
   );
 
-  if (!blog) {
-    return (
-      <div className="flex min-h-screen flex-1 items-center justify-center bg-shell px-4 dark:bg-dark-shell">
-        <div className="max-w-md rounded-md border border-default  p-8 text-center dark:border-dark-default ">
-          <h1 className="text-2xl font-bold text-primary dark:text-dark-primary">
-            {t("blogAdmin.detail.notFound.title")}
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-secondary dark:text-dark-secondary">
-            {t("blogAdmin.detail.notFound.description")}
-          </p>
-          <Link
-            to="/admin/blogs"
-            className="mt-6 inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white"
-          >
-            {t("blogAdmin.detail.notFound.back")}
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const blog = useMemo(() => {
+    if (!article) return null;
+    const b = mapArticleToAdminBlog(article);
+    const preview = derivePlainTextPreview(b.blocks);
+    return {
+      ...b,
+      excerpt:
+        b.excerpt?.trim() ||
+        preview.slice(0, 500) ||
+        t("blogAdmin.detail.noSummary"),
+      contentHtml: "",
+    };
+  }, [article, t]);
+
+  const authorId = blog?.authorId;
+  const { data: authorPage } = useArticlesByAuthor(
+    authorId ?? "",
+    { page: 0, pageSize: 40 },
+    { enabled: Boolean(authorId), notifyOnError: false },
+  );
+
+  const authorRows = authorPage?.data ?? authorPage?.content ?? [];
+
+  const authorBlogs = useMemo(() => {
+    return authorRows
+      .map((raw) => mapArticleToAdminBlog(raw))
+      .filter((item) => String(item.id) !== String(blog?.id));
+  }, [authorRows, blog?.id]);
+
+  const writerTotals = useMemo(() => {
+    const allAuthor = [...authorRows.map((raw) => mapArticleToAdminBlog(raw))];
+    if (blog && !allAuthor.some((x) => String(x.id) === String(blog.id))) {
+      allAuthor.push(blog);
+    }
+    return {
+      total: allAuthor.length,
+      published: allAuthor.filter((x) => x.status === "published").length,
+      pending: allAuthor.filter((x) => x.status === "pending").length,
+    };
+  }, [authorRows, blog]);
+
+  const relatedRaw = listing?.data ?? listing?.content ?? [];
+  const relatedBlogs = useMemo(() => {
+    return relatedRaw
+      .filter((item) => String(item.id) !== String(blog?.id))
+      .slice(0, 6)
+      .map((raw) => {
+        const mapped = mapArticleToAdminBlog(raw);
+        return {
+          id: mapped.id,
+          title: mapped.title,
+          category: mapped.category,
+          readTime:
+            typeof mapped.readTime === "number"
+              ? `${mapped.readTime} min`
+              : mapped.readTime,
+        };
+      });
+  }, [relatedRaw, blog?.id]);
+
+  const publishMutation = usePublishArticle({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      refetch();
+    },
+  });
+  const deleteMutation = useDeleteArticle({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      navigate("/admin/blogs");
+    },
+  });
+  const updateMutation = useUpdateArticle({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      refetch();
+    },
+  });
+
+  const busy =
+    publishMutation.isPending ||
+    deleteMutation.isPending ||
+    updateMutation.isPending;
+
+  const [activeTab, setActiveTab] = useState("overview");
 
   const statusLabels = {
     pending: t("blogAdmin.status.pendingReview"),
@@ -121,11 +234,6 @@ export default function BlogDetailPage() {
     rejected: t("blogAdmin.status.rejected"),
     draft: t("blogAdmin.status.draft"),
   };
-
-  const relatedBlogs = blogs.filter((item) => item.id !== blog.id).slice(0, 3);
-  const authorBlogs = blogs.filter(
-    (item) => item.author === blog.author && item.id !== blog.id,
-  );
 
   const tabs = [
     {
@@ -144,298 +252,284 @@ export default function BlogDetailPage() {
       label: t("blogAdmin.detail.tabs.review"),
       icon: BadgeCheck,
     },
-    { id: "more", label: t("blogAdmin.detail.tabs.more"), icon: Eye },
+    { id: "more", label: t("blogAdmin.detail.tabs.more"), icon: BookOpen },
   ];
 
-  const updateBlog = (updater) => {
-    setBlogs((current) =>
-      current.map((item) =>
-        item.id === blog.id ? { ...item, ...updater(item) } : item,
-      ),
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[50vh] flex-1 flex-col items-center justify-center gap-3 bg-light-app-bg px-4 dark:bg-dark-card-bg">
+        <Loader2
+          className="size-9 animate-spin text-(--color-chart-success)"
+          strokeWidth={2}
+          aria-hidden
+        />
+        <p className="text-sm font-medium text-muted dark:text-dark-muted">
+          {t("blogAdmin.detail.loading")}
+        </p>
+      </div>
     );
-  };
+  }
 
-  const handleStatusChange = (nextStatus) => {
-    updateBlog(() => ({ status: nextStatus }));
-  };
-
-  const handleToggleFeatured = () => {
-    updateBlog((item) => ({ featured: !item.featured }));
-  };
+  if (isError || !blog) {
+    return (
+      <div className="flex min-h-screen flex-1 items-center justify-center bg-light-app-bg px-4 dark:bg-dark-card-bg">
+        <div className={cn(SURFACE_CARD, "max-w-md p-8 text-center shadow-md")}>
+          <h1 className="text-2xl font-bold text-primary dark:text-dark-primary">
+            {t("blogAdmin.detail.notFound.title")}
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-secondary dark:text-dark-secondary">
+            {t("blogAdmin.detail.notFound.description")}
+          </p>
+          <Link to="/admin/blogs" className="mt-6 inline-flex">
+            <Button type="button" variant="primary">
+              {t("blogAdmin.detail.notFound.back")}
+            </Button>
+          </Link>
+          <button
+            type="button"
+            className="mt-4 ml-4 text-sm font-semibold text-primary underline dark:text-dark-primary"
+            onClick={() => refetch()}
+          >
+            {t("blogAdmin.retry")}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const formattedDate = blog.date
     ? format(new Date(blog.date), "MMMM d, yyyy")
     : t("blogAdmin.common.noDate");
 
+  const readLabel =
+    typeof blog.readTime === "number"
+      ? t("blogAdmin.common.readMinutes", { count: blog.readTime })
+      : blog.readTime;
+
+  const overviewBlog = {
+    ...blog,
+    readTime: readLabel,
+  };
+
+  const handlePublish = () => {
+    if (!blog.authorId) return;
+    publishMutation.mutate({
+      articleId: blog.id,
+      authorId: blog.authorId,
+      visibility: "PUBLIC",
+    });
+  };
+
+  const handleReject = () => {
+    if (!blog.authorId) return;
+    deleteMutation.mutate({
+      articleId: blog.id,
+      authorId: blog.authorId,
+    });
+  };
+
+  const handleDraft = () => {
+    if (!blog.authorId) return;
+    updateMutation.mutate({
+      articleId: blog.id,
+      authorId: blog.authorId,
+      status: "DRAFT",
+    });
+  };
+
+  /** BlogWriterPanel augmented */
+  const panelBlog = blog;
+
   return (
-    <div className="m-2 min-h-screen flex-1 rounded-md border border-default bg-shell dark:border-dark-default dark:bg-dark-shell">
-      <div className="mx-auto w-full max-w-7xl px-2 py-3 md:px-3">
-        <section className="mb-6 rounded-md border border-default  p-5 dark:border-dark-default ">
-          <BlogDetailTabs
-            tabs={tabs}
-            activeTab={activeTab}
-            onChange={setActiveTab}
-          />
-        </section>
-
-        {activeTab === "overview" && (
-          <section className="mb-6">
-            <BlogOverviewPanel blog={blog} formattedDate={formattedDate} />
-          </section>
-        )}
-
-        {activeTab === "writer" && (
-          <section className="mb-6">
-            <BlogWriterPanel blog={blog} blogs={blogs} />
-          </section>
-        )}
-
-        {activeTab === "posts" && (
-          <section className="mb-6">
-            <BlogWriterPostsPanel
-              author={blog.author}
-              authorBlogs={authorBlogs}
-              statusLabels={statusLabels}
-              statusStyles={statusStyles}
-            />
-          </section>
-        )}
-
-        {activeTab === "review" && (
-          <section className="mb-6">
-            <BlogReviewPanel blog={blog} statusLabels={statusLabels} />
-          </section>
-        )}
-
-        {activeTab === "more" && (
-          <section className="mb-6">
-            <BlogMoreBlogsPanel relatedBlogs={relatedBlogs} />
-          </section>
-        )}
-
-        <main className="min-w-0">
-          <div className="rounded-md border border-default  dark:border-dark-default ">
-            <div className="border-b border-default px-6 py-5 dark:border-dark-default md:px-10">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="min-h-screen flex-1 bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <section className={SURFACE_CARD}>
+          <div className="border-b border-light-divider px-4 py-5 dark:border-dark-divider md:px-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
                 <Link
                   to="/admin/blogs"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:text-secondary dark:text-dark-primary dark:hover:text-dark-secondary"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-muted transition-colors hover:text-primary dark:text-dark-muted dark:hover:text-dark-primary"
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ArrowLeft className="size-4" strokeWidth={2} aria-hidden />
                   {t("blogAdmin.detail.backToCollection")}
                 </Link>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      "inline-flex rounded-md px-3 py-1.5 text-xs font-semibold",
-                      statusStyles[blog.status],
-                    )}
-                  >
-                    {statusLabels[blog.status]}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleToggleFeatured}
-                    className={cn(
-                      "inline-flex items-center gap-2 rounded-md border border-default px-3 py-1.5 text-xs font-semibold text-primary transition-colors  dark:border-dark-default dark:text-dark-primary dark:hover:bg-dark-card-2",
-                      blog.featured &&
-                        "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300",
-                    )}
-                  >
-                    <Star
-                      className={cn("h-4 w-4", blog.featured && "fill-current")}
-                    />
-                    {blog.featured
-                      ? t("blogAdmin.detail.featured")
-                      : t("blogAdmin.actions.markFeatured")}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-b border-default bg-shell/90 px-6 py-5 backdrop-blur dark:border-dark-default dark:bg-dark-shell/90 md:px-10 xl:sticky xl:top-12 xl:z-20">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="max-w-148">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                    <BookOpen className="h-4 w-4" />
-                    {t("blogAdmin.detail.moderation.title")}
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                    {t("blogAdmin.detail.moderation.description")}
-                  </p>
-                </div>
-
-                <div className="flex gap-2">
-                  {blog.status === "pending" && (
-                    <>
-                      <AdminActionButton
-                        tone="success"
-                        onClick={() => handleStatusChange("accepted")}
-                      >
-                        <CheckCheck className="mr-2 h-4 w-4" />
-                        {t("blogAdmin.detail.actions.acceptArticle")}
-                      </AdminActionButton>
-                      <AdminActionButton
-                        tone="danger"
-                        onClick={() => handleStatusChange("rejected")}
-                      >
-                        <XCircle className="mr-2 h-4 w-4" />
-                        {t("blogAdmin.detail.actions.rejectArticle")}
-                      </AdminActionButton>
-                    </>
-                  )}
-
-                  {blog.status === "accepted" && (
-                    <>
-                      <AdminActionButton
-                        tone="primary"
-                        onClick={() => handleStatusChange("published")}
-                      >
-                        <Send className="mr-2 h-4 w-4" />
-                        {t("blogAdmin.detail.actions.publishArticle")}
-                      </AdminActionButton>
-                      <AdminActionButton
-                        onClick={() => handleStatusChange("pending")}
-                      >
-                        {t("blogAdmin.detail.actions.returnToWaiting")}
-                      </AdminActionButton>
-                    </>
-                  )}
-
-                  {blog.status === "published" && (
-                    <>
-                      <AdminActionButton
-                        onClick={() => handleStatusChange("accepted")}
-                      >
-                        {t("blogAdmin.detail.actions.unpublishToAccepted")}
-                      </AdminActionButton>
-                      <AdminActionButton
-                        onClick={() => handleStatusChange("draft")}
-                      >
-                        {t("blogAdmin.actions.moveToDraft")}
-                      </AdminActionButton>
-                    </>
-                  )}
-
-                  {blog.status === "rejected" && (
-                    <AdminActionButton
-                      tone="success"
-                      onClick={() => handleStatusChange("accepted")}
-                    >
-                      {t("blogAdmin.actions.restoreAndAccept")}
-                    </AdminActionButton>
-                  )}
-
-                  {blog.status === "draft" && (
-                    <AdminActionButton
-                      tone="primary"
-                      onClick={() => handleStatusChange("pending")}
-                    >
-                      {t("blogAdmin.actions.sendForApproval")}
-                    </AdminActionButton>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <article className="px-6 py-8 md:px-10 md:py-10">
-              <header className="mx-auto max-w-3xl">
-                <div className="flex flex-wrap items-center gap-3 text-sm text-muted dark:text-dark-muted">
-                  <span className="rounded-full bg-shell px-3 py-1 dark:bg-dark-shell">
-                    {blog.category}
-                  </span>
-                  <span className="inline-flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4" />
-                    {formattedDate}
-                  </span>
-                  <span className="inline-flex items-center gap-2">
-                    <Clock3 className="h-4 w-4" />
-                    {blog.readTime}
-                  </span>
-                </div>
-
-                <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight text-primary dark:text-dark-primary md:text-5xl">
+                <h1 className="mt-4 text-2xl font-bold tracking-tight text-primary dark:text-dark-primary md:text-3xl">
                   {blog.title}
                 </h1>
-                <p className="mt-5 text-lg leading-8 text-secondary dark:text-dark-secondary">
+                <p className="mt-2 max-w-3xl text-sm leading-relaxed text-secondary dark:text-dark-secondary md:text-base">
                   {blog.excerpt}
                 </p>
+              </div>
+              <StatusPill variant={blogUiStatusToPill(blog.status)}>
+                {statusLabels[blog.status]}
+              </StatusPill>
+            </div>
+          </div>
+          <div className={`${SURFACE_SUB} mx-4 my-4 p-4 md:mx-6 md:my-5`}>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                  {blog.title}
+                </p>
+                <p className="mt-2 text-xs text-muted dark:text-dark-muted">
+                  {t("blogAdmin.detail.moderation.title")}
+                </p>
+              </div>
+              <ModerationToolbar
+                blog={blog}
+                busy={busy}
+                onPublish={handlePublish}
+                onReject={handleReject}
+                onDraft={handleDraft}
+              />
+            </div>
+          </div>
+        </section>
 
-                <div className="mt-8 flex flex-wrap items-center justify-between gap-5 border-y border-default py-5 dark:border-dark-default">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-sm font-bold text-white dark:bg-dark-primary dark:text-dark-shell">
-                      {blog.author
-                        .split(" ")
-                        .map((part) => part[0])
-                        .join("")
-                        .slice(0, 2)}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                        {blog.author}
-                      </p>
-                      <p className="text-sm text-muted dark:text-dark-muted">
-                        {blog.authorRole}
-                      </p>
-                    </div>
-                  </div>
+        <section className={`${SURFACE_CARD} overflow-hidden`}>
+          <div className="border-b border-light-divider px-4 py-4 dark:border-dark-divider md:px-6">
+            <BlogDetailTabs
+              tabs={tabs}
+              activeTab={activeTab}
+              onChange={setActiveTab}
+            />
+          </div>
+          <div className="space-y-6 px-4 py-5 md:px-6 md:py-6">
+            {activeTab === "overview" && (
+              <BlogOverviewPanel
+                blog={overviewBlog}
+                formattedDate={formattedDate}
+              />
+            )}
 
-                  <div className="flex flex-wrap items-center gap-5 text-sm text-muted dark:text-dark-muted">
-                    <span className="inline-flex items-center gap-2">
-                      <Heart className="h-4 w-4" />
-                      {t("blogAdmin.detail.metrics.claps", {
-                        count: blog.claps,
-                      })}
-                    </span>
-                    <span className="inline-flex items-center gap-2">
-                      <MessageCircle className="h-4 w-4" />
-                      {t("blogAdmin.detail.metrics.comments", {
-                        count: blog.comments,
-                      })}
-                    </span>
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-2 font-semibold text-primary dark:text-dark-primary"
-                    >
-                      <Share2 className="h-4 w-4" />
-                      {t("blogAdmin.detail.share")}
-                    </button>
-                  </div>
-                </div>
-              </header>
+            {activeTab === "writer" && (
+              <BlogWriterPanel
+                blog={panelBlog}
+                blogs={[]}
+                totalsOverride={writerTotals}
+              />
+            )}
 
-              {blog.coverImage && (
-                <div className="mx-auto mt-10 max-w-5xl overflow-hidden rounded-md">
-                  <img
-                    src={blog.coverImage}
-                    alt={blog.title}
-                    className="h-[260px] w-full object-cover md:h-[420px]"
-                  />
-                </div>
+            {activeTab === "posts" && (
+              <BlogWriterPostsPanel
+                author={panelBlog.author}
+                authorBlogs={authorBlogs}
+                statusLabels={statusLabels}
+                statusStyles={writerPostStatusStyles}
+              />
+            )}
+
+            {activeTab === "review" && (
+              <BlogReviewPanel blog={panelBlog} statusLabels={statusLabels} />
+            )}
+
+            {activeTab === "more" && (
+              <BlogMoreBlogsPanel relatedBlogs={relatedBlogs} />
+            )}
+          </div>
+        </section>
+
+        <article className={SURFACE_CARD}>
+          <div className="border-b border-light-divider px-4 py-5 dark:border-dark-divider md:px-8">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted dark:text-dark-muted">
+              <span className="rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-1 text-xs font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                {blog.category}
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <CalendarDays className="size-4 shrink-0" strokeWidth={2} />
+                {formattedDate}
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <Clock3 className="size-4 shrink-0" strokeWidth={2} />
+                {readLabel}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-light-divider px-4 py-4 dark:border-dark-divider md:px-8">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-(--color-light-btn-primary-bg) text-sm font-semibold text-(--color-light-btn-primary-text) dark:bg-(--color-dark-btn-primary-bg) dark:text-(--color-dark-btn-primary-text)">
+                {(blog.author || "—")
+                  .split(" ")
+                  .map((p) => p[0])
+                  .join("")
+                  .slice(0, 2)}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                  {blog.author}
+                </p>
+                <p className="text-xs text-muted dark:text-dark-muted">
+                  {blog.authorRole}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-5 text-sm text-muted dark:text-dark-muted">
+              <span className="inline-flex items-center gap-2">
+                <Heart className="size-4" strokeWidth={2} aria-hidden />
+                {t("blogAdmin.detail.metrics.claps", {
+                  count: blog.claps,
+                })}
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <MessageCircle className="size-4" strokeWidth={2} aria-hidden />
+                {t("blogAdmin.detail.metrics.comments", {
+                  count: blog.comments,
+                })}
+              </span>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 font-semibold text-primary transition-colors hover:text-secondary dark:text-dark-primary dark:hover:text-dark-secondary"
+              >
+                <Share2 className="size-4" strokeWidth={2} aria-hidden />
+                {t("blogAdmin.detail.share")}
+              </button>
+            </div>
+          </div>
+
+          <div className="px-4 py-8 md:px-8 md:py-10">
+            {blog.coverImageUrl ? (
+              <div className="mx-auto mb-10 max-w-5xl overflow-hidden rounded-xl border border-light-divider dark:border-dark-divider">
+                <img
+                  src={blog.coverImageUrl}
+                  alt=""
+                  className="max-h-[420px] w-full object-cover"
+                />
+              </div>
+            ) : null}
+
+            <section className="mx-auto max-w-3xl">
+              {blog.blocks?.length ? (
+                <ArticleBlocksReader blocks={blog.blocks} />
+              ) : (
+                <p className="text-secondary dark:text-dark-secondary">
+                  {blog.excerpt}
+                </p>
               )}
 
-              <section className="mx-auto mt-10 max-w-5xl">
-                <div
-                  className="space-y-6 text-[17px] leading-8 text-primary dark:text-dark-primary [&_blockquote]:border-l-4 [&_blockquote]:border-default [&_blockquote]:pl-5 [&_blockquote]:text-xl [&_blockquote]:font-medium [&_blockquote]:italic [&_h2]:mt-12 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:leading-tight [&_p]:text-secondary dark:[&_blockquote]:border-dark-default dark:[&_p]:text-dark-secondary"
-                  dangerouslySetInnerHTML={{ __html: blog.content }}
-                />
-
-                {blog.tags?.length > 0 && (
-                  <div className="mt-12 flex flex-wrap gap-2 border-t border-default pt-8 dark:border-dark-default">
-                    {blog.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-default bg-shell px-4 py-2 text-sm font-medium text-secondary dark:border-dark-default dark:bg-dark-shell dark:text-dark-secondary"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </section>
-            </article>
+              {blog.tags?.length > 0 && (
+                <div className="mt-12 flex flex-wrap gap-2 border-t border-light-divider pt-8 dark:border-dark-divider">
+                  {blog.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className={`${SURFACE_SUB} px-4 py-2 text-sm font-medium text-secondary dark:text-dark-secondary`}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
-        </main>
+        </article>
+
+        {!authorId && !busy ? (
+          <p className="text-center text-xs text-muted dark:text-dark-muted">
+            {t("blogAdmin.detail.authorIdMissing")}
+          </p>
+        ) : null}
       </div>
     </div>
   );

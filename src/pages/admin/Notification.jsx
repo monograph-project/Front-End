@@ -85,7 +85,7 @@ function Notification() {
   };
 
   return (
-    <div className="flex p-2  min- h-screen bg-shell dark:bg-dark-shell overflow-hidden">
+    <div className="flex p-2  min- h-screen bg-shell dark:bg-dark-card-bg overflow-hidden">
       {/* Sidebar */}
       <div className="w-full lg:w-78.5 border border-default rounded-md  dark:border-dark-default  flex flex-col">
         {/* Header */}

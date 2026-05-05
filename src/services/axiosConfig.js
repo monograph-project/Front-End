@@ -1,19 +1,11 @@
-import axios from "axios";
-
-const axiosInstance = axios.create({
-  baseURL: "http://localhost:5000",
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-axiosInstance.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      window.location.href = "/signup";
-    }
-    return Promise.reject(error);
-  },
-);
-export default axiosInstance;
+/**
+ * @deprecated Prefer `import apiClient from "../api/client"` and `auth/storageBridge` for helpers.
+ */
+export { default } from "../api/client";
+export {
+  persistTokens,
+  clearAuthStorage,
+  getStoredAccessToken,
+  STORAGE_ACCESS_TOKEN_KEY,
+  STORAGE_REFRESH_TOKEN_KEY,
+} from "../auth/storageBridge";

@@ -81,22 +81,24 @@ export default function BlogModerationCard({
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onToggleFeatured?.(blog.id)}
-          className={cn(
-            "inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-default bg-card text-primary transition-colors hover:bg-card-2 dark:border-dark-default dark:bg-dark-shell dark:text-dark-primary dark:hover:bg-dark-card-2",
-            blog.featured &&
-              "border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300",
-          )}
-          aria-label={
-            blog.featured
-              ? t("blogAdmin.actions.removeFeatured")
-              : t("blogAdmin.actions.markFeatured")
-          }
-        >
-          <Star className={cn("h-5 w-5", blog.featured && "fill-current")} />
-        </button>
+        {onToggleFeatured ? (
+          <button
+            type="button"
+            onClick={() => onToggleFeatured(blog.id)}
+            className={cn(
+              "inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) text-primary transition-colors hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-primary dark:hover:bg-dark-app-tertiary",
+              blog.featured &&
+                "border-(--color-light-success-border) bg-(--color-light-success-bg) text-(--color-light-success-text) dark:border-(--color-dark-success-border) dark:bg-(--color-dark-success-bg) dark:text-(--color-dark-success-text)",
+            )}
+            aria-label={
+              blog.featured
+                ? t("blogAdmin.actions.removeFeatured")
+                : t("blogAdmin.actions.markFeatured")
+            }
+          >
+            <Star className={cn("h-5 w-5", blog.featured && "fill-current")} />
+          </button>
+        ) : null}
       </div>
 
       <div className="mt-5">
@@ -107,7 +109,9 @@ export default function BlogModerationCard({
           <span>{t("blogAdmin.common.by", { author: blog.author })}</span>
           <span className="inline-flex items-center gap-1">
             <Clock3 className="h-3.5 w-3.5" />
-            {blog.readTime}
+            {typeof blog.readTime === "number"
+              ? t("blogAdmin.common.readMinutes", { count: blog.readTime })
+              : blog.readTime}
           </span>
         </div>
 

@@ -1,122 +1,167 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import AvatarDemo from "../../components/Avatar";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { gooeyToast } from "goey-toast";
+import { Link, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import {
+  Bell,
+  Eye,
+  Image as ImageIcon,
+  MoreHorizontal,
+  Play,
+  Search,
+  X,
+} from "lucide-react";
 import Select from "../../components/Select";
+import {
+  DropdownContent,
+  DropdownItem,
+  DropdownMenuRoot,
+  DropdownSeparator,
+  DropdownTrigger,
+} from "../../components/DropdownMenu";
 import { useAuth } from "../../context/AuthContext";
-import Field from "../../components/Field";
+import { htmlToArticleBlocks } from "../../lib/htmlToArticleBlocks";
+import {
+  useCreateArticle,
+  useCreateArticleWithFiles,
+  useCreateDraftArticle,
+} from "../../services/useApi";
+
 const STORAGE_KEY = "draft_story_v2";
 
-function WriterIcon({ children, title, onClick, variant = "ghost" }) {
-  const base =
-    "h-9 w-9 rounded-full border border-default dark:border-dark-default flex items-center justify-center cursor-pointer text-secondary dark:text-dark-secondary hover:bg-app dark:hover:bg-dark-app transition-colors";
-  const filled =
-    "bg-accent/10 dark:bg-accent-light/10 border-accent/20 dark:border-dark-accent/20";
+/** Medium-style editor chrome */
+const M = {
+  green: "#1a8917",
+  greenMuted: "rgba(26, 137, 23, 0.45)",
+};
 
-  const classes = variant === "filled" ? `${base} ${filled}` : base;
-
-  return (
-    <button type="button" title={title} onClick={onClick} className={classes}>
-      {children}
-    </button>
-  );
-}
-
-function WriterBadge({ children }) {
-  return (
-    <span className="inline-flex items-center rounded-md py-2 border border-default dark:border-dark-default bg-card dark:bg-dark-card px-3 py-1 text-xs font-medium text-secondary dark:text-dark-secondary">
-      {children}
-    </span>
-  );
+function insertAtCaret(editorEl, node) {
+  if (!editorEl) return;
+  editorEl.focus();
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) {
+    editorEl.appendChild(node);
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  let anchor = range.commonAncestorContainer;
+  if (anchor.nodeType !== Node.ELEMENT_NODE && anchor.parentElement) {
+    anchor = anchor.parentElement;
+  }
+  const inside =
+    anchor instanceof Element && editorEl.contains(anchor);
+  if (!inside) {
+    editorEl.appendChild(node);
+    return;
+  }
+  range.deleteContents();
+  range.insertNode(node);
+  range.setStartAfter(node);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
 }
 
 function IconPlus() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-5 w-5"
+      className="size-[18px]"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth={2}
     >
       <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }
 
-function IconImage() {
+function IconEmbed() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-5 w-5"
+      className="size-[18px]"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth={1.85}
     >
-      <rect x="3.5" y="5" width="17" height="14" rx="2" />
-      <circle cx="9" cy="10" r="1.5" />
-      <path d="M20.5 16l-4.8-4.8a1 1 0 0 0-1.42 0L8 17.5" />
+      <path d="M10 19H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M14 5h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
     </svg>
   );
 }
 
-function IconCode() {
+function IconBraces() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-5 w-5"
+      className="size-[18px]"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth={1.85}
     >
       <path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 4l-4 16" />
     </svg>
   );
 }
 
-function IconQuote() {
+function IconDividerDots() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-5 w-5"
+      className="size-[18px]"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth={2}
     >
-      <path d="M9 8H6.8A2.8 2.8 0 0 0 4 10.8V13a3 3 0 0 0 3 3h2v-5H6.5M20 8h-2.2A2.8 2.8 0 0 0 15 10.8V13a3 3 0 0 0 3 3h2v-5h-2.5" />
+      <circle cx="5" cy="12" r="1.25" />
+      <circle cx="12" cy="12" r="1.25" />
+      <circle cx="19" cy="12" r="1.25" />
     </svg>
   );
 }
 
-function IconList() {
+function ToolChip({ title: label, children, onClick }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
+    <button
+      type="button"
+      title={label}
+      onClick={onClick}
+      className="flex size-9 shrink-0 items-center justify-center rounded-full border bg-white text-[#1a8917] transition-colors hover:bg-[rgba(26,137,23,0.06)] dark:border-[rgba(74,222,128,0.35)] dark:bg-zinc-900 dark:text-green-400 dark:hover:bg-green-950/40"
+      style={{ borderColor: M.greenMuted }}
     >
-      <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
-    </svg>
+      {children}
+    </button>
   );
 }
 
-function IconClose() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  );
+function mapAudienceToVisibility(v) {
+  if (v === "unlisted") return "UNLISTED";
+  if (v === "members") return "MEMBERS_ONLY";
+  return "PUBLIC";
 }
 
 export default function WriteStory() {
-  // No account dropdown here — account actions are centralized in AppHeader
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const userInitial =
+    (
+      user?.first_name?.[0] ||
+      user?.last_name?.[0] ||
+      user?.user_name?.[0] ||
+      user?.email?.[0] ||
+      "U"
+    ).toUpperCase();
+
   const initialDraft = useMemo(() => {
     const defaults = {
       title: "",
@@ -125,7 +170,7 @@ export default function WriteStory() {
       visibility: "public",
       cover: null,
       body: "",
-      savedNote: "",
+      restoredAt: null,
     };
 
     try {
@@ -141,22 +186,23 @@ export default function WriteStory() {
         visibility: data.visibility || "public",
         cover: data.cover || null,
         body: data.body || "",
-        savedNote: data.lastSaved
-          ? `Restored ${new Date(data.lastSaved).toLocaleString()}`
-          : "Restored draft",
+        restoredAt:
+          typeof data.lastSaved === "number" ? data.lastSaved : null,
       };
     } catch {
       return defaults;
     }
   }, []);
 
-  const { user } = useAuth();
   const [title, setTitle] = useState(initialDraft.title);
   const [subtitle, setSubtitle] = useState(initialDraft.subtitle);
   const [tags, setTags] = useState(initialDraft.tags);
   const [visibility, setVisibility] = useState(initialDraft.visibility);
+  /** Data URL preview (local autosave); optional uploaded file below. */
   const [cover, setCover] = useState(initialDraft.cover);
-  const [savedNote, setSavedNote] = useState(initialDraft.savedNote);
+  const [coverFile, setCoverFile] = useState(null);
+  const [contentKind, setContentKind] = useState("WEBLOG");
+  const [savedNote, setSavedNote] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewHTML, setPreviewHTML] = useState("");
   const [isBodyEmpty, setIsBodyEmpty] = useState(
@@ -168,12 +214,56 @@ export default function WriteStory() {
   const titleRef = useRef(null);
   const saveTimeoutRef = useRef(null);
 
+  const createJson = useCreateArticle({
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      const nextId = data?.id ?? data?.articleId;
+      if (nextId) navigate(`/story/${nextId}`);
+    },
+    showSuccessToast: true,
+    toastSuccess: t("writerStory.success.published"),
+  });
+
+  const createMultipart = useCreateArticleWithFiles({
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      const nextId = data?.id ?? data?.articleId;
+      if (nextId) navigate(`/story/${nextId}`);
+    },
+    showSuccessToast: true,
+    toastSuccess: t("writerStory.success.published"),
+  });
+
+  const saveDraft = useCreateDraftArticle({
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      const nextId = data?.id ?? data?.articleId;
+      if (nextId) {
+        gooeyToast.success(t("writerStory.success.draftWithId", { id: nextId }));
+      }
+    },
+    showSuccessToast: false,
+  });
+
+  const submitBusy =
+    createJson.isPending || createMultipart.isPending || saveDraft.isPending;
+
   useEffect(() => {
     titleRef.current?.focus();
   }, []);
 
   useEffect(() => {
-    // contentEditable is not React-controlled; restore it imperatively.
+    if (!initialDraft.restoredAt) return;
+    setSavedNote(
+      t("writerStory.autosave.restoredAt", {
+        time: new Date(initialDraft.restoredAt).toLocaleString(),
+      }),
+    );
+    const tid = window.setTimeout(() => setSavedNote(""), 5200);
+    return () => window.clearTimeout(tid);
+  }, [initialDraft.restoredAt, t]);
+
+  useEffect(() => {
     if (!editorRef.current) return;
     editorRef.current.innerHTML = initialDraft.body || "";
   }, [initialDraft.body]);
@@ -193,7 +283,7 @@ export default function WriteStory() {
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    setSavedNote("Draft saved");
+    setSavedNote(t("writerStory.autosave.localSaved"));
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -201,8 +291,8 @@ export default function WriteStory() {
 
     saveTimeoutRef.current = setTimeout(() => {
       setSavedNote("");
-    }, 1800);
-  }, [cover, subtitle, tags, title, visibility]);
+    }, 2000);
+  }, [cover, subtitle, tags, title, visibility, t]);
 
   useEffect(() => {
     const intervalId = setInterval(autosave, 5000);
@@ -219,26 +309,36 @@ export default function WriteStory() {
     editorRef.current?.focus();
   };
 
-  const insertImageFile = (file) => {
-    if (!file || !file.type.startsWith("image/")) return;
+  const appendOrInsert = useCallback((el) => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    insertAtCaret(ed, el);
+    autosave();
+  }, [autosave]);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const wrapper = document.createElement("figure");
-      wrapper.className = "my-8 text-center";
+  const insertImageFile = useCallback(
+    (file) => {
+      if (!file || !file.type.startsWith("image/")) return;
 
-      const img = document.createElement("img");
-      img.src = event.target?.result;
-      img.alt = file.name || "story media";
-      img.className =
-        "mx-auto max-w-full rounded-lg border border-default dark:border-dark-default";
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const wrapper = document.createElement("figure");
+        wrapper.className =
+          "my-8 flex flex-col items-center text-center max-w-full";
 
-      wrapper.appendChild(img);
-      editorRef.current?.appendChild(wrapper);
-      autosave();
-    };
-    reader.readAsDataURL(file);
-  };
+        const img = document.createElement("img");
+        img.src = event.target?.result || "";
+        img.alt = file.name || "Story image";
+        img.className =
+          "mx-auto max-h-[min(70vh,520px)] max-w-full rounded-sm object-contain";
+
+        wrapper.appendChild(img);
+        appendOrInsert(wrapper);
+      };
+      reader.readAsDataURL(file);
+    },
+    [appendOrInsert],
+  );
 
   const handleDrop = (event) => {
     event.preventDefault();
@@ -256,94 +356,211 @@ export default function WriteStory() {
     event.preventDefault();
   };
 
-  const handleInsert = (type) => {
-    if (type === "divider") {
-      const divider = document.createElement("hr");
-      divider.className =
-        "my-8 border-t border-default dark:border-dark-default";
-      editorRef.current?.appendChild(divider);
-      editorRef.current?.focus();
-      autosave();
-      return;
-    }
+  const handleInsert = useCallback(
+    (type) => {
+      const ed = editorRef.current;
 
-    if (type === "image" || type === "gallery") {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.multiple = type === "gallery";
-      input.onchange = (event) => {
-        const files = Array.from(event.target.files || []);
-        files.forEach(insertImageFile);
-      };
-      input.click();
-      return;
-    }
-
-    if (type === "video") {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "video/*";
-      input.onchange = (event) => {
-        const file = event.target.files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (loadEvent) => {
-            const video = document.createElement("video");
-            video.src = loadEvent.target?.result;
-            video.controls = true;
-            video.className =
-              "mx-auto max-w-full rounded-lg border border-default dark:border-dark-default my-8";
-            video.style.maxHeight = "400px";
-            editorRef.current?.appendChild(video);
-            autosave();
-          };
-          reader.readAsDataURL(file);
-        }
-      };
-      input.click();
-      return;
-    }
-
-    if (type === "embed") {
-      const url = prompt("Enter embed URL (e.g., YouTube, Twitter, etc.):");
-      if (url) {
-        const embed = document.createElement("div");
-        embed.className = "my-8 text-center";
-        embed.innerHTML = `<iframe src="${url}" width="100%" height="400" frameborder="0" allowfullscreen></iframe>`;
-        editorRef.current?.appendChild(embed);
-        autosave();
+      if (type === "divider") {
+        const divider = document.createElement("hr");
+        divider.className =
+          "my-10 border-0 border-t border-neutral-200 dark:border-neutral-700";
+        appendOrInsert(divider);
+        return;
       }
-      return;
-    }
 
-    if (type === "code") {
-      exec("formatBlock", "PRE");
-      return;
-    }
+      if (type === "image" || type === "gallery") {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.multiple = type === "gallery";
+        input.onchange = (event) => {
+          const files = Array.from(event.target.files || []);
+          files.forEach(insertImageFile);
+        };
+        input.click();
+        return;
+      }
 
-    if (type === "quote") {
-      exec("formatBlock", "BLOCKQUOTE");
-      return;
-    }
+      if (type === "stock") {
+        const term =
+          typeof window !== "undefined"
+            ? window.prompt("Stock image keyword (demo uses placeholder):", "")
+            : "";
+        if (!term?.trim()) return;
+        const seed = encodeURIComponent(term.trim().slice(0, 40));
+        const wrapper = document.createElement("figure");
+        wrapper.className = "my-8 flex flex-col items-center max-w-full";
+        const img = document.createElement("img");
+        img.src = `https://picsum.photos/seed/${seed}/920/560`;
+        img.alt = term;
+        img.loading = "lazy";
+        img.className =
+          "mx-auto max-h-[min(70vh,520px)] max-w-full rounded-sm object-cover";
+        wrapper.appendChild(img);
+        const cap = document.createElement("figcaption");
+        cap.className =
+          "mt-2 font-blog-serif text-sm text-muted dark:text-dark-muted";
+        cap.textContent = `Photo · ${term.trim()}`;
+        wrapper.appendChild(cap);
+        appendOrInsert(wrapper);
+        return;
+      }
 
-    if (type === "list") {
-      exec("insertUnorderedList");
-    }
-  };
+      if (type === "video") {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "video/*";
+        input.onchange = (event) => {
+          const file = event.target.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => {
+              const video = document.createElement("video");
+              video.src = loadEvent.target?.result || "";
+              video.controls = true;
+              video.className =
+                "mx-auto my-8 max-h-[420px] w-full max-w-full rounded-sm border border-neutral-200 object-contain dark:border-neutral-700";
+              appendOrInsert(video);
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+        input.click();
+        return;
+      }
+
+      if (type === "embed") {
+        const url =
+          typeof window !== "undefined"
+            ? window.prompt(
+                "Embed URL (many sites allow iframe previews):",
+                "https://",
+              )
+            : "";
+        if (!url?.trim()) return;
+        const embed = document.createElement("div");
+        embed.className = "my-8 w-full overflow-hidden rounded-sm bg-neutral-50 dark:bg-zinc-900";
+        embed.innerHTML = `<iframe src="${encodeURI(url.trim())}" class="aspect-video min-h-[240px] w-full" title="Embedded content" referrerpolicy="no-referrer" loading="lazy" />`;
+        appendOrInsert(embed);
+        return;
+      }
+
+      if (type === "code") {
+        ed?.focus();
+        exec("formatBlock", "PRE");
+        return;
+      }
+
+      if (type === "quote") {
+        ed?.focus();
+        exec("formatBlock", "BLOCKQUOTE");
+      }
+    },
+    [appendOrInsert, exec, insertImageFile],
+  );
 
   const handleCover = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    setCoverFile(file);
 
     const reader = new FileReader();
     reader.onload = (loadEvent) => setCover(loadEvent.target?.result || null);
     reader.readAsDataURL(file);
   };
 
+  const canPublish =
+    Boolean(title.trim()) &&
+    !isBodyEmpty &&
+    Boolean((editorRef.current?.innerText || "").trim()) &&
+    Boolean(user?.id);
+
+  const buildArticlePayload = () => {
+    const tagsArr = tags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    let blocks = htmlToArticleBlocks(editorRef.current);
+    if (!blocks.length) {
+      blocks = [
+        {
+          type: "TEXT",
+          order: 0,
+          data: { text: (editorRef.current?.innerText || "").trim() || " " },
+        },
+      ];
+    }
+    const subtitleStr = subtitle.trim();
+    const desc = subtitleStr || (tagsArr.length ? tagsArr.join(", ") : undefined);
+    return {
+      title: title.trim(),
+      subtitle: subtitleStr || undefined,
+      description: desc,
+      blocks,
+      tags: tagsArr.length ? tagsArr : [],
+      keywords: tagsArr.length ? tagsArr : undefined,
+      visibility: mapAudienceToVisibility(visibility),
+      contentType: contentKind === "MONOGRAPH" ? "MONOGRAPH" : "WEBLOG",
+      coverImageUrl:
+        typeof cover === "string" && cover.startsWith("http") ? cover : undefined,
+    };
+  };
+
   const handlePublish = () => {
+    if (!user?.id) {
+      gooeyToast.error(t("writerStory.error.signInRequired"));
+      return;
+    }
     autosave();
-    alert("Publish clicked. Connect your API here to send the story.");
+
+    const base = buildArticlePayload();
+
+    if (coverFile instanceof File) {
+      const fd = new FormData();
+      fd.append("title", base.title);
+      if (base.description != null && base.description !== "")
+        fd.append("description", String(base.description));
+      fd.append("blocks", JSON.stringify(base.blocks ?? []));
+      fd.append(
+        "tags",
+        Array.isArray(base.tags) ? base.tags.join(",") : String(base.tags ?? ""),
+      );
+      fd.append("visibility", String(base.visibility ?? "PUBLIC"));
+      fd.append(
+        "contentType",
+        base.contentType === "MONOGRAPH" ? "MONOGRAPH" : "WEBLOG",
+      );
+      if (base.subtitle) fd.append("subtitle", base.subtitle);
+      fd.append("coverImage", coverFile);
+      createMultipart.mutate({
+        authorUserId: user.id,
+        formData: fd,
+      });
+      return;
+    }
+
+    createJson.mutate({ userId: user.id, ...base });
+  };
+
+  const handleSaveDraft = () => {
+    if (!user?.id) {
+      gooeyToast.error(t("writerStory.error.signInRequired"));
+      return;
+    }
+    if (!title.trim()) {
+      gooeyToast.error(t("writerStory.error.titleRequired"));
+      return;
+    }
+
+    autosave();
+
+    const base = buildArticlePayload();
+
+    if (coverFile instanceof File) {
+      gooeyToast.success(t("writerStory.warning.draftCoverDeferred"));
+    }
+
+    saveDraft.mutate({ userId: user.id, ...base });
   };
 
   const handlePreview = () => {
@@ -352,333 +569,323 @@ export default function WriteStory() {
     setPreviewOpen(true);
   };
 
+  const closeToolbarAnd = (fn) => {
+    fn();
+    setToolbarOpen(false);
+  };
+
   return (
-    <div className="w-full mx-auto bg-shell dark:bg-dark-shell">
-      <header className="sticky px-3 w-full top-14 z-10 flex items-center justify-between gap-4 mb-6 py-3 bg-shell/80 dark:bg-dark-shell/80 backdrop-blur border-b border-default dark:border-dark-default">
-        <div className="flex items-center gap-3">
+    <div className="min-h-full bg-white pb-28 text-neutral-900 dark:bg-zinc-950 dark:text-neutral-50">
+      <header
+        className="sticky top-0 z-20 flex h-[52px] items-center justify-between gap-4 border-b border-neutral-200/90 bg-white/90 px-4 backdrop-blur-md dark:border-neutral-800 dark:bg-zinc-950/90 sm:px-6"
+      >
+        <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/"
-            className="text-xl font-bold tracking-tight hover:opacity-90"
-          ></Link>
-          <span className="text-sm font-medium text-muted-foreground">
-            Draft
+            className="font-blog-display truncate text-xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50"
+          >
+            Campus
+          </Link>
+          <span className="hidden text-sm text-neutral-400 sm:inline dark:text-neutral-500">
+            {t("writerStory.meta.draft")}
           </span>
+          {savedNote ? (
+            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              {savedNote}
+            </span>
+          ) : null}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-2">
-            <WriterBadge>{savedNote || "Start writing freely"}</WriterBadge>
-          </div>
-
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <button
             type="button"
-            onClick={handlePreview}
-            className="rounded-md border border-default dark:border-dark-default px-3 py-1.5 text-sm font-medium text-secondary dark:text-dark-secondary hover:bg-app dark:hover:bg-dark-app transition-colors"
-          >
-            Preview
-          </button>
-
-          <button
-            type="button"
+            disabled={!canPublish || submitBusy}
             onClick={handlePublish}
-            className="rounded-md bg-success cursor-pointer  text-white px-4 py-1.5 text-sm font-semibold hover:opacity-90 transition-opacity"
+            className="rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-35"
+            style={{ backgroundColor: M.green }}
           >
-            Publish
+            {submitBusy && (createJson.isPending || createMultipart.isPending)
+              ? t("writerStory.publishing")
+              : t("writerStory.publish")}
           </button>
+
+          <DropdownMenuRoot modal={false}>
+            <DropdownTrigger
+              compactIcon
+              showArrow={false}
+              className="!size-9 rounded-full border-0 bg-transparent hover:bg-neutral-100 dark:hover:bg-zinc-800"
+              aria-label={t("writerStory.menu.more")}
+            >
+              <MoreHorizontal className="size-[18px] text-neutral-600 dark:text-neutral-400" />
+            </DropdownTrigger>
+            <DropdownContent align="end" className="min-w-[220px]">
+              <DropdownItem
+                icon={<Eye className="size-4" />}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handlePreview();
+                }}
+              >
+                {t("writerStory.menu.preview")}
+              </DropdownItem>
+              <DropdownItem
+                disabled={submitBusy || !user?.id}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  handleSaveDraft();
+                }}
+              >
+                {t("writerStory.menu.saveDraft")}
+              </DropdownItem>
+              <DropdownSeparator />
+              <div
+                className="flex flex-col gap-2 px-2 py-2"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <Link
+                  to="/"
+                  className="rounded-md px-2 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-zinc-800"
+                >
+                  {t("writerStory.menu.backHome")}
+                </Link>
+              </div>
+              <DropdownSeparator />
+              <div
+                className="max-h-[260px] space-y-2 overflow-auto px-2 py-2"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <label className="text-[11px] font-semibold uppercase text-neutral-400 dark:text-neutral-500">
+                  {t("writerStory.fields.subtitle")}
+                </label>
+                <textarea
+                  value={subtitle}
+                  onChange={(e) => setSubtitle(e.target.value)}
+                  rows={2}
+                  placeholder={t("writerStory.placeholders.subtitle")}
+                  className="mb-3 w-full resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-400 dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-500"
+                />
+                <label className="text-[11px] font-semibold uppercase text-neutral-400 dark:text-neutral-500">
+                  {t("writerStory.fields.tags")}
+                </label>
+                <input
+                  type="text"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  className="mb-3 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none placeholder:text-neutral-400 dark:border-zinc-700 dark:bg-zinc-900"
+                  placeholder={t("writerStory.placeholders.tags")}
+                />
+                <Select
+                  label={t("writerStory.fields.audience")}
+                  value={visibility}
+                  onChange={(val) => setVisibility(val)}
+                  options={[
+                    { value: "public", label: t("writerStory.audience.public") },
+                    {
+                      value: "unlisted",
+                      label: t("writerStory.audience.unlisted"),
+                    },
+                    {
+                      value: "members",
+                      label: t("writerStory.audience.members"),
+                    },
+                  ]}
+                  className="mb-3"
+                />
+                <Select
+                  label={t("writerStory.fields.format")}
+                  value={contentKind}
+                  onChange={(val) => setContentKind(val)}
+                  options={[
+                    {
+                      value: "WEBLOG",
+                      label: t("writerStory.format.weblog"),
+                    },
+                    {
+                      value: "MONOGRAPH",
+                      label: t("writerStory.format.monograph"),
+                    },
+                  ]}
+                  className="mb-3"
+                />
+                <label
+                  htmlFor="writer-cover-v2"
+                  className="block cursor-pointer rounded-lg border border-dashed border-neutral-300 px-3 py-2 text-center text-xs font-medium text-neutral-600 transition-colors hover:border-[#1a8917]/50 hover:bg-[rgba(26,137,23,0.04)] dark:border-zinc-600 dark:text-neutral-400"
+                >
+                  {cover
+                    ? t("writerStory.cover.replace")
+                    : t("writerStory.cover.add")}
+                </label>
+                <input
+                  id="writer-cover-v2"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCover}
+                  className="hidden"
+                />
+              </div>
+            </DropdownContent>
+          </DropdownMenuRoot>
+
+          <button
+            type="button"
+            title={t("writerStory.notificationsBell")}
+            className="flex size-9 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-zinc-800"
+          >
+            <Bell className="size-[18px]" strokeWidth={1.85} />
+          </button>
+
+          <div className="ms-1 flex size-8 items-center justify-center rounded-full bg-amber-800 text-xs font-semibold uppercase text-white shadow-inner dark:bg-amber-900">
+            {userInitial}
+          </div>
         </div>
       </header>
 
-      <main className="flex lg:px-8 lg:py-8 flex-col gap-6 w-full   mx-auto">
-        {/* Settings Bar */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+      <main className="mx-auto w-full max-w-[680px] px-6 sm:px-10">
+        <div className="pt-14 sm:pt-16">
           <input
-            value={tags}
-            onChange={(event) => setTags(event.target.value)}
-            className="w-full sm:w-72 bg-transparent border border-default dark:border-dark-default rounded-md px-4 py-2 text-sm text-secondary dark:text-dark-secondary placeholder:text-muted-foreground dark:placeholder:text-dark-muted outline-none"
-            placeholder="Add tags"
-          />
-
-          <div className="w-44">
-            <Select
-              value={visibility}
-              onChange={(val) => setVisibility(val)}
-              options={[
-                { value: "public", label: "Public" },
-                { value: "unlisted", label: "Unlisted" },
-                { value: "members", label: "Members only" },
-              ]}
-            />
-          </div>
-
-          <label
-            htmlFor="writer-cover"
-            className="rounded-md border border-default dark:border-dark-default px-4 py-2 text-sm font-medium text-secondary dark:text-dark-secondary hover:bg-app dark:hover:bg-dark-app transition-colors cursor-pointer text-center"
-          >
-            Cover image
-          </label>
-          <input
-            id="writer-cover"
-            type="file"
-            accept="image/*"
-            onChange={handleCover}
-            className="hidden"
+            ref={titleRef}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={t("writerStory.placeholders.title")}
+            className="font-blog-display w-full border-0 bg-transparent px-0 py-2 text-[2.625rem] font-bold leading-[1.06] tracking-tight text-neutral-900 outline-none placeholder:text-neutral-400 sm:text-[2.875rem] dark:text-neutral-50 dark:placeholder:text-zinc-500"
           />
         </div>
 
-        {/* Cover Preview */}
+        <div className="mt-2">
+          <input
+            value={subtitle}
+            onChange={(e) => setSubtitle(e.target.value)}
+            placeholder={t("writerStory.placeholders.optionalSubtitle")}
+            className="font-blog-serif w-full border-0 bg-transparent px-0 py-1 text-[1.2rem] font-normal italic leading-snug text-neutral-600 outline-none placeholder:text-neutral-400 sm:text-xl dark:text-zinc-400 dark:placeholder:text-zinc-500"
+          />
+        </div>
+
         {cover && (
-          <figure className="w-full h-56 overflow-hidden rounded-xl border border-default dark:border-dark-default">
+          <figure className="mt-10 overflow-hidden rounded-sm border border-neutral-200 dark:border-neutral-800">
             <img
               src={cover}
-              alt="Selected cover"
-              className="w-full h-full object-cover"
+              alt=""
+              className="max-h-[min(420px,50vh)] w-full object-cover"
             />
           </figure>
         )}
 
-        {/* Title and Subtitle */}
-        <div>
-          <input
-            ref={titleRef}
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Title"
-            className="w-full bg-transparent border-0 outline-none text-4xl md:text-5xl font-bold font-serif text-primary dark:text-dark-primary placeholder:text-muted-foreground"
-          />
-
-          <input
-            value={subtitle}
-            onChange={(event) => setSubtitle(event.target.value)}
-            placeholder="Tell your story..."
-            className="mt-3 w-full bg-transparent border-0 outline-none text-lg md:text-xl text-muted-foreground placeholder:text-muted-foreground focus:outline-none"
-          />
+        <div className={`mt-10 flex flex-wrap items-center gap-2 ${cover ? "" : ""}`}>
+          {toolbarOpen ? (
+            <>
+              <ToolChip
+                title="Close menu"
+                onClick={() => setToolbarOpen(false)}
+              >
+                <X className="size-[18px]" strokeWidth={2.2} />
+              </ToolChip>
+              <ToolChip
+                title="Insert image"
+                onClick={() => closeToolbarAnd(() => handleInsert("image"))}
+              >
+                <ImageIcon className="size-[18px]" strokeWidth={1.85} />
+              </ToolChip>
+              <ToolChip
+                title="Stock-style image (demo)"
+                onClick={() => closeToolbarAnd(() => handleInsert("stock"))}
+              >
+                <Search className="size-[18px]" strokeWidth={1.85} />
+              </ToolChip>
+              <ToolChip
+                title="Insert video"
+                onClick={() => closeToolbarAnd(() => handleInsert("video"))}
+              >
+                <Play className="size-[18px]" strokeWidth={1.85} />
+              </ToolChip>
+              <ToolChip
+                title="Embed iframe"
+                onClick={() => closeToolbarAnd(() => handleInsert("embed"))}
+              >
+                <IconEmbed />
+              </ToolChip>
+              <ToolChip
+                title="Code block"
+                onClick={() => closeToolbarAnd(() => handleInsert("code"))}
+              >
+                <IconBraces />
+              </ToolChip>
+              <ToolChip
+                title="Section divider"
+                onClick={() => closeToolbarAnd(() => handleInsert("divider"))}
+              >
+                <IconDividerDots />
+              </ToolChip>
+            </>
+          ) : (
+            <ToolChip title="Rich media" onClick={() => setToolbarOpen(true)}>
+              <IconPlus />
+            </ToolChip>
+          )}
         </div>
 
-        {/* Editor Content with Inline Toolbar */}
-        <div className="flex gap-2">
-          {/* Toolbar */}
-          <div className="flex flex-col items-center">
-            <button
-              type="button"
-              onClick={() => setToolbarOpen(!toolbarOpen)}
-              className={`h-9 w-9 rounded-full border-2 flex items-center justify-center transition-all ${
-                toolbarOpen
-                  ? "border-accent bg-accent/10 dark:bg-accent-light/10"
-                  : "border-default dark:border-dark-default hover:border-accent"
-              }`}
-            >
-              {toolbarOpen ? (
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5 stroke-accent dark:stroke-accent-light"
-                  fill="none"
-                  strokeWidth="2"
-                >
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              ) : (
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5 stroke-secondary dark:stroke-dark-secondary"
-                  fill="none"
-                  strokeWidth="2"
-                >
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-              )}
-            </button>
-
-            {/* Expanded Toolbar */}
-            {toolbarOpen && (
-              <div className="flex flex-col gap-2 mt-2 py-2 px-1 border-l-2 border-accent">
-                <WriterIcon
-                  title="Add image"
-                  onClick={() => {
-                    handleInsert("image");
-                    setToolbarOpen(false);
-                  }}
-                >
-                  <IconImage />
-                </WriterIcon>
-                <WriterIcon
-                  title="Add gallery"
-                  onClick={() => {
-                    handleInsert("gallery");
-                    setToolbarOpen(false);
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <rect x="2" y="3" width="20" height="18" rx="2" />
-                    <path d="M8 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    <path d="M21 15l-5-5L7 22" />
-                  </svg>
-                </WriterIcon>
-                <WriterIcon
-                  title="Add video"
-                  onClick={() => {
-                    handleInsert("video");
-                    setToolbarOpen(false);
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M23 7l-7 5 7 5V7z" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                  </svg>
-                </WriterIcon>
-                <WriterIcon
-                  title="Add code"
-                  onClick={() => {
-                    handleInsert("code");
-                    setToolbarOpen(false);
-                  }}
-                >
-                  <IconCode />
-                </WriterIcon>
-                <WriterIcon
-                  title="Add embed"
-                  onClick={() => {
-                    handleInsert("embed");
-                    setToolbarOpen(false);
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M10 19H5c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2h4M14 5h5c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2h-4" />
-                  </svg>
-                </WriterIcon>
-                <WriterIcon
-                  title="Add quote"
-                  onClick={() => {
-                    handleInsert("quote");
-                    setToolbarOpen(false);
-                  }}
-                >
-                  <IconQuote />
-                </WriterIcon>
-                <WriterIcon
-                  title="Insert divider"
-                  onClick={() => {
-                    handleInsert("divider");
-                    setToolbarOpen(false);
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M4 12h16" />
-                  </svg>
-                </WriterIcon>
-              </div>
-            )}
-          </div>
-
-          {/* Editor Content */}
-          <div className="flex-1">
-            <div className="relative">
-              {isBodyEmpty && (
-                <div className="pointer-events-none absolute left-0 top-2 text-muted-foreground">
-                  Tell your story...
-                </div>
-              )}
-              <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onDrop={handleDrop}
-                onPaste={handlePaste}
-                onInput={(e) =>
-                  setIsBodyEmpty(!e.currentTarget.innerText.trim())
-                }
-                className="w-full rounded-lg border border-default dark:border-dark-default bg-input dark:bg-dark-input p-6 font-serif text-lg leading-relaxed outline-none focus:border-accent dark:focus:border-dark-accent"
-              />
+        <div className="relative mt-8 min-h-[50vh]">
+          {isBodyEmpty && (
+            <div className="pointer-events-none absolute left-0 top-1 select-none font-blog-serif text-xl font-normal leading-[1.8] text-neutral-400 dark:text-zinc-500">
+              {t("writerStory.bodyPlaceholder")}
             </div>
-          </div>
-        </div>
-
-        {/* Save and Footer */}
-        <div className="mt-8 pt-6 border-t border-default dark:border-dark-default flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <span className="text-sm text-muted-foreground">
-            {savedNote || "Your draft autosaves every 5 seconds."}
-          </span>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={autosave}
-              className="rounded-full border border-default dark:border-dark-default px-4 py-2 text-sm font-medium text-secondary dark:text-dark-secondary hover:bg-app dark:hover:bg-dark-app transition-colors"
-            >
-              Save draft
-            </button>
-            <Link
-              to="/"
-              className="rounded-full border border-default dark:border-dark-default px-4 py-2 text-sm font-medium text-secondary dark:text-dark-secondary hover:bg-app dark:hover:bg-dark-app transition-colors"
-            >
-              Leave editor
-            </Link>
-          </div>
+          )}
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            spellCheck
+            onDrop={handleDrop}
+            onPaste={handlePaste}
+            onInput={(e) =>
+              setIsBodyEmpty(!e.currentTarget.innerText.trim())
+            }
+            className="font-blog-serif relative z-[1] min-h-[50vh] w-full border-0 bg-transparent pb-24 text-xl leading-[1.8] text-neutral-900 outline-none empty:before:text-neutral-400 focus:outline-none dark:text-neutral-100"
+          />
         </div>
       </main>
 
       {previewOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 md:p-6 overflow-auto">
-          <div className="bg-card dark:bg-dark-card border border-default dark:border-dark-default rounded-xl shadow-lg w-full max-w-3xl mt-16 p-4 md:p-6">
-            <div className="flex items-center justify-between mb-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/50 p-4 md:p-8">
+          <div className="mt-12 w-full max-w-3xl rounded-xl border border-neutral-200 bg-white p-6 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Preview
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-zinc-500">
+                  {t("writerStory.preview.badge")}
                 </p>
-                <h2 className="text-2xl md:text-3xl font-semibold">
-                  {title || "Untitled story"}
+                <h2 className="font-blog-display mt-1 text-2xl font-bold text-neutral-900 dark:text-neutral-50 md:text-3xl">
+                  {title || t("writerStory.preview.untitled")}
                 </h2>
               </div>
-
-              <WriterIcon
-                title="Close preview"
+              <button
+                type="button"
                 onClick={() => setPreviewOpen(false)}
-                variant="filled"
+                className="rounded-full p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-zinc-800"
+                aria-label={t("writerStory.preview.closeAria")}
               >
-                <IconClose />
-              </WriterIcon>
+                <X className="size-5" />
+              </button>
             </div>
 
             {cover && (
               <img
                 src={cover}
-                alt="Story cover preview"
-                className="w-full h-56 object-cover rounded-lg border border-default dark:border-dark-default mb-4"
+                alt=""
+                className="mb-5 max-h-56 w-full rounded-lg object-cover"
               />
             )}
 
             {subtitle && (
-              <p className="text-base text-muted-foreground mt-2">{subtitle}</p>
+              <p className="font-blog-serif text-lg text-neutral-600 dark:text-zinc-400">
+                {subtitle}
+              </p>
             )}
 
             <article
-              className="prose max-w-none font-serif text-muted-foreground dark:text-dark-muted mt-4"
+              className="blog-article-prose mt-6 text-neutral-900 dark:text-neutral-100"
               dangerouslySetInnerHTML={{
                 __html:
-                  previewHTML || "<p>Start typing to preview your story.</p>",
+                  previewHTML ||
+                  `<p>${t("writerStory.preview.emptyBody")}</p>`,
               }}
             />
           </div>

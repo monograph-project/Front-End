@@ -1,12 +1,15 @@
 import { GooeyToaster } from "goey-toast";
 import "goey-toast/styles.css";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import ProtectedRoute from "./components/ProtectedRoute";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
+import GuestRoute from "./routes/GuestRoute";
+import ProtectedRoute from "./routes/ProtectedRoute";
 import { ThemeProvider } from "./context/themContext";
 import Applayout from "./layout/AppLayout";
+import { StudentActivityProvider } from "./context/StudentActivityContext";
 import AppSidebar from "./layout/AppSideBar";
-import Sidebar from "./layout/Sidebar";
+import PublicWebsiteLayout from "./layout/PublicWebsiteLayout";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import Signup from "./pages/Signup";
 import Unauthorized from "./pages/Unauthorized";
@@ -27,45 +30,90 @@ import Department from "./pages/admin/Departments";
 import Blog from "./pages/admin/Blogs";
 import BlogDetailPage from "./pages/admin/BlogDetailPage";
 import Setting from "./pages/admin/Setting";
-import StudentProjects from "./pages/student/Projects";
-import StudentRepositories from "./pages/student/Repositories";
-import StudentTasks from "./pages/student/Tasks";
-import StudentContributors from "./pages/student/Contributors";
+import StudentDashboard from "./pages/student/Dashboard";
+import StudentWorkspace from "./pages/student/StudentWorkspace";
+import StudentNewRepository from "./pages/student/StudentNewRepository";
+import StudentSettings from "./pages/student/Settings";
 import StudentNotifications from "./pages/student/Notifications";
-import StudentDashboard from "./pages/admin/Dashboard";
+import StudentRepositoryLayout from "./pages/student/StudentRepositoryLayout";
+import StudentRepoCode from "./pages/student/StudentRepoCode";
+import StudentRepoPullRequests from "./pages/student/StudentRepoPullRequests";
+import StudentRepoTasks from "./pages/student/StudentRepoTasks";
+import StudentRepoContributors from "./pages/student/StudentRepoContributors";
 import Home from "./pages/blog/Home";
 import UserProfile from "./pages/admin/Profile";
 import NotificationDetail from "./pages/admin/NotificationDetail";
 import StudentProfile from "./pages/admin/StudentProfile";
+import StudentRegisterPage from "./pages/admin/StudentRegisterPage";
+import StudentEditPage from "./pages/admin/StudentEditPage";
+import TeacherRegisterPage from "./pages/admin/TeacherRegisterPage";
+import TeacherEditPage from "./pages/admin/TeacherEditPage";
+import EmployeeRegisterPage from "./pages/admin/EmployeeRegisterPage";
+import EmployeeEditPage from "./pages/admin/EmployeeEditPage";
 import TeacherProfile from "./pages/admin/TeacherProfile";
 import EmployeeProfile from "./pages/admin/EmployeeProfile";
 import DepartmentProfile from "./pages/admin/DepartmentProfile";
 import ProjectWorkspace from "./pages/admin/ProjectWorkspace";
+import ProjectRegistrationPage from "./pages/admin/ProjectRegistrationPage";
+import GroupRegistrationPage from "./pages/admin/GroupRegistrationPage";
+import About from "./pages/public/About";
+import Download from "./pages/public/Download";
+import Documentation from "./pages/public/Documentation";
+import AuthorDashboard from "./pages/author/AuthorDashboard";
+import AuthorPublished from "./pages/author/AuthorPublished";
+import AuthorNotifications from "./pages/author/AuthorNotifications";
+import { PUBLIC_SITE_MEMBER_ROLES } from "./auth/appRoles";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
     <ThemeProvider>
       <BrowserRouter>
         <Routes>
-          {/* Medium-style public surface — everyone can read/write stories here */}
-          <Route
-            path="/"
-            element={
-              <Applayout>
-                <Sidebar />
-              </Applayout>
-            }
-          >
+          {/* Public blog / stories — dedicated marketing header; read anonymously, write when signed in */}
+          <Route element={<PublicWebsiteLayout />}>
             <Route index element={<Home />} />
-            <Route path="write" element={<WriteStory />} />
-            <Route path="library" element={<ReaderLibrary />} />
             <Route path="topic/:topic" element={<TopicFeed />} />
             <Route path="story/:id" element={<StoryDetailPage />} />
-            <Route path="/writer/profile" element={<Profile />} />
+            <Route path="about" element={<About />} />
+            <Route path="download" element={<Download />} />
+            <Route path="documentation" element={<Documentation />} />
+            <Route
+              element={
+                <ProtectedRoute allowedRoles={[...PUBLIC_SITE_MEMBER_ROLES]}>
+                  <Outlet />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="write" element={<WriteStory />} />
+              <Route path="library" element={<ReaderLibrary />} />
+              <Route path="writer/profile" element={<Profile />} />
+            </Route>
           </Route>
 
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route
+            path="/login"
+            element={
+              <GuestRoute>
+                <Login />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <GuestRoute>
+                <Signup />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <GuestRoute>
+                <ForgotPassword />
+              </GuestRoute>
+            }
+          />
 
           <Route
             path="/admin"
@@ -81,10 +129,16 @@ export default function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="users" element={<Users />} />
             <Route path="users/:id" element={<UserProfile />} />
+            <Route path="student/new" element={<StudentRegisterPage />} />
+            <Route path="student/:id/edit" element={<StudentEditPage />} />
             <Route path="student" element={<Student />} />
             <Route path="student/:id" element={<StudentProfile />} />
+            <Route path="teacher/new" element={<TeacherRegisterPage />} />
+            <Route path="teacher/:id/edit" element={<TeacherEditPage />} />
             <Route path="teacher/:id" element={<TeacherProfile />} />
             <Route path="teacher" element={<Teacher />} />
+            <Route path="employee/new" element={<EmployeeRegisterPage />} />
+            <Route path="employee/:id/edit" element={<EmployeeEditPage />} />
             <Route path="employee" element={<Employee />} />
             <Route path="employee/:id" element={<EmployeeProfile />} />
             <Route path="notification" element={<Notification />} />
@@ -92,7 +146,26 @@ export default function App() {
             <Route path="department" element={<Department />} />
             <Route path="department/:id" element={<DepartmentProfile />} />
             <Route path="projects" element={<Projects />} />
-            <Route path="projects/:id" element={<ProjectWorkspace />} />
+            <Route
+              path="projects/register"
+              element={<ProjectRegistrationPage />}
+            />
+            <Route
+              path="projects/register/:id"
+              element={<ProjectRegistrationPage />}
+            />
+            <Route
+              path="projects/groups/register"
+              element={<GroupRegistrationPage />}
+            />
+            <Route
+              path="projects/groups/register/:id"
+              element={<GroupRegistrationPage />}
+            />
+            <Route
+              path="projects/:owner/:repo"
+              element={<ProjectWorkspace />}
+            />
             <Route path="blogs" element={<Blog />} />
             <Route path="blogs/:id" element={<BlogDetailPage />} />
             <Route path="setting" element={<Setting />} />
@@ -117,26 +190,42 @@ export default function App() {
             path="/student"
             element={
               <ProtectedRoute allowedRoles={["student"]}>
-                <Applayout>
-                  <AppSidebar />
-                </Applayout>
+                <StudentActivityProvider>
+                  <Applayout>
+                    <AppSidebar />
+                  </Applayout>
+                </StudentActivityProvider>
               </ProtectedRoute>
             }
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<StudentDashboard />} />
-            <Route path="projects" element={<StudentProjects />} />
-            <Route path="repositories" element={<StudentRepositories />} />
-            <Route path="tasks" element={<StudentTasks />} />
-            <Route path="contributors" element={<StudentContributors />} />
+            <Route path="projects" element={<Navigate to="workspace" replace />} />
+            <Route path="repositories" element={<Navigate to="workspace" replace />} />
+            <Route path="tasks" element={<Navigate to="workspace" replace />} />
+            <Route path="contributors" element={<Navigate to="workspace" replace />} />
+            <Route path="workspace" element={<StudentWorkspace />} />
+            <Route
+              path="workspace/repositories/new"
+              element={<StudentNewRepository />}
+            />
             <Route path="notifications" element={<StudentNotifications />} />
+            <Route path="settings" element={<StudentSettings />} />
+            <Route path="repository/:owner/:repo" element={<StudentRepositoryLayout />}>
+              <Route index element={<StudentRepoCode />} />
+              <Route path="pull-requests" element={<StudentRepoPullRequests />} />
+              <Route path="tasks" element={<StudentRepoTasks />} />
+              <Route path="contributors" element={<StudentRepoContributors />} />
+            </Route>
           </Route>
 
           <Route
             path="/staff"
             element={
-              <ProtectedRoute allowedRoles={["staff"]}>
-                <Applayout />
+              <ProtectedRoute allowedRoles={["teacher"]}>
+                <Applayout>
+                  <AppSidebar />
+                </Applayout>
               </ProtectedRoute>
             }
           >
@@ -147,8 +236,10 @@ export default function App() {
           <Route
             path="/dean"
             element={
-              <ProtectedRoute allowedRoles={["dean"]}>
-                <Applayout />
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <Applayout>
+                  <AppSidebar />
+                </Applayout>
               </ProtectedRoute>
             }
           >
@@ -156,10 +247,32 @@ export default function App() {
             <Route path="dashboard" element={<Dashboard />} />
           </Route>
 
+          <Route
+            path="/author"
+            element={
+              <ProtectedRoute allowedRoles={["author"]}>
+                <Applayout>
+                  <AppSidebar />
+                </Applayout>
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AuthorDashboard />} />
+            <Route path="writing" element={<WriteStory />} />
+            <Route path="published" element={<AuthorPublished />} />
+            <Route path="notifications" element={<AuthorNotifications />} />
+          </Route>
+
           <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-        <GooeyToaster position="top-right" />
+        <GooeyToaster
+          position="top-right"
+          toastOptions={{
+            style: { zIndex: 2147483647 },
+          }}
+        />
       </BrowserRouter>
     </ThemeProvider>
   );

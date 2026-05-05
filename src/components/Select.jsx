@@ -10,12 +10,19 @@ const Select = ({
   value,
   defaultValue,
   onChange,
+  onValueChange,
   placeholder = "Select...",
   options = [],
   label,
   className = "",
   disabled = false,
+  name,
+  register,
 }) => {
+  const handleValueChange = onChange ?? onValueChange;
+  const resolvedRegister =
+    name && typeof register === "function" ? register(name) : register;
+
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
       {label && (
@@ -24,20 +31,31 @@ const Select = ({
         </label>
       )}
 
+      {name && (
+        <input
+          type="hidden"
+          name={name}
+          value={value ?? defaultValue ?? ""}
+          readOnly
+          {...(resolvedRegister || {})}
+        />
+      )}
+
       <RadixSelect.Root
         value={value}
         defaultValue={defaultValue}
-        onValueChange={onChange}
+        onValueChange={handleValueChange}
         disabled={disabled}
       >
         <RadixSelect.Trigger
           className={`
-            inline-flex h-8 items-center justify-between rounded-lg px-3 text-xs
-            bg-input dark:bg-dark-input
-            border border-default dark:border-dark-default
-            focus:border-accent dark:focus:border-dark-accent
-            transition-colors
-            data-[placeholder]:text-muted dark:data-[placeholder]:text-dark-muted
+            inline-flex h-8 w-full items-center justify-between rounded-xl px-3.5 text-xs
+            border transition-colors outline-none
+            bg-(--color-light-input-bg) text-(--color-light-text-primary) border-(--color-light-input-border)
+            dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:border-dark-input-border
+            focus-visible:border-(--color-light-input-border-focus) focus-visible:ring-2 focus-visible:ring-blue-500/15
+            dark:focus-visible:border-(--color-dark-input-border-focus) dark:focus-visible:ring-blue-400/15
+            data-placeholder:text-(--color-light-input-placeholder) dark:data-placeholder:text-(--color-dark-input-placeholder)
             ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
           `}
         >
@@ -49,7 +67,12 @@ const Select = ({
 
         <RadixSelect.Portal>
           <RadixSelect.Content
-className="overflow-hidden w-[var(--radix-select-trigger-width)] rounded-md bg-input dark:bg-dark-input border border-default dark:border-dark-default z-[10001] shadow-2xl border-2"
+            className="
+              z-[1100] overflow-hidden w-(--radix-select-trigger-width) rounded-xl border
+              bg-(--color-light-card-bg) text-(--color-light-text-primary) border-(--color-light-card-border)
+              dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-text-primary) dark:border-(--color-dark-card-border)
+              shadow-md
+            "
             position="popper"
           >
             <RadixSelect.ScrollUpButton className="flex items-center justify-center h-6">
@@ -78,23 +101,26 @@ className="overflow-hidden w-[var(--radix-select-trigger-width)] rounded-md bg-i
   );
 };
 
-const SelectItem = React.forwardRef(
-  ({ children, ...props }, ref) => {
-    return (
-      <RadixSelect.Item
-        ref={ref}
-        {...props}
-        className="relative flex items-center h-8 px-8 text-xs rounded cursor-pointer text-primary dark:text-dark-primary data-highlighted:bg-primary/5 dark:data-highlighted:bg-dark-primary/10 data-disabled:opacity-50 data-disabled:pointer-events-none"
-      >
-        <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
+const SelectItem = React.forwardRef(({ children, ...props }, ref) => {
+  return (
+    <RadixSelect.Item
+      ref={ref}
+      {...props}
+      className="
+        relative flex items-center h-8 px-8 text-xs rounded-lg cursor-pointer outline-none
+        text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)
+        data-highlighted:bg-(--color-light-nav-hover-bg) dark:data-highlighted:bg-(--color-dark-card-hover)
+        data-disabled:opacity-50 data-disabled:pointer-events-none
+      "
+    >
+      <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
 
-        <RadixSelect.ItemIndicator className="absolute left-2">
-          <CheckIcon />
-        </RadixSelect.ItemIndicator>
-      </RadixSelect.Item>
-    );
-  },
-);
+      <RadixSelect.ItemIndicator className="absolute left-2">
+        <CheckIcon />
+      </RadixSelect.ItemIndicator>
+    </RadixSelect.Item>
+  );
+});
 
 SelectItem.displayName = "SelectItem";
 
