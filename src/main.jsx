@@ -7,6 +7,9 @@ import { createRoot } from "react-dom/client";
 import AppRoot from "./AppRoot.jsx";
 import { LanguageProvider } from "./context/LanguageContext.jsx";
 import "./index.css";
+import { initializeSyncfusion } from "./utils/syncfusionLicense";
+
+initializeSyncfusion();
 
 const queryClient = new QueryClient({
   defaultOptions: {

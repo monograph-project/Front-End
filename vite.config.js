@@ -11,6 +11,17 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
+    define: {
+      global: "globalThis",
+    },
+    optimizeDeps: {
+      include: [
+        "@syncfusion/ej2-base",
+        "@syncfusion/ej2-react-documenteditor",
+        "@syncfusion/ej2-react-pdfviewer",
+        "@syncfusion/ej2-react-spreadsheet",
+      ],
+    },
     server: {
       proxy: {
         // REST gateway (auth, users, blogs, notifications, VC under /api, etc.)

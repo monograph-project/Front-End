@@ -1,17 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bell,
-  Building2,
   Globe2,
   KeyRound,
   Lock,
   Palette,
   ShieldCheck,
   SlidersHorizontal,
+  UserCircle,
   UsersRound,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import AcademicRegistrySettingsTab from "../../components/AcademicRegistrySettingsTab";
+import { useLocation } from "react-router-dom";
 import SettingsTabs from "../../components/SettingsTabs";
 import SystemSettingsTab from "../../components/SystemSettingsTab";
 import PermissionSettingsTab from "../../components/PermissionSettingsTab";
@@ -20,35 +20,49 @@ import NotificationSettingsTab from "../../components/NotificationSettingsTab";
 import LanguageSettingsTab from "../../components/LanguageSettingsTab";
 import ThemeSettingsTab from "../../components/ThemeSettingsTab";
 import SecuritySettingsTab from "../../components/SecuritySettingsTab";
+import UserAccountSettingsTab from "../../components/UserAccountSettingsTab";
 
 const SURFACE_CARD =
   "rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
 
 function Setting() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState("system");
-  const tabs = [
-    { id: "system", label: t("settings.tabs.system"), icon: SlidersHorizontal },
-    {
-      id: "permissions",
-      label: t("settings.tabs.permissions"),
-      icon: KeyRound,
-    },
-    { id: "roles", label: t("settings.tabs.roles"), icon: UsersRound },
-    {
-      id: "academic",
-      label: t("settings.tabs.academic"),
-      icon: Building2,
-    },
-    {
-      id: "notifications",
-      label: t("settings.tabs.notifications"),
-      icon: Bell,
-    },
-    { id: "language", label: t("settings.tabs.language"), icon: Globe2 },
-    { id: "theme", label: t("settings.tabs.theme"), icon: Palette },
-    { id: "security", label: t("settings.tabs.security"), icon: Lock },
-  ];
+  const location = useLocation();
+  const pathname = location.pathname ?? "";
+  /** Organization-wide settings (admin shell only). Dean/staff shells use account + personal tabs. */
+  const showOrgAdminPanels = pathname.startsWith("/admin");
+
+  const tabs = useMemo(() => {
+    const account = {
+      id: "account",
+      label: t("settings.tabs.account"),
+      icon: UserCircle,
+    };
+    const rest = showOrgAdminPanels
+      ? [
+          { id: "system", label: t("settings.tabs.system"), icon: SlidersHorizontal },
+          {
+            id: "permissions",
+            label: t("settings.tabs.permissions"),
+            icon: KeyRound,
+          },
+          { id: "roles", label: t("settings.tabs.roles"), icon: UsersRound },
+          {
+            id: "notifications",
+            label: t("settings.tabs.notifications"),
+            icon: Bell,
+          },
+        ]
+      : [];
+    const tail = [
+      { id: "language", label: t("settings.tabs.language"), icon: Globe2 },
+      { id: "theme", label: t("settings.tabs.theme"), icon: Palette },
+      { id: "security", label: t("settings.tabs.security"), icon: Lock },
+    ];
+    return [account, ...rest, ...tail];
+  }, [t, showOrgAdminPanels]);
+
+  const [activeTab, setActiveTab] = useState("account");
 
   return (
     <div className="min-h-screen flex-1 bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
@@ -81,11 +95,15 @@ function Setting() {
         </section>
 
         <div>
-          {activeTab === "system" && <SystemSettingsTab />}
-          {activeTab === "permissions" && <PermissionSettingsTab />}
-          {activeTab === "roles" && <RoleSettingsTab />}
-          {activeTab === "academic" && <AcademicRegistrySettingsTab />}
-          {activeTab === "notifications" && <NotificationSettingsTab />}
+          {activeTab === "account" && <UserAccountSettingsTab />}
+          {activeTab === "system" && showOrgAdminPanels && <SystemSettingsTab />}
+          {activeTab === "permissions" && showOrgAdminPanels && (
+            <PermissionSettingsTab />
+          )}
+          {activeTab === "roles" && showOrgAdminPanels && <RoleSettingsTab />}
+          {activeTab === "notifications" && showOrgAdminPanels && (
+            <NotificationSettingsTab />
+          )}
           {activeTab === "language" && <LanguageSettingsTab />}
           {activeTab === "theme" && <ThemeSettingsTab />}
           {activeTab === "security" && <SecuritySettingsTab />}

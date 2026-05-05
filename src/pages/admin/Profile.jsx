@@ -1,441 +1,515 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import Avatar from "../../components/Avatar";
-import Icon from "../../components/Icon";
-import IC from "../../components/IC";
+import React, { useMemo } from "react";
+import {
+  ChevronRight,
+  MapPin,
+  Clock,
+  Briefcase,
+  Award,
+  Users,
+  MoreHorizontal,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useNavigate, useParams } from "react-router-dom";
+import AdminProfileGreenScope from "../../components/admin/AdminProfileGreenScope";
 import Button from "../../components/Button";
 import {
-  DropdownContent,
-  DropdownMenuRoot,
-  DropdownItem,
-  DropdownTrigger,
-} from "../../components/DropdownMenu";
-import { GooeyToaster } from "goey-toast";
-import { useTranslation } from "react-i18next";
+  useEmployee,
+  useStudent,
+  useTeacher,
+  useUser,
+  useVcRepositoriesForViewer,
+  useVcUserActivity,
+} from "../../services/useApi";
+import { bucketVcActivityEvents } from "../../utils/vcActivityBuckets";
+import { buildPersonInitials, resolveProfilePhotoUrl } from "../../lib/profileMedia";
 
-// Fake data - replace with API/userId
-const FAKE_USER_DATA = {
-  id: 1,
-  fullName: "Elyas Admin",
-  email: "elyas@gmail.com",
-  role: "admin",
-  status: "active",
-  phone: "+93 777 123 456",
-  avatar:
-    "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-  registered: "2024-01-10",
-  lastLogin: "2024-03-15",
-  department: "IT Administration",
-  bio: "Senior System Administrator with 8+ years experience in educational technology infrastructure.",
-  stats: {
-    projects: 23,
-    students: 156,
-    classes: 12,
-    groups: 8,
-  },
-  activity: [
-    { date: "Mar 15", action: "Updated student roster for Group A-101" },
-    { date: "Mar 14", action: "Reviewed teacher performance report" },
-    { date: "Mar 12", action: "Created new exam schedule for Semester 1" },
-    { date: "Mar 10", action: "Approved 5 new student applications" },
-    { date: "Mar 8", action: "Updated department calendar events" },
-  ],
-  permissions: [
-    "manage_users",
-    "view_reports",
-    "edit_schedule",
-    "manage_projects",
-  ],
-};
+function safePercent(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
 
 export default function UserProfile() {
-  const { t } = useTranslation();
-  const { userId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  // const [editing, setEditing] = useState(false);
+  const { t } = useTranslation();
 
-  useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setUser({ ...FAKE_USER_DATA, id: parseInt(userId) });
-      setLoading(false);
-    }, 800);
-  }, [userId]);
+  const uid = String(id ?? "").trim();
 
-  if (loading) {
+  const { data: user, isLoading, isError, isFetching } = useUser(uid, {
+    enabled: Boolean(uid),
+    notifyOnError: false,
+  });
+
+  const roleKey = String(user?.role ?? user?.user_type ?? "student").toLowerCase();
+  const tryStudent =
+    roleKey === "student" || roleKey === "user" || roleKey === "author";
+  const tryTeacher = roleKey === "teacher";
+  const tryStaff = roleKey === "staff" || roleKey === "employee" || roleKey === "admin" || roleKey === "dean";
+
+  const { data: student } = useStudent(uid, {
+    enabled: Boolean(uid && tryStudent),
+    notifyOnError: false,
+    retry: false,
+  });
+
+  const { data: teacher } = useTeacher(uid, {
+    enabled: Boolean(uid && tryTeacher),
+    notifyOnError: false,
+    retry: false,
+  });
+
+  const { data: employee } = useEmployee(uid, {
+    enabled: Boolean(uid && tryStaff),
+    notifyOnError: false,
+    retry: false,
+  });
+
+  const domainRecord = useMemo(() => {
+    if (!uid) return null;
+    const sid = student?.id != null ? String(student.id) : "";
+    const tid = teacher?.id != null ? String(teacher.id) : "";
+    const eid = employee?.id != null ? String(employee.id) : "";
+    if (tryStudent && sid && sid === uid) return student;
+    if (tryTeacher && tid && tid === uid) return teacher;
+    if (tryStaff && eid && eid === uid) return employee;
+    return null;
+  }, [uid, student, teacher, employee, tryStudent, tryTeacher, tryStaff]);
+
+  const displayName = useMemo(() => {
+    const first =
+      domainRecord?.firstName ?? user?.first_name ?? user?.firstName ?? "";
+    const last =
+      domainRecord?.lastName ?? user?.last_name ?? user?.lastName ?? "";
+    const joined = [first, last].filter(Boolean).join(" ").trim();
     return (
-      <div className="flex-1 p-8 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+      joined ||
+      user?.fullName ||
+      user?.user_name ||
+      user?.username ||
+      user?.email ||
+      uid
+    );
+  }, [domainRecord, user, uid]);
+
+  const roleLabel = useMemo(
+    () => t(`adminShared.roles.${roleKey}`, t("adminShared.roles.user")),
+    [t, roleKey],
+  );
+
+  const photoUrl = useMemo(() => resolveProfilePhotoUrl(user ?? {}), [user]);
+  const initials = useMemo(() => buildPersonInitials(user ?? {}), [user]);
+
+  const vcUsername = String(
+    domainRecord?.username ?? user?.user_name ?? user?.username ?? "",
+  ).trim();
+
+  const ownerKey = String(
+    domainRecord?.linkedApplicationUserId ??
+      domainRecord?.applicationUserId ??
+      domainRecord?.gatewayUserId ??
+      "",
+  ).trim();
+
+  const { data: repos = [] } = useVcRepositoriesForViewer(ownerKey, {
+    enabled: Boolean(ownerKey || vcUsername),
+    notifyOnError: false,
+    activityUsernameFallback: vcUsername || undefined,
+  });
+
+  const { data: rawActivity = [] } = useVcUserActivity(vcUsername, {
+    enabled: Boolean(vcUsername),
+    notifyOnError: false,
+  });
+
+  const buckets = useMemo(
+    () => bucketVcActivityEvents(rawActivity),
+    [rawActivity],
+  );
+
+  const metrics = useMemo(() => {
+    const repoScore = Math.min(100, repos.length * 8);
+    const pushScore = Math.min(100, buckets.pushes.length * 4);
+    const prScore = Math.min(100, buckets.pulls.length * 7);
+    const mergeScore = Math.min(100, buckets.merges.length * 9);
+    const activity = Math.min(
+      100,
+      buckets.pushes.length + buckets.pulls.length * 2 + buckets.merges.length * 2,
+    );
+    const stability = domainRecord ? 92 : 72;
+    return {
+      repositories: safePercent(repoScore),
+      pushes: safePercent(pushScore),
+      pullRequests: safePercent(prScore),
+      merges: safePercent(mergeScore),
+      activity: safePercent(activity),
+      profile: safePercent(stability),
+    };
+  }, [repos.length, buckets, domainRecord]);
+
+  if (!uid || isLoading || (isFetching && !user)) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-light-app-bg p-6 dark:bg-dark-shell md:p-8">
+        <div
+          className="h-10 w-10 animate-spin rounded-full border-2 border-(--color-light-card-border) border-t-(--color-light-text-primary) dark:border-(--color-dark-card-border) dark:border-t-(--color-dark-text-primary)"
+          aria-hidden
+        />
+        <p className="text-sm text-muted dark:text-dark-muted">
+          {t("adminPersonProfile.loading")}
+        </p>
       </div>
     );
   }
 
-  if (!user) {
+  if (isError || !user) {
     return (
-      <div className="flex-1 p-8 text-center">
-        <div className="text-6xl mb-4 text-muted">👤</div>
-        <h2 className="text-2xl font-bold text-primary mb-2">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-light-app-bg p-6 dark:bg-dark-shell md:p-8">
+        <p className="text-lg font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
           {t("adminProfile.notFound.title")}
-        </h2>
-        <Button onClick={() => navigate(-1)}>
+        </p>
+        <Button variant="secondary" onClick={() => navigate("/admin/users")}>
           {t("adminProfile.notFound.back")}
         </Button>
       </div>
     );
   }
 
-  const isOwner = currentUser?.id === user.id;
+  const location =
+    domainRecord?.addressCity ||
+    domainRecord?.addressProvince ||
+    domainRecord?.department ||
+    t("studentProfile.na");
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "—";
+  const positionTypes = [
+    roleLabel,
+    roleKey === "student" ? t("adminShared.roles.student") : t("adminShared.roles.user"),
+  ].filter(Boolean);
 
-  const statusColors = {
-    active: "bg-success text-success-light",
-    pending: "bg-warning text-warning-light",
-    suspended: "bg-error text-error-light",
-    rejected: "bg-muted text-muted",
-  };
-
-  const handleStatusChange = (status) => {
-    GooeyToaster.success(
-      t("adminProfile.toast.statusUpdated", {
-        status: t(`adminShared.status.${status}`),
-      }),
-    );
-    setUser({ ...user, status });
-  };
-
-  const handleAction = (action) => {
-    switch (action) {
-      case "suspend":
-        handleStatusChange("suspended");
-        break;
-      case "activate":
-        handleStatusChange("active");
-        break;
-      case "delete":
-        GooeyToaster.success(t("adminProfile.toast.deleted"));
-        navigate("/admin/users");
-        break;
-    }
-  };
+  const metricCards = [
+    { key: "profile", label: t("adminPersonProfile.accountSnapshot"), value: metrics.profile },
+    { key: "repositories", label: t("adminPersonProfile.metrics.repositories"), value: metrics.repositories },
+    { key: "pushes", label: t("adminPersonProfile.metrics.pushes"), value: metrics.pushes },
+    { key: "pullRequests", label: t("adminPersonProfile.metrics.pullRequests"), value: metrics.pullRequests },
+    { key: "merges", label: t("adminPersonProfile.metrics.merges"), value: metrics.merges },
+    { key: "activity", label: t("adminPersonProfile.sections.repositoryActivity"), value: metrics.activity },
+  ];
 
   return (
-    <div className="flex-1 p-4 md:p-8 bg-shell dark:bg-dark-card-bg">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-<div className="flex items-start justify-between border-b border-default dark:border-dark-default pb-3 gap-6 mb-8">
-          <button
-            onClick={() => navigate('/admin/users')}
-            className="p-1 -ml-1 text-muted hover:text-primary hover:bg-accent/10 rounded-md transition-all flex items-center"
-          >
-            <Icon d={IC.chevLeft} className="w-5 h-5" />
-          </button>
-          <div className="flex items-start gap-4">
-            <Avatar
-              src={user.avatar}
-              name={user.fullName}
-              size="lg"
-              className="ring-4 ring-accent/20 dark:ring-accent-dark/30 shrink-0"
-            />
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <h1 className="text-3xl font-bold text-primary dark:text-dark-primary">
-                  {user.fullName}
-                </h1>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[user.status]}`}
-                >
-                  {user.status?.toUpperCase()}
-                </span>
+    <AdminProfileGreenScope>
+      <div className="min-h-[calc(100vh-64px)] bg-light-app-bg p-4 dark:bg-dark-shell md:p-6">
+      
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 lg:grid-cols-4 lg:gap-6">
+        {/* Left Sidebar */}
+        <div className="space-y-4 lg:col-span-1">
+          <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-5 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+            <div className="relative mb-6 -mx-5 -mt-5">
+              <div className="h-24 rounded-t-2xl bg-linear-to-r from-(--color-light-admin-profile-hero-from) to-(--color-light-admin-profile-hero-to) dark:from-(--color-dark-admin-profile-hero-from) dark:to-(--color-dark-admin-profile-hero-to)" />
+              <div className="relative -mb-9 flex justify-center">
+                <div className="relative">
+                  <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-3xl border-4 border-(--color-light-card-bg) bg-light-app-secondary shadow-lg dark:border-(--color-dark-card-bg) dark:bg-(--color-dark-app-secondary)">
+                    {photoUrl ? (
+                      <img
+                        src={photoUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="text-3xl font-bold text-primary dark:text-dark-primary">
+                        {initials}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <p className="text-lg text-secondary dark:text-dark-secondary mb-1">
-                {user.role}
-              </p>
-              <p className="text-sm text-muted dark:text-dark-muted">
-                {user.bio || t("adminProfile.bioFallback")}
-              </p>
+            </div>
+
+            <div className="mt-10 text-center">
+              <h1 className="text-xl font-bold text-primary dark:text-dark-primary">
+                {displayName}
+              </h1>
+              <span className="mt-2 inline-block rounded-full bg-light-success-bg px-3 py-1 text-xs font-semibold text-light-success-text dark:bg-green-950/40 dark:text-green-300">
+                {roleLabel}
+              </span>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3 border-t border-light-divider pt-4 text-sm dark:border-dark-divider">
+              <div className="flex items-start gap-2">
+                <MapPin className="mt-0.5 size-4 text-muted dark:text-dark-muted" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
+                    {t("adminProfile.contact.department")}
+                  </p>
+                  <p className="truncate font-semibold text-primary dark:text-dark-primary">
+                    {location}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <Clock className="mt-0.5 size-4 text-muted dark:text-dark-muted" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
+                    {t("settings.tabs.system")}
+                  </p>
+                  <p className="truncate font-semibold text-primary dark:text-dark-primary">
+                    {timezone}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 border-t border-light-divider pt-4 dark:border-dark-divider">
+              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                {t("adminProfile.account.title")}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {positionTypes.map((type) => (
+                  <span
+                    key={type}
+                    className="rounded-lg bg-light-app-secondary px-3 py-1 text-xs font-medium text-secondary dark:bg-dark-shell dark:text-dark-secondary"
+                  >
+                    {type}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3 border-t border-light-divider pt-4 dark:border-dark-divider">
+              <Button
+                variant="secondary"
+                type="button"
+                className="flex-1"
+                onClick={() => navigate("/admin/users")}
+              >
+                {t("adminProfile.notFound.back")}
+              </Button>
+              <Button
+                variant="primary"
+                type="button"
+                className="flex-1"
+                onClick={() => navigate(`/admin/notification?user=${encodeURIComponent(uid)}`)}
+              >
+                {t("sidebar.admin.notification")}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="space-y-6 lg:col-span-3">
+          {/* Metrics */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {metricCards.map((m) => (
+              <div
+                key={m.key}
+                className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 text-center shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+              >
+                <div className="mb-1 text-2xl font-bold text-light-success-text dark:text-green-300">
+                  {safePercent(m.value)}%
+                </div>
+                <p className="text-xs font-medium text-muted dark:text-dark-muted">
+                  {m.label}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Score Cards */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-6 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+              <h3 className="mb-4 text-sm font-semibold text-primary dark:text-dark-primary">
+                {t("adminPersonProfile.charts.accountSignal")}
+              </h3>
+              <div className="flex items-center justify-center">
+                <div className="relative h-40 w-40">
+                  <svg className="h-full w-full -rotate-90" viewBox="0 0 120 120">
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="54"
+                      fill="none"
+                      stroke="rgba(148,163,184,0.35)"
+                      strokeWidth="8"
+                    />
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="54"
+                      fill="none"
+                      stroke="url(#scoreGradient)"
+                      strokeWidth="8"
+                      strokeDasharray={`${(metrics.activity / 100) * 339.3} 339.3`}
+                      strokeLinecap="round"
+                    />
+                    <defs>
+                      <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="var(--color-light-admin-profile-hero-from)" />
+                        <stop offset="100%" stopColor="var(--color-light-admin-profile-hero-to)" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-4xl font-bold text-primary dark:text-dark-primary">
+                      {safePercent(metrics.activity)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-6 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+              <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                {t("adminPersonProfile.chapters.accountHighlights")}
+                <span className="rounded-full bg-light-success-bg px-2 py-1 text-xs font-semibold text-light-success-text dark:bg-emerald-950/40 dark:text-emerald-200">
+                  {t("adminPersonProfile.charts.synced")}
+                </span>
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <Award className="mt-1 size-5 text-amber-500" />
+                  <div>
+                    <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                      {t("adminPersonProfile.metrics.repositories")}: {repos.length}
+                    </p>
+                    <p className="text-xs text-muted dark:text-dark-muted">
+                      {t("adminPersonProfile.highlights.repositories", { count: repos.length })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Users className="mt-1 size-5 text-light-success-text dark:text-green-300" />
+                  <div>
+                    <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                      {t("adminProfile.contact.email")}
+                    </p>
+                    <p className="break-all text-xs text-muted dark:text-dark-muted">
+                      {user.email || t("studentProfile.na")}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Briefcase className="mt-1 size-5 text-light-success-text dark:text-green-300" />
+                  <div>
+                    <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                      {t("adminProfile.account.id")}
+                    </p>
+                    <p className="break-all font-mono text-xs text-muted dark:text-dark-muted">
+                      {String(user.id ?? uid)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-6 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+              <h3 className="mb-4 text-sm font-semibold text-primary dark:text-dark-primary">
+                {t("adminPersonProfile.sections.repositoryActivity")}
+              </h3>
+              <div className="space-y-4">
+                {[
+                  {
+                    label: t("adminPersonProfile.activity.pushes"),
+                    pct: safePercent((buckets.pushes.length / Math.max(1, buckets.pushes.length + buckets.pulls.length + buckets.merges.length)) * 100),
+                  },
+                  {
+                    label: t("adminPersonProfile.activity.pullRequests"),
+                    pct: safePercent((buckets.pulls.length / Math.max(1, buckets.pushes.length + buckets.pulls.length + buckets.merges.length)) * 100),
+                  },
+                  {
+                    label: t("adminPersonProfile.activity.merges"),
+                    pct: safePercent((buckets.merges.length / Math.max(1, buckets.pushes.length + buckets.pulls.length + buckets.merges.length)) * 100),
+                  },
+                ].map((row) => (
+                  <div key={row.label}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm font-medium text-primary dark:text-dark-primary">
+                        {row.label}
+                      </span>
+                      <span className="text-sm font-bold text-light-success-text dark:text-green-300">
+                        {row.pct}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-light-app-secondary dark:bg-dark-shell">
+                      <div
+                        className="h-full rounded-full bg-linear-to-r from-(--color-light-admin-profile-hero-from) to-(--color-light-admin-profile-hero-to) dark:from-(--color-dark-admin-profile-hero-from) dark:to-(--color-dark-admin-profile-hero-to)"
+                        style={{ width: `${row.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2 ml-auto">
-            {isOwner ? (
-              <Button variant="secondary">
-                {t("adminProfile.actions.editProfile")}
-              </Button>
+          {/* Activity list */}
+          <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-6 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-primary dark:text-dark-primary">
+                {t("adminPersonProfile.sections.repositoryActivity")}
+              </h3>
+              <button
+                type="button"
+                className="rounded-lg p-2 hover:bg-light-app-secondary dark:hover:bg-dark-shell"
+                aria-label="More"
+              >
+                <MoreHorizontal size={18} className="text-muted dark:text-dark-muted" />
+              </button>
+            </div>
+
+            {!vcUsername ? (
+              <p className="rounded-xl border border-dashed border-(--color-light-card-border) px-4 py-8 text-center text-sm text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
+                {t("adminPersonProfile.activity.noUsername")}
+              </p>
             ) : (
-              <>
-                <DropdownMenuRoot>
-                  <DropdownTrigger>{t("adminShared.labels.actions")}</DropdownTrigger>
-                  <DropdownContent align="end">
-                    <DropdownItem onClick={() => handleAction("activate")}>
-                      {t("adminProfile.actions.activate")}
-                    </DropdownItem>
-                    <DropdownItem onClick={() => handleAction("suspend")}>
-                      {t("adminProfile.actions.suspend")}
-                    </DropdownItem>
-                    <DropdownItem
-                      variant="danger"
-                      onClick={() => handleAction("delete")}
-                    >
-                      {t("adminProfile.actions.deleteUser")}
-                    </DropdownItem>
-                  </DropdownContent>
-                </DropdownMenuRoot>
-              </>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                {[
+                  { key: "pushes", label: t("adminPersonProfile.activity.pushes"), rows: buckets.pushes },
+                  { key: "pulls", label: t("adminPersonProfile.activity.pullRequests"), rows: buckets.pulls },
+                  { key: "merges", label: t("adminPersonProfile.activity.merges"), rows: buckets.merges },
+                ].map((bucket) => (
+                  <div
+                    key={bucket.key}
+                    className="flex min-h-[180px] flex-col rounded-2xl border border-(--color-light-card-border) bg-light-app-secondary p-4 dark:border-(--color-dark-card-border) dark:bg-dark-shell"
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <h4 className="text-[11px] font-semibold uppercase tracking-wide text-secondary dark:text-dark-secondary">
+                        {bucket.label}
+                      </h4>
+                      <span className="rounded-full bg-(--color-light-card-bg) px-2 py-0.5 text-[10px] font-bold text-primary dark:bg-(--color-dark-card-bg) dark:text-dark-primary">
+                        {bucket.rows.length}
+                      </span>
+                    </div>
+                    <ul className="space-y-2 overflow-y-auto">
+                      {bucket.rows.length === 0 ? (
+                        <li className="py-8 text-center text-xs text-muted dark:text-dark-muted">
+                          {t("adminPersonProfile.activity.empty")}
+                        </li>
+                      ) : (
+                        bucket.rows.slice(0, 8).map((row) => (
+                          <li
+                            key={row.id}
+                            className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 py-2 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+                          >
+                            <p className="truncate text-xs font-semibold text-primary dark:text-dark-primary">
+                              {row.label}
+                            </p>
+                            {row.repo ? (
+                              <p className="mt-0.5 truncate font-mono text-[10px] text-muted dark:text-dark-muted">
+                                {row.repo}
+                              </p>
+                            ) : null}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
-
-        {/* Stats & Contact */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Stats */}
-          <div className="lg:col-span-2 border border-default dark:border-dark-default p-3 rounded-md ">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div className=" p-6 rounded-md border border-default dark:border-dark-default  text-center">
-                <div className="text-3xl font-bold text-primary dark:text-dark-primary mb-1">
-                  {user.stats?.projects || 0}
-                </div>
-              <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                  {t("adminProfile.stats.projects")}
-                </div>
-              </div>
-              <div className=" p-6 rounded-md border border-default dark:border-dark-default  text-center">
-                <div className="text-3xl font-bold text-primary dark:text-dark-primary mb-1">
-                  {user.stats?.students || 0}
-                </div>
-                <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                  {t("adminProfile.stats.students")}
-                </div>
-              </div>
-              <div className=" p-6 rounded-md border border-default dark:border-dark-default  text-center">
-                <div className="text-3xl font-bold text-primary dark:text-dark-primary mb-1">
-                  {user.stats?.classes || 0}
-                </div>
-                <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                  {t("adminProfile.stats.classes")}
-                </div>
-              </div>
-              <div className=" p-6 rounded-md border border-default dark:border-dark-default  text-center">
-                <div className="text-3xl font-bold text-primary dark:text-dark-primary mb-1">
-                  {user.stats?.groups || 0}
-                </div>
-                <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                  {t("adminProfile.stats.groups")}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Contact Info */}
-          <div className=" p-6 rounded-md border border-default dark:border-dark-default ">
-            <h3 className="font-semibold text-primary dark:text-dark-primary mb-4 flex items-center gap-2">
-              <Icon d={IC.contact} className="w-4 h-4 stroke-current" />
-              {t("adminProfile.contact.title")}
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-card-2 dark:bg-dark-card-2 rounded-lg">
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 15 15"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M1 2C0.447715 2 0 2.44772 0 3V12C0 12.5523 0.447715 13 1 13H14C14.5523 13 15 12.5523 15 12V3C15 2.44772 14.5523 2 14 2H1ZM1 3L14 3V3.92494C13.9174 3.92486 13.8338 3.94751 13.7589 3.99505L7.5 7.96703L1.24112 3.99505C1.16621 3.94751 1.0826 3.92486 1 3.92494V3ZM1 4.90797V12H14V4.90797L7.74112 8.87995C7.59394 8.97335 7.40606 8.97335 7.25888 8.87995L1 4.90797Z"
-                    fill="currentColor"
-                    fill-rule="evenodd"
-                    clip-rule="evenodd"
-                  ></path>
-                </svg>
-                <div>
-                  <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                    {t("adminProfile.contact.email")}
-                  </div>
-                  <a
-                    href={`mailto:${user.email}`}
-                    className="font-medium text-primary dark:text-dark-primary hover:text-accent dark:hover:text-accent-dark"
-                  >
-                    {user.email}
-                  </a>
-                </div>
-              </div>
-              {user.phone && (
-                <div className="flex items-center gap-3 p-3 bg-card-2 dark:bg-dark-card-2 rounded-lg">
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 15 15"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M4 2.5C4 2.22386 4.22386 2 4.5 2H10.5C10.7761 2 11 2.22386 11 2.5V12.5C11 12.7761 10.7761 13 10.5 13H4.5C4.22386 13 4 12.7761 4 12.5V2.5ZM4.5 1C3.67157 1 3 1.67157 3 2.5V12.5C3 13.3284 3.67157 14 4.5 14H10.5C11.3284 14 12 13.3284 12 12.5V2.5C12 1.67157 11.3284 1 10.5 1H4.5ZM6 11.65C5.8067 11.65 5.65 11.8067 5.65 12C5.65 12.1933 5.8067 12.35 6 12.35H9C9.1933 12.35 9.35 12.1933 9.35 12C9.35 11.8067 9.1933 11.65 9 11.65H6Z"
-                      fill="currentColor"
-                      fill-rule="evenodd"
-                      clip-rule="evenodd"
-                    ></path>
-                  </svg>
-                  <div>
-                    <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                      {t("adminProfile.contact.phone")}
-                    </div>
-                    <a
-                      href={`tel:${user.phone}`}
-                      className="font-medium text-primary dark:text-dark-primary hover:text-accent dark:hover:text-accent-dark"
-                    >
-                      {user.phone}
-                    </a>
-                  </div>
-                </div>
-              )}
-              {user.department && (
-                <div className="flex items-center gap-3 p-3 bg-card-2 dark:bg-dark-card-2 rounded-lg">
-                  <Icon
-                    d={IC.company}
-                    className="w-4 h-4 text-muted dark:text-dark-muted stroke-[1.75]"
-                  />
-                  <div>
-                    <div className="text-xs text-muted dark:text-dark-muted uppercase tracking-wide font-medium">
-                      {t("adminProfile.contact.department")}
-                    </div>
-                    <div className="font-medium text-primary dark:text-dark-primary">
-                      {user.department}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Activity & Permissions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent Activity */}
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <Icon
-                d={IC.zap}
-                className="w-5 h-5 text-accent dark:text-accent-dark stroke-[2]"
-              />
-              <h3 className="text-xl font-bold text-primary dark:text-dark-primary">
-                {t("adminProfile.activity.title")}
-              </h3>
-            </div>
-            <div className="space-y-4">
-              {user.activity?.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex gap-3 p-4  rounded-md border border-default dark:border-dark-default transition-all"
-                >
-                  <div className="w-2 h-2 mt-2 bg-accent dark:bg-accent-dark rounded-full shrink-0" />
-                  <div>
-                    <p className="font-medium text-primary dark:text-dark-primary text-sm">
-                      {item.action}
-                    </p>
-                    <p className="text-xs text-muted dark:text-dark-muted mt-0.5">
-                      {item.date}
-                    </p>
-                  </div>
-                </div>
-              )) || (
-                <p className="text-sm text-muted dark:text-dark-muted p-4">
-                  {t("adminProfile.activity.empty")}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Permissions */}
-          <div>
-            <div className="flex items-center gap-3 mb-6">
-              <Icon
-                d={IC.settings}
-                className="w-5 h-5 text-accent dark:text-accent-dark stroke-[2]"
-              />
-              <h3 className="text-xl font-bold text-primary dark:text-dark-primary">
-                {t("adminProfile.permissions.title")}
-              </h3>
-            </div>
-            <div className="space-y-2">
-              {user.permissions?.map((permission, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-3 p-3  rounded-md border border-default dark:border-dark-default"
-                >
-                  <div className="w-1.5 h-1.5 bg-success rounded-full" />
-                  <span className="text-sm text-primary dark:text-dark-primary font-medium capitalize">
-                    {permission.replace("_", " ")}
-                  </span>
-                </div>
-              )) || (
-                <p className="text-sm text-muted dark:text-dark-muted p-3">
-                  {t("adminProfile.permissions.empty")}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Login History & More */}
-        <div className="mt-12 pt-12 border-t border-default dark:border-dark-default">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h4 className="text-lg font-semibold text-primary dark:text-dark-primary mb-4">
-                {t("adminProfile.history.title")}
-              </h4>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between p-3  rounded-md border border-default dark:border-dark-default">
-                  <span>
-                    {t("adminProfile.history.lastLogin", {
-                      value: user.lastLogin,
-                    })}
-                  </span>
-                  <span className="px-2 py-0.5 bg-success/10 text-success text-xs rounded-full">
-                    Kabul, AF
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-card-2 dark:bg-dark-card-2 rounded-md border border-default dark:border-dark-default">
-                  <span>Jan 20, 2024</span>
-                  <span className="px-2 py-0.5 bg-warning/10 text-warning text-xs rounded-full">
-                    Chrome • Windows
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-3  rounded-md border border-default dark:border-dark-default">
-                  <span>Jan 15, 2024</span>
-                  <span className="px-2 py-0.5 bg-muted/20 text-muted text-xs rounded-full">
-                    Safari • iOS
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold text-primary dark:text-dark-primary mb-4">
-                {t("adminProfile.account.title")}
-              </h4>
-              <div className="space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-muted dark:text-dark-muted block text-xs uppercase tracking-wide font-medium mb-1">
-                      {t("adminProfile.account.memberSince")}
-                    </span>
-                    <span className="font-medium">{user.registered}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted dark:text-dark-muted block text-xs uppercase tracking-wide font-medium mb-1">
-                      {t("adminProfile.account.id")}
-                    </span>
-                    <span className="font-mono text-xs">{user.id}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
-    </div>
+      </div>
+    </AdminProfileGreenScope>
   );
 }

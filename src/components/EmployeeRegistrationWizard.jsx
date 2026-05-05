@@ -420,6 +420,58 @@ export default function EmployeeRegistrationWizard({
     .filter(Boolean)
     .join(" ")
     .trim();
+
+  const completedSnippet = useCallback(
+    (stepId) => {
+      switch (stepId) {
+        case 1:
+          return watched?.username?.trim()
+            ? `@${watched.username.trim()}`
+            : "—";
+        case 2:
+          return (
+            [
+              watched?.firstName,
+              watched?.lastName,
+              watched?.fatherName,
+              watched?.grandFatherName,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "—"
+          );
+        case 3:
+          return watched?.email?.trim()
+            ? `${watched.email} · ${watched?.phone ?? ""}`
+            : "—";
+        case 4:
+          return (
+            [watched?.addressCity, watched?.addressPostalCode]
+              .filter(Boolean)
+              .join(", ") || "—"
+          );
+        case 5:
+          return `${facultyLabel} · ${educationLabel} · ${positionReadable} · ${watched?.hireDate ?? ""}`;
+        default:
+          return "";
+      }
+    },
+    [
+      facultyLabel,
+      educationLabel,
+      positionReadable,
+      watched?.username,
+      watched?.firstName,
+      watched?.lastName,
+      watched?.fatherName,
+      watched?.grandFatherName,
+      watched?.email,
+      watched?.phone,
+      watched?.addressCity,
+      watched?.addressPostalCode,
+      watched?.hireDate,
+    ],
+  );
+
   const stepTitle = steps.find((s) => s.id === step)?.titleKey;
 
   const eduRankOpt = educationRankOptions.find(
@@ -1000,6 +1052,7 @@ export default function EmployeeRegistrationWizard({
       progressPercentKey="studentForm.progress.percent"
       progressHintKey="studentForm.progress.hint"
       stackUpToExclusive={6}
+      completedSnippet={completedSnippet}
       stepContent={
         <AnimatePresence mode="wait">{stepContent()}</AnimatePresence>
       }

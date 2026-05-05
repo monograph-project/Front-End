@@ -90,6 +90,12 @@ export default function SearchableSelect({
   name,
   register,
   maxHeight = 300,
+  searchValue,
+  onSearchChange,
+  /** When false, the × control inside the dropdown search row is hidden. */
+  showInlineSearchClear = true,
+  /** When false, opening the menu does not reset the search query (helps async server search). */
+  clearSearchOnOpen = true,
 }) {
   // ── State ──────────────────────────────────────────────────────────────
   const isControlled = controlledValue !== undefined;
@@ -99,10 +105,20 @@ export default function SearchableSelect({
   const selected = isControlled ? controlledValue : internalValue;
 
   const [open, setOpen] = React.useState(false);
-  const [query, setQuery] = React.useState("");
+  const [internalQuery, setInternalQuery] = React.useState("");
   const [focusedIndex, setFocusedIndex] = React.useState(-1);
   const searchRef = React.useRef(null);
   const listRef = React.useRef(null);
+  const query =
+    searchValue !== undefined ? String(searchValue ?? "") : internalQuery;
+
+  const setQuery = React.useCallback((nextValue) => {
+    const normalizedValue = String(nextValue ?? "");
+    if (searchValue === undefined) {
+      setInternalQuery(normalizedValue);
+    }
+    onSearchChange?.(normalizedValue);
+  }, [onSearchChange, searchValue]);
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const groups = React.useMemo(() => normaliseOptions(options), [options]);
@@ -195,12 +211,12 @@ export default function SearchableSelect({
   // reset focus & search when opening
   React.useEffect(() => {
     if (open) {
-      setQuery("");
+      if (clearSearchOnOpen) setQuery("");
       setFocusedIndex(-1);
       // autofocus search after portal mounts
       setTimeout(() => searchRef.current?.focus(), 10);
     }
-  }, [open]);
+  }, [open, clearSearchOnOpen, setQuery]);
 
   // scroll focused item into view
   React.useEffect(() => {
@@ -351,12 +367,12 @@ export default function SearchableSelect({
               aria-expanded={open}
               className={cn(
                 "w-full bg-transparent text-sm outline-none",
-                "placeholder:text-(--color-light-input-placeholder) dark:placeholder:text-(--color-dark-input-placeholder)",
+                "placeholder:text-[11px] placeholder:text-(--color-light-input-placeholder) dark:placeholder:text-(--color-dark-input-placeholder)",
                 "text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)",
                 "py-1",
               )}
             />
-            {query && (
+            {showInlineSearchClear && query && (
               <button
                 type="button"
                 onClick={() => {

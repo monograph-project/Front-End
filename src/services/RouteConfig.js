@@ -55,6 +55,8 @@ export const USERS = {
     ),
   CREATE: () => gw("/api/v1/users"),
   BY_ID: (id) => gw(`/api/v1/users/${id}`),
+  /** Upload profile image (multipart/form-data, field name: `file`). */
+  PROFILE_UPLOAD: (id) => gw(`/api/v1/users/profile/${encodeURIComponent(id)}`),
   BY_USERNAME: (username) =>
     gw(`/api/v1/users/by-username/${encodeURIComponent(username)}`),
   BY_EMAIL: (email) =>
@@ -238,6 +240,8 @@ export const NOTIFICATIONS = {
   ROOT: (params = {}) => gw(withQuery("/api/v1/notifications", params)),
   BY_ID: (id) => gw(`/api/v1/notifications/${encodeURIComponent(id)}`),
   RESEND: (id) => gw(`/api/v1/notifications/${encodeURIComponent(id)}/resend`),
+  MARK_READ: (id) =>
+    gw(`/api/v1/notifications/${encodeURIComponent(id)}/mark-read`),
   USER: (userId, params = {}) =>
     gw(
       withQuery(`/api/v1/notifications/user/${encodeURIComponent(userId)}`, {
@@ -295,6 +299,16 @@ export const VC_AUTH = {
   REFRESH: gw("/auth/refresh"),
 };
 
+/** Encodes a repo file path for VC API path segments (no leading slash). */
+export function vcRepoPathSegments(path) {
+  return String(path ?? "")
+    .replace(/^\/+/, "")
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+}
+
 export const VC = {
   REPOS_CREATE: gw("/api/v1/repos"),
   /**
@@ -339,12 +353,69 @@ export const VC = {
       : "";
     return gw(withQuery(`${base}${suffix}`, params));
   },
+  /** @deprecated Use `vcRepoPathSegments` — kept for discoverability. */
+  REPO_PATH_SEGMENTS: vcRepoPathSegments,
+  /** GET `/api/v1/repos/{owner}/{repo}/tree/{branch}/{path}` — raw file at ref (arraybuffer on client). */
+  REPO_FILE_AT_REF: (owner, repo, branch, path = "") => {
+    const suffix = vcRepoPathSegments(path);
+    return gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tree/${encodeURIComponent(branch)}${suffix ? `/${suffix}` : ""}`,
+    );
+  },
+  COMMITS_ON_BRANCH: (owner, repo, branch, params = {}) =>
+    gw(
+      withQuery(
+        `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${encodeURIComponent(branch)}`,
+        params,
+      ),
+    ),
+  COMMIT_DETAIL: (owner, repo, commitSha) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${encodeURIComponent(commitSha)}`,
+    ),
+  /** GET `/api/v1/repos/.../blame/{path}?branch=` */
+  BLAME_FILE: (owner, repo, filePath, params = {}) =>
+    gw(
+      withQuery(
+        `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/blame/${vcRepoPathSegments(filePath)}`,
+        params,
+      ),
+    ),
+  /** GET `/api/v1/repos/.../diff/{baseSha}/{headSha}` */
+  DIFF_COMMITS: (owner, repo, baseSha, headSha, params = {}) =>
+    gw(
+      withQuery(
+        `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/diff/${encodeURIComponent(baseSha)}/${encodeURIComponent(headSha)}`,
+        params,
+      ),
+    ),
+  PULL_REQUEST_FILES: (owner, repo, number) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(number)}/files`,
+    ),
+  PULL_REQUEST_FILE_DIFF: (owner, repo, number, fileIndex) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(number)}/files/${encodeURIComponent(fileIndex)}/diff`,
+    ),
+  MERGE_CONFLICTS: (owner, repo, number) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/merge/${encodeURIComponent(number)}/conflicts`,
+    ),
+  MERGE_RESOLVE: (owner, repo, number) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/merge/${encodeURIComponent(number)}/resolve`,
+    ),
 };
 
 /** Student resource on the gateway (`VITE_API_BASE_URL`). */
 export const STUDENT = {
   GETALL: gw("/api/student"),
   GETBYID: (id) => gw(`/api/student/${id}`),
+  /** Upload profile image (multipart/form-data, field name: `file`). */
+  PROFILE_UPLOAD: (id) =>
+    gw(`/api/v1/student/profile/${encodeURIComponent(id)}`),
+  SEARCH: (keyword = "") =>
+    gw(withQuery("/api/student/search", { keyword })),
   /** Resolved student row for the current gateway session / Keycloak subject. */
   ME: gw("/api/student/me"),
   BY_KEYCLOAK: (keycloakSubject) =>
@@ -398,9 +469,20 @@ export const ACADEMIC_YEAR = {
 export const SEMESTER = {
   LIST: (params = {}) => gw(withQuery("/api/semester", params)),
   BY_ID: (id) => gw(`/api/semester/${encodeURIComponent(id)}`),
+  /** Semesters for one academic year (faculty gateway). */
+  BY_ACADEMIC_YEAR: (academicYearId) =>
+    gw(
+      `/api/semester/academic-year/${encodeURIComponent(academicYearId)}`,
+    ),
   CREATE: gw("/api/semester"),
   UPDATE: (id) => gw(`/api/semester/${encodeURIComponent(id)}`),
   DELETE: (id) => gw(`/api/semester/${encodeURIComponent(id)}`),
+};
+
+/** VC / faculty repository catalogue — search by keyword (`RepositoryResponse`). */
+export const REPOSITORY = {
+  SEARCH: (keyword) =>
+    gw(withQuery("/api/v1/repos/search", { keyword })),
 };
 
 /** Faculty project — `/api/project` */
@@ -441,6 +523,11 @@ export const FACULTY_GROUP = {
 export const TEACHER = {
   GETALL: gw("/api/teacher"),
   GETBYID: (id) => gw(`/api/teacher/${id}`),
+  /** Upload profile image (multipart/form-data, field name: `file`). */
+  PROFILE_UPLOAD: (id) =>
+    gw(`/api/v1/teacher/profile/${encodeURIComponent(id)}`),
+  SEARCH: (keyword = "") =>
+    gw(withQuery("/api/teacher/search", { keyword })),
   CREATE: gw("/api/teacher"),
   UPDATE: (id) => gw(`/api/teacher/${id}`),
   DELETE: (id) => gw(`/api/teacher/${id}`),
@@ -450,6 +537,11 @@ export const TEACHER = {
 export const EMPLOYEE = {
   GETALL: gw("/api/employee"),
   GETBYID: (id) => gw(`/api/employee/${id}`),
+  /** Upload profile image (multipart/form-data, field name: `file`). */
+  PROFILE_UPLOAD: (id) =>
+    gw(`/api/v1/employee/profile/${encodeURIComponent(id)}`),
+  SEARCH: (keyword = "") =>
+    gw(withQuery("/api/employee/search", { keyword })),
   CREATE: gw("/api/employee"),
   UPDATE: (id) => gw(`/api/employee/${id}`),
   DELETE: (id) => gw(`/api/employee/${id}`),
@@ -467,6 +559,7 @@ export const ROUTES = {
   BATCH,
   ACADEMIC_YEAR,
   SEMESTER,
+  REPOSITORY,
   FACULTY_PROJECT,
   FACULTY_GROUP,
   TEACHER,

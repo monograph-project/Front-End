@@ -178,8 +178,6 @@ function Blogs() {
     }
   };
 
-  const publishedRate =
-    blogs.length > 0 ? Math.round((counts.published / blogs.length) * 100) : 0;
 
   const hasFilters =
     activeStatus !== "all" || query.trim() || sortBy !== "newest";

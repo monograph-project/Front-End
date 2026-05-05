@@ -1,6 +1,7 @@
 import { GooeyToaster } from "goey-toast";
 import "goey-toast/styles.css";
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { AppTooltipProvider } from "./components/Tooltip";
 import GuestRoute from "./routes/GuestRoute";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import { ThemeProvider } from "./context/themContext";
@@ -35,6 +36,7 @@ import StudentWorkspace from "./pages/student/StudentWorkspace";
 import StudentNewRepository from "./pages/student/StudentNewRepository";
 import StudentSettings from "./pages/student/Settings";
 import StudentNotifications from "./pages/student/Notifications";
+import StudentNotificationDetail from "./pages/student/NotificationDetail";
 import StudentRepositoryLayout from "./pages/student/StudentRepositoryLayout";
 import StudentRepoCode from "./pages/student/StudentRepoCode";
 import StudentRepoPullRequests from "./pages/student/StudentRepoPullRequests";
@@ -62,11 +64,19 @@ import Documentation from "./pages/public/Documentation";
 import AuthorDashboard from "./pages/author/AuthorDashboard";
 import AuthorPublished from "./pages/author/AuthorPublished";
 import AuthorNotifications from "./pages/author/AuthorNotifications";
+import AuthorNotificationDetail from "./pages/author/AuthorNotificationDetail";
+import TeacherNotifications from "./pages/teacher/TeacherNotifications";
+import TeacherNotificationDetail from "./pages/teacher/TeacherNotificationDetail";
+import StaffNotifications from "./pages/staff/StaffNotifications";
+import StaffNotificationDetail from "./pages/staff/StaffNotificationDetail";
+import DeanNotifications from "./pages/dean/DeanNotifications";
+import DeanNotificationDetail from "./pages/dean/DeanNotificationDetail";
 import { PUBLIC_SITE_MEMBER_ROLES } from "./auth/appRoles";
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
     <ThemeProvider>
+      <AppTooltipProvider>
       <BrowserRouter>
         <Routes>
           {/* Public blog / stories — dedicated marketing header; read anonymously, write when signed in */}
@@ -184,6 +194,9 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="notifications" element={<TeacherNotifications />} />
+            <Route path="notifications/:id" element={<TeacherNotificationDetail />} />
+            <Route path="settings" element={<Setting />} />
           </Route>
 
           <Route
@@ -210,6 +223,7 @@ export default function App() {
               element={<StudentNewRepository />}
             />
             <Route path="notifications" element={<StudentNotifications />} />
+            <Route path="notifications/:id" element={<StudentNotificationDetail />} />
             <Route path="settings" element={<StudentSettings />} />
             <Route path="repository/:owner/:repo" element={<StudentRepositoryLayout />}>
               <Route index element={<StudentRepoCode />} />
@@ -231,6 +245,9 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="notifications" element={<StaffNotifications />} />
+            <Route path="notifications/:id" element={<StaffNotificationDetail />} />
+            <Route path="settings" element={<Setting />} />
           </Route>
 
           <Route
@@ -245,6 +262,9 @@ export default function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="notifications" element={<DeanNotifications />} />
+            <Route path="notifications/:id" element={<DeanNotificationDetail />} />
+            <Route path="setting" element={<Setting />} />
           </Route>
 
           <Route
@@ -262,18 +282,21 @@ export default function App() {
             <Route path="writing" element={<WriteStory />} />
             <Route path="published" element={<AuthorPublished />} />
             <Route path="notifications" element={<AuthorNotifications />} />
+            <Route path="notifications/:id" element={<AuthorNotificationDetail />} />
+            <Route path="settings" element={<Setting />} />
           </Route>
 
           <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-        <GooeyToaster
-          position="top-right"
-          toastOptions={{
-            style: { zIndex: 2147483647 },
-          }}
-        />
       </BrowserRouter>
+      <GooeyToaster
+        position="top-right"
+        toastOptions={{
+          style: { zIndex: 2147483647 },
+        }}
+      />
+      </AppTooltipProvider>
     </ThemeProvider>
   );
 }

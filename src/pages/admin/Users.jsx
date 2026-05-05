@@ -13,6 +13,7 @@ import {
   Hash,
   LayoutGrid,
   LayoutList,
+  ListChecks,
   Lock,
   MailCheck,
   PauseCircle,
@@ -36,7 +37,7 @@ import TableColumn from "../../components/TableColumn";
 import TableHeader from "../../components/TableHeader";
 import TableRow from "../../components/TableRow";
 import Pagination from "../../components/Pagination";
-import AvatarDemo from "../../components/Avatar";
+import PersonAvatar from "../../components/PersonAvatar";
 import Checkbox from "../../components/Checkbox";
 import Button from "../../components/Button";
 import Field from "../../components/Field";
@@ -159,6 +160,15 @@ function extractNamedItems(values) {
       ).trim(),
     )
     .filter(Boolean);
+}
+
+function adminEntityProfilePath(user) {
+  const rk = String(user?.roleKey ?? "").toLowerCase();
+  if (rk === "student" || rk === "user" || rk === "author")
+    return `/admin/student/${encodeURIComponent(user.id)}`;
+  if (rk === "teacher") return `/admin/teacher/${encodeURIComponent(user.id)}`;
+  if (rk === "staff") return `/admin/employee/${encodeURIComponent(user.id)}`;
+  return `/admin/users/${encodeURIComponent(user.id)}`;
 }
 
 function extractUserPermissionRoles(user, clientId) {
@@ -420,15 +430,27 @@ export default function Users() {
 
   const headerData = useMemo(
     () => [
-      { title: "" },
+      {
+        title: "",
+        tooltip: t("adminShared.tableHints.bulkSelection"),
+        icon: (
+          <ListChecks
+            className="size-3.5 shrink-0 opacity-70"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ),
+      },
       {
         title: t("adminUsers.table.id"),
+        tooltip: t("adminShared.tableHints.recordId"),
         icon: (
           <Hash className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
         ),
       },
       {
         title: t("adminUsers.table.user"),
+        tooltip: t("adminShared.tableHints.displayName"),
         icon: (
           <UserSquare2
             className="size-3.5 shrink-0"
@@ -439,6 +461,7 @@ export default function Users() {
       },
       {
         title: t("adminUsers.table.role"),
+        tooltip: t("adminShared.tableHints.roleAssignment"),
         icon: (
           <ShieldCheck
             className="size-3.5 shrink-0"
@@ -449,7 +472,7 @@ export default function Users() {
       },
       {
         title: t("adminUsers.table.status"),
-        hint: true,
+        tooltip: t("adminShared.tableHints.columnStatus"),
         icon: (
           <BadgeCheck
             className="size-3.5 shrink-0"
@@ -460,7 +483,7 @@ export default function Users() {
       },
       {
         title: t("adminUsers.table.registered"),
-        hint: true,
+        tooltip: t("adminShared.tableHints.dateRegistered"),
         icon: (
           <CalendarDays
             className="size-3.5 shrink-0"
@@ -472,6 +495,14 @@ export default function Users() {
       {
         title: t("adminUsers.table.actions"),
         align: "center",
+        tooltip: t("adminShared.tableHints.rowActions"),
+        icon: (
+          <LayoutList
+            className="size-3.5 shrink-0 opacity-80"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ),
       },
     ],
     [t],
@@ -847,7 +878,7 @@ export default function Users() {
 
                 <TableColumn>
                   <div className="flex items-center gap-3">
-                    <AvatarDemo />
+                    <PersonAvatar person={user} />
                     <div className="min-w-0">
                       <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
                         {user.displayName}
@@ -901,7 +932,7 @@ export default function Users() {
                     </DropdownTrigger>
                     <DropdownContent align="end">
                       <DropdownItem
-                        onClick={() => navigate(`/admin/users/${user.id}`)}
+                        onClick={() => navigate(adminEntityProfilePath(user))}
                       >
                         <span>{t("adminShared.actions.viewProfile")}</span>
                       </DropdownItem>

@@ -7,6 +7,10 @@ import {
   logoutLocalGateway,
 } from "../auth/authService";
 import {
+  extractNotificationUnreadCountPayload,
+  unwrapNotificationEnvelope,
+} from "../utils/notificationEnvelope";
+import {
   AUTH,
   STUDENT,
   DEPARTMENT,
@@ -14,6 +18,7 @@ import {
   BATCH,
   ACADEMIC_YEAR,
   SEMESTER,
+  REPOSITORY,
   FACULTY_PROJECT,
   FACULTY_GROUP,
   TEACHER,
@@ -240,6 +245,31 @@ function normalizeStudentRecord(raw) {
     batchId = String(raw.batch);
   else if (batchFromRoot(batchIdFromRoot)) batchId = String(batchIdFromRoot);
 
+  const semesterRaw = raw.semester;
+  const semesterObj =
+    typeof semesterRaw === "object" && semesterRaw !== null ? semesterRaw : null;
+  const semesterIdExplicit =
+    raw.semesterId ?? raw.semester_id ?? semesterObj?.id ?? "";
+  let academicYearId =
+    raw.academicYearId ??
+    raw.academic_year_id ??
+    semesterObj?.academicYear?.id ??
+    "";
+  if (
+    !academicYearId &&
+    batchObj &&
+    typeof batchObj === "object" &&
+    batchObj.academicYear?.id != null
+  )
+    academicYearId = batchObj.academicYear.id;
+
+  let semesterStored = "";
+  if (semesterIdExplicit != null && `${semesterIdExplicit}`.trim() !== "") {
+    semesterStored = String(semesterIdExplicit);
+  } else {
+    semesterStored = normalizeSemesterString(semesterRaw);
+  }
+
   const addr =
     typeof raw.address === "object" && raw.address !== null ? raw.address : {};
 
@@ -263,7 +293,14 @@ function normalizeStudentRecord(raw) {
     code: raw.code ?? raw.studentCode ?? raw.student_code ?? "",
     enrollmentDate: toDateInputValue(raw.enrollmentDate ?? raw.enrollment_date),
     kankorId: raw.kankorId ?? raw.kankor_id ?? "",
-    semester: normalizeSemesterString(raw.semester),
+    /** Semester identifier for selects (prefer API id when present). */
+    semester: semesterStored,
+    semesterId:
+      semesterIdExplicit != null && `${semesterIdExplicit}`.trim() !== ""
+        ? String(semesterIdExplicit)
+        : semesterStored,
+    academicYearId:
+      academicYearId != null ? String(academicYearId) : "",
     department: departmentLabel ? String(departmentLabel) : "",
     departmentId: departmentId != null ? String(departmentId) : "",
     status: statusNorm,
@@ -422,6 +459,16 @@ function facultyListItems(data) {
     if (Array.isArray(page.items)) return page.items;
     if (Array.isArray(page.records)) return page.records;
     if (Array.isArray(page.results)) return page.results;
+  }
+  return [];
+}
+
+/** Some controllers wrap lists in a named property (e.g. `{ batches: [...] }`). */
+function namedListFromPayload(payload, keys) {
+  if (!payload || typeof payload !== "object") return [];
+  for (const k of keys) {
+    const v = payload[k];
+    if (Array.isArray(v) && v.length) return v;
   }
   return [];
 }
@@ -781,6 +828,36 @@ export async function vcListPullRequests(owner, repo) {
   }
 }
 
+/**
+ * VC user activity timeline (`GET /api/v1/repos/:username/activity`).
+ * Parsed client-side into pushes / pull requests / merges when `type` is absent.
+ *
+ * @param {string} username VC login / preferred username used by the gateway repos API
+ * @param {{ limit?: number } & Record<string, string>} [params]
+ * @returns {Promise<object[]>}
+ */
+export async function vcGetUserActivity(username, params = {}) {
+  const u = String(username ?? "").trim();
+  if (!u) return [];
+  try {
+    const { data } = await axiosInstance.get(VC.USER_ACTIVITY(u, params));
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === "object") {
+      if (Array.isArray(data.events)) return data.events;
+      if (Array.isArray(data.items)) return data.items;
+      if (Array.isArray(data.content)) return data.content;
+    }
+    return [];
+  } catch (err) {
+    if ([404, 422].includes(err?.response?.status)) return [];
+    throwApiError(
+      err,
+      "Failed to load repository activity.",
+      "apiErrors.failed_to_load_repository",
+    );
+  }
+}
+
 export async function vcGetRepoTaskDashboard(owner, repo) {
   if (!owner || !repo)
     throwClientApiError("Owner and repository are required.");
@@ -796,7 +873,17 @@ export async function vcGetRepoTaskDashboard(owner, repo) {
 export async function getBatches() {
   try {
     const { data } = await axiosInstance.get(BATCH.GETALL);
-    return normalizeBatchesList(data);
+    let list = facultyListItems(data);
+    if (!list.length) {
+      list = namedListFromPayload(data, [
+        "batches",
+        "batchList",
+        "batchResponses",
+        "data",
+      ]);
+    }
+    if (!list.length) list = normalizeBatchesList(data);
+    return list;
   } catch (err) {
     if (err?.response?.status === 404) return [];
     throwApiError(
@@ -829,6 +916,7 @@ function normalizeBatchesList(payload) {
   if (Array.isArray(payload?.batches)) return payload.batches;
   if (Array.isArray(payload?.items)) return payload.items;
   if (Array.isArray(payload?.content)) return payload.content;
+  if (Array.isArray(payload?.data)) return payload.data;
   return [];
 }
 
@@ -943,13 +1031,29 @@ function normalizeTeachersList(payload) {
 export async function getTeachers() {
   try {
     const { data } = await axiosInstance.get(TEACHER.GETALL);
-    console.log(data);
     return normalizeTeachersList(data);
   } catch (err) {
     if (err?.response?.status === 404) return [];
     throwApiError(
       err,
       "Failed to load teachers.",
+      "apiErrors.failed_to_load_teachers",
+    );
+  }
+}
+
+export async function searchTeachers(keyword = "") {
+  const normalizedKeyword = String(keyword ?? "").trim();
+  if (!normalizedKeyword) return [];
+
+  try {
+    const { data } = await axiosInstance.get(TEACHER.SEARCH(normalizedKeyword));
+    return normalizeTeachersList(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to search teachers.",
       "apiErrors.failed_to_load_teachers",
     );
   }
@@ -1106,13 +1210,29 @@ function normalizeEmployeesList(payload) {
 export async function getEmployees() {
   try {
     const { data } = await axiosInstance.get(EMPLOYEE.GETALL);
-    console.log(data);
     return normalizeEmployeesList(data);
   } catch (err) {
     if (err?.response?.status === 404) return [];
     throwApiError(
       err,
       "Failed to load employees.",
+      "apiErrors.failed_to_load_employees",
+    );
+  }
+}
+
+export async function searchEmployees(keyword = "") {
+  const normalizedKeyword = String(keyword ?? "").trim();
+  if (!normalizedKeyword) return [];
+
+  try {
+    const { data } = await axiosInstance.get(EMPLOYEE.SEARCH(normalizedKeyword));
+    return normalizeEmployeesList(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to search employees.",
       "apiErrors.failed_to_load_employees",
     );
   }
@@ -1358,6 +1478,23 @@ export async function getFaculties() {
   }
 }
 
+export async function searchStudents(keyword = "") {
+  const normalizedKeyword = String(keyword ?? "").trim();
+  if (!normalizedKeyword) return [];
+
+  try {
+    const { data } = await axiosInstance.get(STUDENT.SEARCH(normalizedKeyword));
+    return normalizeStudentsList(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to search students.",
+      "apiErrors.failed_to_load_students",
+    );
+  }
+}
+
 export async function getFacultyById(id) {
   try {
     const { data } = await axiosInstance.get(FACULTY.GETBYID(id));
@@ -1565,7 +1702,16 @@ export async function deleteAcademicYear(id) {
 export async function getSemesters(query = {}) {
   try {
     const { data } = await axiosInstance.get(SEMESTER.LIST(query));
-    return facultyListItems(data);
+    let list = facultyListItems(data);
+    if (!list.length) {
+      list = namedListFromPayload(data, [
+        "semesters",
+        "semesterList",
+        "semesterResponses",
+        "data",
+      ]);
+    }
+    return list;
   } catch (err) {
     if (err?.response?.status === 404) return [];
     throwApiError(
@@ -1585,6 +1731,40 @@ export async function getSemesterById(id) {
       err,
       "Failed to load semester.",
       "apiErrors.failed_to_load_semester",
+    );
+  }
+}
+
+export async function getSemestersByAcademicYearId(academicYearId) {
+  if (academicYearId == null || String(academicYearId).trim() === "")
+    return [];
+  try {
+    const { data } = await axiosInstance.get(
+      SEMESTER.BY_ACADEMIC_YEAR(academicYearId),
+    );
+    return facultyListItems(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to load semesters for academic year.",
+      "apiErrors.failed_to_load_semesters",
+    );
+  }
+}
+
+export async function searchRepositories(keyword = "") {
+  const k = String(keyword ?? "").trim();
+  if (!k) return [];
+  try {
+    const { data } = await axiosInstance.get(REPOSITORY.SEARCH(k));
+    return facultyListItems(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to search repositories.",
+      "apiErrors.failed_to_search_repositories",
     );
   }
 }
@@ -2826,6 +3006,27 @@ export async function postTeacherProfilePicture(id, file) {
   }
 }
 
+/**
+ * Upload teacher profile image via `/api/v1/teacher/profile/{id}`.
+ * Backend expects multipart field name: `file`.
+ */
+export async function postTeacherProfilePictureV1(id, file) {
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const { data } = await axiosInstance.post(TEACHER.PROFILE_UPLOAD(id), fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to upload teacher profile.",
+      "apiErrors.failed_to_upload_teacher_profile",
+    );
+  }
+}
+
 export async function getTeacherProfilePictureUrl(id) {
   try {
     const { data } = await axiosInstance.get(FILE.TEACHER_PROFILE.GET(id));
@@ -2854,6 +3055,69 @@ export async function postEmployeeProfilePicture(file) {
       err,
       "Failed to upload employee profile.",
       "apiErrors.failed_to_upload_employee_profile",
+    );
+  }
+}
+
+/**
+ * Upload employee profile image via `/api/v1/employee/profile/{id}`.
+ * Backend expects multipart field name: `file`.
+ */
+export async function postEmployeeProfilePictureV1(id, file) {
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const { data } = await axiosInstance.post(EMPLOYEE.PROFILE_UPLOAD(id), fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to upload employee profile.",
+      "apiErrors.failed_to_upload_employee_profile",
+    );
+  }
+}
+
+/**
+ * Upload student profile image via `/api/v1/student/profile/{id}`.
+ * Backend expects multipart field name: `file`.
+ */
+export async function postStudentProfilePictureV1(id, file) {
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const { data } = await axiosInstance.post(STUDENT.PROFILE_UPLOAD(id), fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to upload student profile.",
+      "apiErrors.failed_to_upload_student_profile",
+    );
+  }
+}
+
+/**
+ * Upload user/author profile image via `/api/v1/users/profile/{id}`.
+ * Backend expects multipart field name: `file`.
+ */
+export async function postUserProfilePictureV1(id, file) {
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const { data } = await axiosInstance.post(USERS.PROFILE_UPLOAD(id), fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to upload profile picture.",
+      "apiErrors.failed_to_upload_profile_picture",
     );
   }
 }
@@ -2936,12 +3200,25 @@ export async function resendNotification(id, body) {
 export async function getNotificationById(id) {
   try {
     const { data } = await axiosInstance.get(NOTIFICATIONS.BY_ID(id));
-    return data;
+    return unwrapNotificationEnvelope(data);
   } catch (err) {
     throwApiError(
       err,
       "Failed to load notification.",
       "apiErrors.failed_to_load_notification",
+    );
+  }
+}
+
+export async function markNotificationAsRead(id) {
+  try {
+    const { data } = await axiosInstance.patch(NOTIFICATIONS.MARK_READ(id));
+    return unwrapNotificationEnvelope(data);
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to update notification.",
+      "apiErrors.failed_to_mark_notification_read",
     );
   }
 }
@@ -2964,7 +3241,7 @@ export async function listUserNotifications(userId, params = {}) {
     const { data } = await axiosInstance.get(
       NOTIFICATIONS.USER(userId, params),
     );
-    return data;
+    return unwrapNotificationEnvelope(data);
   } catch (err) {
     throwApiError(
       err,
@@ -3013,7 +3290,7 @@ export async function getUserNotificationUnreadCount(userId) {
     const { data } = await axiosInstance.get(
       NOTIFICATIONS.USER_UNREAD_COUNT(userId),
     );
-    return data;
+    return extractNotificationUnreadCountPayload(data);
   } catch (err) {
     throwApiError(
       err,

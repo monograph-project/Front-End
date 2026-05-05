@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, cloneElement, isValidElement, useState } from "react";
 import Icon from "./Icon";
 function Field({
   register,
@@ -36,7 +36,28 @@ function Field({
             </span>
           )}
           {children ? (
-            children
+            <div
+              className={
+                error
+                  ? "rounded-xl ring-2 ring-(--color-light-error-border)/90 ring-offset-2 ring-offset-transparent dark:ring-(--color-dark-error-border)/90"
+                  : undefined
+              }
+            >
+              {isValidElement(children)
+                ? cloneElement(children, {
+                    className: [
+                      typeof children.props?.className === "string"
+                        ? children.props.className
+                        : "",
+                      error
+                        ? "border-(--color-light-error-border)! focus:border-(--color-light-error-border) focus:ring-(--color-light-error-border)/25 dark:border-(--color-dark-error-border)! dark:focus:border-(--color-dark-error-border) dark:focus:ring-(--color-dark-error-border)/20"
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" "),
+                  })
+                : children}
+            </div>
           ) : (
             <input
               id={id}
@@ -52,12 +73,15 @@ function Field({
                 w-full h-8 text-xs rounded-xl outline-none
                 px-3.5 py-1.5
                 border transition-colors
-                bg-(--color-light-input-bg) text-(--color-light-text-primary) border-(--color-light-input-border)
+                bg-(--color-light-input-bg) text-(--color-light-text-primary)
                 placeholder:text-(--color-light-input-placeholder)
-                focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15
-                dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:border-dark-input-border
+                dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)
                 dark:placeholder:text-(--color-dark-input-placeholder)
-                dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15
+                ${
+                  error
+                    ? "border-(--color-light-error-border) focus:border-(--color-light-error-border) focus:ring-2 focus:ring-(--color-light-error-border)/20 dark:border-(--color-dark-error-border) dark:focus:border-(--color-dark-error-border) dark:focus:ring-(--color-dark-error-border)/25"
+                    : "border-(--color-light-input-border) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
+                }
                 ${iconD ? "pl-9" : ""}
                 ${isPassword ? "pr-9!" : ""}
               `}
