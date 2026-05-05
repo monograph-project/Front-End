@@ -1,20 +1,46 @@
 import * as React from "react";
-import { Avatar } from "radix-ui";
+import { Avatar as RadixAvatar } from "radix-ui";
+import clsx from "clsx";
 
-const AvatarDemo = ({ url }) => (
-  <Avatar.Root className="inline-flex aspect-square size-[1.85rem] max-h-full max-w-full select-none items-center justify-center overflow-hidden rounded-[inherit] align-middle sm:size-[2rem]">
-    <Avatar.Image
-      className="size-full rounded-[inherit] object-cover"
-      src={`${url ? url : "https://images.unsplash.com/photo-1492633423870-43d1cd2775eb?&w=128&h=128&dpr=2&q=80"}`}
-      alt=""
-    />
-    <Avatar.Fallback
-      className="flex size-full items-center justify-center rounded-[inherit] bg-accent/18 text-[10px] font-semibold uppercase text-primary sm:text-[11px] dark:bg-[rgba(0,102,255,0.22)] dark:text-dark-primary"
-      delayMs={600}
-    >
-      CT
-    </Avatar.Fallback>
-  </Avatar.Root>
-);
+const defaultSizeCls =
+  "inline-flex aspect-square size-[1.85rem] max-h-full max-w-full select-none items-center justify-center overflow-hidden rounded-[inherit] align-middle sm:size-[2rem]";
 
-export default AvatarDemo;
+/**
+ * Avatar with optional remote image URL; falls back to initials only (no stock photo).
+ */
+export default function Avatar({
+  src = null,
+  alt = "",
+  initials = "?",
+  className,
+  sizeClass = defaultSizeCls,
+}) {
+  const label =
+    String(initials ?? "?")
+      .trim()
+      .slice(0, 3)
+      .toUpperCase() || "?";
+  const url = typeof src === "string" && src.trim() ? src.trim() : null;
+  const [broken, setBroken] = React.useState(false);
+  React.useEffect(() => {
+    setBroken(false);
+  }, [url]);
+
+  const showImg = Boolean(url && !broken);
+
+  return (
+    <RadixAvatar.Root className={clsx(sizeClass, className)}>
+      {showImg ? (
+        <RadixAvatar.Image
+          className="size-full rounded-[inherit] object-cover"
+          src={url}
+          alt={alt}
+          onError={() => setBroken(true)}
+        />
+      ) : null}
+      <RadixAvatar.Fallback className="flex size-full items-center justify-center rounded-[inherit] bg-accent/18 text-[10px] font-semibold uppercase text-primary sm:text-[11px] dark:bg-[rgba(0,102,255,0.22)] dark:text-dark-primary">
+        {label}
+      </RadixAvatar.Fallback>
+    </RadixAvatar.Root>
+  );
+}

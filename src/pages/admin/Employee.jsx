@@ -13,6 +13,7 @@ import {
   Hash,
   LayoutGrid,
   LayoutList,
+  ListChecks,
   UserSquare2,
 } from "lucide-react";
 import {
@@ -31,7 +32,7 @@ import TableColumn from "../../components/TableColumn";
 import TableHeader from "../../components/TableHeader";
 import TableRow from "../../components/TableRow";
 import Pagination from "../../components/Pagination";
-import AvatarDemo from "../../components/Avatar";
+import PersonAvatar from "../../components/PersonAvatar";
 import Checkbox from "../../components/Checkbox";
 import Button from "../../components/Button";
 import Field from "../../components/Field";
@@ -99,15 +100,27 @@ export default function Employee() {
 
   const headerData = useMemo(
     () => [
-      { title: "" },
+      {
+        title: "",
+        tooltip: t("adminShared.tableHints.bulkSelection"),
+        icon: (
+          <ListChecks
+            className="size-3.5 shrink-0 opacity-70"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ),
+      },
       {
         title: t("adminEmployee.table.id"),
+        tooltip: t("adminShared.tableHints.recordId"),
         icon: (
           <Hash className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
         ),
       },
       {
         title: t("adminEmployee.table.employee"),
+        tooltip: t("adminShared.tableHints.displayName"),
         icon: (
           <UserSquare2
             className="size-3.5 shrink-0"
@@ -118,6 +131,7 @@ export default function Employee() {
       },
       {
         title: t("adminEmployee.table.department"),
+        tooltip: t("adminShared.tableHints.department"),
         icon: (
           <Building2
             className="size-3.5 shrink-0"
@@ -128,7 +142,7 @@ export default function Employee() {
       },
       {
         title: t("adminEmployee.table.status"),
-        hint: true,
+        tooltip: t("adminShared.tableHints.columnStatus"),
         icon: (
           <BadgeCheck
             className="size-3.5 shrink-0"
@@ -139,7 +153,7 @@ export default function Employee() {
       },
       {
         title: t("adminEmployee.table.joined"),
-        hint: true,
+        tooltip: t("adminShared.tableHints.dateJoined"),
         icon: (
           <CalendarDays
             className="size-3.5 shrink-0"
@@ -151,6 +165,14 @@ export default function Employee() {
       {
         title: t("adminEmployee.table.actions"),
         align: "center",
+        tooltip: t("adminShared.tableHints.rowActions"),
+        icon: (
+          <LayoutList
+            className="size-3.5 shrink-0 opacity-80"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ),
       },
     ],
     [t],
@@ -426,7 +448,7 @@ export default function Employee() {
 
                 <TableColumn>
                   <div className="flex items-center gap-3">
-                    <AvatarDemo />
+                    <PersonAvatar person={employee} />
                     <div className="min-w-0">
                       <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
                         {employee.firstName} {employee.lastName}

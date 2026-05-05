@@ -29,6 +29,10 @@ export function FacultySummaryLine({ label, value }) {
   );
 }
 
+function defaultCompletedStepSnippet(_stepId) {
+  return "—";
+}
+
 export function FacultyReviewRow({ k, v }) {
   const display = v != null && `${v}`.trim() !== "" ? `${v}` : "—";
   return (
@@ -56,7 +60,7 @@ export function FacultyReviewRow({ k, v }) {
  * @param {string} p.progressPercentKey — i18n key with {{pct}}
  * @param {string} p.progressHintKey
  * @param {number} [p.stackUpToExclusive] steps with id &lt; this appear in stacks (omit review)
- * @param {(stepId:number)=>string} p.completedSnippet
+ * @param {(stepId:number)=>string} [p.completedSnippet] defaults to “—”
  * @param {React.ReactNode} p.stepContent — active panel
  * @param {React.ReactNode} p.summaryLines — FacultySummaryLine list
  * @param {boolean} [p.continueDisabled]
@@ -84,7 +88,7 @@ export default function FacultyRegistrationShell({
   progressPercentKey,
   progressHintKey,
   stackUpToExclusive,
-  completedSnippet,
+  completedSnippet = defaultCompletedStepSnippet,
   stepContent,
   summaryLines,
   continueDisabled,
@@ -104,9 +108,17 @@ export default function FacultyRegistrationShell({
   const motionEase = [0.22, 1, 0.36, 1];
   const cutoff = stackUpToExclusive ?? steps.length;
 
+  const invokeSubmitFromFooter = () => {
+    if (typeof onSubmit !== "function") return undefined;
+    return onSubmit();
+  };
+
   return (
     <form
-      onSubmit={onSubmit}
+      /* Enter in inputs must not POST the wizard; only footer “Create/Save”. */
+      onSubmit={(event) => {
+        event.preventDefault();
+      }}
       className={[
         "mx-auto w-full max-w-[min(100%,92rem)] pb-28",
         className,
@@ -316,39 +328,44 @@ export default function FacultyRegistrationShell({
                 </div>
               </LayoutGroup>
 
-              <footer className="mt-10 flex flex-col gap-4 border-t border-default pt-6 sm:flex-row sm:items-center sm:justify-between dark:border-dark-default">
+              <footer className="mt-10 space-y-4 border-t border-default pt-6 dark:border-dark-default">
                 <div className="flex items-center gap-2 text-[11px] text-muted dark:text-dark-muted">
                   <Clock3 className="size-3.5 shrink-0 opacity-70" />
                   <span>{t(savedHintKey)}</span>
                 </div>
-                <div className="flex flex-wrap justify-end gap-2">
-                  {step > 1 ? (
-                    <Button type="button" variant="secondary" onClick={goPrev}>
-                      {t("studentForm.actions.back")}
-                    </Button>
-                  ) : null}
-                  {step < steps.length ? (
-                    <button
-                      type="button"
-                      onClick={() => void goNext()}
-                      disabled={continueDisabled || actionPending}
-                      className="btn-primary min-h-9 rounded-full px-6 text-xs"
-                    >
-                      {t("studentForm.actions.continue")}
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={actionPending}
-                      className="btn-primary min-h-9 min-w-40 rounded-full px-6 text-xs"
-                    >
-                      {actionPending
-                        ? t("studentForm.actions.submitting")
-                        : isEdit
-                          ? t(lastSubmitEditKey)
-                          : t(lastSubmitCreateKey)}
-                    </button>
-                  )}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-h-9 min-w-[6.5rem]">
+                    {step > 1 ? (
+                      <Button type="button" variant="secondary" onClick={goPrev}>
+                        {t("studentForm.actions.back")}
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {step < steps.length ? (
+                      <button
+                        type="button"
+                        onClick={() => void goNext()}
+                        disabled={continueDisabled || actionPending}
+                        className="btn-primary min-h-9 rounded-full px-6 text-xs"
+                      >
+                        {t("studentForm.actions.continue")}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={actionPending}
+                        onClick={() => void invokeSubmitFromFooter()}
+                        className="btn-primary min-h-9 min-w-40 rounded-full px-6 text-xs"
+                      >
+                        {actionPending
+                          ? t("studentForm.actions.submitting")
+                          : isEdit
+                            ? t(lastSubmitEditKey)
+                            : t(lastSubmitCreateKey)}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </footer>
             </div>

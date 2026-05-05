@@ -24,6 +24,7 @@ import {
   useAcademicYears,
   useCreateFacultyGroup,
   useFacultyGroup,
+  useStudentSearch,
   useStudentsPage,
   useUpdateFacultyGroup,
 } from "../../services/useApi";
@@ -82,6 +83,38 @@ function normalizeStudentOptions(page) {
     .filter(Boolean);
 }
 
+function studentToOption(student) {
+  if (!student) return null;
+  const id = studentIdValue(student);
+  if (!id) return null;
+  return {
+    value: id,
+    label: displayName(student, id),
+    description:
+      student?.email ??
+      student?.studentCode ??
+      student?.code ??
+      student?.department?.name ??
+      student?.department ??
+      undefined,
+  };
+}
+
+function mergeOptions(...groups) {
+  const merged = [];
+  const seen = new Set();
+
+  for (const group of groups) {
+    for (const option of Array.isArray(group) ? group : []) {
+      if (!option?.value || seen.has(option.value)) continue;
+      seen.add(option.value);
+      merged.push(option);
+    }
+  }
+
+  return merged;
+}
+
 function normalizeGroupLeader(value) {
   if (!value) return "";
   if (typeof value === "string" || typeof value === "number") return String(value);
@@ -132,27 +165,6 @@ function studentsFromPage(page) {
   return Array.isArray(page?.content) ? page.content : [];
 }
 
-function findStudentByInviteQuery(list, query) {
-  const raw = query.trim();
-  if (!raw) return null;
-  const q = raw.toLowerCase();
-  for (const st of list) {
-    const id = studentIdValue(st);
-    if (!id) continue;
-    const email = String(st.email ?? "").toLowerCase();
-    const code = String(st.studentCode ?? st.code ?? "").toLowerCase();
-    const kankor = String(st.kankorId ?? "").toLowerCase();
-    if (email && email === q) return st;
-    if (code && code === q) return st;
-    if (kankor && kankor === q) return st;
-  }
-  for (const st of list) {
-    const email = String(st.email ?? "").toLowerCase();
-    if (email && email.includes(q)) return st;
-  }
-  return null;
-}
-
 function resolveMemberRecord(memberId, pageStudents, group) {
   const fromPage = pageStudents.find((s) => studentIdValue(s) === memberId);
   if (fromPage) return fromPage;
@@ -171,8 +183,10 @@ export default function GroupRegistrationPage() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const [step, setStep] = useState(1);
-  const [inviteInput, setInviteInput] = useState("");
-  const [inviteError, setInviteError] = useState("");
+  const [leaderSearchTerm, setLeaderSearchTerm] = useState("");
+  const [debouncedLeaderSearchTerm, setDebouncedLeaderSearchTerm] = useState("");
+  const [memberSearchTerm, setMemberSearchTerm] = useState("");
+  const [debouncedMemberSearchTerm, setDebouncedMemberSearchTerm] = useState("");
 
   const { data: group, isLoading: groupLoading } = useFacultyGroup(id, {
     enabled: isEdit,
@@ -186,11 +200,49 @@ export default function GroupRegistrationPage() {
     {},
     { notifyOnError: false, staleTime: 120_000 },
   );
+  const { data: searchedStudents = [], isFetching: isSearchingStudents } = useStudentSearch(
+    debouncedLeaderSearchTerm,
+    {
+      enabled: debouncedLeaderSearchTerm.length > 0,
+      staleTime: 30_000,
+      notifyOnError: false,
+    },
+  );
+  const { data: memberSearchHits = [], isFetching: isSearchingMembers } = useStudentSearch(
+    debouncedMemberSearchTerm,
+    {
+      enabled: debouncedMemberSearchTerm.length > 0,
+      staleTime: 30_000,
+      notifyOnError: false,
+    },
+  );
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedLeaderSearchTerm(leaderSearchTerm.trim());
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [leaderSearchTerm]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedMemberSearchTerm(memberSearchTerm.trim());
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [memberSearchTerm]);
 
   const pageStudents = useMemo(() => studentsFromPage(studentPage), [studentPage]);
   const studentOptions = useMemo(
     () => normalizeStudentOptions(studentPage),
     [studentPage],
+  );
+  const searchedStudentOptions = useMemo(
+    () => searchedStudents.map(studentToOption).filter(Boolean),
+    [searchedStudents],
+  );
+  const memberSearchOptions = useMemo(
+    () => memberSearchHits.map(studentToOption).filter(Boolean),
+    [memberSearchHits],
   );
 
   const academicYearOptions = useMemo(() => {
@@ -283,8 +335,44 @@ export default function GroupRegistrationPage() {
   });
 
   const values = useWatch({ control });
-  const selectedLeader = studentOptions.find((item) => item.value === values.groupLeader);
+  const leaderId = String(values?.groupLeader ?? "").trim();
+  const selectedLeaderRecord = !leaderId
+    ? null
+    : pageStudents.find((student) => studentIdValue(student) === leaderId) ??
+      searchedStudents.find((student) => studentIdValue(student) === leaderId) ??
+      (studentIdValue(group?.groupLeader) === leaderId ? group.groupLeader : null) ??
+      (Array.isArray(group?.groupMembers)
+        ? group.groupMembers.find((member) => studentIdValue(member) === leaderId)
+        : null) ??
+      null;
+  const leaderOptions = useMemo(() => {
+    const baseOptions =
+      debouncedLeaderSearchTerm.length > 0 ? searchedStudentOptions : studentOptions;
+    const selectedOption = studentToOption(selectedLeaderRecord);
+    return mergeOptions(selectedOption ? [selectedOption] : [], baseOptions);
+  }, [
+    debouncedLeaderSearchTerm,
+    searchedStudentOptions,
+    selectedLeaderRecord,
+    studentOptions,
+  ]);
+  const selectedLeader = leaderOptions.find((item) => item.value === values.groupLeader);
   const memberIds = Array.isArray(values.groupMembers) ? values.groupMembers.filter(Boolean) : [];
+  const memberPickerOptions = useMemo(() => {
+    const baseOptions =
+      debouncedMemberSearchTerm.length > 0 ? memberSearchOptions : studentOptions;
+    const forSelected = memberIds
+      .map((mid) => studentToOption(resolveMemberRecord(mid, pageStudents, group)))
+      .filter(Boolean);
+    return mergeOptions(forSelected, baseOptions);
+  }, [
+    debouncedMemberSearchTerm,
+    memberSearchOptions,
+    memberIds,
+    pageStudents,
+    group,
+    studentOptions,
+  ]);
   const progressPct = Math.round((step / steps.length) * 100);
   const motionEase = [0.22, 1, 0.36, 1];
 
@@ -333,23 +421,6 @@ export default function GroupRegistrationPage() {
 
   const goPrev = () => {
     setStep((prev) => Math.max(prev - 1, 1));
-  };
-
-  const addMemberFromInvite = () => {
-    setInviteError("");
-    const found = findStudentByInviteQuery(pageStudents, inviteInput);
-    if (!found) {
-      setInviteError(t("adminProjects.form.group.invite.notFound"));
-      return;
-    }
-    const sid = studentIdValue(found);
-    const cur = normalizeGroupMembers(getValues("groupMembers"));
-    if (cur.includes(sid)) {
-      setInviteInput("");
-      return;
-    }
-    setValue("groupMembers", [...cur, sid], { shouldValidate: true, shouldDirty: true });
-    setInviteInput("");
   };
 
   const setMemberRole = (memberId, role) => {
@@ -473,14 +544,16 @@ export default function GroupRegistrationPage() {
                     <SearchableSelect
                       value={field.value}
                       onValueChange={field.onChange}
-                      options={studentOptions}
+                      options={leaderOptions}
                       placeholder={
                         studentsLoading
                           ? t("adminProjects.form.group.placeholders.loadingStudents")
                           : t("adminProjects.form.group.placeholders.groupLeader")
                       }
                       searchPlaceholder={t("adminProjects.form.group.placeholders.groupLeaderSearch")}
-                      disabled={studentsLoading || studentOptions.length === 0}
+                      loading={isSearchingStudents}
+                      onSearchChange={setLeaderSearchTerm}
+                      disabled={studentsLoading}
                       className="min-h-8 bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)"
                     />
                     {fieldState.error?.message ? (
@@ -518,45 +591,6 @@ export default function GroupRegistrationPage() {
                 </div>
               </div>
 
-              <div className="mb-4">
-                <label className="mb-1.5 block text-[11px] font-semibold text-primary dark:text-dark-primary">
-                  {t("adminProjects.form.group.invite.inputLabel")}
-                </label>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-3">
-                  <input
-                    type="text"
-                    value={inviteInput}
-                    onChange={(e) => {
-                      setInviteInput(e.target.value);
-                      setInviteError("");
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addMemberFromInvite();
-                      }
-                    }}
-                    placeholder={t("adminProjects.form.group.invite.placeholder")}
-                    className="h-8 min-w-0 flex-1 rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3.5 py-1.5 text-xs text-(--color-light-text-primary) placeholder:text-(--color-light-input-placeholder) transition-colors focus-visible:border-(--color-light-input-border-focus) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus-visible:border-(--color-dark-input-border-focus) dark:focus-visible:ring-blue-400/15"
-                    autoComplete="off"
-                  />
-                  <Button
-                    type="button"
-                    className="h-8 shrink-0 sm:min-w-[7.5rem]"
-                    onClick={addMemberFromInvite}
-                    disabled={studentsLoading || !inviteInput.trim()}
-                  >
-                    {t("adminProjects.form.group.invite.addMember")}
-                  </Button>
-                </div>
-                {inviteError ? (
-                  <p className="mt-1.5 text-[11px] text-error dark:text-red-400">{inviteError}</p>
-                ) : null}
-                <p className="mt-2 text-[11px] text-muted dark:text-dark-muted">
-                  {t("adminProjects.form.group.invite.browseHint")}
-                </p>
-              </div>
-
               <Controller
                 name="groupMembers"
                 control={control}
@@ -566,8 +600,36 @@ export default function GroupRegistrationPage() {
                       ? true
                       : t("adminProjects.form.group.validation.groupMembers"),
                 }}
-                render={({ fieldState }) => (
+                render={({ field, fieldState }) => (
                   <>
+                    <div className="mb-4 flex flex-col gap-2">
+                      <span className="text-[11px] font-semibold text-primary dark:text-dark-primary">
+                        {t("adminProjects.form.group.fields.groupMembers")}
+                      </span>
+                      <SearchableSelect
+                        multiple
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={memberPickerOptions}
+                        placeholder={
+                          studentsLoading
+                            ? t("adminProjects.form.group.placeholders.loadingStudents")
+                            : t("adminProjects.form.group.placeholders.membersPicker")
+                        }
+                        searchPlaceholder={t(
+                          "adminProjects.form.group.placeholders.membersSearch",
+                        )}
+                        loading={isSearchingMembers}
+                        onSearchChange={setMemberSearchTerm}
+                        disabled={studentsLoading}
+                        clearSearchOnOpen={false}
+                        showInlineSearchClear={false}
+                        className="min-h-8 bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)"
+                      />
+                      <p className="text-[11px] text-muted dark:text-dark-muted">
+                        {t("adminProjects.form.group.invite.browseHint")}
+                      </p>
+                    </div>
                     {fieldState.error?.message ? (
                       <p className="mb-3 text-[11px] text-error dark:text-red-400">
                         {fieldState.error.message}
@@ -741,7 +803,7 @@ export default function GroupRegistrationPage() {
       </button>
 
       <form
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={(e) => e.preventDefault()}
         className="mx-auto w-full max-w-[min(100%,92rem)] pb-20"
       >
         <div className="card rounded-xl px-5 py-8 shadow-sm md:px-8 md:py-10">
@@ -939,7 +1001,11 @@ export default function GroupRegistrationPage() {
                         {t("adminProjects.form.group.actions.continue")}
                       </Button>
                     ) : (
-                      <Button type="submit" disabled={createGroup.isPending || updateGroup.isPending}>
+                      <Button
+                        type="button"
+                        disabled={createGroup.isPending || updateGroup.isPending}
+                        onClick={() => void handleSubmit(onSubmit)()}
+                      >
                         {createGroup.isPending || updateGroup.isPending
                           ? t("adminProjects.form.group.actions.submitting")
                           : isEdit

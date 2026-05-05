@@ -20,11 +20,14 @@ import Button from "./Button";
 import Field from "./Field";
 import Icon from "./Icon";
 import IC from "./IC";
+import SearchableSelect from "./SearchableSelect";
 import Select from "./Select";
 import {
+  useAcademicYears,
   useBatches,
   useCreateStudent,
   useDepartments,
+  useSemestersByAcademicYear,
   useStudent,
   useUpdateStudent,
 } from "../services/useApi";
@@ -47,7 +50,7 @@ function normalizeDepartmentsPayload(data) {
 
 function recordToDepartmentOption(record) {
   const id =
-    record?.id ?? record?.departmentId ?? record?.uuid ?? record?.code ?? "";
+    record?.id ?? record?.department ?? record?.uuid ?? record?.code ?? "";
   const label =
     record?.name ??
     record?.title ??
@@ -77,21 +80,23 @@ function recordToBatchOption(record) {
     typeof academic === "object" && academic != null
       ? (academic.name ?? "")
       : "";
-  const head = [name, year != null ? String(year) : "", ty]
+  const shortHead = [name, year != null ? String(year) : ""]
     .filter(Boolean)
     .join(" · ");
-  const label =
-    ayName && String(ayName).trim() !== ""
-      ? `${head} (${ayName})`
-      : head || name;
-  return { value: id, label: label || name, raw: record };
+  const label = shortHead || name;
+  const detailParts = [
+    ty,
+    ayName && String(ayName).trim() !== "" ? String(ayName) : "",
+  ].filter(Boolean);
+  const description = detailParts.length ? detailParts.join(" — ") : undefined;
+  return { value: id, label, description, raw: record };
 }
 
 function matchDepartmentSelection(student, options) {
   if (!student || !options?.length) return "";
   const byId =
-    student.departmentId != null && `${student.departmentId}`.trim() !== ""
-      ? String(student.departmentId)
+    student.department != null && `${student.department}`.trim() !== ""
+      ? String(student.department)
       : "";
   if (byId && options.some((o) => o.value === byId)) return byId;
   const name = student.department;
@@ -112,6 +117,40 @@ function matchBatchSelection(student, options) {
       : "";
   if (byId && options.some((o) => o.value === byId)) return byId;
   return "";
+}
+
+function normalizeAcademicYearsPayload(data) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.academicYears)) return data.academicYears;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.content)) return data.content;
+  return [];
+}
+
+function recordToAcademicYearOption(record) {
+  const id = record?.id ?? record?.academicYearId ?? "";
+  const label =
+    record?.name ??
+    record?.title ??
+    record?.label ??
+    (record?.year != null ? String(record.year) : "") ??
+    "";
+  const value = String(id);
+  const display = label && String(label).trim() !== "" ? String(label) : value;
+  return { value, label: display || value, raw: record };
+}
+
+function recordToSemesterApiOption(record) {
+  const id = record?.id ?? record?.semesterId ?? "";
+  if (!id) return null;
+  const label =
+    record?.name ??
+    record?.semesterName ??
+    record?.title ??
+    record?.code ??
+    String(id);
+  return { value: String(id), label: String(label), raw: record };
 }
 
 const stepMotion = {
@@ -183,12 +222,17 @@ export default function StudentRegistrationWizard({
     isError: departmentsError,
   } = useDepartments({ notifyOnError: false });
 
-  console.log(departmentsData)
   const {
     data: batchesData,
     isLoading: batchesLoading,
     isError: batchesError,
   } = useBatches({ notifyOnError: false });
+
+  const {
+    data: academicYearsData,
+    isLoading: academicYearsLoading,
+    isError: academicYearsError,
+  } = useAcademicYears({}, { notifyOnError: false });
 
   const {
     data: existingStudent,
@@ -219,13 +263,17 @@ export default function StudentRegistrationWizard({
     [batchRecords],
   );
 
-  const semesterOptions = useMemo(
+  const academicYearRecords = useMemo(
+    () => normalizeAcademicYearsPayload(academicYearsData),
+    [academicYearsData],
+  );
+
+  const academicYearOptions = useMemo(
     () =>
-      [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
-        value: String(n),
-        label: t(`studentForm.options.semester${n}`),
-      })),
-    [t],
+      academicYearRecords
+        .map((r) => recordToAcademicYearOption(r))
+        .filter((o) => o.value),
+    [academicYearRecords],
   );
 
   const genderOptions = useMemo(
@@ -290,7 +338,8 @@ export default function StudentRegistrationWizard({
         titleKey: "studentForm.steps.academic",
         icon: GraduationCap,
         fields: [
-          "departmentId",
+          "department",
+          "academicYearId",
           "semester",
           "batchId",
           "enrollmentDate",
@@ -308,9 +357,11 @@ export default function StudentRegistrationWizard({
   );
 
   const hydratedStudentIdRef = useRef(null);
+  const prevAcademicYearIdRef = useRef("");
 
   useEffect(() => {
     hydratedStudentIdRef.current = null;
+    prevAcademicYearIdRef.current = "";
   }, [studentId]);
 
   const {
@@ -320,6 +371,7 @@ export default function StudentRegistrationWizard({
     reset,
     formState: { errors },
     trigger,
+    setValue,
   } = useForm({
     defaultValues: {
       username: "",
@@ -337,10 +389,11 @@ export default function StudentRegistrationWizard({
       addressStreet: "",
       addressCity: "",
       addressPostalCode: "",
-      departmentId: "",
+      department: "",
+      academicYearId: "",
       enrollmentDate: new Date().toISOString().slice(0, 10),
       kankorId: "",
-      semester: "1",
+      semester: "",
       batchId: "",
       status: "ACTIVE",
     },
@@ -375,14 +428,27 @@ export default function StudentRegistrationWizard({
       addressStreet: existingStudent.addressStreet ?? "",
       addressCity: existingStudent.addressCity ?? "",
       addressPostalCode: existingStudent.addressPostalCode ?? "",
-      departmentId: deptSel,
+      department: deptSel,
+      academicYearId: existingStudent.academicYearId
+        ? String(existingStudent.academicYearId)
+        : "",
       enrollmentDate:
         existingStudent.enrollmentDate || new Date().toISOString().slice(0, 10),
       kankorId: existingStudent.kankorId ?? "",
-      semester: existingStudent.semester || "1",
+      semester:
+        existingStudent.semester != null &&
+        String(existingStudent.semester).trim() !== ""
+          ? String(existingStudent.semester)
+          : existingStudent.semesterId != null &&
+              String(existingStudent.semesterId).trim() !== ""
+            ? String(existingStudent.semesterId)
+            : "",
       batchId: batchSel,
       status: existingStudent.status || "ACTIVE",
     });
+    prevAcademicYearIdRef.current = existingStudent.academicYearId
+      ? String(existingStudent.academicYearId)
+      : "";
   }, [
     isEdit,
     studentId,
@@ -396,6 +462,31 @@ export default function StudentRegistrationWizard({
   ]);
 
   const watched = useWatch({ control });
+
+  const { data: semesterRows = [], isFetching: semestersFetching } =
+    useSemestersByAcademicYear(watched?.academicYearId, {
+      enabled: Boolean(String(watched?.academicYearId ?? "").trim()),
+      notifyOnError: false,
+    });
+
+  const semesterOptions = useMemo(
+    () =>
+      semesterRows
+        .map((r) => recordToSemesterApiOption(r))
+        .filter(Boolean),
+    [semesterRows],
+  );
+
+  useEffect(() => {
+    const cur = watched?.academicYearId ?? "";
+    const prev = prevAcademicYearIdRef.current ?? "";
+    if (prev === cur) return;
+    prevAcademicYearIdRef.current = cur;
+    const initialFromEmpty = prev === "" && cur !== "";
+    if (!initialFromEmpty) {
+      setValue("semester", "");
+    }
+  }, [watched?.academicYearId, setValue]);
 
   const progressPct = Math.round((step / steps.length) * 100);
 
@@ -429,10 +520,11 @@ export default function StudentRegistrationWizard({
 
   const mapToApiBody = useCallback(
     (values) => {
-      const deptLabel =
-        departmentOptions.find((o) => o.value === values.departmentId)?.label ??
-        "";
       const trimmedKankor = values.kankorId.trim();
+      const deptId = String(values.department ?? "").trim();
+      const semId = String(values.semester ?? "").trim();
+      const ayId = String(values.academicYearId ?? "").trim();
+      const batchIdTrim = String(values.batchId ?? "").trim();
       const body = {
         role: (values.role && values.role.trim()) || "STUDENT",
         firstName: values.firstName.trim(),
@@ -446,10 +538,13 @@ export default function StudentRegistrationWizard({
         phone: values.phone.trim(),
         enrollmentDate: values.enrollmentDate,
         kankorId: trimmedKankor,
-        semester: values.semester,
-        department: deptLabel || String(values.departmentId ?? ""),
+        department: deptId,
+        academicYearId: ayId || undefined,
+        semesterId: semId,
+        semester: semId,
         status: values.status,
-        batch: values.batchId ? String(values.batchId) : "",
+        batchId: batchIdTrim || undefined,
+        batch: batchIdTrim ? batchIdTrim : "",
         address: {
           street: values.addressStreet.trim(),
           city: values.addressCity.trim(),
@@ -466,7 +561,7 @@ export default function StudentRegistrationWizard({
 
       return body;
     },
-    [departmentOptions, isEdit],
+    [isEdit],
   );
 
   const onSubmit = (values) => {
@@ -483,7 +578,9 @@ export default function StudentRegistrationWizard({
     if (!cfg) return;
     if (
       step === 5 &&
-      (departmentOptions.length === 0 || batchOptions.length === 0)
+      (departmentOptions.length === 0 ||
+        batchOptions.length === 0 ||
+        academicYearOptions.length === 0)
     )
       return;
     const ok = await trigger(cfg.fields);
@@ -498,11 +595,24 @@ export default function StudentRegistrationWizard({
   const batchSelectDisabled =
     batchesLoading || !!batchesError || batchOptions.length === 0;
 
+  const academicYearSelectDisabled =
+    academicYearsLoading ||
+    !!academicYearsError ||
+    academicYearOptions.length === 0;
+
+  const semesterSelectDisabled =
+    !String(watched?.academicYearId ?? "").trim() ||
+    semestersFetching ||
+    semesterOptions.length === 0;
+
   const deptName =
-    departmentOptions.find((o) => o.value === watched?.departmentId)?.label ??
+    departmentOptions.find((o) => o.value === watched?.department)?.label ??
     "—";
   const batchName =
     batchOptions.find((o) => o.value === watched?.batchId)?.label ?? "—";
+  const academicYearName =
+    academicYearOptions.find((o) => o.value === watched?.academicYearId)
+      ?.label ?? "—";
   const semName =
     semesterOptions.find((o) => o.value === watched?.semester)?.label ?? "—";
   const summaryName = [watched?.firstName, watched?.lastName]
@@ -539,8 +649,9 @@ export default function StudentRegistrationWizard({
           );
         case 5:
           return (
-            [deptName, batchName].filter((x) => x && x !== "—").join(" · ") ||
-            "—"
+            [deptName, academicYearName, semName, batchName]
+              .filter((x) => x && x !== "—")
+              .join(" · ") || "—"
           );
         default:
           return "";
@@ -548,6 +659,8 @@ export default function StudentRegistrationWizard({
     },
     [
       deptName,
+      academicYearName,
+      semName,
       batchName,
       watched?.username,
       watched?.firstName,
@@ -942,6 +1055,24 @@ export default function StudentRegistrationWizard({
               </p>
             ) : null}
 
+            {academicYearsLoading ? (
+              <p className="text-xs text-muted dark:text-dark-muted">
+                {t("studentForm.academicYearsLoading")}
+              </p>
+            ) : null}
+            {academicYearsError ? (
+              <p className="rounded-xl border border-error/40 bg-error/10 px-3 py-2 text-[11px] text-error">
+                {t("studentForm.academicYearsError")}
+              </p>
+            ) : null}
+            {!academicYearsLoading &&
+            !academicYearsError &&
+            academicYearOptions.length === 0 ? (
+              <p className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning">
+                {t("studentForm.academicYearsEmpty")}
+              </p>
+            ) : null}
+
             <FormSectionCard
               icon={GraduationCap}
               tint="sky"
@@ -949,7 +1080,7 @@ export default function StudentRegistrationWizard({
               subtitle={t("studentForm.section.programSub")}
             >
               <Controller
-                name="departmentId"
+                name="department"
                 control={control}
                 rules={{
                   required:
@@ -968,9 +1099,36 @@ export default function StudentRegistrationWizard({
                   />
                 )}
               />
-              {errors.departmentId ? (
+              {errors.department ? (
                 <p className="text-[11px] font-medium text-error">
-                  {errors.departmentId.message}
+                  {errors.department.message}
+                </p>
+              ) : null}
+              <Controller
+                name="academicYearId"
+                control={control}
+                rules={{
+                  required:
+                    academicYearOptions.length > 0
+                      ? t("studentForm.validation.academicYearRequired")
+                      : false,
+                }}
+                render={({ field }) => (
+                  <Select
+                    label={`${t("studentForm.fields.academicYear.label")} *`}
+                    placeholder={t(
+                      "studentForm.fields.academicYear.placeholder",
+                    )}
+                    options={academicYearOptions}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={academicYearSelectDisabled}
+                  />
+                )}
+              />
+              {errors.academicYearId ? (
+                <p className="text-[11px] font-medium text-error">
+                  {errors.academicYearId.message}
                 </p>
               ) : null}
             </FormSectionCard>
@@ -1005,15 +1163,25 @@ export default function StudentRegistrationWizard({
                   name="semester"
                   control={control}
                   rules={{
-                    required: t("studentForm.validation.semesterRequired"),
+                    required:
+                      semesterOptions.length > 0
+                        ? t("studentForm.validation.semesterRequired")
+                        : false,
                   }}
                   render={({ field }) => (
                     <Select
                       label={`${t("studentForm.fields.semester.label")} *`}
-                      placeholder={t("studentForm.fields.semester.placeholder")}
+                      placeholder={
+                        !String(watched?.academicYearId ?? "").trim()
+                          ? t("studentForm.fields.semester.placeholderNoYear")
+                          : semestersFetching
+                            ? t("studentForm.semestersLoading")
+                            : t("studentForm.fields.semester.placeholder")
+                      }
                       options={semesterOptions}
                       value={field.value}
                       onValueChange={field.onChange}
+                      disabled={semesterSelectDisabled}
                     />
                   )}
                 />
@@ -1027,16 +1195,25 @@ export default function StudentRegistrationWizard({
                         : false,
                   }}
                   render={({ field }) => (
-                    <Select
-                      label={`${t("studentForm.fields.batch.label")} *`}
-                      placeholder={t(
-                        "studentForm.fields.batch.placeholderSelect",
-                      )}
-                      options={batchOptions}
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      disabled={batchSelectDisabled}
-                    />
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold text-primary dark:text-dark-primary">
+                        {`${t("studentForm.fields.batch.label")} *`}
+                      </span>
+                      <SearchableSelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        options={batchOptions}
+                        placeholder={t(
+                          "studentForm.fields.batch.placeholderSelect",
+                        )}
+                        searchPlaceholder={t(
+                          "studentForm.fields.batch.searchPlaceholder",
+                        )}
+                        disabled={batchSelectDisabled}
+                        clearSearchOnOpen={false}
+                        className="min-h-8"
+                      />
+                    </div>
                   )}
                 />
               </div>
@@ -1164,6 +1341,10 @@ export default function StudentRegistrationWizard({
                   v={deptName}
                 />
                 <ReviewRow
+                  k={t("studentForm.fields.academicYear.label")}
+                  v={academicYearName !== "—" ? academicYearName : "—"}
+                />
+                <ReviewRow
                   k={t("studentForm.fields.semester.label")}
                   v={semName}
                 />
@@ -1223,7 +1404,7 @@ export default function StudentRegistrationWizard({
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={(e) => e.preventDefault()}
       className={["mx-auto w-full max-w-[min(100%,92rem)] pb-28", className]
         .filter(Boolean)
         .join(" ")}
@@ -1447,46 +1628,54 @@ export default function StudentRegistrationWizard({
                 </div>
               </LayoutGroup>
 
-              <footer className="mt-10 flex flex-col gap-4 border-t pt-6 sm:flex-row sm:items-center sm:justify-between dark:border-dark-border-default">
+              <footer className="mt-10 space-y-4 border-t pt-6 dark:border-dark-border-default">
                 <div className="flex items-center gap-2 text-[11px] text-muted dark:text-dark-muted">
                   <Clock3 className="size-3.5 shrink-0 opacity-70" />
                   <span>{t("studentForm.savedHint")}</span>
                 </div>
-                <div className="flex flex-wrap justify-end gap-2">
-                  {step > 1 ? (
-                    <Button type="button" variant="secondary" onClick={goPrev}>
-                      {t("studentForm.actions.back")}
-                    </Button>
-                  ) : null}
-                  {step < steps.length ? (
-                    <button
-                      type="button"
-                      onClick={() => void goNext()}
-                      disabled={
-                        (step === 5 &&
-                          (deptSelectDisabled || batchSelectDisabled)) ||
-                        createMutation.isPending ||
-                        updateMutation.isPending
-                      }
-                      className="btn-primary min-h-9   px-6 text-xs"
-                    >
-                      {t("studentForm.actions.continue")}
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={
-                        createMutation.isPending || updateMutation.isPending
-                      }
-                      className="btn-primary min-h-9 min-w-40 rounded-full px-6 text-xs"
-                    >
-                      {createMutation.isPending || updateMutation.isPending
-                        ? t("studentForm.actions.submitting")
-                        : isEdit
-                          ? t("studentForm.actions.save")
-                          : t("studentForm.actions.create")}
-                    </button>
-                  )}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-h-9 min-w-[6.5rem]">
+                    {step > 1 ? (
+                      <Button type="button" variant="secondary" onClick={goPrev}>
+                        {t("studentForm.actions.back")}
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {step < steps.length ? (
+                      <button
+                        type="button"
+                        onClick={() => void goNext()}
+                        disabled={
+                          (step === 5 &&
+                            (deptSelectDisabled ||
+                              batchSelectDisabled ||
+                              academicYearSelectDisabled ||
+                              semesterSelectDisabled)) ||
+                          createMutation.isPending ||
+                          updateMutation.isPending
+                        }
+                        className="btn-primary min-h-9 px-6 text-xs"
+                      >
+                        {t("studentForm.actions.continue")}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={
+                          createMutation.isPending || updateMutation.isPending
+                        }
+                        onClick={() => void handleSubmit(onSubmit)()}
+                        className="btn-primary min-h-9 min-w-40 rounded-full px-6 text-xs"
+                      >
+                        {createMutation.isPending || updateMutation.isPending
+                          ? t("studentForm.actions.submitting")
+                          : isEdit
+                            ? t("studentForm.actions.save")
+                            : t("studentForm.actions.create")}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </footer>
             </div>
@@ -1525,6 +1714,10 @@ export default function StudentRegistrationWizard({
                 <SummaryLine
                   label={t("studentForm.summary.department")}
                   value={deptName}
+                />
+                <SummaryLine
+                  label={t("studentForm.fields.academicYear.label")}
+                  value={academicYearName !== "—" ? academicYearName : "—"}
                 />
                 <SummaryLine
                   label={t("studentForm.summary.semester")}

@@ -62,7 +62,7 @@ function normalizeDepartmentsPayload(data) {
 
 function recordToDepartmentOption(record) {
   const id =
-    record?.id ?? record?.departmentId ?? record?.uuid ?? record?.code ?? "";
+    record?.id ?? record?.department ?? record?.uuid ?? record?.code ?? "";
   const label =
     record?.name ??
     record?.title ??
@@ -76,8 +76,8 @@ function recordToDepartmentOption(record) {
 function matchDepartmentSelection(entity, options) {
   if (!entity || !options?.length) return "";
   const byId =
-    entity.departmentId != null && `${entity.departmentId}`.trim() !== ""
-      ? String(entity.departmentId)
+    entity.department != null && `${entity.department}`.trim() !== ""
+      ? String(entity.department)
       : "";
   if (byId && options.some((o) => o.value === byId)) return byId;
   const name = entity.department;
@@ -237,7 +237,7 @@ export default function TeacherRegistrationWizard({
       addressCity: "",
       addressPostalCode: "",
       addressProvince: "",
-      departmentId: "",
+      department: "",
       educationRank: "BACHELOR",
       enrollmentDate: new Date().toISOString().slice(0, 10),
     },
@@ -269,7 +269,7 @@ export default function TeacherRegistrationWizard({
       addressCity: existingTeacher.addressCity ?? "",
       addressPostalCode: existingTeacher.addressPostalCode ?? "",
       addressProvince: existingTeacher.addressProvince ?? "",
-      departmentId: deptSel || existingTeacher.departmentId || "",
+      department: deptSel || existingTeacher.department || "",
       educationRank:
         existingTeacher.educationRank &&
         EDUCATION_RANK_VALUES.includes(existingTeacher.educationRank)
@@ -293,9 +293,6 @@ export default function TeacherRegistrationWizard({
 
   const mapToApiBody = useCallback(
     (values) => {
-      const deptLabel =
-        departmentOptions.find((o) => o.value === values.departmentId)
-          ?.label ?? "";
       const body = {
         userName: values.username.trim(),
         role: (values.role && values.role.trim()) || "TEACHER",
@@ -307,7 +304,7 @@ export default function TeacherRegistrationWizard({
         email: values.email.trim(),
         phone: values.phone.trim(),
         educationRank: values.educationRank,
-        department: deptLabel || String(values.departmentId ?? ""),
+        department: String(values.department ?? "").trim(),
         enrollmentDate: values.enrollmentDate,
         address: {
           street: values.addressStreet.trim(),
@@ -323,7 +320,7 @@ export default function TeacherRegistrationWizard({
       }
       return body;
     },
-    [departmentOptions, isEdit],
+    [isEdit],
   );
 
   const createMutation = useCreateTeacher({
@@ -366,7 +363,7 @@ export default function TeacherRegistrationWizard({
     setStep((s) => Math.min(s + 1, steps.length));
 
   const deptName =
-    departmentOptions.find((o) => o.value === watched?.departmentId)?.label ??
+    departmentOptions.find((o) => o.value === watched?.department)?.label ??
     "—";
 
   const educationLabel =
@@ -768,7 +765,7 @@ export default function TeacherRegistrationWizard({
               subtitle={t("teacherForm.section.placementSub")}
             >
               <Controller
-                name="departmentId"
+                name="department"
                 control={control}
                 rules={{
                   required:
@@ -778,7 +775,7 @@ export default function TeacherRegistrationWizard({
                 }}
                 render={({ field }) => (
                   <Select
-                    name="departmentId"
+                    name="department"
                     label={`${t("studentForm.fields.department.label")} *`}
                     placeholder={t("studentForm.fields.department.placeholder")}
                     options={departmentOptions}
@@ -788,9 +785,9 @@ export default function TeacherRegistrationWizard({
                   />
                 )}
               />
-              {errors.departmentId ? (
+              {errors.department ? (
                 <p className="text-[11px] font-medium text-error">
-                  {errors.departmentId.message}
+                  {errors.department.message}
                 </p>
               ) : null}
 
@@ -983,7 +980,7 @@ export default function TeacherRegistrationWizard({
       ],
       3: ["email", "phone"],
       4: ["addressStreet", "addressCity", "addressPostalCode"],
-      5: ["departmentId", "educationRank", "enrollmentDate"],
+      5: ["department", "educationRank", "enrollmentDate"],
       6: [],
     };
     const flds = fieldsByStep[step] ?? [];

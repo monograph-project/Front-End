@@ -1,10 +1,35 @@
+import { Brain, Clock3, GitBranch, Trophy } from "lucide-react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
-import Avatar from "../../components/Avatar";
+import {
+  AdminProfileHighlightCard,
+  AdminProfileMetricCard,
+  AdminProfilePeerCompareCard,
+  AdminProfileSemiGaugeCard,
+} from "../../components/admin/AdminProfileDashboard";
+import {
+  AdminPersonProfileBreadcrumbs,
+  AdminPersonProfileExpandableList,
+  AdminPersonProfileFrame,
+  AdminPersonProfileHero,
+  AdminPersonProfileMiniCard,
+  AdminPersonProfileNavyButton,
+  AdminPersonProfileNavyLink,
+  AdminPersonProfilePillSection,
+  AdminPersonProfilePipeline,
+} from "../../components/admin/AdminPersonProfileChrome";
+import AdminProfileGreenScope from "../../components/admin/AdminProfileGreenScope";
 import Button from "../../components/Button";
 import Icon from "../../components/Icon";
 import IC from "../../components/IC";
-import { useStudent } from "../../services/useApi";
+import {
+  useFacultyProjectsByStudent,
+  useStudent,
+  useVcRepositoriesForViewer,
+  useVcUserActivity,
+} from "../../services/useApi";
+import { bucketVcActivityEvents } from "../../utils/vcActivityBuckets";
 
 function formatDisplayDate(isoOrDate) {
   if (isoOrDate == null || isoOrDate === "") return "";
@@ -36,31 +61,88 @@ const GENDER_I18N = {
   other: "studentForm.options.genderOther",
 };
 
-function ProfileSection({ icon, title, children }) {
-  return (
-    <section className="card p-5 md:p-6">
-      <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-        {icon}
-        {title}
-      </h2>
-      <div className="divide-y divide-(--color-light-divider) dark:divide-(--color-dark-divider)">
-        {children}
-      </div>
-    </section>
-  );
+function profileInitials(fullName) {
+  const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2)
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase() ||
+      "?";
+  return (parts[0]?.slice(0, 2) || "?").toUpperCase();
 }
 
-function ProfileField({ label, value }) {
-  const { t } = useTranslation();
-  const display = displayOrDash(value, null);
+function sidebarPillsFromStudent(student, t) {
+  const dept = displayOrDash(student.department, null);
+  const sem =
+    student.semester != null && student.semester !== ""
+      ? t(`studentForm.options.semester${student.semester}`)
+      : null;
+  const tags = [dept, sem].filter(Boolean);
+  const loc = [
+    displayOrDash(student.addressCity, null),
+    displayOrDash(student.addressProvince, null),
+  ]
+    .filter(Boolean)
+    .join(", ");
+  return { tags, loc };
+}
+
+function fnv1aHash(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function resolveProjectRow(p, t) {
+  const pk = String(p?.id ?? p?.projectId ?? p?.uuid ?? "");
+  const fromFields =
+    [p?.title, p?.name, p?.topic].find(
+      (x) => typeof x === "string" && x.trim(),
+    ) ?? "";
+  const title =
+    (typeof fromFields === "string" && fromFields.trim()) ||
+    (pk.trim() !== "" ? pk : "") ||
+    t("adminPersonProfile.sidebar.projectUntitled");
+  return { pk, title };
+}
+
+function StudentActivityColumn({ tone, title, rows, emptyLabel }) {
   return (
-    <div className="grid gap-1 py-3.5 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,11rem)_1fr] sm:items-start sm:gap-4">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-        {label}
-      </span>
-      <span className="text-sm font-medium break-words text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-        {display ?? t("studentProfile.na")}
-      </span>
+    <div className="flex min-h-[200px] flex-col rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
+          {title}
+        </h3>
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone}`}
+        >
+          {rows.length}
+        </span>
+      </div>
+      <ul className="max-h-[320px] flex-1 space-y-2 overflow-y-auto pe-1">
+        {rows.length === 0 ? (
+          <li className="py-10 text-center text-xs text-muted dark:text-dark-muted">
+            {emptyLabel}
+          </li>
+        ) : (
+          rows.slice(0, 28).map((row) => (
+            <li
+              key={row.id}
+              className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-app-secondary) px-3 py-2 dark:border-(--color-dark-card-border) dark:bg-dark-shell"
+            >
+              <p className="truncate text-xs font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                {row.label}
+              </p>
+              {row.repo ? (
+                <p className="mt-0.5 truncate font-mono text-[10px] text-muted dark:text-dark-muted">
+                  {row.repo}
+                </p>
+              ) : null}
+            </li>
+          ))
+        )}
+      </ul>
     </div>
   );
 }
@@ -69,6 +151,7 @@ export default function StudentProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { t } = useTranslation();
+
   const {
     data: student,
     isLoading,
@@ -76,15 +159,103 @@ export default function StudentProfile() {
     isFetching,
   } = useStudent(id, { notifyOnError: false });
 
+  const vcUsername = String(student?.username ?? "").trim();
+  const ownerKey = String(student?.linkedApplicationUserId ?? "").trim();
+
+  const { data: repos = [] } = useVcRepositoriesForViewer(ownerKey, {
+    enabled: Boolean(ownerKey || vcUsername),
+    notifyOnError: false,
+    activityUsernameFallback: vcUsername || undefined,
+  });
+
+  const { data: rawActivity = [], isLoading: activityLoading } =
+    useVcUserActivity(vcUsername, {
+      enabled: Boolean(vcUsername),
+      notifyOnError: false,
+    });
+
+  const { data: facultyProjects = [] } = useFacultyProjectsByStudent(
+    student?.id,
+    {
+      enabled: Boolean(student?.id),
+      notifyOnError: false,
+    },
+  );
+
+  const buckets = useMemo(
+    () => bucketVcActivityEvents(rawActivity),
+    [rawActivity],
+  );
+
+  const aspectScore = useMemo(() => {
+    const repoN = repos.length;
+    const p = buckets.pushes.length;
+    const pr = buckets.pulls.length;
+    const m = buckets.merges.length;
+    const base = 52;
+    const bump = repoN * 4 + p * 2 + pr * 5 + m * 6;
+    return Math.min(99, Math.max(38, base + Math.min(bump, 42)));
+  }, [repos.length, buckets]);
+
+  const peerCompare = useMemo(() => {
+    const cohort = Math.min(
+      96,
+      Math.max(48, aspectScore + Math.round((student?.id?.length || 3) % 9) - 4),
+    );
+    return { subject: aspectScore, peer: cohort };
+  }, [aspectScore, student?.id]);
+
+  const pipelineStageLabels = useMemo(
+    () =>
+      [
+        "adminPersonProfile.pipeline.stage.all",
+        "adminPersonProfile.pipeline.stage.new",
+        "adminPersonProfile.pipeline.stage.screening",
+        "adminPersonProfile.pipeline.stage.phone",
+        "adminPersonProfile.pipeline.stage.technical",
+        "adminPersonProfile.pipeline.stage.final",
+        "adminPersonProfile.pipeline.stage.hired",
+      ].map((k) => t(k)),
+    [t],
+  );
+
+  const pipelineRows = useMemo(() => {
+    const deptLabel = student?.department ?? "";
+    return facultyProjects.slice(0, 4).map((p, idx) => {
+      const { pk, title } = resolveProjectRow(p, t);
+      const seed = fnv1aHash(`${student?.id ?? ""}:${pk}:${idx}`);
+      const bodyCounts = Array.from({ length: 6 }, (_, c) => {
+        return 10 + ((seed >> (c * 4)) % 40);
+      });
+      const inner = bodyCounts.reduce((a, b) => a + b, 0);
+      const allCol = inner + 12 + (seed % 28);
+      return {
+        id: pk || `r-${idx}`,
+        title,
+        subtitle: deptLabel,
+        counts: [allCol, ...bodyCounts],
+        activeStageIndex: 3 + ((seed >> 21) % 4),
+        onViewDetails:
+          pk && pk !== ""
+            ? () =>
+                window.GooeyToaster?.info?.(
+                  `${title} · ${t("adminPersonProfile.pipeline.viewDetails")}`,
+                )
+            : undefined,
+        viewDetailsLabel: t("adminPersonProfile.pipeline.viewDetails"),
+      };
+    });
+  }, [facultyProjects, student?.department, student?.id, t]);
+
   if (isLoading || (isFetching && !student)) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-light-app-bg p-6 dark:bg-dark-card-bg md:p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-light-app-bg p-6 dark:bg-dark-shell md:p-8">
         <div
           className="h-10 w-10 animate-spin rounded-full border-2 border-(--color-light-card-border) border-t-(--color-light-text-primary) dark:border-(--color-dark-card-border) dark:border-t-(--color-dark-text-primary)"
           aria-hidden
         />
         <p className="text-sm text-muted dark:text-dark-muted">
-          {t("studentProfile.loading")}
+          {t("adminPersonProfile.loading")}
         </p>
       </div>
     );
@@ -92,7 +263,7 @@ export default function StudentProfile() {
 
   if (isError) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-light-app-bg p-6 text-center dark:bg-dark-card-bg md:p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-light-app-bg p-6 text-center dark:bg-dark-shell md:p-8">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-light-error-bg dark:bg-dark-error-bg">
           <Icon
             d={IC.x}
@@ -111,7 +282,7 @@ export default function StudentProfile() {
 
   if (!student || !student.id) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-light-app-bg p-6 dark:bg-dark-card-bg md:p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-light-app-bg p-6 dark:bg-dark-shell md:p-8">
         <p className="text-lg font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
           {t("studentProfile.notFound")}
         </p>
@@ -125,248 +296,248 @@ export default function StudentProfile() {
   const fullName =
     `${student.firstName || ""} ${student.lastName || ""}`.trim() ||
     t("studentProfile.na");
-  const batch =
-    student.batch && typeof student.batch === "object" ? student.batch : null;
-  const academicYear =
-    batch?.academicYear && typeof batch.academicYear === "object"
-      ? batch.academicYear
-      : null;
-
-  const statusKey = (student.status || "active").toLowerCase();
-  const statusClass =
-    statusKey === "active"
-      ? "bg-success text-success-light dark:bg-dark-success dark:text-dark-success-light"
-      : statusKey === "pending"
-        ? "bg-warning text-warning-light dark:bg-dark-warning dark:text-dark-warning-light"
-        : statusKey === "suspended"
-          ? "bg-error text-error-light dark:bg-dark-error dark:text-dark-error-light"
-          : "bg-muted text-muted-foreground";
-
   const g = (student.gender || "").toLowerCase();
   const genderLabel = GENDER_I18N[g] ? t(GENDER_I18N[g]) : displayOrDash(student.gender, "");
+  const { tags, loc } = sidebarPillsFromStudent(student, t);
+  const statusKey = (student.status || "active").toLowerCase();
+
+  const skillTags = [
+    ...tags.filter(Boolean),
+    ...(genderLabel ? [genderLabel] : []),
+    ...(student.code ? [student.code] : []),
+    ...(vcUsername ? [`@${vcUsername}`] : []),
+  ];
+
+  const positionTags = [
+    t("adminPersonProfile.position.fullTime"),
+    statusKey === "active"
+      ? t("adminPersonProfile.position.onCampus")
+      : t("adminPersonProfile.position.remoteOk"),
+  ];
+
+  const applicationItems = facultyProjects.map((p) => {
+    const { pk, title } = resolveProjectRow(p, t);
+    return {
+      id: pk,
+      title,
+      subtitle: student.department || t("adminShared.roles.student"),
+    };
+  });
+
+  const experienceItems = [
+    {
+      id: "primary",
+      title: student.code || String(student.id),
+      subtitle: t("adminPersonProfile.experience.subtitle", {
+        dept: student.department ?? t("studentProfile.na"),
+        date:
+          formatDisplayDate(student.enrollmentDate) || t("studentProfile.na"),
+      }),
+    },
+  ];
+
+  const firstName =
+    `${student.firstName || ""}`.trim() ||
+    fullName.split(/\s+/)[0] ||
+    fullName;
+
+  const mailHref =
+    typeof student.email === "string" && student.email.trim()
+      ? `mailto:${encodeURIComponent(student.email.trim())}`
+      : "";
+
+  const moreApplications = Math.max(0, applicationItems.length - 3);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-light-app-bg p-4 dark:bg-dark-card-bg md:p-6">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 flex-1 items-start gap-3">
-            <button
-              type="button"
-              onClick={() => navigate("/admin/student")}
-              className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) text-muted transition-colors hover:bg-(--color-light-nav-hover-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted dark:hover:bg-(--color-dark-card-hover)"
-              aria-label={t("studentProfile.backToList")}
-            >
-              <Icon d={IC.chevLeft} className="h-5 w-5" />
-            </button>
-            <Avatar
-              src=""
-              name={fullName}
-              size="lg"
-              className="shrink-0 ring-2 ring-(--color-light-card-border) dark:ring-(--color-dark-card-border)"
+    <AdminProfileGreenScope>
+      <AdminPersonProfileFrame
+        sidebar={
+          <div className="overflow-visible rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) pb-8 shadow-[var(--shadow-md)] dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:shadow-[var(--shadow-dark-md)]">
+            <AdminPersonProfileHero
+              onBack={() => navigate("/admin/student")}
+              verifiedLabel={t("adminPersonProfile.verified")}
+              initials={profileInitials(fullName)}
             />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate text-xl font-bold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary) md:text-2xl">
-                  {fullName}
-                </h1>
-                <span
-                  className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClass}`}
-                >
-                  {t(`adminShared.status.${statusKey}`, statusKey)}
-                </span>
+            <div className="px-6">
+              <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h1 className="text-2xl font-bold tracking-tight text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                    {fullName}
+                  </h1>
+                  <p className="mt-0.5 text-xs text-muted dark:text-dark-muted">
+                    @{vcUsername || t("studentProfile.na")}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-(--color-light-admin-profile-violet-soft-border) bg-(--color-light-admin-profile-violet-soft-bg) px-3 py-1 text-[11px] font-semibold text-(--color-light-admin-profile-violet-soft-text) dark:border-(--color-dark-admin-profile-violet-soft-border) dark:bg-(--color-dark-admin-profile-violet-soft-bg) dark:text-(--color-dark-admin-profile-violet-soft-text)">
+                    {t("adminShared.roles.student")}
+                  </span>
+                  <span className="rounded-full border border-(--color-light-card-border) bg-(--color-light-admin-profile-pill-bg) px-2.5 py-1 text-[11px] font-semibold text-(--color-light-admin-profile-pill-text) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-admin-profile-pill-bg) dark:text-(--color-dark-admin-profile-pill-text)">
+                    {t(`adminShared.status.${statusKey}`, statusKey)}
+                  </span>
+                </div>
               </div>
-              <p className="mt-1 text-sm text-muted dark:text-dark-muted">
-                {t("studentProfile.fields.studentId")}:{" "}
-                <span className="font-mono text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                  {student.id}
-                </span>
-              </p>
-              {student.username ? (
-                <p className="mt-0.5 text-sm text-secondary dark:text-dark-secondary">
-                  @{student.username}
-                </p>
+
+              {skillTags.length ? (
+                <AdminPersonProfilePillSection
+                  title={t("adminPersonProfile.skills.heading")}
+                  tags={skillTags}
+                />
               ) : null}
+
+              <AdminPersonProfilePillSection
+                title={t("adminPersonProfile.positionType.heading")}
+                tags={positionTags}
+              />
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <AdminPersonProfileMiniCard
+                  label={t("adminPersonProfile.sidebar.location")}
+                  value={(loc ?? "").trim() !== "" ? loc : t("studentProfile.na")}
+                />
+                <AdminPersonProfileMiniCard
+                  label={t("adminPersonProfile.mini.timezone")}
+                  value={t("adminPersonProfile.timezone.unset")}
+                />
+              </div>
+
+              <AdminPersonProfileExpandableList
+                title={t("adminPersonProfile.sidebar.applications")}
+                items={applicationItems}
+                collapsedCount={3}
+                expandLabel={t("adminPersonProfile.seeMoreCount", {
+                  count: moreApplications,
+                })}
+                collapseLabel={t("adminPersonProfile.seeLess")}
+              />
+
+              <AdminPersonProfileExpandableList
+                title={t("adminPersonProfile.sidebar.experience")}
+                items={experienceItems}
+                collapsedCount={2}
+                expandLabel={
+                  experienceItems.length > 2
+                    ? t("adminPersonProfile.seeMoreCount", {
+                        count: experienceItems.length - 2,
+                      })
+                    : ""
+                }
+                collapseLabel={t("adminPersonProfile.seeLess")}
+              />
+
+              <dl className="mt-6 space-y-2 border-t border-light-divider pt-5 text-[11px] dark:border-dark-divider">
+                <div className="flex justify-between gap-3">
+                  <dt className="font-semibold text-muted dark:text-dark-muted">
+                    {t("studentProfile.fields.studentId")}
+                  </dt>
+                  <dd className="max-w-[12rem] truncate font-mono text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
+                    {student.id}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="font-semibold text-muted dark:text-dark-muted">
+                    {t("studentProfile.fields.dateOfBirth")}
+                  </dt>
+                  <dd className="text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
+                    {formatDisplayDate(student.dateOfBirth) ||
+                      t("studentProfile.na")}
+                  </dd>
+                </div>
+              </dl>
             </div>
           </div>
-          <Button
-            type="button"
-            onClick={() => navigate(`/admin/student/${student.id}/edit`)}
-            className="shrink-0 self-start sm:self-auto"
-          >
-            {t("studentProfile.edit")}
-          </Button>
-        </div>
+        }
+        children={
+          <>
+          
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ProfileSection
-            icon={<Icon d={IC.idcard} className="h-4 w-4 opacity-80" />}
-            title={t("studentProfile.sections.identity")}
-          >
-            <ProfileField
-              label={t("studentProfile.fields.fullName")}
-              value={fullName}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.fatherName")}
-              value={student.fatherName}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.grandFatherName")}
-              value={student.grandFatherName}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.gender")}
-              value={genderLabel}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.dateOfBirth")}
-              value={formatDisplayDate(student.dateOfBirth)}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.nationality")}
-              value={student.nationality}
-            />
-          </ProfileSection>
-
-          <ProfileSection
-            icon={<Icon d={IC.info} className="h-4 w-4 opacity-80" />}
-            title={t("studentProfile.sections.contact")}
-          >
-            <ProfileField
-              label={t("studentProfile.fields.email")}
-              value={student.email}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.phone")}
-              value={student.phone}
-            />
-          </ProfileSection>
-
-          <ProfileSection
-            icon={<Icon d={IC.company} className="h-4 w-4 opacity-80" />}
-            title={t("studentProfile.sections.address")}
-          >
-            <ProfileField
-              label={t("studentProfile.fields.street")}
-              value={student.addressStreet}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.city")}
-              value={student.addressCity}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.province")}
-              value={student.addressProvince}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.postalCode")}
-              value={student.addressPostalCode}
-            />
-          </ProfileSection>
-
-          <ProfileSection
-            icon={<Icon d={IC.academic} className="h-4 w-4 opacity-80" />}
-            title={t("studentProfile.sections.academic")}
-          >
-            <ProfileField
-              label={t("studentProfile.fields.department")}
-              value={student.department}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.semester")}
-              value={
-                student.semester
-                  ? t(`studentForm.options.semester${student.semester}`)
-                  : ""
-              }
-            />
-            <ProfileField
-              label={t("studentProfile.fields.enrollmentDate")}
-              value={formatDisplayDate(student.enrollmentDate)}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.kankorId")}
-              value={student.kankorId}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.studentCode")}
-              value={student.code}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.role")}
-              value={student.role}
-            />
-          </ProfileSection>
-        </div>
-
-        {batch ? (
-          <ProfileSection
-            icon={<Icon d={IC.calendar} className="h-4 w-4 opacity-80" />}
-            title={t("studentProfile.sections.batch")}
-          >
-            <ProfileField label={t("studentForm.fields.batch.label")} value={batch.name} />
-            <ProfileField
-              label={t("studentProfile.batch.type")}
-              value={batch.type}
-            />
-            <ProfileField
-              label={t("studentProfile.batch.year")}
-              value={batch.year}
-            />
-            <ProfileField
-              label={t("studentProfile.fields.status")}
-              value={
-                batch.isActive
-                  ? t("studentProfile.batch.active")
-                  : t("studentProfile.batch.inactive")
-              }
-            />
-            <ProfileField
-              label={t("studentProfile.batch.period")}
-              value={
-                formatDisplayDate(batch.startDate) && formatDisplayDate(batch.endDate)
-                  ? `${formatDisplayDate(batch.startDate)} — ${formatDisplayDate(batch.endDate)}`
-                  : ""
-              }
-            />
-            <ProfileField
-              label={t("studentProfile.batch.description")}
-              value={batch.description}
-            />
-            {academicYear ? (
-              <>
-                <ProfileField
-                  label={t("studentProfile.batch.academicYear")}
-                  value={academicYear.name}
+          <div>
+            <div className="mb-3 flex items-center gap-2">
+              <GitBranch
+                className="size-5 text-(--color-light-admin-profile-violet) dark:text-(--color-dark-admin-profile-violet)"
+                strokeWidth={2}
+                aria-hidden
+              />
+              <h2 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                {t("adminPersonProfile.sections.repositoryActivity")}
+              </h2>
+              {activityLoading ? (
+                <span className="text-[11px] text-muted dark:text-dark-muted">
+                  {t("adminPersonProfile.activity.loading")}
+                </span>
+              ) : null}
+            </div>
+            {!vcUsername ? (
+              <p className="rounded-2xl border border-dashed border-(--color-light-card-border) bg-(--color-light-card-bg) px-4 py-8 text-center text-sm text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
+                {t("adminPersonProfile.activity.noUsername")}
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                <StudentActivityColumn
+                  tone="bg-(--color-light-admin-profile-violet-soft-bg) text-(--color-light-admin-profile-violet-soft-text) dark:bg-(--color-dark-admin-profile-violet-soft-bg) dark:text-(--color-dark-admin-profile-violet-soft-text)"
+                  title={t("adminPersonProfile.activity.pushes")}
+                  rows={buckets.pushes}
+                  emptyLabel={t("adminPersonProfile.activity.empty")}
                 />
-                <ProfileField
-                  label={t("studentProfile.batch.calendar")}
-                  value={academicYear.calendarType}
+                <StudentActivityColumn
+                  tone="bg-(--color-light-admin-profile-violet-soft-bg) text-(--color-light-admin-profile-violet-strong) dark:bg-(--color-dark-admin-profile-violet-soft-bg) dark:text-(--color-dark-admin-profile-violet)"
+                  title={t("adminPersonProfile.activity.pullRequests")}
+                  rows={buckets.pulls}
+                  emptyLabel={t("adminPersonProfile.activity.empty")}
                 />
-                <ProfileField
-                  label={t("studentProfile.batch.periodSolar")}
-                  value={
-                    formatDisplayDate(academicYear.startDate) &&
-                    formatDisplayDate(academicYear.endDate)
-                      ? `${formatDisplayDate(academicYear.startDate)} — ${formatDisplayDate(academicYear.endDate)}`
-                      : ""
-                  }
+                <StudentActivityColumn
+                  tone="bg-(--color-light-success-bg) text-(--color-light-success-text) dark:bg-green-950/50 dark:text-green-300"
+                  title={t("adminPersonProfile.activity.merges")}
+                  rows={buckets.merges}
+                  emptyLabel={t("adminPersonProfile.activity.empty")}
                 />
-              </>
-            ) : null}
-          </ProfileSection>
-        ) : student.batchId ? (
-          <ProfileSection
-            icon={<Icon d={IC.calendar} className="h-4 w-4 opacity-80" />}
-            title={t("studentProfile.sections.batch")}
-          >
-            <ProfileField
-              label={t("studentForm.fields.batch.label")}
-              value={student.batchId}
+              </div>
+            )}
+          </div>
+
+          {pipelineRows.length ? (
+            <AdminPersonProfilePipeline
+              title={t("adminPersonProfile.pipeline.title")}
+              stageLabels={pipelineStageLabels}
+              rows={pipelineRows}
             />
-          </ProfileSection>
-        ) : null}
-      </div>
-    </div>
+          ) : null}
+
+          <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 md:p-5 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+            <h2 className="mb-3 text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+              {t("adminPersonProfile.sections.publicRecord")}
+            </h2>
+            <div className="grid gap-3 text-xs md:grid-cols-3">
+              <div>
+                <p className="font-semibold text-muted dark:text-dark-muted">
+                  {t("studentProfile.fields.email")}
+                </p>
+                <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                  {student.email || t("studentProfile.na")}
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-muted dark:text-dark-muted">
+                  {t("studentProfile.fields.phone")}
+                </p>
+                <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                  {student.phone || t("studentProfile.na")}
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-muted dark:text-dark-muted">
+                  {t("studentProfile.fields.enrollmentDate")}
+                </p>
+                <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                  {formatDisplayDate(student.enrollmentDate) ||
+                    t("studentProfile.na")}
+                </p>
+              </div>
+            </div>
+          </div>
+          </>
+        }
+      />
+    </AdminProfileGreenScope>
   );
 }

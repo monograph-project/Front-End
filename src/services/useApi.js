@@ -295,6 +295,23 @@ export function useStudents(queryOptions = {}) {
   return q;
 }
 
+export function useStudentSearch(keyword, queryOptions = {}) {
+  const trimmedKeyword = String(keyword ?? "").trim();
+  const {
+    enabled = trimmedKeyword.length > 0,
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["students", "search", trimmedKeyword],
+    queryFn: () => Api.searchStudents(trimmedKeyword),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_students");
+  return q;
+}
+
 /**
  * Spring Pageable list: `page` is **0-based** (API); pass `search` / `status` for server-side filters when supported.
  */
@@ -387,6 +404,23 @@ export function useTeachers(queryOptions = {}) {
   return q;
 }
 
+export function useTeacherSearch(keyword, queryOptions = {}) {
+  const trimmedKeyword = String(keyword ?? "").trim();
+  const {
+    enabled = trimmedKeyword.length > 0,
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["teachers", "search", trimmedKeyword],
+    queryFn: () => Api.searchTeachers(trimmedKeyword),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_teachers");
+  return q;
+}
+
 export function useTeachersPage(params = {}, queryOptions = {}) {
   const {
     page = 0,
@@ -470,6 +504,23 @@ export function useEmployees(queryOptions = {}) {
   const q = useQuery({
     queryKey: ["employees"],
     queryFn: Api.getEmployees,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_employees");
+  return q;
+}
+
+export function useEmployeeSearch(keyword, queryOptions = {}) {
+  const trimmedKeyword = String(keyword ?? "").trim();
+  const {
+    enabled = trimmedKeyword.length > 0,
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["employees", "search", trimmedKeyword],
+    queryFn: () => Api.searchEmployees(trimmedKeyword),
+    enabled,
     ...rest,
   });
   useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_employees");
@@ -738,6 +789,39 @@ export function useSemesters(params = {}, queryOptions = {}) {
     ...rest,
   });
   useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_semesters");
+  return q;
+}
+
+/** Semesters for a single academic year (faculty `/api/semester/academic-year/{id}`). */
+export function useSemestersByAcademicYear(academicYearId, queryOptions = {}) {
+  const idRaw = academicYearId != null ? String(academicYearId).trim() : "";
+  const { enabled = true, notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["semesters", "by-academic-year", idRaw],
+    queryFn: () => Api.getSemestersByAcademicYearId(idRaw),
+    enabled: Boolean(idRaw && enabled),
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_semesters");
+  return q;
+}
+
+/** Repository search (`/api/repository/search?keyword=`). Queries when `keyword` is non-empty. */
+export function useRepositorySearch(keyword, queryOptions = {}) {
+  const trimmed = String(keyword ?? "").trim();
+  const { enabled = true, notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["repositories", "search", trimmed],
+    queryFn: () => Api.searchRepositories(trimmed),
+    enabled: Boolean(enabled && trimmed.length >= 1),
+    staleTime: 30_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_search_repositories",
+  );
   return q;
 }
 
@@ -1555,6 +1639,39 @@ export function useUploadEmployeeProfilePicture(options) {
   });
 }
 
+/**
+ * Upload the signed-in user's profile photo (role-aware).
+ * - admin / staff / dean / employee → `/api/v1/employee/profile/{id}`
+ * - teacher → `/api/v1/teacher/profile/{id}`
+ * - student → `/api/v1/student/profile/{id}`
+ * - author / others → `/api/v1/users/profile/{id}`
+ */
+export function useUploadAccountProfilePicture(options) {
+  return useApiMutation({
+    mutationFn: ({ userId, role, user_type, file }) => {
+      const id = String(userId ?? "").trim();
+      if (!id) throw new Error("userId is required");
+      const r = String(role ?? "").toLowerCase();
+      const ut = String(user_type ?? "").toLowerCase();
+
+      const asEmployee =
+        r === "admin" ||
+        r === "dean" ||
+        ut === "staff" ||
+        ut === "employee" ||
+        ut === "admin";
+
+      if (r === "teacher") return Api.postTeacherProfilePictureV1(id, file);
+      if (r === "student" || r === "user") return Api.postStudentProfilePictureV1(id, file);
+      if (asEmployee) return Api.postEmployeeProfilePictureV1(id, file);
+      return Api.postUserProfilePictureV1(id, file);
+    },
+    mutationKey: ["files", "accountProfile"],
+    toastSuccess: "Profile picture updated",
+    ...options,
+  });
+}
+
 export function useUploadBlogFile(options) {
   return useApiMutation({
     mutationFn: ({ file, ownerId, articleId }) =>
@@ -1715,6 +1832,17 @@ export function useUserNotificationUnreadCount(userId, queryOptions = {}) {
   });
   useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_unread_count");
   return q;
+}
+
+export function useMarkNotificationRead(options) {
+  return useApiMutation({
+    mutationFn: Api.markNotificationAsRead,
+    mutationKey: ["notifications", "markRead"],
+    showSuccessToast: false,
+    toastSuccess: false,
+    toastError: "apiErrors.failed_to_mark_notification_read",
+    ...options,
+  });
 }
 
 export function useAdminRetryFailedNotifications(options) {
@@ -1931,6 +2059,37 @@ export function useVcRepoPullRequests(owner, repo, queryOptions = {}) {
     queryFn: () => Api.vcListPullRequests(owner, repo),
     enabled,
     staleTime: 15_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
+  return q;
+}
+
+/**
+ * @param {string | null | undefined} username VC login shown in repos paths
+ * @param {{ notifyOnError?: boolean; enabled?: boolean; limit?: number } & Omit<import("@tanstack/react-query").UseQueryOptions, "queryKey"|"queryFn">} queryOptions
+ */
+export function useVcUserActivity(username, queryOptions = {}) {
+  const u =
+    typeof username === "string" ? username.trim() : `${username ?? ""}`.trim();
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    limit = 150,
+    ...rest
+  } = queryOptions;
+  const enabled =
+    typeof enabledOverride === "boolean" ? enabledOverride : Boolean(u.length);
+
+  const q = useQuery({
+    queryKey: ["vc", "user-activity", u, limit],
+    queryFn: () => Api.vcGetUserActivity(u, { limit }),
+    enabled,
+    staleTime: 30_000,
     ...rest,
   });
   useQueryErrorToast(

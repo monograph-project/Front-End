@@ -22,6 +22,8 @@ import {
   useCreateFacultyProject,
   useFacultyGroups,
   useFacultyProject,
+  useRepositorySearch,
+  useTeacherSearch,
   useTeachersPage,
   useUpdateFacultyProject,
 } from "../../services/useApi";
@@ -77,6 +79,92 @@ function normalizeTeacherOptions(page) {
     .filter(Boolean);
 }
 
+function teacherToOption(teacher) {
+  if (!teacher) return null;
+  const id = teacher?.id ?? teacher?.teacherId ?? "";
+  if (!id) return null;
+  return {
+    value: String(id),
+    label: displayName(teacher, String(id)),
+    description: teacher?.department ?? teacher?.educationRank ?? undefined,
+  };
+}
+
+function mergeOptions(...groups) {
+  const merged = [];
+  const seen = new Set();
+
+  for (const group of groups) {
+    for (const option of Array.isArray(group) ? group : []) {
+      if (!option?.value || seen.has(option.value)) continue;
+      seen.add(option.value);
+      merged.push(option);
+    }
+  }
+
+  return merged;
+}
+
+function repositoryRowToOption(row) {
+  const id = row?.id ?? row?.repositoryId ?? row?.uuid ?? "";
+  const owner = String(
+    row?.ownerUsername ??
+      row?.ownerUsername?.user_name ??
+      row?.ownerUsername?.username ??
+      row?.owner?.user_name ??
+      row?.owner?.username ??
+      row?.owner ??
+      "",
+  ).trim();
+  const name = row?.repositoryName ?? row?.name ?? "";
+  const repoName = String(name ?? "").trim();
+  const label =
+    owner && repoName
+      ? `${owner}/${repoName}`
+      : repoName || owner || (id ? String(id) : "");
+  // IMPORTANT: keep `value` as repository id for backend.
+  const value = id ? String(id) : `${owner}/${repoName}`.trim();
+  if (!value || !label) return null;
+  return {
+    value,
+    label: String(label),
+    description:
+      typeof row?.description === "string" ? row.description : undefined,
+  };
+}
+
+function repositorySelectedFallbackOption(project, formRepoId, repoOptions = []) {
+  const v = String(formRepoId ?? "").trim();
+  if (!v) return null;
+  const selectedFromOptions = (Array.isArray(repoOptions) ? repoOptions : []).find(
+    (option) => option?.value === v,
+  );
+  if (selectedFromOptions) return selectedFromOptions;
+
+  const nested = project?.repository ?? project?.projectRepository;
+  const nestedId = nested?.id ?? nested?.repositoryId;
+  if (nested && String(nestedId ?? "") === v) {
+    const owner =
+      nested.ownerUsername ??
+      nested.owner?.username ??
+      nested.owner?.user_name ??
+      nested.owner ??
+      "";
+    const name = nested.repositoryName ?? nested.name ?? "";
+    const label =
+      owner && name ? `${owner}/${name}` : name || owner || v;
+    return { value: v, label: String(label) };
+  }
+  if (
+    project?.projectRepository != null &&
+    typeof project.projectRepository !== "object" &&
+    String(project.projectRepository) === v
+  ) {
+    return { value: v, label: v };
+  }
+  return { value: v, label: v };
+}
+
 function initialsFromLabel(label) {
   return String(label ?? "")
     .split(" ")
@@ -112,6 +200,10 @@ export default function ProjectRegistrationPage() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const [step, setStep] = useState(1);
+  const [teacherSearchTerm, setTeacherSearchTerm] = useState("");
+  const [debouncedTeacherSearchTerm, setDebouncedTeacherSearchTerm] = useState("");
+  const [repoSearchTerm, setRepoSearchTerm] = useState("");
+  const [debouncedRepoSearchTerm, setDebouncedRepoSearchTerm] = useState("");
 
   const { data: project, isLoading: projectLoading } = useFacultyProject(id, {
     enabled: isEdit,
@@ -125,9 +217,39 @@ export default function ProjectRegistrationPage() {
     { page: 0, pageSize: 200, notifyOnError: false },
     { staleTime: 60_000 },
   );
+  const { data: searchedTeachers = [], isFetching: isSearchingTeachers } = useTeacherSearch(
+    debouncedTeacherSearchTerm,
+    {
+      enabled: debouncedTeacherSearchTerm.length > 0,
+      staleTime: 30_000,
+      notifyOnError: false,
+    },
+  );
+  const { data: repoHits = [], isFetching: repoSearchBusy } = useRepositorySearch(
+    debouncedRepoSearchTerm,
+    { notifyOnError: false },
+  );
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedTeacherSearchTerm(teacherSearchTerm.trim());
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [teacherSearchTerm]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedRepoSearchTerm(repoSearchTerm.trim());
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [repoSearchTerm]);
 
   const groupOptions = useMemo(() => normalizeGroupOptions(groups), [groups]);
   const teacherOptions = useMemo(() => normalizeTeacherOptions(teacherPage), [teacherPage]);
+  const searchedTeacherOptions = useMemo(
+    () => searchedTeachers.map(teacherToOption).filter(Boolean),
+    [searchedTeachers],
+  );
 
   const steps = useMemo(
     () => [
@@ -141,7 +263,7 @@ export default function ProjectRegistrationPage() {
         id: 2,
         titleKey: "adminProjects.form.project.steps.repository",
         icon: GitBranch,
-        fields: ["projectRepository"],
+        fields: [],
       },
       {
         id: 3,
@@ -177,11 +299,16 @@ export default function ProjectRegistrationPage() {
 
   useEffect(() => {
     if (!project || !isEdit) return;
+    const repoId =
+      project?.repository?.id ??
+      project?.repositoryId ??
+      project?.projectRepository ??
+      "";
     reset({
       projectName: project?.projectName ?? "",
       group: String(project?.group?.id ?? project?.group ?? ""),
       teacher: String(project?.teacher?.id ?? project?.teacher ?? ""),
-      projectRepository: project?.projectRepository ?? "",
+      projectRepository: repoId != null ? String(repoId) : "",
     });
   }, [isEdit, project, reset]);
 
@@ -206,7 +333,55 @@ export default function ProjectRegistrationPage() {
 
   const values = useWatch({ control });
   const selectedGroup = groupOptions.find((item) => item.value === values.group);
-  const selectedTeacher = teacherOptions.find((item) => item.value === values.teacher);
+  const teacherId = String(values?.teacher ?? "").trim();
+  const selectedTeacherRecord = !teacherId
+    ? null
+    : (Array.isArray(teacherPage?.content)
+        ? teacherPage.content.find(
+            (teacher) => String(teacher?.id ?? teacher?.teacherId ?? "") === teacherId,
+          )
+        : null) ??
+      searchedTeachers.find(
+        (teacher) => String(teacher?.id ?? teacher?.teacherId ?? "") === teacherId,
+      ) ??
+      (project?.teacher &&
+      String(project.teacher?.id ?? project.teacher ?? "") === teacherId
+        ? project.teacher
+        : null) ??
+      null;
+  const teacherSelectOptions = useMemo(() => {
+    const baseOptions =
+      debouncedTeacherSearchTerm.length > 0 ? searchedTeacherOptions : teacherOptions;
+    const selectedOption = teacherToOption(selectedTeacherRecord);
+    return mergeOptions(selectedOption ? [selectedOption] : [], baseOptions);
+  }, [
+    debouncedTeacherSearchTerm,
+    searchedTeacherOptions,
+    selectedTeacherRecord,
+    teacherOptions,
+  ]);
+  const selectedTeacher = teacherSelectOptions.find((item) => item.value === values.teacher);
+
+  const repoSearchOptions = useMemo(
+    () => repoHits.map(repositoryRowToOption).filter(Boolean),
+    [repoHits],
+  );
+  const selectedRepoFallback = repositorySelectedFallbackOption(
+    project,
+    values?.projectRepository,
+    repoSearchOptions,
+  );
+  const repoSelectOptions = useMemo(
+    () =>
+      mergeOptions(
+        selectedRepoFallback ? [selectedRepoFallback] : [],
+        repoSearchOptions,
+      ),
+    [selectedRepoFallback, repoSearchOptions],
+  );
+  const repositorySummaryLabel =
+    repoSelectOptions.find((o) => o.value === values?.projectRepository)?.label ||
+    (values?.projectRepository?.trim() ? values.projectRepository.trim() : "");
   const progressPct = Math.round((step / steps.length) * 100);
   const motionEase = [0.22, 1, 0.36, 1];
 
@@ -215,8 +390,9 @@ export default function ProjectRegistrationPage() {
       projectName: formValues.projectName.trim(),
       group: formValues.group,
       teacher: formValues.teacher,
-      projectRepository: formValues.projectRepository.trim(),
     };
+    const repoTrim = formValues.projectRepository?.trim();
+    if (repoTrim) payload.projectRepository = repoTrim;
 
     if (isEdit) {
       updateProject.mutate({ id, ...payload });
@@ -243,7 +419,7 @@ export default function ProjectRegistrationPage() {
       case 1:
         return values?.projectName?.trim() || "—";
       case 2:
-        return values?.projectRepository?.trim() || "—";
+        return repositorySummaryLabel || "—";
       case 3:
         return [selectedGroup?.label, selectedTeacher?.label].filter(Boolean).join(" · ") || "—";
       default:
@@ -302,13 +478,41 @@ export default function ProjectRegistrationPage() {
               title={t("adminProjects.form.project.fields.projectRepository")}
               subtitle={t("adminProjects.form.project.section.repoSub")}
             >
-              <Field
-                label={`${t("adminProjects.form.project.fields.projectRepository")} *`}
-                placeholder={t("adminProjects.form.project.placeholders.projectRepository")}
-                register={register("projectRepository", {
-                  required: t("adminProjects.form.project.validation.projectRepository"),
-                })}
-                error={errors.projectRepository?.message}
+              <Controller
+                name="projectRepository"
+                control={control}
+                render={({ field }) => (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[11px] font-semibold text-(--color-light-text-secondary) dark:text-dark-secondary">
+                      {t("adminProjects.form.project.fields.projectRepository")}
+                      <span className="ms-1 font-normal text-muted dark:text-dark-muted">
+                        ({t("adminProjects.form.project.repositoryOptionalBadge")})
+                      </span>
+                    </p>
+                    <SearchableSelect
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      options={repoSelectOptions}
+                      placeholder={t(
+                        "adminProjects.form.project.placeholders.repository",
+                      )}
+                      searchPlaceholder={t(
+                        "adminProjects.form.project.placeholders.repositorySearch",
+                      )}
+                      searchValue={repoSearchTerm}
+                      onSearchChange={setRepoSearchTerm}
+                      loading={repoSearchBusy}
+                      clearable
+                      clearSearchOnOpen={false}
+                      showInlineSearchClear={false}
+                      disabled={false}
+                      className="min-h-8 bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)"
+                    />
+                    <p className="text-[11px] text-muted dark:text-dark-muted">
+                      {t("adminProjects.form.project.repositorySearchHint")}
+                    </p>
+                  </div>
+                )}
               />
             </FacultyFormSectionCard>
           </MotionDiv>
@@ -408,14 +612,16 @@ export default function ProjectRegistrationPage() {
                       <SearchableSelect
                         value={field.value}
                         onValueChange={field.onChange}
-                        options={teacherOptions}
+                        options={teacherSelectOptions}
                         placeholder={
                           teachersLoading
                             ? t("adminProjects.form.project.placeholders.loadingTeachers")
                             : t("adminProjects.form.project.placeholders.teacher")
                         }
                         searchPlaceholder={t("adminProjects.form.project.placeholders.teacherSearch")}
-                        disabled={teachersLoading || teacherOptions.length === 0}
+                        loading={isSearchingTeachers}
+                        onSearchChange={setTeacherSearchTerm}
+                        disabled={teachersLoading}
                         className="min-h-8 bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)"
                       />
                       {selectedTeacher ? (
@@ -460,7 +666,7 @@ export default function ProjectRegistrationPage() {
                 <ReviewRow k={t("adminProjects.form.project.fields.projectName")} v={values?.projectName} />
                 <ReviewRow
                   k={t("adminProjects.form.project.fields.projectRepository")}
-                  v={values?.projectRepository}
+                  v={repositorySummaryLabel || "—"}
                 />
                 <ReviewRow k={t("adminProjects.form.project.fields.group")} v={selectedGroup?.label} />
                 <ReviewRow k={t("adminProjects.form.project.fields.teacher")} v={selectedTeacher?.label} />
@@ -506,7 +712,7 @@ export default function ProjectRegistrationPage() {
       </button>
 
       <form
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={(e) => e.preventDefault()}
         className="mx-auto w-full max-w-[min(100%,92rem)] pb-20"
       >
         <div className="card rounded-xl px-5 py-8 shadow-sm md:px-8 md:py-10">
@@ -679,33 +885,41 @@ export default function ProjectRegistrationPage() {
                   </div>
                 </LayoutGroup>
 
-                <footer className="mt-10 flex flex-col gap-4 border-t border-default pt-6 dark:border-dark-border-default sm:flex-row sm:items-center sm:justify-between">
+                <footer className="mt-10 space-y-4 border-t border-default pt-6 dark:border-dark-border-default">
                   <div className="flex items-center gap-2 text-[11px] text-muted dark:text-dark-muted">
                     <Clock3 className="size-3.5 shrink-0 opacity-70" />
                     <span>{t("adminProjects.form.project.progress.footerHint")}</span>
                   </div>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <Button type="button" variant="tertiary" onClick={() => navigate("/admin/projects?tab=projects")}>
-                      {t("adminProjects.form.project.actions.cancel")}
-                    </Button>
-                    {step > 1 ? (
-                      <Button type="button" variant="secondary" onClick={goPrev}>
-                        {t("adminProjects.form.group.actions.previous")}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex min-h-9 min-w-[6.5rem] items-center gap-2">
+                      {step > 1 ? (
+                        <Button type="button" variant="secondary" onClick={goPrev}>
+                          {t("adminProjects.form.group.actions.previous")}
+                        </Button>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button type="button" variant="tertiary" onClick={() => navigate("/admin/projects?tab=projects")}>
+                        {t("adminProjects.form.project.actions.cancel")}
                       </Button>
-                    ) : null}
-                    {step < steps.length ? (
-                      <Button type="button" onClick={() => void goNext()}>
-                        {t("adminProjects.form.group.actions.continue")}
-                      </Button>
-                    ) : (
-                      <Button type="submit" disabled={createProject.isPending || updateProject.isPending}>
-                        {createProject.isPending || updateProject.isPending
-                          ? t("adminProjects.form.project.actions.submitting")
-                          : isEdit
-                            ? t("adminProjects.form.project.actions.update")
-                            : t("adminProjects.form.project.actions.create")}
-                      </Button>
-                    )}
+                      {step < steps.length ? (
+                        <Button type="button" onClick={() => void goNext()}>
+                          {t("adminProjects.form.group.actions.continue")}
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          disabled={createProject.isPending || updateProject.isPending}
+                          onClick={() => void handleSubmit(onSubmit)()}
+                        >
+                          {createProject.isPending || updateProject.isPending
+                            ? t("adminProjects.form.project.actions.submitting")
+                            : isEdit
+                              ? t("adminProjects.form.project.actions.update")
+                              : t("adminProjects.form.project.actions.create")}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </footer>
               </div>
@@ -723,7 +937,7 @@ export default function ProjectRegistrationPage() {
                   <SummaryLine label={t("adminProjects.form.project.fields.projectName")} value={values?.projectName?.trim() || "—"} />
                   <SummaryLine
                     label={t("adminProjects.form.project.fields.projectRepository")}
-                    value={values?.projectRepository?.trim() || "—"}
+                    value={repositorySummaryLabel || "—"}
                   />
                   <SummaryLine label={t("adminProjects.form.project.stats.group")} value={selectedGroup?.label || "—"} />
                   <SummaryLine label={t("adminProjects.form.project.stats.teacher")} value={selectedTeacher?.label || "—"} />

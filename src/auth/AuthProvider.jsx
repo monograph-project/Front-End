@@ -10,6 +10,7 @@ import AuthBootstrapOverlay from "./AuthBootstrapOverlay";
 import {
   hydrateFromCookieBootstrap,
   hydrateFromStoredBearerSession,
+  fetchCurrentGatewayUser,
   logoutLocalGateway,
 } from "./authService";
 import { authUsesCookieRefresh } from "./httpCredentials";
@@ -83,6 +84,18 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const refreshSession = useCallback(async () => {
+    try {
+      const next = await fetchCurrentGatewayUser();
+      if (next && typeof next === "object") {
+        setUser(next);
+      }
+      return next;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const hasRole = useCallback(
     (role) => userHasAppFacet(user?.normalizedRoles, role),
     [user?.normalizedRoles],
@@ -125,6 +138,7 @@ export function AuthProvider({ children }) {
       hydrated,
       login,
       logout,
+      refreshSession,
       hasRole,
       hasAnyRole,
       hasAllRoles,
@@ -144,6 +158,7 @@ export function AuthProvider({ children }) {
       user,
       login,
       logout,
+      refreshSession,
       hasRole,
       hasAnyRole,
       hasAllRoles,

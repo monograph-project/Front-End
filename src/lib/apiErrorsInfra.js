@@ -32,6 +32,10 @@ export default {
     "apiErrors.failed_to_load_session": "Could not load your session.",
     "apiErrors.failed_to_load_stats": "Could not load statistics.",
     "apiErrors.failed_to_load_file": "Could not load the file.",
+    "apiErrors.failed_to_search_repositories":
+      "Could not search repositories. Try another keyword.",
+    "apiErrors.failed_to_mark_notification_read":
+      "Could not mark the notification as read.",
     "apiSuccess.completed": "Completed successfully.",
   },
   ps: {
@@ -63,6 +67,10 @@ export default {
     "apiErrors.failed_to_load_session": "نشو کړای چې ستاسو ناسته ولېږدوي.",
     "apiErrors.failed_to_load_stats": "احصایې نشي پورته کیدی.",
     "apiErrors.failed_to_load_file": "فایل نشو پورته کیدی.",
+    "apiErrors.failed_to_search_repositories":
+      "نشو کړای چې مخزونونه ومومي. بل کلمه ولیکئ.",
+    "apiErrors.failed_to_mark_notification_read":
+      "د خبرتیا د لوستل شوي په توګه نښه کولو کې ستونزه.",
     "apiSuccess.completed": "په بریالیتوب سره بشپړ شو.",
   },
   prs: {
@@ -94,6 +102,10 @@ export default {
     "apiErrors.failed_to_load_session": "بارگذاری نشست ممکن نشد.",
     "apiErrors.failed_to_load_stats": "بارگذاری آمار ممکن نشد.",
     "apiErrors.failed_to_load_file": "بارگذاری پرونده ممکن نشد.",
+    "apiErrors.failed_to_search_repositories":
+      "جستجوی مخزن‌ها ناموفق بود. کلمهٔ دیگر امتحان کنید.",
+    "apiErrors.failed_to_mark_notification_read":
+      "اعلان به‌عنوان خوانده‌شده علامت‌گذاری نشد.",
     "apiSuccess.completed": "با موفقیت انجام شد.",
   },
 };

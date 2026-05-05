@@ -356,13 +356,7 @@ export default function StaffRegistrationWizard({
 
   return (
     <form
-      onSubmit={(e) => {
-        if (step < 3) {
-          e.preventDefault();
-          return;
-        }
-        handleSubmit(onFinalSubmit)(e);
-      }}
+      onSubmit={(e) => e.preventDefault()}
       className="mx-auto flex w-full max-w-5xl flex-col gap-8"
     >
       <header className="space-y-1">
@@ -643,8 +637,9 @@ export default function StaffRegistrationWizard({
             </Button>
           ) : (
             <Button
-              type="submit"
+              type="button"
               disabled={loadingRecord || isSubmitting || saving}
+              onClick={() => void handleSubmit(onFinalSubmit)()}
             >
               {saving
                 ? t(`studentForm.actions.submitting`)

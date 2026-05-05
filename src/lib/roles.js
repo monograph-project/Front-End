@@ -190,6 +190,15 @@ const SHELL_PREFIXES = [
  * @param {string} [primaryRole]
  * @returns {string}
  */
+/** Settings route for the active shell (`/student` → plural `settings`, admin/dean → singular `setting`). */
+export function settingsPathForShell(shellPath) {
+  const s = typeof shellPath === "string" ? shellPath.trim() : "";
+  if (!s || s === "/") return "/student/settings";
+  if (s === "/student") return "/student/settings";
+  if (s === "/admin" || s === "/dean") return `${s}/setting`;
+  return `${s}/settings`;
+}
+
 export function resolveShellBasePath(pathname, primaryRole) {
   const raw = typeof pathname === "string" ? pathname : "";
   const normalized = raw.startsWith("/") ? raw : `/${raw}`;

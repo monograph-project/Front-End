@@ -16,6 +16,7 @@ const Select = ({
   label,
   className = "",
   disabled = false,
+  error,
   name,
   register,
 }) => {
@@ -49,18 +50,24 @@ const Select = ({
       >
         <RadixSelect.Trigger
           className={`
-            inline-flex h-8 w-full items-center justify-between rounded-xl px-3.5 text-xs
+            inline-flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded-xl px-3.5 text-xs
             border transition-colors outline-none
-            bg-(--color-light-input-bg) text-(--color-light-text-primary) border-(--color-light-input-border)
-            dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:border-dark-input-border
-            focus-visible:border-(--color-light-input-border-focus) focus-visible:ring-2 focus-visible:ring-blue-500/15
-            dark:focus-visible:border-(--color-dark-input-border-focus) dark:focus-visible:ring-blue-400/15
+            bg-(--color-light-input-bg) text-(--color-light-text-primary)
+            dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)
+            focus-visible:outline-none
             data-placeholder:text-(--color-light-input-placeholder) dark:data-placeholder:text-(--color-dark-input-placeholder)
+            ${
+              error
+                ? "border-(--color-light-error-border) focus-visible:border-(--color-light-error-border) focus-visible:ring-2 focus-visible:ring-(--color-light-error-border)/25 dark:border-(--color-dark-error-border) dark:focus-visible:border-(--color-dark-error-border) dark:focus-visible:ring-(--color-dark-error-border)/20"
+                : "border-(--color-light-input-border) dark:border-dark-input-border focus-visible:border-(--color-light-input-border-focus) focus-visible:ring-2 focus-visible:ring-blue-500/15 dark:focus-visible:border-(--color-dark-input-border-focus) dark:focus-visible:ring-blue-400/15"
+            }
             ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
           `}
         >
-          <RadixSelect.Value placeholder={placeholder} />
-          <RadixSelect.Icon>
+          <span className="min-w-0 flex-1 truncate text-left">
+            <RadixSelect.Value placeholder={placeholder} />
+          </span>
+          <RadixSelect.Icon className="shrink-0">
             <ChevronDownIcon />
           </RadixSelect.Icon>
         </RadixSelect.Trigger>
@@ -97,6 +104,9 @@ const Select = ({
           </RadixSelect.Content>
         </RadixSelect.Portal>
       </RadixSelect.Root>
+      {error ? (
+        <span className="text-[10px] font-medium leading-none text-error">{error}</span>
+      ) : null}
     </div>
   );
 };
@@ -107,13 +117,13 @@ const SelectItem = React.forwardRef(({ children, ...props }, ref) => {
       ref={ref}
       {...props}
       className="
-        relative flex items-center h-8 px-8 text-xs rounded-lg cursor-pointer outline-none
+        relative flex min-w-0 items-center h-8 px-8 text-xs rounded-lg cursor-pointer outline-none
         text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)
         data-highlighted:bg-(--color-light-nav-hover-bg) dark:data-highlighted:bg-(--color-dark-card-hover)
         data-disabled:opacity-50 data-disabled:pointer-events-none
       "
     >
-      <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
+      <RadixSelect.ItemText className="min-w-0 truncate">{children}</RadixSelect.ItemText>
 
       <RadixSelect.ItemIndicator className="absolute left-2">
         <CheckIcon />

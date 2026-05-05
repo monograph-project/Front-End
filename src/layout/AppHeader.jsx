@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronRight, Compass } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import {
   TbLayoutSidebarLeftCollapse,
@@ -21,8 +21,14 @@ import {
   DropdownSubContent,
 } from "../components/DropdownMenu";
 import AvatarDemo from "../components/Avatar";
-import { normalizeFacetKey } from "../auth/roleModel";
-import { getFacultyDashboardPath } from "../lib/roles";
+import {
+  resolveShellBasePath,
+  settingsPathForShell,
+} from "../lib/roles";
+import {
+  resolveProfilePhotoUrl,
+  buildPersonInitials,
+} from "../lib/profileMedia";
 import IC from "../components/IC";
 import Icon from "../components/Icon";
 import NotificationDropdown from "../components/NotificationDropdown";
@@ -30,61 +36,22 @@ import SearchableSelect from "../components/SearchableSelect";
 import { formatHeaderFullPath, splitPathFragments } from "../lib/headerPath";
 import { useTheme } from "../context/themContext";
 import { useAuth } from "../context/AuthContext";
+import { useUserNotificationUnreadCount } from "../services/useApi";
+import { useNotificationWebSocket } from "../hooks/useNotificationWebSocket";
+import { resolveNotificationRecipientId } from "../lib/notificationRecipientId";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const NOTIFICATIONS = [
-  {
-    id: 1,
-    type: "exam",
-    avatar: "JW",
-    color: "bg-success dark:bg-dark-success",
-    title: "New exam scheduled",
-    desc: "Math Exam has been added for Class 302 on Feb 15.",
-    time: "2 min ago",
-    unread: true,
-  },
-  {
-    id: 2,
-    type: "attendance",
-    avatar: "SA",
-    color: "bg-warning dark:bg-dark-warning",
-    title: "Attendance alert",
-    desc: "Sarah Anderson was marked absent today.",
-    time: "18 min ago",
-    unread: true,
-  },
-  {
-    id: 3,
-    type: "message",
-    avatar: "DR",
-    color: "bg-accent dark:bg-dark-accent",
-    title: "New message from Daniel Roberts",
-    desc: "Can we reschedule Friday's session?",
-    time: "1 hr ago",
-    unread: true,
-  },
-  {
-    id: 4,
-    type: "report",
-    avatar: "OB",
-    color: "bg-secondary/30 dark:bg-dark-secondary/30",
-    title: "Monthly report ready",
-    desc: "February student performance report is available.",
-    time: "3 hr ago",
-    unread: false,
-  },
-  {
-    id: 5,
-    type: "system",
-    avatar: "SY",
-    color: "bg-muted dark:bg-dark-muted",
-    title: "System maintenance",
-    desc: "Scheduled maintenance on Sun, 10 Mar at 2:00 AM.",
-    time: "Yesterday",
-    unread: false,
-  },
-];
+function parseNotificationUnreadCount(raw) {
+  if (raw == null) return 0;
+  if (typeof raw === "number" && !Number.isNaN(raw)) return raw;
+  if (typeof raw === "object") {
+    if (typeof raw.count === "number") return raw.count;
+    if (typeof raw.unreadCount === "number") return raw.unreadCount;
+    if (typeof raw.totalUnread === "number") return raw.totalUnread;
+  }
+  return 0;
+}
 
 /** Styled path trail beside the sidebar control. */
 function RouteTrail({ pathname }) {
@@ -166,28 +133,38 @@ function isPublicStoriesPath(pathname) {
 }
 
 /** Notification bell with unread badge. */
-function NotificationButton({ unreadCount, active, onClick, ariaLabel }) {
+function NotificationButton({ unreadCount, active, onToggle, ariaLabel }) {
   return (
     <div className="relative">
-      <HeaderIconButton onClick={onClick} active={active} ariaLabel={ariaLabel}>
+      <HeaderIconButton onClick={onToggle} active={active} ariaLabel={ariaLabel}>
         <Icon d={IC.bell} className="size-3.5 stroke-[1.5] sm:size-4" />
         {unreadCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 min-w-[14px] h-3.5 px-0.5 flex items-center justify-center rounded-full bg-success text-[8px] font-bold text-success-light leading-none">
-            {unreadCount}
+          <span className="absolute top-0.5 right-0.5 min-w-[14px] h-3.5 px-0.5 flex items-center justify-center rounded-full bg-chart-error text-[8px] font-bold text-success-light leading-none">
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </HeaderIconButton>
-      {active && <NotificationDropdown onClose={() => onClick(null)} />}
+      {active && <NotificationDropdown onClose={() => onToggle()} />}
     </div>
   );
 }
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export default function AppHeader({ handleSidebarToggle, collapsed }) {
+export default function AppHeader({
+  handleSidebarToggle,
+  isMobile = false,
+  mobileMenuOpen = false,
+}) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { hasRole, user, logout } = useAuth();
+  const { user, logout } = useAuth();
+  const notificationUserId = resolveNotificationRecipientId(user);
+  const { data: unreadRaw } = useUserNotificationUnreadCount(notificationUserId, {
+    enabled: Boolean(notificationUserId),
+    notifyOnError: false,
+  });
+  useNotificationWebSocket(notificationUserId, Boolean(notificationUserId));
   const showStoriesSearch = isPublicStoriesPath(pathname);
 
   const { t } = useTranslation();
@@ -215,31 +192,9 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
     [setLang],
   );
 
-  // Derived value — recalculated only when NOTIFICATIONS changes (stable ref).
-  const notifUnread = useMemo(
-    () => NOTIFICATIONS.filter((n) => n.unread).length,
-    [],
-  );
+  const notifUnread = parseNotificationUnreadCount(unreadRaw);
 
-  const navigateToFacetDashboard = useCallback(
-    (raw) => {
-      const facetRaw = String(raw ?? "").trim();
-      const facet = normalizeFacetKey(facetRaw) ?? facetRaw.toLowerCase();
-
-      /* Reader facet → student shell */
-      if (facetRaw === "user" || facet === "user") {
-        if (!(hasRole("user") || hasRole("student"))) return;
-        const base = getFacultyDashboardPath("student");
-        navigate(`${base}/dashboard`);
-        return;
-      }
-
-      if (!hasRole(facetRaw) && !hasRole(facet)) return;
-      const base = getFacultyDashboardPath(facet);
-      if (base) navigate(`${base}/dashboard`);
-    },
-    [hasRole, navigate],
-  );
+  const shell = resolveShellBasePath(pathname, user?.role);
 
   const navigateToProfile = useCallback(() => {
     const base = getFacultyDashboardPath(user?.role ?? "student");
@@ -247,17 +202,16 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
       navigate(`/admin/users/${encodeURIComponent(user.id)}`);
       return;
     }
-    navigate("/writer/profile");
+    if (base === "/writer" || user?.role === "author") {
+      navigate("/writer/profile");
+      return;
+    }
+    navigate(`${base}/dashboard`);
   }, [navigate, user]);
 
   const navigateToAccountSettings = useCallback(() => {
-    const base = getFacultyDashboardPath(user?.role ?? "student");
-    if (base === "/admin") {
-      navigate(`${base}/setting`);
-      return;
-    }
-    navigate("/writer/profile");
-  }, [navigate, user]);
+    navigate(settingsPathForShell(shell));
+  }, [navigate, shell]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -271,6 +225,21 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
     <header className="sticky top-0 z-20 flex h-11 shrink-0 items-center gap-2 border-b border-(--color-light-card-border) bg-(--color-light-card-bg)/88 px-2 backdrop-blur-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)/90 sm:h-14 sm:gap-2.5 md:gap-3 md:px-4 lg:px-5">
       {/* Sidebar + route */}
       <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+        {isMobile ? (
+          <button
+            type="button"
+            onClick={handleSidebarToggle}
+            aria-label={t("appHeader.toggleSidebar")}
+            aria-expanded={mobileMenuOpen ? "true" : "false"}
+            className="-ms-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) text-secondary transition-colors hover:border-(--color-light-input-border-focus) hover:bg-(--color-light-nav-hover-bg) hover:text-primary dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-dark-secondary dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary md:hidden"
+          >
+            {mobileMenuOpen ? (
+              <TbLayoutSidebarLeftCollapse className="size-[17px]" />
+            ) : (
+              <TbLayoutSidebarRightCollapse className="size-[17px]" />
+            )}
+          </button>
+        ) : null}
         <RouteTrail pathname={pathname} />
       </div>
 
@@ -304,7 +273,7 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
         <NotificationButton
           unreadCount={notifUnread}
           active={openPanel === "notifications"}
-          onClick={() => toggle("notifications")}
+          onToggle={() => toggle("notifications")}
           ariaLabel={t("appHeader.notificationsBell")}
         />
 
@@ -314,7 +283,12 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
             showArrow={false}
             compactIcon
             aria-label={t("appHeader.accountMenu")}
-            icon={<AvatarDemo />}
+            icon={
+              <AvatarDemo
+                src={resolveProfilePhotoUrl(user)}
+                initials={buildPersonInitials(user)}
+              />
+            }
           ></DropdownTrigger>
 
           <DropdownContent align="end" className="w-48">
@@ -352,42 +326,7 @@ export default function AppHeader({ handleSidebarToggle, collapsed }) {
               {t("appHeader.notifications")}
             </DropdownItem>
             <DropdownSeparator />
-            <DropdownSub>
-              <DropdownSubTrigger>
-                {t("appHeader.moreDashboards")}
-              </DropdownSubTrigger>
-              <DropdownSubContent>
-                {hasRole("admin") && (
-                  <DropdownItem
-                    onClick={() => navigateToFacetDashboard("admin")}
-                  >
-                    {t("adminShared.roles.admin")}
-                  </DropdownItem>
-                )}
-                {hasRole("teacher") && (
-                  <DropdownItem
-                    onClick={() => navigateToFacetDashboard("teacher")}
-                  >
-                    {t("adminShared.roles.teacher")}
-                  </DropdownItem>
-                )}
-                {(hasRole("student") || hasRole("user")) && (
-                  <DropdownItem
-                    onClick={() => navigateToFacetDashboard("student")}
-                  >
-                    {t("adminShared.roles.student")}
-                  </DropdownItem>
-                )}
-                {hasRole("author") && (
-                  <DropdownItem
-                    onClick={() => navigateToFacetDashboard("author")}
-                  >
-                    {t("adminShared.roles.author")}
-                  </DropdownItem>
-                )}
-              </DropdownSubContent>
-            </DropdownSub>
-            <DropdownSeparator />
+            
             <DropdownItem
               variant="danger"
               onClick={() => {

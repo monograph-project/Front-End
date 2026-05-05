@@ -13,8 +13,10 @@ import {
   Layers,
   Plus,
   UserRound,
+  UsersRound,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { gooeyToast } from "goey-toast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/Button";
@@ -54,9 +56,11 @@ import {
   useDeleteBatch,
   useDeleteDepartment,
   useDeleteFaculty,
+  useDeleteFacultyGroup,
   useDeleteSemester,
   useDepartments,
   useFaculties,
+  useFacultyGroups,
   useSemesters,
   useUpdateAcademicYear,
   useUpdateBatch,
@@ -68,6 +72,42 @@ import EditDepartmentForm from "./EditDepartmentForm";
 
 const EMPTY = [];
 const STATUS_ALL = "all";
+const SEMESTER_TYPE_OPTIONS = ["FALL", "SUMMER", "SPRING"];
+/** Minimum calendar span between batch start / end dates (inclusive boundary check). */
+const BATCH_MIN_SPAN_MONTHS = 4;
+
+function parseDateInputOnly(isoDate) {
+  if (!isoDate || typeof isoDate !== "string") return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate.trim());
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d))
+    return null;
+  const dt = new Date(y, mo - 1, d);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function batchDatesInOrder(startStr, endStr) {
+  const start = parseDateInputOnly(startStr);
+  const end = parseDateInputOnly(endStr);
+  if (!start || !end) return false;
+  return end > start;
+}
+
+/** `endDate` must be strictly on/after calendar date `startDate + minMonths`. */
+function batchSpansMinMonths(startStr, endStr, minMonths) {
+  const start = parseDateInputOnly(startStr);
+  const end = parseDateInputOnly(endStr);
+  if (!start || !end || end <= start) return false;
+  const minEnd = new Date(
+    start.getFullYear(),
+    start.getMonth() + minMonths,
+    start.getDate(),
+  );
+  return end >= minEnd;
+}
 
 function formatRegistryDate(value, locale, fallback = "-") {
   if (!value) return fallback;
@@ -156,6 +196,37 @@ function getFacultyMetaLine(record) {
   return parts.join(" • ");
 }
 
+function displayName(person, fallback = "-") {
+  if (!person) return fallback;
+  if (typeof person === "string") return person || fallback;
+  const full = [person.firstName, person.lastName].filter(Boolean).join(" ").trim();
+  return (
+    full ||
+    person.displayName ||
+    person.userName ||
+    person.username ||
+    (person.id != null ? String(person.id) : fallback)
+  );
+}
+
+function normalizeGroupId(group) {
+  return String(group?.id ?? group?.groupId ?? group?.uuid ?? "");
+}
+
+function groupTitle(group) {
+  return group?.name ?? group?.title ?? (group?.id != null ? String(group.id) : "-");
+}
+
+function groupMembersCount(group) {
+  const members =
+    group?.groupMembers ??
+    group?.members ??
+    group?.studentIds ??
+    group?.groupMemberIds ??
+    [];
+  return Array.isArray(members) ? members.length : 0;
+}
+
 function getRegistryTabs(t) {
   return [
     {
@@ -182,6 +253,11 @@ function getRegistryTabs(t) {
       id: "faculties",
       label: t("adminRegistry.tabs.faculties"),
       icon: Building2,
+    },
+    {
+      id: "groups",
+      label: t("adminProjects.tabs.groups"),
+      icon: UsersRound,
     },
   ];
 }
@@ -282,17 +358,22 @@ function buildPayload(tabId, values) {
         endDate: values.endDate,
         calendarType: values.calendarType,
       };
-    case "semesters":
+    case "semesters": {
+      const ayId = String(values.academicYear ?? "").trim();
       return {
-        academicYear: values.academicYear,
-        type: values.type.trim(),
+        academicYearId: ayId,
+        academicYear: ayId,
+        type: String(values.type ?? "").trim().toUpperCase(),
         name: values.name.trim(),
         startDate: values.startDate,
         endDate: values.endDate,
       };
-    case "batches":
+    }
+    case "batches": {
+      const ayId = String(values.academicYear ?? "").trim();
       return {
-        academicYear: values.academicYear,
+        academicYearId: ayId,
+        academicYear: ayId,
         name: values.name.trim(),
         year: Number(values.year),
         type: values.type.trim(),
@@ -301,6 +382,7 @@ function buildPayload(tabId, values) {
         description: values.description.trim() || undefined,
         isActive: Boolean(values.isActive),
       };
+    }
     case "faculties":
       return {
         name: values.name.trim(),
@@ -313,38 +395,111 @@ function buildPayload(tabId, values) {
   }
 }
 
-function validateForm(tabId, values) {
+/** Field-level errors shown under inputs (semesters, batches, academic-year & faculty modals). */
+function getRegistryFieldErrors(tabId, values, academicYears = [], t) {
+  const tr = typeof t === "function" ? t : (key) => key;
+  const req = () => tr("adminRegistry.validation.generic");
+
+  /** @type {Record<string, string>} */
+  const err = {};
+
   if (tabId === "academic-years") {
-    return Boolean(
-      values.name.trim() &&
-        values.startDate &&
-        values.endDate &&
-        values.calendarType,
-    );
+    if (!values.name?.trim()) err.name = req();
+    if (!values.startDate) err.startDate = req();
+    if (!values.endDate) err.endDate = req();
+    if (!values.calendarType) err.calendarType = req();
+    return err;
   }
+
   if (tabId === "semesters") {
-    return Boolean(
-      values.name.trim() &&
-        values.type.trim() &&
-        values.academicYear &&
-        values.startDate &&
-        values.endDate,
-    );
+    if (!values.name?.trim()) {
+      err.name = tr("adminRegistry.validation.semesterNameRequired");
+    }
+    if (!values.academicYear) {
+      err.academicYear = tr("adminRegistry.validation.semesterAcademicYearRequired");
+    }
+    if (
+      !SEMESTER_TYPE_OPTIONS.includes(String(values.type ?? "").trim().toUpperCase())
+    ) {
+      err.type = tr("adminRegistry.validation.semesterTypeInvalid");
+    }
+
+    if (!values.startDate && !values.endDate) {
+      const m = tr("adminRegistry.validation.semesterDatesRequired");
+      err.startDate = m;
+      err.endDate = m;
+    } else {
+      if (!values.startDate)
+        err.startDate = tr("adminRegistry.validation.semesterDatesRequired");
+      if (!values.endDate)
+        err.endDate = tr("adminRegistry.validation.semesterDatesRequired");
+    }
+
+    if (values.startDate && values.endDate) {
+      if (!batchDatesInOrder(values.startDate, values.endDate)) {
+        err.endDate = tr("adminRegistry.validation.semesterDateOrder");
+      } else {
+        const academicYear = academicYears.find(
+          (item) =>
+            normalizeId(item?.id ?? item?.uuid, "") === values.academicYear,
+        );
+        if (
+          academicYear?.startDate &&
+          new Date(values.startDate) < new Date(academicYear.startDate)
+        ) {
+          err.startDate = tr("adminRegistry.validation.semesterStartWithinYear");
+        }
+        if (
+          academicYear?.endDate &&
+          new Date(values.endDate) > new Date(academicYear.endDate)
+        ) {
+          err.endDate = tr("adminRegistry.validation.semesterEndWithinYear");
+        }
+      }
+    }
+    return err;
   }
+
   if (tabId === "batches") {
-    return Boolean(
-      values.name.trim() &&
-        values.type.trim() &&
-        values.academicYear &&
-        values.startDate &&
-        values.endDate &&
-        Number(values.year) > 0,
-    );
+    if (!values.name?.trim()) err.name = req();
+    if (!values.type?.trim()) err.type = req();
+    if (!values.academicYear) err.academicYear = req();
+
+    if (!values.startDate && !values.endDate) {
+      const m = req();
+      err.startDate = m;
+      err.endDate = m;
+    } else {
+      if (!values.startDate) err.startDate = req();
+      if (!values.endDate) err.endDate = req();
+    }
+
+    if (!(Number(values.year) > 0)) err.year = req();
+
+    if (values.startDate && values.endDate) {
+      if (!batchDatesInOrder(values.startDate, values.endDate)) {
+        err.endDate = tr("adminRegistry.validation.batchDateOrder");
+      } else if (
+        !batchSpansMinMonths(
+          values.startDate,
+          values.endDate,
+          BATCH_MIN_SPAN_MONTHS,
+        )
+      ) {
+        err.endDate = tr("adminRegistry.validation.batchMinSpanMonths", {
+          months: BATCH_MIN_SPAN_MONTHS,
+        });
+      }
+    }
+    return err;
   }
+
   if (tabId === "faculties") {
-    return Boolean(values.name.trim());
+    if (!values.name?.trim()) err.name = req();
+    return err;
   }
-  return true;
+
+  return err;
 }
 
 function RegistryFields({
@@ -353,14 +508,18 @@ function RegistryFields({
   setValues,
   academicYearOptions,
   t,
+  fieldErrors = {},
 }) {
+  const fe = fieldErrors;
   if (tabId === "academic-years") {
     return (
       <div className="grid gap-4">
         <Field
           register={{}}
           label={t("settings.academic.year.fieldName")}
+          placeholder={t("settings.academic.year.placeholderName")}
           value={values.name}
+          error={fe.name}
           onChange={(event) =>
             setValues((current) => ({ ...current, name: event.target.value }))
           }
@@ -370,6 +529,7 @@ function RegistryFields({
           type="date"
           label={t("settings.academic.year.fieldStart")}
           value={values.startDate}
+          error={fe.startDate}
           onChange={(event) =>
             setValues((current) => ({
               ...current,
@@ -382,6 +542,7 @@ function RegistryFields({
           type="date"
           label={t("settings.academic.year.fieldEnd")}
           value={values.endDate}
+          error={fe.endDate}
           onChange={(event) =>
             setValues((current) => ({ ...current, endDate: event.target.value }))
           }
@@ -389,9 +550,11 @@ function RegistryFields({
         <Select
           label={t("settings.academic.year.fieldCalendar")}
           value={values.calendarType}
+          error={fe.calendarType}
           onValueChange={(value) =>
             setValues((current) => ({ ...current, calendarType: value }))
           }
+          placeholder={t("settings.academic.year.placeholderCalendar")}
           options={[
             {
               value: "SOLAR",
@@ -413,33 +576,42 @@ function RegistryFields({
         <Select
           label={t("settings.academic.batch.fieldAcademicYear")}
           value={values.academicYear}
+          error={fe.academicYear}
           onValueChange={(value) =>
             setValues((current) => ({ ...current, academicYear: value }))
           }
           options={academicYearOptions}
-          placeholder={t("settings.academic.batch.fieldAcademicYear")}
+          placeholder={t("adminRegistry.form.semesterAcademicYearPlaceholder")}
         />
         <Field
           register={{}}
           label={t("adminRegistry.form.semesterName")}
+          placeholder={t("adminRegistry.form.semesterNamePlaceholder")}
           value={values.name}
+          error={fe.name}
           onChange={(event) =>
             setValues((current) => ({ ...current, name: event.target.value }))
           }
         />
-        <Field
-          register={{}}
+        <Select
           label={t("adminRegistry.form.semesterType")}
           value={values.type}
-          onChange={(event) =>
-            setValues((current) => ({ ...current, type: event.target.value }))
+          error={fe.type}
+          onValueChange={(value) =>
+            setValues((current) => ({ ...current, type: value }))
           }
+          options={SEMESTER_TYPE_OPTIONS.map((value) => ({
+            value,
+            label: value.charAt(0) + value.slice(1).toLowerCase(),
+          }))}
+          placeholder={t("adminRegistry.form.semesterTypePlaceholder")}
         />
         <Field
           register={{}}
           type="date"
           label={t("settings.academic.batch.fieldStart")}
           value={values.startDate}
+          error={fe.startDate}
           onChange={(event) =>
             setValues((current) => ({
               ...current,
@@ -452,6 +624,7 @@ function RegistryFields({
           type="date"
           label={t("settings.academic.batch.fieldEnd")}
           value={values.endDate}
+          error={fe.endDate}
           onChange={(event) =>
             setValues((current) => ({ ...current, endDate: event.target.value }))
           }
@@ -467,17 +640,20 @@ function RegistryFields({
           <Select
             label={t("settings.academic.batch.fieldAcademicYear")}
             value={values.academicYear}
+            error={fe.academicYear}
             onValueChange={(value) =>
               setValues((current) => ({ ...current, academicYear: value }))
             }
             options={academicYearOptions}
-            placeholder={t("settings.academic.batch.fieldAcademicYear")}
+            placeholder={t("settings.academic.batch.placeholderAcademicYear")}
           />
         </div>
         <Field
           register={{}}
           label={t("settings.academic.batch.fieldName")}
+          placeholder={t("settings.academic.batch.placeholderName")}
           value={values.name}
+          error={fe.name}
           onChange={(event) =>
             setValues((current) => ({ ...current, name: event.target.value }))
           }
@@ -486,7 +662,9 @@ function RegistryFields({
           register={{}}
           type="number"
           label={t("settings.academic.batch.fieldYear")}
+          placeholder={t("settings.academic.batch.placeholderYear")}
           value={values.year}
+          error={fe.year}
           onChange={(event) =>
             setValues((current) => ({ ...current, year: event.target.value }))
           }
@@ -494,7 +672,9 @@ function RegistryFields({
         <Field
           register={{}}
           label={t("settings.academic.batch.fieldType")}
+          placeholder={t("settings.academic.batch.placeholderType")}
           value={values.type}
+          error={fe.type}
           onChange={(event) =>
             setValues((current) => ({ ...current, type: event.target.value }))
           }
@@ -504,6 +684,7 @@ function RegistryFields({
           type="date"
           label={t("settings.academic.batch.fieldStart")}
           value={values.startDate}
+          error={fe.startDate}
           onChange={(event) =>
             setValues((current) => ({
               ...current,
@@ -516,6 +697,7 @@ function RegistryFields({
           type="date"
           label={t("settings.academic.batch.fieldEnd")}
           value={values.endDate}
+          error={fe.endDate}
           onChange={(event) =>
             setValues((current) => ({ ...current, endDate: event.target.value }))
           }
@@ -523,6 +705,7 @@ function RegistryFields({
         <div className="md:col-span-2">
           <Field label={t("settings.academic.batch.fieldDesc")} register={{}}>
             <textarea
+              placeholder={t("settings.academic.batch.placeholderDesc")}
               value={values.description}
               onChange={(event) =>
                 setValues((current) => ({
@@ -557,7 +740,9 @@ function RegistryFields({
       <Field
         register={{}}
         label={t("adminRegistry.form.facultyName")}
+        placeholder={t("adminRegistry.form.facultyNamePlaceholder")}
         value={values.name}
+        error={fe.name}
         onChange={(event) =>
           setValues((current) => ({ ...current, name: event.target.value }))
         }
@@ -565,6 +750,7 @@ function RegistryFields({
       <Field
         register={{}}
         label={t("adminRegistry.form.facultyCode")}
+        placeholder={t("adminRegistry.form.facultyCodePlaceholder")}
         value={values.code}
         onChange={(event) =>
           setValues((current) => ({ ...current, code: event.target.value }))
@@ -573,6 +759,7 @@ function RegistryFields({
       <Field
         register={{}}
         label={t("adminRegistry.form.facultyDean")}
+        placeholder={t("adminRegistry.form.facultyDeanPlaceholder")}
         value={values.dean}
         onChange={(event) =>
           setValues((current) => ({ ...current, dean: event.target.value }))
@@ -583,6 +770,7 @@ function RegistryFields({
         label={t("adminDepartments.form.fields.description")}
       >
         <textarea
+          placeholder={t("adminRegistry.form.facultyDescriptionPlaceholder")}
           value={values.description}
           onChange={(event) =>
             setValues((current) => ({
@@ -616,6 +804,12 @@ export default function Departments() {
   const debouncedSearch = useDebouncedValue(searchInput, 400);
 
   const [formValues, setFormValues] = useState(getDefaultFormValues("semesters"));
+  const [registryFieldErrors, setRegistryFieldErrors] = useState({});
+
+  const registrySetValues = useCallback((updater) => {
+    setRegistryFieldErrors({});
+    setFormValues(updater);
+  }, []);
 
   const { data: departments = EMPTY, isError, error } = useDepartments({
     notifyOnError: true,
@@ -623,6 +817,7 @@ export default function Departments() {
   const { data: semesters = EMPTY } = useSemesters({}, { notifyOnError: true });
   const { data: batches = EMPTY } = useBatches({ notifyOnError: true });
   const { data: faculties = EMPTY } = useFaculties({ notifyOnError: true });
+  const { data: groups = EMPTY } = useFacultyGroups({}, { notifyOnError: true });
   const { data: academicYears = EMPTY } = useAcademicYears(
     {},
     { notifyOnError: false },
@@ -643,6 +838,10 @@ export default function Departments() {
   const createFaculty = useCreateFaculty();
   const updateFaculty = useUpdateFaculty();
   const deleteFaculty = useDeleteFaculty();
+  const deleteFacultyGroup = useDeleteFacultyGroup({
+    showSuccessToast: false,
+    showErrorToast: false,
+  });
 
   const deleteDepartmentMutation = useDeleteDepartment({
     showSuccessToast: false,
@@ -684,8 +883,9 @@ export default function Departments() {
     if (activeTab === "academic-years") return academicYears;
     if (activeTab === "semesters") return semesters;
     if (activeTab === "batches") return batches;
+    if (activeTab === "groups") return groups;
     return faculties;
-  }, [activeTab, academicYears, batches, departments, faculties, semesters]);
+  }, [activeTab, academicYears, batches, departments, faculties, groups, semesters]);
 
   const filteredRows = useMemo(() => {
     const search = debouncedSearch.trim().toLowerCase();
@@ -731,6 +931,13 @@ export default function Departments() {
           record?.year,
           getAcademicYearLabel(record?.academicYear),
         ];
+      } else if (activeTab === "groups") {
+        fields = [
+          normalizeGroupId(record),
+          groupTitle(record),
+          displayName(record?.groupLeader, ""),
+          groupMembersCount(record),
+        ];
       } else {
         status = getFacultyStatus(record);
         fields = [
@@ -768,6 +975,7 @@ export default function Departments() {
       }
       if (activeTab === "semesters") values.add(getSemesterStatus(record));
       if (activeTab === "batches") values.add(getBatchStatus(record));
+      if (activeTab === "groups") return;
       if (activeTab === "faculties") {
         const status = getFacultyStatus(record);
         if (status) values.add(status);
@@ -812,6 +1020,9 @@ export default function Departments() {
     if (activeTab === "batches") {
       return t("adminRegistry.titles.batches");
     }
+    if (activeTab === "groups") {
+      return t("adminProjects.registry.title");
+    }
     return t("adminRegistry.titles.faculties");
   }, [activeTab, t]);
 
@@ -836,10 +1047,15 @@ export default function Departments() {
         count: batches.length,
       });
     }
+    if (activeTab === "groups") {
+      return t("adminProjects.header.description", {
+        count: groups.length,
+      });
+    }
     return t("adminRegistry.descriptions.faculties", {
       count: faculties.length,
     });
-  }, [activeTab, academicYears.length, batches.length, departments.length, faculties.length, semesters.length, t]);
+  }, [activeTab, academicYears.length, batches.length, departments.length, faculties.length, groups.length, semesters.length, t]);
 
   const headerData = useMemo(() => {
     if (activeTab === "departments") {
@@ -911,6 +1127,17 @@ export default function Departments() {
       ];
     }
 
+    if (activeTab === "groups") {
+      return [
+        { title: "" },
+        { title: t("adminProjects.table.groupId") },
+        { title: t("adminProjects.faculty.col.name") },
+        { title: t("adminProjects.faculty.col.leader") },
+        { title: t("adminProjects.faculty.col.members") },
+        { title: t("adminDepartments.table.actions"), align: "center" },
+      ];
+    }
+
     return [
       { title: "" },
       { title: t("adminDepartments.table.id") },
@@ -957,6 +1184,14 @@ export default function Departments() {
         queryKey: ["faculties"],
       };
     }
+    if (activeTab === "groups") {
+      return {
+        create: null,
+        update: null,
+        delete: deleteFacultyGroup,
+        queryKey: ["faculty-groups"],
+      };
+    }
     return {
       create: null,
       update: null,
@@ -973,6 +1208,7 @@ export default function Departments() {
     deleteBatch,
     deleteDepartmentMutation,
     deleteFaculty,
+    deleteFacultyGroup,
     deleteSemester,
     updateAcademicYear,
     updateBatch,
@@ -1019,6 +1255,14 @@ export default function Departments() {
           getBatchStatus(record),
         ];
       }
+      if (activeTab === "groups") {
+        return [
+          normalizeGroupId(record),
+          groupTitle(record),
+          displayName(record?.groupLeader),
+          groupMembersCount(record),
+        ];
+      }
       return [
         normalizeId(record?.id),
         record?.name ?? "",
@@ -1051,11 +1295,21 @@ export default function Departments() {
       setShowAddModal(true);
       return;
     }
+    if (activeTab === "groups") {
+      navigate("/admin/projects/groups/register");
+      return;
+    }
+    setRegistryFieldErrors({});
     setFormValues(getDefaultFormValues(activeTab));
     setShowAddModal(true);
   };
 
   const openEditModal = (record) => {
+    if (activeTab === "groups") {
+      navigate(`/admin/projects/groups/register/${encodeURIComponent(normalizeGroupId(record))}`);
+      return;
+    }
+    setRegistryFieldErrors({});
     setSelectedRecord(record);
     if (activeTab !== "departments") {
       setFormValues(getEditFormValues(activeTab, record));
@@ -1067,14 +1321,22 @@ export default function Departments() {
     setShowAddModal(false);
     setShowEditModal(false);
     setSelectedRecord(null);
+    setRegistryFieldErrors({});
     setFormValues(getDefaultFormValues(activeTab));
   };
 
   const submitGenericForm = async (mode) => {
-    if (!validateForm(activeTab, formValues)) {
-      window.GooeyToaster?.error?.(t("adminRegistry.validation.generic"));
+    const nextErrors = getRegistryFieldErrors(
+      activeTab,
+      formValues,
+      academicYears,
+      t,
+    );
+    if (Object.keys(nextErrors).length > 0) {
+      setRegistryFieldErrors(nextErrors);
       return;
     }
+    setRegistryFieldErrors({});
 
     const payload = buildPayload(activeTab, formValues);
     const mutation = mode === "create" ? activeMutationState.create : activeMutationState.update;
@@ -1084,12 +1346,21 @@ export default function Departments() {
       if (mode === "create") {
         await mutation.mutateAsync(payload);
       } else {
+        const rid =
+          selectedRecord?.id ??
+          selectedRecord?.uuid ??
+          selectedRecord?.batchId ??
+          selectedRecord?.semesterId;
         await mutation.mutateAsync({
-          id: selectedRecord?.id,
+          id: rid,
           ...payload,
         });
       }
       await queryClient.invalidateQueries({ queryKey: activeMutationState.queryKey });
+      if (activeTab === "semesters" || activeTab === "batches") {
+        await queryClient.invalidateQueries({ queryKey: ["semesters"] });
+        await queryClient.invalidateQueries({ queryKey: ["batches"] });
+      }
       closeFormModals();
     } catch {
       // toast handled by mutation
@@ -1102,6 +1373,8 @@ export default function Departments() {
     try {
       if (activeTab === "departments") {
         await deleteDepartmentMutation.mutateAsync(deleteRecord.id);
+      } else if (activeTab === "groups") {
+        await deleteFacultyGroup.mutateAsync(deleteRecord.id);
       } else {
         await activeMutationState.delete.mutateAsync(deleteRecord.id);
       }
@@ -1109,13 +1382,14 @@ export default function Departments() {
       const successMessage =
         activeTab === "departments"
           ? t("adminDepartments.delete.success")
+          : activeTab === "groups"
+            ? t("adminProjects.delete.success")
           : t("adminRegistry.delete.success");
-      window.GooeyToaster?.success?.(successMessage);
+      gooeyToast.success(successMessage);
       setDeleteRecord(null);
     } catch (e) {
-      window.GooeyToaster?.error?.(
-        e?.message ||
-          t("adminRegistry.delete.error"),
+      gooeyToast.error(
+        e?.message || t("adminRegistry.delete.error"),
       );
     } finally {
       setDeleteSubmitting(false);
@@ -1180,6 +1454,8 @@ export default function Departments() {
             <span className="text-white">
               {activeTab === "departments"
                 ? t("adminDepartments.actions.add")
+                : activeTab === "groups"
+                  ? t("adminProjects.registry.addGroup")
                 : t("adminRegistry.actions.add")}
             </span>
           </Button>
@@ -1224,9 +1500,7 @@ export default function Departments() {
                   aria-label={t("adminDepartments.toolbar.filter")}
                   icon={<Filter className="size-3.5 shrink-0" strokeWidth={2} />}
                   onClick={() =>
-                    window.GooeyToaster?.info?.(
-                      t("adminDepartments.toolbar.filtersPending"),
-                    )
+                    gooeyToast.info(t("adminDepartments.toolbar.filtersPending"))
                   }
                 >
                   {t("adminDepartments.toolbar.filter")}
@@ -1236,9 +1510,7 @@ export default function Departments() {
                   aria-label={t("adminDepartments.toolbar.sort")}
                   icon={<ArrowUpDown className="size-3.5 shrink-0" strokeWidth={2} />}
                   onClick={() =>
-                    window.GooeyToaster?.info?.(
-                      t("adminDepartments.toolbar.sortPending"),
-                    )
+                    gooeyToast.info(t("adminDepartments.toolbar.sortPending"))
                   }
                 >
                   {t("adminDepartments.toolbar.sort")}
@@ -1248,9 +1520,7 @@ export default function Departments() {
                   aria-label={t("adminDepartments.toolbar.columns")}
                   icon={<Columns3 className="size-3.5 shrink-0" strokeWidth={2} />}
                   onClick={() =>
-                    window.GooeyToaster?.info?.(
-                      t("adminDepartments.toolbar.columnsPending"),
-                    )
+                    gooeyToast.info(t("adminDepartments.toolbar.columnsPending"))
                   }
                 >
                   {t("adminDepartments.toolbar.columns")}
@@ -1260,9 +1530,7 @@ export default function Departments() {
                   aria-label={t("adminDepartments.toolbar.hide")}
                   icon={<EyeOff className="size-3.5 shrink-0" strokeWidth={2} />}
                   onClick={() =>
-                    window.GooeyToaster?.info?.(
-                      t("adminDepartments.toolbar.densityPending"),
-                    )
+                    gooeyToast.info(t("adminDepartments.toolbar.densityPending"))
                   }
                 >
                   {t("adminDepartments.toolbar.hide")}
@@ -1275,7 +1543,13 @@ export default function Departments() {
         <TableHeader headerData={headerData} />
         <TableBody>
           {pageRows.map((record) => (
-            <TableRow key={`${activeTab}-${normalizeId(record?.id ?? record?.code)}`}>
+            <TableRow
+              key={
+                activeTab === "groups"
+                  ? `${activeTab}-${normalizeGroupId(record)}`
+                  : `${activeTab}-${normalizeId(record?.id ?? record?.code)}`
+              }
+            >
               <TableColumn className="w-10">
                 <Checkbox />
               </TableColumn>
@@ -1414,6 +1688,31 @@ export default function Departments() {
                 </>
               ) : null}
 
+              {activeTab === "groups" ? (
+                <>
+                  <TableColumn className="font-mono text-xs">
+                    #{normalizeGroupId(record)}
+                  </TableColumn>
+                  <TableColumn nowrap={false}>
+                    <div className="min-w-0">
+                      <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
+                        {groupTitle(record)}
+                      </div>
+                    </div>
+                  </TableColumn>
+                  <TableColumn nowrap={false}>
+                    <span className="text-sm text-secondary dark:text-dark-secondary">
+                      {displayName(record?.groupLeader)}
+                    </span>
+                  </TableColumn>
+                  <TableColumn className="text-sm text-secondary dark:text-dark-secondary">
+                    {t("adminProjects.registry.memberCount", {
+                      count: groupMembersCount(record),
+                    })}
+                  </TableColumn>
+                </>
+              ) : null}
+
               {activeTab === "faculties" ? (
                 <>
                   <TableColumn className="font-mono text-xs">
@@ -1476,8 +1775,12 @@ export default function Departments() {
                       variant="danger"
                       onClick={() =>
                         setDeleteRecord({
-                          id: record?.id,
+                          id:
+                            activeTab === "groups"
+                              ? normalizeGroupId(record)
+                              : record?.id,
                           name:
+                            (activeTab === "groups" ? groupTitle(record) : null) ??
                             record?.name ??
                             record?.title ??
                             record?.code ??
@@ -1491,6 +1794,8 @@ export default function Departments() {
                                 ? record?.type || "-"
                                 : activeTab === "batches"
                                   ? getAcademicYearLabel(record?.academicYear) || "-"
+                                  : activeTab === "groups"
+                                    ? displayName(record?.groupLeader)
                                   : record?.code || "-",
                         })
                       }
@@ -1512,13 +1817,21 @@ export default function Departments() {
               >
                 <div className="flex flex-col items-center gap-2">
                   <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                    <Building2 className="h-5 w-5 text-muted-foreground" />
+                    {activeTab === "groups" ? (
+                      <UsersRound className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <Building2 className="h-5 w-5 text-muted-foreground" />
+                    )}
                   </div>
                   <span className="font-medium">
-                    {t("adminRegistry.empty.title")}
+                    {activeTab === "groups"
+                      ? t("adminProjects.faculty.emptyGroups")
+                      : t("adminRegistry.empty.title")}
                   </span>
                   <span className="text-xs opacity-75">
-                    {t("adminRegistry.empty.hint")}
+                    {activeTab === "groups"
+                      ? t("adminProjects.registry.emptyHint")
+                      : t("adminRegistry.empty.hint")}
                   </span>
                 </div>
               </TableColumn>
@@ -1586,7 +1899,7 @@ export default function Departments() {
             ) : null}
           </GlobalModal>
         </>
-      ) : (
+      ) : activeTab === "groups" ? null : (
         <>
           <GlobalModal
             open={showAddModal}
@@ -1607,6 +1920,7 @@ export default function Departments() {
                 </Button>
                 <Button
                   type="button"
+                  loading={Boolean(activeMutationState.create?.isPending)}
                   onClick={() => void submitGenericForm("create")}
                   disabled={activeMutationState.create?.isPending}
                 >
@@ -1619,8 +1933,9 @@ export default function Departments() {
             <RegistryFields
               tabId={activeTab}
               values={formValues}
-              setValues={setFormValues}
+              setValues={registrySetValues}
               academicYearOptions={academicYearOptions}
+              fieldErrors={registryFieldErrors}
               t={t}
             />
           </GlobalModal>
@@ -1644,6 +1959,7 @@ export default function Departments() {
                 </Button>
                 <Button
                   type="button"
+                  loading={Boolean(activeMutationState.update?.isPending)}
                   onClick={() => void submitGenericForm("edit")}
                   disabled={activeMutationState.update?.isPending}
                 >
@@ -1656,8 +1972,9 @@ export default function Departments() {
             <RegistryFields
               tabId={activeTab}
               values={formValues}
-              setValues={setFormValues}
+              setValues={registrySetValues}
               academicYearOptions={academicYearOptions}
+              fieldErrors={registryFieldErrors}
               t={t}
             />
           </GlobalModal>
@@ -1687,12 +2004,18 @@ export default function Departments() {
               label:
                 activeTab === "departments"
                   ? t("adminDepartments.delete.headLabel")
+                  : activeTab === "groups"
+                    ? t("adminProjects.delete.meta")
                   : t("adminRegistry.delete.meta"),
               value: deleteRecord.meta || "-",
               mono: true,
             },
           ]}
-          warning={t("adminDepartments.delete.warning")}
+          warning={
+            activeTab === "groups"
+              ? t("adminProjects.delete.warning")
+              : t("adminDepartments.delete.warning")
+          }
           cancelLabel={t("adminDepartments.delete.cancel")}
           confirmLabel={
             deleteSubmitting

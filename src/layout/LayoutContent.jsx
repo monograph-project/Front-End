@@ -3,13 +3,8 @@ import NavigationRouteLoader from "../components/NavigationRouteLoader";
 import { useSidebar } from "../context/SidebarContext";
 import AppHeader from "./AppHeader";
 function LayoutContent({ children }) {
-  const {
-    isMobile,
-    mobileMenuOpen,
-    collapsed,
-    handleSidebarToggle,
-    setMobileMenuOpen,
-  } = useSidebar();
+  const { isMobile, mobileMenuOpen, handleSidebarToggle, setMobileMenuOpen } =
+    useSidebar();
   return (
     <div className="w-full max-w-387 mx-auto h-screen flex">
       {/* Mobile menu overlay */}
@@ -36,10 +31,9 @@ function LayoutContent({ children }) {
         {/* Main area */}
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
           <AppHeader
-            collapsed={collapsed}
             isMobile={isMobile}
+            mobileMenuOpen={mobileMenuOpen}
             handleSidebarToggle={handleSidebarToggle}
-            onMenuToggle={() => setMobileMenuOpen(true)}
           />
           <div className="app-main-canvas relative flex-1">
             <NavigationRouteLoader />

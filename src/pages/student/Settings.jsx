@@ -1,18 +1,20 @@
 import { useState } from "react";
-import { Globe2, Palette, ShieldCheck } from "lucide-react";
+import { Globe2, Palette, ShieldCheck, UserCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import SettingsTabs from "../../components/SettingsTabs";
 import ThemeSettingsTab from "../../components/ThemeSettingsTab";
 import LanguageSettingsTab from "../../components/LanguageSettingsTab";
+import UserAccountSettingsTab from "../../components/UserAccountSettingsTab";
 
 const SURFACE_CARD =
   "rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
 
 export default function StudentSettings() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState("language");
+  const [activeTab, setActiveTab] = useState("account");
 
   const tabs = [
+    { id: "account", label: t("settings.tabs.account"), icon: UserCircle },
     { id: "language", label: t("settings.tabs.language"), icon: Globe2 },
     { id: "theme", label: t("settings.tabs.theme"), icon: Palette },
   ];
@@ -34,11 +36,16 @@ export default function StudentSettings() {
             </p>
           </div>
           <div className="px-4 py-4 md:px-6">
-            <SettingsTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+            <SettingsTabs
+              tabs={tabs}
+              activeTab={activeTab}
+              onChange={setActiveTab}
+            />
           </div>
         </section>
 
         <div>
+          {activeTab === "account" && <UserAccountSettingsTab />}
           {activeTab === "language" && <LanguageSettingsTab />}
           {activeTab === "theme" && <ThemeSettingsTab />}
         </div>

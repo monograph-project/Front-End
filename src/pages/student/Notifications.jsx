@@ -1,19 +1,5 @@
-import React from "react";
+import UserNotificationInbox from "../../components/notifications/UserNotificationInbox";
 
-function Notifications() {
-  return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-[14px] bg-shell dark:bg-dark-shell">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-primary dark:text-dark-primary">
-          Notifications
-        </h1>
-      </div>
-      <div className="text-muted dark:text-dark-muted">
-        Academic notifications: grade updates, assignment due dates, group
-        invites, and announcements.
-      </div>
-    </div>
-  );
+export default function Notifications() {
+  return <UserNotificationInbox basePath="/student/notifications" />;
 }
-
-export default Notifications;
