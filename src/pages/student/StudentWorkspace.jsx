@@ -504,7 +504,7 @@ export default function StudentWorkspace() {
                 >
                   {filteredRepos.map((item) => (
                     <RepoListRow
-                      key={`${item.ownerUsername}/${item.repositoryName}`}
+                      key={`${item.owner.user_name}/${item.repositoryName}`}
                       item={item}
                       t={t}
                     />
@@ -595,7 +595,8 @@ export default function StudentWorkspace() {
  * @param {{ item: object, t: import('i18next').TFunction }} props
  */
 function RepoListRow({ item, t }) {
-  const owner = item.ownerUsername;
+  console.log(item)
+  const owner = item.owner.user_name;
   const name = item.repositoryName;
   const to = `/student/repository/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   const visibility = visibilityKind(item.visibility);
