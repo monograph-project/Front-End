@@ -55,7 +55,6 @@ export default function PublicLandingHero() {
   return (
     <section className="relative overflow-hidden  bg-light-app-bg  dark:bg-dark-shell">
       {/* Fine dot texture + grid (reference: soft lattice) */}
-     
 
       {/* Warm pink / apricot bloom behind collage */}
       <div
@@ -67,53 +66,9 @@ export default function PublicLandingHero() {
         className="pointer-events-none absolute bottom-[-20%] right-[10%] size-[340px] rounded-full bg-gradient-to-tl from-amber-100/65 to-transparent blur-3xl dark:from-amber-600/14"
       />
 
-      <div className="relative mx-auto flex max-w-[1320px] flex-col gap-12 px-4 pb-20 pt-10 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(340px,1.06fr)] lg:items-center lg:gap-x-14 lg:gap-y-16 lg:px-8 lg:pb-28 lg:pt-14 rtl:font-persian">
-        {/* ── Left column (copy + CTAs like reference) ── */}
-        <div className="max-w-xl lg:pt-4">
-          <div
-            className="flex flex-wrap items-center gap-2 sm:gap-2.5"
-            aria-hidden
-          >
-            {integration.map(({ Icon, wrap }, idx) => (
-              <span
-                key={idx}
-                className={`flex size-11 items-center justify-center rounded-xl border border-(--color-light-card-border) shadow-sm dark:border-(--color-dark-card-border) ${wrap}`}
-              >
-                <Icon className="size-[22px]" strokeWidth={1.75} aria-hidden />
-              </span>
-            ))}
-          </div>
-
-          <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted dark:text-dark-muted">
-            {t("publicHome.hero.kicker")}
-          </p>
-
-          <h1 className="font-blog-display mt-3 text-4xl font-bold leading-[1.06] tracking-tight text-primary dark:text-dark-primary sm:text-5xl lg:text-[3.125rem]">
-            {t("publicHome.hero.title")}
-          </h1>
-
-          <p className="mt-5 max-w-lg text-base leading-relaxed text-secondary dark:text-dark-secondary sm:text-lg">
-            {t("publicHome.hero.subtitle")}
-          </p>
-
-          <div className="mt-9 flex flex-wrap items-center gap-3">
-            <Link
-              to="/write"
-              className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-neutral-950 px-8 text-[13px] font-semibold text-white shadow-sm transition-opacity hover:opacity-90 dark:bg-white dark:text-neutral-950"
-            >
-              {t("publicHome.hero.ctaPrimary")}
-            </Link>
-            <Link
-              to="/signup"
-              className="inline-flex h-11 shrink-0 items-center justify-center rounded-full border border-(--color-light-card-border) bg-(--color-light-card-bg) px-8 text-[13px] font-semibold text-primary shadow-sm transition-colors hover:bg-(--color-light-app-tertiary) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-primary dark:hover:bg-(--color-dark-app-tertiary)"
-            >
-              {t("publicHome.hero.ctaSecondary")}
-            </Link>
-          </div>
-        </div>
-
+      <div className="relative   mx-auto flex justify-center max-w-[1320px] gap-12 px-4 pb-20 pt-10 sm:px-6  lg:pt-14 rtl:font-persian">
         {/* ── Right column — layered floating UI (matches reference collage) ── */}
-        <div className="relative mx-auto aspect-[1.05] w-full max-w-[540px] min-h-[360px] sm:aspect-[4/3] sm:min-h-[420px] lg:mx-0 lg:mr-[-8px] xl:mr-[-16px]">
+        <div className=" relative aspect-[1.05] w-full max-w-[540px] min-h-[360px] sm:aspect-[4/3] sm:min-h-[420px] lg:mx-0 lg:mr-[-8px] xl:mr-[-16px]">
           {/* Ambient slab behind stacks */}
           <div
             aria-hidden

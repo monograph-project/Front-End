@@ -3,6 +3,10 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { gooeyToast } from "goey-toast";
 import * as Api from "./apiRoute";
+import {
+  fetchRepositoryCompare,
+  fetchRepositoryCommits,
+} from "./versionControlService";
 
 function httpStatusKey(status) {
   if (status == null || Number.isNaN(status)) return null;
@@ -806,7 +810,7 @@ export function useSemestersByAcademicYear(academicYearId, queryOptions = {}) {
   return q;
 }
 
-/** Repository search (`/api/repository/search?keyword=`). Queries when `keyword` is non-empty. */
+/** Repository catalogue search (`REPOSITORY.SEARCH` → `/api/v1/repos/search?keyword=`). Queries when `keyword` is non-empty. */
 export function useRepositorySearch(keyword, queryOptions = {}) {
   const trimmed = String(keyword ?? "").trim();
   const { enabled = true, notifyOnError = false, ...rest } = queryOptions;
@@ -1005,6 +1009,16 @@ export function useUpdateFacultyProject(options) {
   return useApiMutation({
     mutationFn: ({ id, ...body }) => Api.updateFacultyProject(id, body),
     mutationKey: ["faculty-projects", "update"],
+    toastSuccess: "Project updated",
+    ...options,
+  });
+}
+
+export function useInviteFacultyProjectMembers(options) {
+  return useApiMutation({
+    mutationFn: ({ id, invitations }) =>
+      Api.inviteFacultyProjectMembers(id, { invitations }),
+    mutationKey: ["faculty-projects", "invite-members"],
     toastSuccess: "Project updated",
     ...options,
   });
@@ -1946,6 +1960,22 @@ export function useVcRepositoryTree(owner, repo, params = {}, queryOptions = {})
   return q;
 }
 
+export function useVcRepositoryRefs(owner, repo, queryOptions = {}) {
+  const {
+    enabled = Boolean(owner && repo),
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["vc", "refs", owner, repo],
+    queryFn: () => Api.vcGetRepositoryRefs(owner, repo),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.generic");
+  return q;
+}
+
 export function useVcRepositoryContents(
   owner,
   repo,
@@ -1965,6 +1995,54 @@ export function useVcRepositoryContents(
     ...rest,
   });
   useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_file");
+  return q;
+}
+
+/**
+ * Commits via gateway `/repos/{owner}/{repo}/commits` (fallback to legacy branch route).
+ */
+export function useVcRepositoryCommits(
+  owner,
+  repo,
+  opts = {},
+  queryOptions = {},
+) {
+  const { path = "", ref = "main", limit = 40 } = opts;
+  const {
+    enabled = Boolean(owner && repo && ref),
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["vc", "commits", owner, repo, ref, limit, path],
+    queryFn: () => fetchRepositoryCommits(owner, repo, { path, ref, limit }),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.generic");
+  return q;
+}
+
+/** Compare refs per `apiEndpoint.md` `/repos/{owner}/{repo}/compare/{base}...{head}`. */
+export function useVcRepositoryCompare(
+  owner,
+  repo,
+  baseRef,
+  headRef,
+  queryOptions = {},
+) {
+  const {
+    enabled = Boolean(owner && repo && baseRef && headRef),
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["vc", "compare", owner, repo, baseRef, headRef],
+    queryFn: () => fetchRepositoryCompare(owner, repo, baseRef, headRef),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.generic");
   return q;
 }
 

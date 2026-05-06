@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BookMarked, Globe2, Lock, Slash } from "lucide-react";
 import { gooeyToast } from "goey-toast";
@@ -7,7 +7,11 @@ import { useAuth } from "../../context/AuthContext";
 import Button from "../../components/Button";
 import Field from "../../components/Field";
 import Select from "../../components/Select";
-import { useVcCreateRepository } from "../../services/useApi";
+import {
+  useVcCreateRepository,
+  useRepositorySearch,
+  useVcRepositoriesForViewer,
+} from "../../services/useApi";
 import { cn } from "../../lib/utils";
 
 const DESC_MAX = 350;
@@ -56,7 +60,12 @@ function ownerInitials(username) {
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase().slice(0, 2);
   }
-  return u.replace(/[^a-zA-Z0-9]/g, "").slice(0, 2).toUpperCase() || "GH";
+  return (
+    u
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .slice(0, 2)
+      .toUpperCase() || "GH"
+  );
 }
 
 function slugRepoName(raw) {
@@ -94,7 +103,7 @@ function OwnerBadge({ username }) {
   const u = String(username ?? "").trim();
   return (
     <div
-      className="pointer-events-none flex h-8 w-full items-center gap-2.5 rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3 py-1.5 dark:border-dark-input-border dark:bg-(--color-dark-input-bg)"
+      className="pointer-events-none flex h-8 w-full items-center p-0.5 gap-2.5 rounded-md border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3 py-1.5 dark:border-dark-input-border dark:bg-(--color-dark-input-bg)"
       title={u}
       aria-hidden={false}
     >
@@ -135,10 +144,12 @@ function ToggleSwitch({ checked, onCheckedChange, id }) {
 
 function ConfigRow({ title, help, aboutLabel, onAbout, trailing }) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-4 py-3.5 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) sm:flex-row sm:items-center sm:justify-between md:px-5">
+    <div className="flex flex-col gap-3 rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) px-4 py-3.5 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) sm:flex-row sm:items-center sm:justify-between md:px-5">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="text-sm font-semibold text-primary dark:text-dark-primary">{title}</span>
+          <span className="text-sm font-semibold text-primary dark:text-dark-primary">
+            {title}
+          </span>
           {aboutLabel ? (
             <button
               type="button"
@@ -174,7 +185,26 @@ export default function StudentNewRepository() {
         : "";
 
   const suggestedName = useMemo(() => generateRepoSuggestion(), []);
+
+  /** Same listing as workspace — authoritive owner + repo for this account. */
+  const vcOwnerAccountId =
+    user?.id != null && String(user.id).trim() !== ""
+      ? String(user.id).trim()
+      : "";
+
+  const {
+    data: repoList = [],
+    isLoading: reposLoading,
+    isError: reposLoadError,
+  } = useVcRepositoriesForViewer(vcOwnerAccountId, {
+    enabled: Boolean(vcOwnerAccountId),
+    notifyOnError: false,
+    activityUsernameFallback: owner,
+  });
+
   const [repositoryName, setRepositoryName] = useState("");
+  /** Debounced slug for `REPOSITORY.SEARCH` — avoids a request on every keystroke. */
+  const [debouncedSlug, setDebouncedSlug] = useState("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState("PUBLIC");
   const [addReadme, setAddReadme] = useState(false);
@@ -198,25 +228,113 @@ export default function StudentNewRepository() {
 
   const slugPreview = slugRepoName(repositoryName);
 
-  const gitignoreOptions = useMemo(
-    () => [
-      { value: NONE_OPTION_VALUE, label: t("studentNewRepo.optNone") },
-      { value: "Node", label: "Node" },
-      { value: "Python", label: "Python" },
-      { value: "Java", label: "Java" },
-      { value: "VisualStudio", label: "VisualStudio" },
-    ],
-    [t],
+  useEffect(() => {
+    const next = slugRepoName(repositoryName);
+    const tick = setTimeout(() => setDebouncedSlug(next), 360);
+    return () => clearTimeout(tick);
+  }, [repositoryName]);
+
+  const {
+    data: searchHits = [],
+    isFetching: searchFetching,
+    isError: searchError,
+  } = useRepositorySearch(debouncedSlug, {
+    enabled: Boolean(owner && debouncedSlug.length >= 1),
+    notifyOnError: false,
+  });
+
+  const searchSynced = debouncedSlug === slugPreview && slugPreview.length > 0;
+
+  /** Exact `ownerUsername` + canonical repo slug from your workspace list (not regex keyword search). */
+  const duplicateFromMyRepos = useMemo(() => {
+    if (!slugPreview || !owner || !vcOwnerAccountId) return false;
+    if (reposLoading) return false;
+    const ownerLc = owner.toLowerCase();
+    const list = Array.isArray(repoList) ? repoList : [];
+    return list.some((r) => {
+      const o = String(
+        r?.ownerUsername ?? r?.owner_username ?? "",
+      ).trim();
+      const n = String(
+        r?.repositoryName ?? r?.repository_name ?? r?.name ?? "",
+      ).trim();
+      if (!o || !n) return false;
+      return (
+        o.toLowerCase() === ownerLc && slugRepoName(n) === slugPreview
+      );
+    });
+  }, [repoList, owner, reposLoading, slugPreview, vcOwnerAccountId]);
+
+  /**
+   * Keyword search hits the whole catalogue (repo/description/owner regex).
+   * We only treat a row as a collision when **owner + canonical repo name** match.
+   */
+  const duplicateFromSearch = useMemo(() => {
+    if (!searchSynced || !owner || !slugPreview) return false;
+    const ownerLc = owner.toLowerCase();
+    const list = Array.isArray(searchHits) ? searchHits : [];
+    return list.some((r) => {
+      const o = String(
+        r?.ownerUsername ??
+          r?.owner_username ??
+          r?.owner?.username ??
+          r?.owner?.userName ??
+          "",
+      ).trim();
+      const n = String(
+        r?.repositoryName ?? r?.repository_name ?? r?.name ?? "",
+      ).trim();
+      if (!n || !o) return false;
+      const apiSlug = slugRepoName(n);
+      if (!apiSlug) return false;
+      return o.toLowerCase() === ownerLc && apiSlug === slugPreview;
+    });
+  }, [searchHits, owner, searchSynced, slugPreview]);
+
+  const nameTaken = duplicateFromMyRepos || duplicateFromSearch;
+
+  const showNameAvailability = Boolean(slugPreview && owner);
+
+  /** Lock input when we know this owner/repo already exists (list or search exact match). */
+  const nameBlocksFurtherTyping = Boolean(
+    showNameAvailability &&
+      repositoryName.length > 0 &&
+      ((!reposLoading &&
+        vcOwnerAccountId &&
+        duplicateFromMyRepos) ||
+        (searchSynced &&
+          !searchFetching &&
+          !searchError &&
+          duplicateFromSearch)),
   );
 
-  const licenseOptions = useMemo(
-    () => [
-      { value: NONE_OPTION_VALUE, label: t("studentNewRepo.licenseNone") },
-      { value: "mit", label: "MIT License" },
-      { value: "apache-2.0", label: "Apache License 2.0" },
-      { value: "gpl-3.0", label: "GNU GPLv3" },
-    ],
-    [t],
+  const nameCheckBusy = Boolean(
+    slugPreview &&
+      (!searchSynced ||
+        searchFetching ||
+        (Boolean(vcOwnerAccountId) && reposLoading)),
+  );
+
+  /** Green only after your repo list loaded OK — empty keyword search results do not prove availability. */
+  const canConfirmNameAvailable = Boolean(
+    showNameAvailability &&
+      searchSynced &&
+      !searchFetching &&
+      !searchError &&
+      !nameTaken &&
+      vcOwnerAccountId &&
+      !reposLoading &&
+      !reposLoadError,
+  );
+
+  const showNameNeutralHint = Boolean(
+    showNameAvailability &&
+      searchSynced &&
+      !searchFetching &&
+      !searchError &&
+      !nameTaken &&
+      !nameCheckBusy &&
+      !canConfirmNameAvailable,
   );
 
   const visOptions = [
@@ -237,8 +355,7 @@ export default function StudentNewRepository() {
     label: o.label,
   }));
 
-  const VisIcon =
-    visibility === "PRIVATE" ? Lock : Globe2;
+  const VisIcon = visibility === "PRIVATE" ? Lock : Globe2;
 
   const submit = () => {
     const rn = slugRepoName(repositoryName);
@@ -248,6 +365,14 @@ export default function StudentNewRepository() {
     }
     if (!rn) {
       gooeyToast.error(t("studentNewRepo.nameInvalid"));
+      return;
+    }
+    if (vcOwnerAccountId && !reposLoading && duplicateFromMyRepos) {
+      gooeyToast.error(t("studentNewRepo.nameTaken", { name: rn }));
+      return;
+    }
+    if (searchSynced && !searchFetching && !searchError && duplicateFromSearch) {
+      gooeyToast.error(t("studentNewRepo.nameTaken", { name: rn }));
       return;
     }
 
@@ -270,8 +395,8 @@ export default function StudentNewRepository() {
   };
 
   return (
-    <div className="min-h-screen flex-1 bg-light-app-bg dark:bg-dark-shell">
-      <div className="mx-auto w-full max-w-4xl px-4 py-6 md:px-6 md:py-10">
+    <div className="min-h-screen flex-1 bg-white dark:bg-dark-shell p-4 ">
+      <div className="mx-auto w-full border border-default rounded-md dark:bg-dark-app-secondary dark:border-dark-default max-w-5xl px-4 py-6 md:px-6 md:py-10">
         <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-light-divider pb-6 dark:border-dark-divider">
           <Link
             to="/student/workspace"
@@ -289,9 +414,7 @@ export default function StudentNewRepository() {
             {t("studentNewRepo.intro")}{" "}
             <button
               type="button"
-              onClick={() =>
-                gooeyToast.info(t("studentNewRepo.importToast"))
-              }
+              onClick={() => gooeyToast.info(t("studentNewRepo.importToast"))}
               className="font-semibold text-primary underline-offset-4 hover:underline dark:text-dark-primary"
             >
               {t("studentNewRepo.importCta")}
@@ -313,34 +436,111 @@ export default function StudentNewRepository() {
               <div>
                 <p className="mb-3 text-[11px] font-semibold text-muted dark:text-dark-muted">
                   {t("studentNewRepo.repoNameRowLabel")}{" "}
-                  <span className="text-light-error-text dark:text-dark-error-text">*</span>
+                  <span className="text-light-error-text dark:text-dark-error-text">
+                    *
+                  </span>
                 </p>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
                   <div className="w-full shrink-0 sm:w-[min(42%,14rem)]">
-                    
                     <OwnerBadge username={owner} />
                   </div>
-                  <div className=" items-center  pb-6 text-lg font-semibold text-muted opacity-75 flex-row flex dark:text-dark-muted">
-                    <Slash className="size-5 shrink-0" strokeWidth={2} aria-hidden />
-                  </div>
+                 
                   <div className="min-w-0 flex-1 space-y-1">
                     <span className="block  text-[11px] font-semibold text-transparent sm:hidden">
                       &nbsp;
                     </span>
-                    <input
-                      type="text"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      aria-required
-                      placeholder={t("studentNewRepo.namePlaceholder")}
-                      value={repositoryName}
-                      onChange={(e) => setRepositoryName(e.target.value)}
-                      className="h-8 w-full rounded-xl border px-3.5 py-1.5 font-mono text-xs outline-none transition-colors border-(--color-light-input-border) bg-(--color-light-input-bg) text-(--color-light-text-primary) placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
-                    />
-                    
+                    <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start">
+                      <input
+                        type="text"
+                        autoCapitalize="off"
+                        spellCheck={false}
+                        aria-required
+                        readOnly={nameBlocksFurtherTyping}
+                        aria-invalid={Boolean(
+                          showNameAvailability &&
+                            ((!reposLoading &&
+                              vcOwnerAccountId &&
+                              duplicateFromMyRepos) ||
+                              (searchSynced &&
+                                !searchFetching &&
+                                !searchError &&
+                                duplicateFromSearch)),
+                        )}
+                        placeholder={t("studentNewRepo.namePlaceholder")}
+                        value={repositoryName}
+                        onChange={(e) => setRepositoryName(e.target.value)}
+                        className={cn(
+                          "h-8 min-w-0 flex-1 rounded-md border px-3.5 py-1.5 font-mono text-xs outline-none transition-colors border-(--color-light-input-border) bg-(--color-light-input-bg) text-(--color-light-text-primary) placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15",
+                          nameBlocksFurtherTyping &&
+                            "cursor-not-allowed opacity-90",
+                        )}
+                      />
+                      {nameBlocksFurtherTyping ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="h-8 shrink-0 self-stretch sm:self-auto sm:px-3"
+                          onClick={() => setRepositoryName("")}
+                        >
+                          {t("studentNewRepo.nameTakenChangeCta")}
+                        </Button>
+                      ) : null}
+                    </div>
+                    {showNameAvailability ? (
+                      nameCheckBusy ? (
+                        <p
+                          className="pt-1 text-[11px] text-muted dark:text-dark-muted"
+                          aria-live="polite"
+                        >
+                          {t("studentNewRepo.nameAvailabilityChecking")}
+                        </p>
+                      ) : searchError ? (
+                        <p
+                          className="pt-1 text-[11px] text-muted dark:text-dark-muted"
+                          aria-live="polite"
+                        >
+                          {t("studentNewRepo.nameAvailabilityUnavailable")}
+                        </p>
+                      ) : nameTaken ? (
+                        <p
+                          className="pt-1 text-[11px] font-medium text-light-error-text dark:text-dark-error-text"
+                          aria-live="polite"
+                        >
+                          {t("studentNewRepo.nameTaken", {
+                            name: slugPreview,
+                          })}
+                        </p>
+                      ) : vcOwnerAccountId && reposLoadError ? (
+                        <p
+                          className="pt-1 text-[11px] text-muted dark:text-dark-muted"
+                          aria-live="polite"
+                        >
+                          {t("studentNewRepo.nameAvailabilityRepoListFailed")}
+                        </p>
+                      ) : canConfirmNameAvailable ? (
+                        <p
+                          className="pt-1 text-[11px] font-medium text-light-success-text dark:text-(--color-dark-success-text)"
+                          aria-live="polite"
+                        >
+                          {t("studentNewRepo.nameAvailable", {
+                            path: `${owner}/${slugPreview}`,
+                          })}
+                        </p>
+                      ) : showNameNeutralHint ? (
+                        <p
+                          className="pt-1 text-[11px] text-muted dark:text-dark-muted"
+                          aria-live="polite"
+                        >
+                          {!vcOwnerAccountId
+                            ? t("studentNewRepo.nameAvailabilityNeedsAccountId")
+                            : t(
+                                "studentNewRepo.nameAvailabilitySearchNotProof",
+                              )}
+                        </p>
+                      ) : null
+                    ) : null}
                   </div>
                 </div>
-                
               </div>
 
               <Field label={t("studentNewRepo.description")} register={{}}>
@@ -352,7 +552,7 @@ export default function StudentNewRepository() {
                     setDescription(e.target.value.slice(0, DESC_MAX))
                   }
                   placeholder={t("studentNewRepo.descriptionPlaceholder")}
-                  className="w-full resize-y rounded-xl border px-3.5 py-2.5 text-xs outline-none transition-colors min-h-22 border-(--color-light-input-border) bg-(--color-light-input-bg) text-(--color-light-text-primary) placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
+                  className="w-full resize-y rounded-md border px-3.5 py-2.5 text-xs outline-none transition-colors min-h-22 border-(--color-light-input-border) bg-(--color-light-input-bg) text-(--color-light-text-primary) placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
                 />
               </Field>
               <div className="flex justify-end">
@@ -377,7 +577,10 @@ export default function StudentNewRepository() {
                 title={
                   <span className="inline-flex items-center gap-1">
                     <span>{t("studentNewRepo.visibilityLabel")}</span>
-                    <span aria-hidden className="text-light-error-text dark:text-dark-error-text">
+                    <span
+                      aria-hidden
+                      className="text-light-error-text dark:text-dark-error-text"
+                    >
                       *
                     </span>
                   </span>
@@ -385,7 +588,11 @@ export default function StudentNewRepository() {
                 help={t("studentNewRepo.visibilityHelp")}
                 trailing={
                   <div className="flex items-center gap-2">
-                    <VisIcon className="size-4 shrink-0 text-muted dark:text-dark-muted" strokeWidth={2} aria-hidden />
+                    <VisIcon
+                      className="size-4 shrink-0 text-muted dark:text-dark-muted"
+                      strokeWidth={2}
+                      aria-hidden
+                    />
                     <div className="w-[min(100%,12rem)]">
                       <Select
                         value={visibility}
@@ -406,14 +613,30 @@ export default function StudentNewRepository() {
                   {t("common.cancel")}
                 </Button>
                 <Button
-                icon={<BookMarked className="me-2 size-4 shrink-0" strokeWidth={2} aria-hidden />}
+                  icon={
+                    <BookMarked
+                      className="me-2 size-4 shrink-0"
+                      strokeWidth={2}
+                      aria-hidden
+                    />
+                  }
                   type="button"
                   variant="primary"
-                  disabled={createRepo.isPending || !owner}
+                  disabled={
+                    createRepo.isPending ||
+                    !owner ||
+                    nameCheckBusy ||
+                    (vcOwnerAccountId &&
+                      !reposLoading &&
+                      duplicateFromMyRepos) ||
+                    (searchSynced &&
+                      !searchFetching &&
+                      !searchError &&
+                      duplicateFromSearch)
+                  }
                   onClick={submit}
                   className="min-w-44"
                 >
-                  
                   {t("studentNewRepo.submit")}
                 </Button>
               </div>

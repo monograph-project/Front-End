@@ -414,6 +414,22 @@ const resources = {
         "Add a gateway username before creating repositories.",
       "studentNewRepo.nameInvalid":
         "Repository name needs at least one valid slug segment.",
+      "studentNewRepo.nameAvailabilityChecking":
+        "Checking your existing repositories for this name…",
+      "studentNewRepo.nameAvailabilityKeepTyping":
+        "Keep typing — availability is shown only after at least {{min}} characters in the repository name.",
+      "studentNewRepo.nameAvailabilityUnavailable":
+        "Could not verify this name against your repositories. You may still attempt to create it.",
+      "studentNewRepo.nameAvailabilityRepoListFailed":
+        "Could not load your repository list, so this name is not verified yet.",
+      "studentNewRepo.nameAvailabilityNeedsAccountId":
+        "Repository list verification needs your account id; keyword search alone does not prove this name is free.",
+      "studentNewRepo.nameAvailabilitySearchNotProof":
+        "Catalogue keyword search does not confirm a unique name; we could not finish checking against your repositories.",
+      "studentNewRepo.nameAvailable": "{{path}} is available.",
+      "studentNewRepo.nameTaken":
+        "You already have a repository named {{name}}.",
+      "studentNewRepo.nameTakenChangeCta": "Choose another name",
       "studentNewRepo.success": "Repository created",
 
       "studentRepo.shell.back": "Workspace",
@@ -438,6 +454,9 @@ const resources = {
       "studentRepo.code.branchMetaLine": "{{branches}} branches · {{tags}} tags",
       "studentRepo.code.goToFileAria": "Filter paths in this tree",
       "studentRepo.code.goToFilePlaceholder": "Go to file…",
+      "studentRepo.code.breadcrumbsAria": "Folder path",
+      "studentRepo.code.rootCrumb": "root",
+      "studentRepo.code.selectFile": "Select a file to preview it (DOCX supported).",
       "studentRepo.code.addFile": "Add file",
       "studentRepo.code.codeButton": "Clone",
       "studentRepo.code.cloneCopied": "Clone URL copied to clipboard.",
@@ -451,6 +470,40 @@ const resources = {
       "studentRepo.code.col.name": "Name",
       "studentRepo.code.col.message": "Last commit message",
       "studentRepo.code.col.age": "Last commit date",
+
+      "studentRepo.browser.rootSegment": "root",
+      "studentRepo.browser.branchPlaceholder": "Branch",
+      "studentRepo.browser.branchCounts":
+        "{{branches}} branches · {{tags}} tags",
+      "studentRepo.browser.findFileAria": "Find file in tree",
+      "studentRepo.browser.findFilePlaceholder": "Find file…",
+      "studentRepo.browser.addFileDisabled": "Add file",
+      "studentRepo.browser.code": "Clone",
+      "studentRepo.browser.commitRibbonEmpty":
+        "No recent commit metadata for this folder.",
+      "studentRepo.browser.commitRibbonLoading": "Loading files…",
+      "studentRepo.browser.treePathAria": "Folder path",
+      "studentRepo.browser.treeEmpty": "Nothing to list at this path.",
+      "studentRepo.browser.treeLoading": "Loading files…",
+      "studentRepo.browser.pickFile": "Select a file to preview.",
+      "studentRepo.browser.blobHint": "Object {{sha}}…",
+      "studentRepo.browser.missingSha":
+        "This entry has no blob id — tree rows should include a SHA for reliable previews.",
+      "studentRepo.browser.raw": "Raw",
+      "studentRepo.browser.history": "History",
+      "studentRepo.browser.downloadHint": "Preparing download…",
+      "studentRepo.browser.downloadFailed": "Download failed.",
+      "studentRepo.browser.download": "Download",
+      "studentRepo.browser.historyHeading": "Commit history",
+      "studentRepo.browser.historyLoading": "Loading commits…",
+      "studentRepo.browser.historyEmpty": "No commits for this path.",
+      "studentRepo.browser.noBlobShaBody":
+        "Pick a file that includes a blob SHA in the tree so we can load bytes from object storage.",
+      "studentRepo.browser.rawLoadFailed": "Could not load raw content.",
+      "studentRepo.browser.rawLoading": "Loading raw content…",
+      "studentRepo.browser.rawBinary":
+        "This file is binary. Use Download to save the original bytes.",
+
       "studentRepo.about.title": "About",
       "studentRepo.about.emptyAbout": "No description, website, or topics provided.",
       "studentRepo.about.copyHttps": "Copy HTTPS clone URL",
@@ -1635,6 +1688,86 @@ const resources = {
       "adminProjectWorkspace.defaultTitle": "Faculty Portal Research Workspace",
       "adminProjectWorkspace.defaultDescription":
         "A full academic project view that combines implementation activity, proposal structure, document readiness, and milestone tracking in one place.",
+      "adminProjectWorkspace.loading": "Loading project workspace…",
+      "adminProjectWorkspace.notFound": "This project workspace could not be found.",
+      "adminProjectWorkspace.summary.academicYear": "Academic year",
+      "adminProjectWorkspace.summary.teamMembers": "Team members",
+      "adminProjectWorkspace.summary.leadSupervisor": "Lead supervisor",
+      "adminProjectWorkspace.summary.repositoryState": "Repository",
+      "adminProjectWorkspace.summary.repositoryConnected": "Connected",
+      "adminProjectWorkspace.summary.repositoryMissing": "Not connected",
+      "adminProjectWorkspace.summary.projectGroup": "Project group",
+      "adminProjectWorkspace.actions.inviteMembers": "Invite members",
+      "adminProjectWorkspace.actions.connectRepository": "Connect repository",
+      "adminProjectWorkspace.invite.title": "Invite project members",
+      "adminProjectWorkspace.invite.subtitle":
+        "Search students and invite one or more members to this project.",
+      "adminProjectWorkspace.invite.search": "Search students",
+      "adminProjectWorkspace.invite.hint":
+        "Only students who are not already attached to this project are shown.",
+      "adminProjectWorkspace.invite.selected": "Selected students",
+      "adminProjectWorkspace.invite.submit": "Send invites",
+      "adminProjectWorkspace.invite.success": "Project members invited successfully.",
+      "adminProjectWorkspace.repository.title": "Connect repository",
+      "adminProjectWorkspace.repository.subtitle":
+        "Search the repository catalog and attach one repository to this project.",
+      "adminProjectWorkspace.repository.search": "Search repositories",
+      "adminProjectWorkspace.repository.hint":
+        "The repository label is shown in the workspace, but only the repository id is saved.",
+      "adminProjectWorkspace.repository.submit": "Connect repository",
+      "adminProjectWorkspace.repository.success": "Repository connected successfully.",
+      "adminProjectWorkspace.tabs.overview": "Overview",
+      "adminProjectWorkspace.tabs.proposal": "Proposal",
+      "adminProjectWorkspace.tabs.documents": "Documents",
+      "adminProjectWorkspace.tabs.activity": "Activity",
+      "adminProjectWorkspace.documents.noRepoTitle": "Connect a repository first",
+      "adminProjectWorkspace.documents.noRepoHint":
+        "This tab lists files from your linked Git repository once a repository is assigned to this project.",
+      "adminProjectWorkspace.documents.tabBrowse": "Browse",
+      "adminProjectWorkspace.documents.tabHistory": "History",
+      "adminProjectWorkspace.documents.tabCompare": "Compare",
+      "adminProjectWorkspace.documents.refLabel": "Revision (branch or tag)",
+      "adminProjectWorkspace.documents.refPlaceholder": "main",
+      "adminProjectWorkspace.documents.treeHeading": "Workspace files",
+      "adminProjectWorkspace.documents.breadcrumbsAria": "Folder path",
+      "adminProjectWorkspace.documents.treeLoading": "Loading files…",
+      "adminProjectWorkspace.documents.treeEmpty": "Nothing to show here on this revision.",
+      "adminProjectWorkspace.documents.selectFile": "Choose a file in the tree to preview it.",
+      "adminProjectWorkspace.documents.rootCrumb": "root",
+      "adminProjectWorkspace.documents.previewMode": "Preview mode",
+      "adminProjectWorkspace.documents.modeRepository": "Repository viewer",
+      "adminProjectWorkspace.documents.modeSyncfusionReader": "Syncfusion reader",
+      "adminProjectWorkspace.documents.readerDisabledHint":
+        "Comfort reading via Syncfusion is available for Markdown and plain-text files.",
+      "adminProjectWorkspace.documents.syncfusionBanner":
+        "Read-only rich layout (Markdown / UTF-8 sections are converted to paragraphs for reading).",
+      "adminProjectWorkspace.documents.readerEmpty":
+        "No textual content returned for this revision (try Repository viewer).",
+      "adminProjectWorkspace.documents.historyTitle": "Commits",
+      "adminProjectWorkspace.documents.historyAllHint":
+        "Showing recent commits across the revision. Narrow to one file once you opened it below Browse.",
+      "adminProjectWorkspace.documents.historyPathHint": "Commits filtered to:",
+      "adminProjectWorkspace.documents.historyEmpty": "No commits returned for these filters.",
+      "adminProjectWorkspace.documents.filterByFile": "Only commits touching the open file",
+      "adminProjectWorkspace.documents.compareBase": "Base ref",
+      "adminProjectWorkspace.documents.compareHead": "Compare ref",
+      "adminProjectWorkspace.documents.compareLoad": "Compare",
+      "adminProjectWorkspace.documents.compareFiles": "Files changed between refs",
+      "adminProjectWorkspace.documents.comparePickFile": "Pick a file to inspect the textual diff.",
+      "adminProjectWorkspace.documents.compareEmpty": "Nothing was returned for this comparison.",
+      "adminProjectWorkspace.documents.compareInstructions":
+        "Pick two refs (for example branches, tags, or SHAs). We call the `/compare/{base}...{head}` route from the VC API docs.",
+      "adminProjectWorkspace.documents.compareFailed":
+        "Compare request failed — check that refs exist or that the gateway proxies this endpoint.",
+      "adminProjectWorkspace.documents.diffBinary":
+        "This file is not textual on one or both sides, or decoding failed.",
+      "adminProjectWorkspace.documents.apiFootnoteTitle": "Mixed gateway routes",
+      "adminProjectWorkspace.documents.apiFootnoteBody":
+        "File trees and commits use `{main-url}/repos/{owner}/{repo}/…`; blame and binaries may still resolve through `/api/v1/repos/…` proxies. Align query parameters (`ref`) with backend expectations if something 404s.",
+      "adminProjectWorkspace.team.memberRole": "Project member",
+      "adminProjectWorkspace.team.memberNote":
+        "{{name}} is currently tracked in this project workspace.",
+      "adminProjectWorkspace.empty.noStudentsFound": "No students selected yet.",
       "adminProjectWorkspace.activity.badge": "Repository activity",
       "adminProjectWorkspace.activity.title": "Contribution calendar",
       "adminProjectWorkspace.activity.subtitle":
@@ -3172,6 +3305,23 @@ const resources = {
       "studentNewRepo.submit": "جوړول",
       "studentNewRepo.needUsername": "اول کارن‑نوم کړئ.",
       "studentNewRepo.nameInvalid": "نوم بېرته کېږدوئ.",
+      "studentNewRepo.nameAvailabilityChecking":
+        "ستاسو له مخزنو د دې نوم پلټنه…",
+      "studentNewRepo.nameAvailabilityKeepTyping":
+        "نور ولیکئ — له لږ تر {{min}} تورو وروسته پایه ښودل کیږي.",
+      "studentNewRepo.nameAvailabilityUnavailable":
+        "نوم مو له لست سره یواخیستل نشي؛ بیا هم جوړول هڅه کولی شئ.",
+      "studentNewRepo.nameAvailabilityRepoListFailed":
+        "ستاسو مخزن لست پورته نشو — نوم تایید شوی نه دی.",
+      "studentNewRepo.nameAvailabilityNeedsAccountId":
+        "د حساب id پرته د لست تایید نه؛ یواځې لټون د آزاد نوم تضمین نه کوي.",
+      "studentNewRepo.nameAvailabilitySearchNotProof":
+        "د کتلاګ لټون د آزاد نوم تضمین نه کوي؛ ستاسو لست نه دی بشپړ.",
+      "studentNewRepo.nameAvailable":
+        "{{path}} — دا نوم ستاسو په مخزنو کې نشته.",
+      "studentNewRepo.nameTaken":
+        "ستاسو له پخوا هم داسې مخزن {{name}} شته.",
+      "studentNewRepo.nameTakenChangeCta": "بل نوم وټاکئ",
       "studentNewRepo.success": "وي.",
       "studentRepo.shell.back": "کار ځای",
       "studentRepo.shell.loadingSubtitle": "پورته کېږي…",
@@ -3193,6 +3343,9 @@ const resources = {
       "studentRepo.code.branchMetaLine": "{{branches}} څانګې · {{tags}} ټاپونه",
       "studentRepo.code.goToFileAria": "د پیو کې فیلټر",
       "studentRepo.code.goToFilePlaceholder": "فایل ته لاړ شئ…",
+      "studentRepo.code.breadcrumbsAria": "د فولډر لاره",
+      "studentRepo.code.rootCrumb": "ریښه",
+      "studentRepo.code.selectFile": "د لیدلو لپاره یو فایل وټاکئ (DOCX هم ملاتړ لري).",
       "studentRepo.code.addFile": "فایل اضافه",
       "studentRepo.code.codeButton": "کلون",
       "studentRepo.code.cloneCopied": "کلون پیوند کانپي شو.",
@@ -3204,6 +3357,39 @@ const resources = {
       "studentRepo.code.col.name": "نوم",
       "studentRepo.code.col.message": "وروستۍ ژمن پیغام",
       "studentRepo.code.col.age": "نیټه",
+
+      "studentRepo.browser.rootSegment": "ریښه",
+      "studentRepo.browser.branchPlaceholder": "څانګه",
+      "studentRepo.browser.branchCounts": "{{branches}} څانګې · {{tags}} ټاپونه",
+      "studentRepo.browser.findFileAria": "په کې فایل موندل",
+      "studentRepo.browser.findFilePlaceholder": "فایل و ګورئ…",
+      "studentRepo.browser.addFileDisabled": "فایل اضافه",
+      "studentRepo.browser.code": "کلون",
+      "studentRepo.browser.commitRibbonEmpty":
+        "په دې پوښ کې تازه تعهد معلومات نشته.",
+      "studentRepo.browser.commitRibbonLoading": "فایلونه راتلل…",
+      "studentRepo.browser.treePathAria": "د پوښ لاره",
+      "studentRepo.browser.treeEmpty": "په دې لار کې نشته.",
+      "studentRepo.browser.treeLoading": "فایلونه راتلل…",
+      "studentRepo.browser.pickFile": "د مخکتنې لپاره فایل وټاکئ.",
+      "studentRepo.browser.blobHint": "شی {{sha}}…",
+      "studentRepo.browser.missingSha":
+        "دې قلم کې blob SHA نشته — د ښودلو لپاره SHA پکار دی.",
+      "studentRepo.browser.raw": "خام",
+      "studentRepo.browser.history": "تاریخ",
+      "studentRepo.browser.downloadHint": "ډاونلوډ چمتو کېږي…",
+      "studentRepo.browser.downloadFailed": "ډاونلوډ نشو.",
+      "studentRepo.browser.download": "ډاونلوډ",
+      "studentRepo.browser.historyHeading": "د تعهد تاریخ",
+      "studentRepo.browser.historyLoading": "تعهدونه راتلل…",
+      "studentRepo.browser.historyEmpty": "په دې لار کې تعهد نشته.",
+      "studentRepo.browser.noBlobShaBody":
+        "هغه فایل وټاکئ چې پیو کې یې blob SHA وي.",
+      "studentRepo.browser.rawLoadFailed": "خام بار نشو.",
+      "studentRepo.browser.rawLoading": "خام بارېږي…",
+      "studentRepo.browser.rawBinary":
+        "دا باینري دی — اصلي فایل لپاره ډاونلوډ وکاروئ.",
+
       "studentRepo.about.title": "په اړه",
       "studentRepo.about.emptyAbout": "تشریح، ویب یا تاپیک نشته.",
       "studentRepo.about.copyHttps": "HTTPS کلون کانپي",
@@ -4353,6 +4539,85 @@ const resources = {
       "adminProjectWorkspace.defaultTitle": "د پوهنځي څېړنې کار ځای",
       "adminProjectWorkspace.defaultDescription":
         "پرمختګ، وړاندیز، اسناد او مهمې نیټې په یو ځای کې.",
+      "adminProjectWorkspace.loading": "د پروژې کاري فضا لوډېږي…",
+      "adminProjectWorkspace.notFound": "د دې پروژې کاري فضا ونه موندل شوه.",
+      "adminProjectWorkspace.summary.academicYear": "اکادمیک کال",
+      "adminProjectWorkspace.summary.teamMembers": "د ټیم غړي",
+      "adminProjectWorkspace.summary.leadSupervisor": "اصلي لارښود",
+      "adminProjectWorkspace.summary.repositoryState": "مخزن",
+      "adminProjectWorkspace.summary.repositoryConnected": "وصل شوی",
+      "adminProjectWorkspace.summary.repositoryMissing": "نه دی وصل شوی",
+      "adminProjectWorkspace.summary.projectGroup": "د پروژې ګروپ",
+      "adminProjectWorkspace.actions.inviteMembers": "غړي دعوت کړئ",
+      "adminProjectWorkspace.actions.connectRepository": "مخزن وصل کړئ",
+      "adminProjectWorkspace.invite.title": "د پروژې غړي دعوت کړئ",
+      "adminProjectWorkspace.invite.subtitle":
+        "محصلین ولټوئ او یو یا څو غړي دې پروژې ته دعوت کړئ.",
+      "adminProjectWorkspace.invite.search": "محصلین ولټوئ",
+      "adminProjectWorkspace.invite.hint":
+        "یوازې هغه محصلین ښکاري چې مخکې له دې پروژې سره نه دي نښلول شوي.",
+      "adminProjectWorkspace.invite.selected": "ټاکل شوي محصلین",
+      "adminProjectWorkspace.invite.submit": "دعوتونه ولېږئ",
+      "adminProjectWorkspace.invite.success": "د پروژې غړي په بریالیتوب دعوت شول.",
+      "adminProjectWorkspace.repository.title": "مخزن وصل کړئ",
+      "adminProjectWorkspace.repository.subtitle":
+        "د مخزن لېست وپلټئ او یو مخزن دې پروژې سره ونښلوئ.",
+      "adminProjectWorkspace.repository.search": "مخزنونه ولټوئ",
+      "adminProjectWorkspace.repository.hint":
+        "په کاري فضا کې د مخزن نوم ښکاري، خو یوازې د مخزن آی ډي ساتل کېږي.",
+      "adminProjectWorkspace.repository.submit": "مخزن وصل کړئ",
+      "adminProjectWorkspace.repository.success": "مخزن په بریالیتوب وصل شو.",
+      "adminProjectWorkspace.tabs.overview": "لید",
+      "adminProjectWorkspace.tabs.proposal": "وړاندیز",
+      "adminProjectWorkspace.tabs.documents": "سندونه",
+      "adminProjectWorkspace.tabs.activity": "فعالیت",
+      "adminProjectWorkspace.documents.noRepoTitle": "لومړی مخزن وصل کړئ",
+      "adminProjectWorkspace.documents.noRepoHint":
+        "دې ټاپ په نښلول شوي مخزن کې له ګیت ډول فایلو سره کار کوي؛ یو مخزن د پروژې سره ولنګوئ.",
+      "adminProjectWorkspace.documents.tabBrowse": "لټون",
+      "adminProjectWorkspace.documents.tabHistory": "تاریخ",
+      "adminProjectWorkspace.documents.tabCompare": "پرتلنه",
+      "adminProjectWorkspace.documents.refLabel": "مسوده / څانګه / ټاپ",
+      "adminProjectWorkspace.documents.refPlaceholder": "main",
+      "adminProjectWorkspace.documents.treeHeading": "Workspace فایلونه",
+      "adminProjectWorkspace.documents.breadcrumbsAria": "نوې لارې",
+      "adminProjectWorkspace.documents.treeLoading": "فایلونه بارېږي…",
+      "adminProjectWorkspace.documents.treeEmpty": "پدې مسوده کې دلته بیرغ نشته.",
+      "adminProjectWorkspace.documents.selectFile": "تر شته کولو لپاره د نښو په لور یو فایل وټاکئ.",
+      "adminProjectWorkspace.documents.rootCrumb": "ریښه",
+      "adminProjectWorkspace.documents.previewMode": "مختکنه لید بڼه",
+      "adminProjectWorkspace.documents.modeRepository": "مخزین لیدونکی",
+      "adminProjectWorkspace.documents.modeSyncfusionReader": "Syncfusion لوستونکی",
+      "adminProjectWorkspace.documents.readerDisabledHint":
+        "د Markdown یا ساده متن پراخ فایلونو ته Syncfusion «اسان لوستنه» نشته ده.",
+      "adminProjectWorkspace.documents.syncfusionBanner":
+        "یوازې لوست؛ ساده پاراگرافونه — د مخکتنې له‌پاره له متن پارچو جوړوي.",
+      "adminProjectWorkspace.documents.readerEmpty": "متن وموندل نشو (مخزین لیدونکی هڅه وکړئ).",
+      "adminProjectWorkspace.documents.historyTitle": "ثبتونه (commits)",
+      "adminProjectWorkspace.documents.historyAllHint":
+        "په دا مسوده د تاز commits ښکارېږي. لکه چې مخکې له Browse یو فایل خلاصوو، مخ نښونه فعاله ده.",
+      "adminProjectWorkspace.documents.historyPathHint": "یوازې:",
+      "adminProjectWorkspace.documents.historyEmpty": "د دې پارامترونو لپاره commit نشته.",
+      "adminProjectWorkspace.documents.filterByFile": "یوازې پر خلاص فایل اغېزمنتوب",
+      "adminProjectWorkspace.documents.compareBase": "بنسټیز ref",
+      "adminProjectWorkspace.documents.compareHead": "سر ref",
+      "adminProjectWorkspace.documents.compareLoad": "پرتلنه",
+      "adminProjectWorkspace.documents.compareFiles": "د refs ترمنځ بدلېدلي فایلونه",
+      "adminProjectWorkspace.documents.comparePickFile": "متنیز توپیرلو لپاره فایل وټاکئ.",
+      "adminProjectWorkspace.documents.compareEmpty": "دمخه پرتله څه نشته ورکړل شوي.",
+      "adminProjectWorkspace.documents.compareInstructions":
+        "دوه refونه داخل کړئ (څانګې، ټاپ یا SHA). VC API د `/compare/base...head` لارې کاروي.",
+      "adminProjectWorkspace.documents.compareFailed":
+        "پرتله ناکام شوه — مهرباني وکړئ refونه او gateway راوپلټئ.",
+      "adminProjectWorkspace.documents.diffBinary":
+        "فایل یو طرف کې دوتنی نه ده یا ستونیزه ندی.",
+      "adminProjectWorkspace.documents.apiFootnoteTitle": "ګډ gateway لارې",
+      "adminProjectWorkspace.documents.apiFootnoteBody":
+        "list/commit لارې `/repos/` دی؛ خطا `/api/v1/repos/` له لارې کېدای شي. د `ref` نوم له backend سره سمه کړئ.",
+      "adminProjectWorkspace.team.memberRole": "د پروژې غړی",
+      "adminProjectWorkspace.team.memberNote":
+        "{{name}} اوس د دې پروژې په کاري فضا کې تعقیبېږي.",
+      "adminProjectWorkspace.empty.noStudentsFound": "لا تر اوسه هېڅ محصل نه دی ټاکل شوی.",
       "adminProjectWorkspace.activity.badge": "د ذخیرې فعالیت",
       "adminProjectWorkspace.activity.title": "د مرستې کلېنډر",
       "adminProjectWorkspace.activity.subtitle":
@@ -5875,6 +6140,22 @@ const resources = {
       "studentNewRepo.submit": "ساخت مخزن",
       "studentNewRepo.needUsername": "ابتدا باید نام کاربری داشته باشید.",
       "studentNewRepo.nameInvalid": "نام مخزن معتبر نیست.",
+      "studentNewRepo.nameAvailabilityChecking":
+        "در حال بررسی نام در مخزن‌های شما…",
+      "studentNewRepo.nameAvailabilityKeepTyping":
+        "به نوشتن ادامه دهید — وضعیت آزاد بودن نام فقط پس از حداقل {{min}} نویسه نمایش داده می‌شود.",
+      "studentNewRepo.nameAvailabilityUnavailable":
+        "امکان بررسی نام نبود؛ می‌توانید باز هم ایجاد را امتحان کنید.",
+      "studentNewRepo.nameAvailabilityRepoListFailed":
+        "لیست مخزن‌های شما بارگذاری نشد؛ این نام هنوز تأیید نشده است.",
+      "studentNewRepo.nameAvailabilityNeedsAccountId":
+        "برای بررسی قطعی، شناسه حساب لازم است؛ جستجوی کلمات به‌تنهایی خالی بودن نام را ثابت نمی‌کند.",
+      "studentNewRepo.nameAvailabilitySearchNotProof":
+        "جستجوی کاتالوگ تنها به‌تنهایی نام یکتا را تضمین نمی‌کند؛ بررسی بر لیست شما کامل نشد.",
+      "studentNewRepo.nameAvailable": "{{path}} در دسترس است.",
+      "studentNewRepo.nameTaken":
+        "مخزنی با نام {{name}} از قبل در حساب شما وجود دارد.",
+      "studentNewRepo.nameTakenChangeCta": "نام دیگر انتخاب کنید",
       "studentNewRepo.success": "ساخته شد.",
 
       "studentRepo.shell.back": "کارگاه دانشجو",
@@ -5897,6 +6178,9 @@ const resources = {
       "studentRepo.code.branchMetaLine": "{{branches}} شاخه · {{tags}} برچسب",
       "studentRepo.code.goToFileAria": "فیلتر مسیرهای درخت",
       "studentRepo.code.goToFilePlaceholder": "برو به پرونده…",
+      "studentRepo.code.breadcrumbsAria": "مسیر پوشه",
+      "studentRepo.code.rootCrumb": "ریشه",
+      "studentRepo.code.selectFile": "برای پیش‌نمایش، یک پرونده را انتخاب کنید (DOCX پشتیبانی می‌شود).",
       "studentRepo.code.addFile": "افزودن پرونده",
       "studentRepo.code.codeButton": "کلون",
       "studentRepo.code.cloneCopied": "آدرس کلون در بریده‌رود شد.",
@@ -5909,6 +6193,39 @@ const resources = {
       "studentRepo.code.col.name": "نام",
       "studentRepo.code.col.message": "آخرین پیام commit",
       "studentRepo.code.col.age": "تاریخ",
+
+      "studentRepo.browser.rootSegment": "ریشه",
+      "studentRepo.browser.branchPlaceholder": "شاخه",
+      "studentRepo.browser.branchCounts": "{{branches}} شاخه · {{tags}} برچسب",
+      "studentRepo.browser.findFileAria": "جستجوی پرونده در درخت",
+      "studentRepo.browser.findFilePlaceholder": "برو به پرونده…",
+      "studentRepo.browser.addFileDisabled": "افزودن پرونده",
+      "studentRepo.browser.code": "کلون",
+      "studentRepo.browser.commitRibbonEmpty":
+        "برای این پوشه، اطلاعات commit اخیر نیامده است.",
+      "studentRepo.browser.commitRibbonLoading": "بارگذاری پرونده‌ها…",
+      "studentRepo.browser.treePathAria": "مسیر پوشه",
+      "studentRepo.browser.treeEmpty": "در این مسیر چیزی برای فهرست نیست.",
+      "studentRepo.browser.treeLoading": "بارگذاری پرونده‌ها…",
+      "studentRepo.browser.pickFile": "یک پرونده برای پیش‌نمایش انتخاب کنید.",
+      "studentRepo.browser.blobHint": "شیء {{sha}}…",
+      "studentRepo.browser.missingSha":
+        "برای این مورد blob SHA نیست — ردیف درخت باید SHA داشته باشد.",
+      "studentRepo.browser.raw": "خام",
+      "studentRepo.browser.history": "تاریخچه",
+      "studentRepo.browser.downloadHint": "آماده‌سازی برای دانلود…",
+      "studentRepo.browser.downloadFailed": "دانلود ناموفق بود.",
+      "studentRepo.browser.download": "دانلود",
+      "studentRepo.browser.historyHeading": "تاریخچه commit",
+      "studentRepo.browser.historyLoading": "بارگذاری commitها…",
+      "studentRepo.browser.historyEmpty": "برای این مسیر commit نیست.",
+      "studentRepo.browser.noBlobShaBody":
+        "پرونده‌ای را انتخاب کنید که در درخت blob SHA داشته باشد.",
+      "studentRepo.browser.rawLoadFailed": "بارگذاری نسخهٔ خام نشد.",
+      "studentRepo.browser.rawLoading": "بارگذاری نسخهٔ خام…",
+      "studentRepo.browser.rawBinary":
+        "این پرونده باینری است — برای ذخیرهٔ اصلی از دانلود استفاده کنید.",
+
       "studentRepo.about.title": "درباره",
       "studentRepo.about.emptyAbout": "بدون توضیح، وب‌گاه یا موضوعات.",
       "studentRepo.about.copyHttps": "کپی آدرس HTTPS کلون",
@@ -7078,6 +7395,86 @@ const resources = {
       "adminProjectWorkspace.defaultTitle": "فضای کاری پژوهشی دانشکده",
       "adminProjectWorkspace.defaultDescription":
         "نمای کامل پروژه: فعالیت پیاده‌سازی، ساختار پیشنهاد، آمادگی اسناد و پیگیری نقاط عطف.",
+      "adminProjectWorkspace.loading": "فضای کاری پروژه در حال بارگذاری است…",
+      "adminProjectWorkspace.notFound": "فضای کاری این پروژه پیدا نشد.",
+      "adminProjectWorkspace.summary.academicYear": "سال تحصیلی",
+      "adminProjectWorkspace.summary.teamMembers": "اعضای تیم",
+      "adminProjectWorkspace.summary.leadSupervisor": "استاد راهنما",
+      "adminProjectWorkspace.summary.repositoryState": "مخزن",
+      "adminProjectWorkspace.summary.repositoryConnected": "متصل",
+      "adminProjectWorkspace.summary.repositoryMissing": "متصل نیست",
+      "adminProjectWorkspace.summary.projectGroup": "گروه پروژه",
+      "adminProjectWorkspace.actions.inviteMembers": "دعوت اعضا",
+      "adminProjectWorkspace.actions.connectRepository": "اتصال مخزن",
+      "adminProjectWorkspace.invite.title": "دعوت اعضای پروژه",
+      "adminProjectWorkspace.invite.subtitle":
+        "محصلان را جستجو کنید و یک یا چند عضو را به این پروژه دعوت کنید.",
+      "adminProjectWorkspace.invite.search": "جستجوی محصلان",
+      "adminProjectWorkspace.invite.hint":
+        "فقط محصلانی نشان داده می‌شوند که از قبل به این پروژه وصل نیستند.",
+      "adminProjectWorkspace.invite.selected": "محصلان انتخاب‌شده",
+      "adminProjectWorkspace.invite.submit": "ارسال دعوت",
+      "adminProjectWorkspace.invite.success": "اعضای پروژه با موفقیت دعوت شدند.",
+      "adminProjectWorkspace.repository.title": "اتصال مخزن",
+      "adminProjectWorkspace.repository.subtitle":
+        "در فهرست مخزن‌ها جستجو کنید و یک مخزن را به این پروژه وصل کنید.",
+      "adminProjectWorkspace.repository.search": "جستجوی مخزن‌ها",
+      "adminProjectWorkspace.repository.hint":
+        "برچسب مخزن در فضای کاری نشان داده می‌شود، اما فقط آی‌دی مخزن ذخیره می‌شود.",
+      "adminProjectWorkspace.repository.submit": "اتصال مخزن",
+      "adminProjectWorkspace.repository.success": "مخزن با موفقیت متصل شد.",
+      "adminProjectWorkspace.tabs.overview": "نمای کلی",
+      "adminProjectWorkspace.tabs.proposal": "پیشنهاد",
+      "adminProjectWorkspace.tabs.documents": "اسناد",
+      "adminProjectWorkspace.tabs.activity": "فعالیت",
+      "adminProjectWorkspace.documents.noRepoTitle": "ابتدا مخزن را متصل کنید",
+      "adminProjectWorkspace.documents.noRepoHint":
+        "این تب بعد از پیوند مخزن، فهرست پروندهٔ گیت‌مانند را نشان می‌دهد؛ یک مخزن به این پروژه اختصاص دهید.",
+      "adminProjectWorkspace.documents.tabBrowse": "مرور",
+      "adminProjectWorkspace.documents.tabHistory": "تاریخچه",
+      "adminProjectWorkspace.documents.tabCompare": "مقایسه",
+      "adminProjectWorkspace.documents.refLabel": "نسخه (شاخه یا برچسب)",
+      "adminProjectWorkspace.documents.refPlaceholder": "main",
+      "adminProjectWorkspace.documents.treeHeading": "پرونده‌ها",
+      "adminProjectWorkspace.documents.breadcrumbsAria": "مسیر پوشه",
+      "adminProjectWorkspace.documents.treeLoading": "در حال بارگذاری پرونده‌ها…",
+      "adminProjectWorkspace.documents.treeEmpty": "در این نسخه چیزی برای نمایش نیست.",
+      "adminProjectWorkspace.documents.selectFile": "در درخت کنار، یک پرونده را انتخاب کنید.",
+      "adminProjectWorkspace.documents.rootCrumb": "ریشه",
+      "adminProjectWorkspace.documents.previewMode": "حالت پیش‌نمایش",
+      "adminProjectWorkspace.documents.modeRepository": "بینندهٔ مخزن",
+      "adminProjectWorkspace.documents.modeSyncfusionReader": "خوانندهٔ Syncfusion",
+      "adminProjectWorkspace.documents.readerDisabledHint":
+        "خوانندهٔ آرام برای Markdown و متن ساده موجود است.",
+      "adminProjectWorkspace.documents.syncfusionBanner":
+        "فقط برای خواندن؛ پاراگراف‌ها از قطعات متنی ساخته می‌شوند.",
+      "adminProjectWorkspace.documents.readerEmpty":
+        "متنی برنگشت («بینندهٔ مخزن» را هم امتحان کنید).",
+      "adminProjectWorkspace.documents.historyTitle": "ثبت‌ها (commit)",
+      "adminProjectWorkspace.documents.historyAllHint":
+        "تازه‌ترین ثبت‌ها روی کل نسخه؛ برای محدودسازی اول در «مرور» پرونده‌ای باز کنید.",
+      "adminProjectWorkspace.documents.historyPathHint": "محاسبهٔ فیلتر تا مسیر باز:",
+      "adminProjectWorkspace.documents.historyEmpty": "ثبت‌ای برای این فیلترها نیست.",
+      "adminProjectWorkspace.documents.filterByFile": "فقط روی همین پروندهٔ باز",
+      "adminProjectWorkspace.documents.compareBase": "مرجع پایه",
+      "adminProjectWorkspace.documents.compareHead": "مرجع هدف",
+      "adminProjectWorkspace.documents.compareLoad": "مقایسه",
+      "adminProjectWorkspace.documents.compareFiles": "پرونده‌های تغییرکرده بین نسخه‌ها",
+      "adminProjectWorkspace.documents.comparePickFile": "برای تفاضل متنی، یک پرونده را انتخاب کنید.",
+      "adminProjectWorkspace.documents.compareEmpty": "نتایجی برای این بازه بازنگردید.",
+      "adminProjectWorkspace.documents.compareInstructions":
+        "دو مرجع (شاخه، برچسب یا SHA) وارد کنید؛ مسیر API مطابق `/compare/base...head` است.",
+      "adminProjectWorkspace.documents.compareFailed":
+        "خطا در مقایسه — وجود مرجع‌ها و نقش gateway را بررسی کنید.",
+      "adminProjectWorkspace.documents.diffBinary":
+        "محتوای دودویی یا رمزنگاری نشد با این پایان نقاط قابل خط‌به‌خط مقایسه نیست.",
+      "adminProjectWorkspace.documents.apiFootnoteTitle": "مسیر ترکیبی دروازه",
+      "adminProjectWorkspace.documents.apiFootnoteBody":
+        "فهرست‌ها و تاریخچه روی مسیر `/repos/` هستند؛ سرزنش یا بایت‌ها ممکن است همچنان با `/api/v1/repos/` بروند. پارامتر `ref` را با بک‌اند هماهنگ کنید.",
+      "adminProjectWorkspace.team.memberRole": "عضو پروژه",
+      "adminProjectWorkspace.team.memberNote":
+        "{{name}} اکنون در این فضای کاری پروژه دنبال می‌شود.",
+      "adminProjectWorkspace.empty.noStudentsFound": "هنوز هیچ محصلی انتخاب نشده است.",
       "adminProjectWorkspace.activity.badge": "فعالیت مخزن",
       "adminProjectWorkspace.activity.title": "تقویم مشارکت",
       "adminProjectWorkspace.activity.subtitle":

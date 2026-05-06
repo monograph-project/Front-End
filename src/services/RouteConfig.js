@@ -321,7 +321,12 @@ export const VC = {
     gw(`/api/v1/repos/owner/${encodeURIComponent(ownerId)}`),
   /** Activity feed parsing can recover `owner/repo` slugs when no list endpoint exists. */
   USER_ACTIVITY: (username, params = {}) =>
-    gw(withQuery(`/api/v1/repos/${encodeURIComponent(username)}/activity`, params)),
+    gw(
+      withQuery(
+        `/api/v1/repos/${encodeURIComponent(username)}/activity`,
+        params,
+      ),
+    ),
   REPO_DETAIL: (owner, repo) =>
     gw(
       `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
@@ -334,16 +339,35 @@ export const VC = {
     gw(
       `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/dashboard`,
     ),
+  /** Matches `FileViewController` `@RequestMapping("api/v1/repos/{owner}/{repo}")`. */
   REPO_TREE: (owner, repo, params = {}) =>
+    gw(
+      withQuery(
+        `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tree`,
+        params,
+      ),
+    ),
+  /** Fallback if a gateway proxies only `/repos/...` (no `/api/v1`). */
+  REPO_TREE_LEGACY: (owner, repo, params = {}) =>
     gw(
       withQuery(
         `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tree`,
         params,
       ),
     ),
+  /** Raw MinIO-backed object (`RepositoryController`): zlib-compressed Vic object blob. */
+  REPO_OBJECT: (owner, repo, hash) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/objects/${encodeURIComponent(String(hash ?? "").trim())}`,
+    ),
+  /** `RepositoryController`: branch/tag heads + symbolic `HEAD`. */
+  REPO_INFO_REFS: (owner, repo) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/info/refs`,
+    ),
   /** @param {string} pathSegment e.g. `src/App.java` (no leading slash) */
   REPO_CONTENTS: (owner, repo, pathSegment = "", params = {}) => {
-    const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents`;
+    const base = `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents`;
     const suffix = pathSegment
       ? `/${pathSegment
           .split("/")
@@ -362,6 +386,19 @@ export const VC = {
       `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tree/${encodeURIComponent(branch)}${suffix ? `/${suffix}` : ""}`,
     );
   },
+  /** Gateway path per `apiEndpoint.md` §5.6 — `?path=&ref=&limit=` */
+  REPO_COMMITS: (owner, repo, params = {}) =>
+    gw(
+      withQuery(
+        `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits`,
+        params,
+      ),
+    ),
+  /** `FileViewController`: `compare/{base}...{head}` */
+  REPO_COMPARE: (owner, repo, baseRef, headRef) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(`${baseRef}...${headRef}`)}`,
+    ),
   COMMITS_ON_BRANCH: (owner, repo, branch, params = {}) =>
     gw(
       withQuery(
@@ -373,7 +410,7 @@ export const VC = {
     gw(
       `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${encodeURIComponent(commitSha)}`,
     ),
-  /** GET `/api/v1/repos/.../blame/{path}?branch=` */
+  /** GET `/api/v1/repos/.../blame/{path}` — query `ref` (gateway doc) and/or `branch` (legacy) */
   BLAME_FILE: (owner, repo, filePath, params = {}) =>
     gw(
       withQuery(
@@ -412,10 +449,8 @@ export const STUDENT = {
   GETALL: gw("/api/student"),
   GETBYID: (id) => gw(`/api/student/${id}`),
   /** Upload profile image (multipart/form-data, field name: `file`). */
-  PROFILE_UPLOAD: (id) =>
-    gw(`/api/v1/student/profile/${encodeURIComponent(id)}`),
-  SEARCH: (keyword = "") =>
-    gw(withQuery("/api/student/search", { keyword })),
+  PROFILE_UPLOAD: (id) => gw(`/api/student/profile/${encodeURIComponent(id)}`),
+  SEARCH: (keyword = "") => gw(withQuery("/api/student/search", { keyword })),
   /** Resolved student row for the current gateway session / Keycloak subject. */
   ME: gw("/api/student/me"),
   BY_KEYCLOAK: (keycloakSubject) =>
@@ -456,13 +491,10 @@ export const BATCH = {
 /** Academic year — `/api/academic-year` */
 export const ACADEMIC_YEAR = {
   LIST: (params = {}) => gw(withQuery("/api/academic-year", params)),
-  BY_ID: (id) =>
-    gw(`/api/academic-year/${encodeURIComponent(id)}`),
+  BY_ID: (id) => gw(`/api/academic-year/${encodeURIComponent(id)}`),
   CREATE: gw("/api/academic-year"),
-  UPDATE: (id) =>
-    gw(`/api/academic-year/${encodeURIComponent(id)}`),
-  DELETE: (id) =>
-    gw(`/api/academic-year/${encodeURIComponent(id)}`),
+  UPDATE: (id) => gw(`/api/academic-year/${encodeURIComponent(id)}`),
+  DELETE: (id) => gw(`/api/academic-year/${encodeURIComponent(id)}`),
 };
 
 /** Semester — `/api/semester` */
@@ -471,9 +503,7 @@ export const SEMESTER = {
   BY_ID: (id) => gw(`/api/semester/${encodeURIComponent(id)}`),
   /** Semesters for one academic year (faculty gateway). */
   BY_ACADEMIC_YEAR: (academicYearId) =>
-    gw(
-      `/api/semester/academic-year/${encodeURIComponent(academicYearId)}`,
-    ),
+    gw(`/api/semester/academic-year/${encodeURIComponent(academicYearId)}`),
   CREATE: gw("/api/semester"),
   UPDATE: (id) => gw(`/api/semester/${encodeURIComponent(id)}`),
   DELETE: (id) => gw(`/api/semester/${encodeURIComponent(id)}`),
@@ -481,14 +511,14 @@ export const SEMESTER = {
 
 /** VC / faculty repository catalogue — search by keyword (`RepositoryResponse`). */
 export const REPOSITORY = {
-  SEARCH: (keyword) =>
-    gw(withQuery("/api/v1/repos/search", { keyword })),
+  SEARCH: (keyword) => gw(withQuery("/api/v1/repos/search", { keyword })),
 };
 
 /** Faculty project — `/api/project` */
 export const FACULTY_PROJECT = {
   LIST: (params = {}) => gw(withQuery("/api/project", params)),
   BY_ID: (id) => gw(`/api/project/${encodeURIComponent(id)}`),
+  INVITE: (id) => gw(`/api/project/${encodeURIComponent(id)}/invite`),
   BY_ID_AND_STUDENT: (id, studentId) =>
     gw(
       `/api/project/${encodeURIComponent(id)}/student/${encodeURIComponent(studentId)}`,
@@ -524,10 +554,8 @@ export const TEACHER = {
   GETALL: gw("/api/teacher"),
   GETBYID: (id) => gw(`/api/teacher/${id}`),
   /** Upload profile image (multipart/form-data, field name: `file`). */
-  PROFILE_UPLOAD: (id) =>
-    gw(`/api/v1/teacher/profile/${encodeURIComponent(id)}`),
-  SEARCH: (keyword = "") =>
-    gw(withQuery("/api/teacher/search", { keyword })),
+  PROFILE_UPLOAD: (id) => gw(`/api/teacher/profile/${encodeURIComponent(id)}`),
+  SEARCH: (keyword = "") => gw(withQuery("/api/teacher/search", { keyword })),
   CREATE: gw("/api/teacher"),
   UPDATE: (id) => gw(`/api/teacher/${id}`),
   DELETE: (id) => gw(`/api/teacher/${id}`),
@@ -538,10 +566,8 @@ export const EMPLOYEE = {
   GETALL: gw("/api/employee"),
   GETBYID: (id) => gw(`/api/employee/${id}`),
   /** Upload profile image (multipart/form-data, field name: `file`). */
-  PROFILE_UPLOAD: (id) =>
-    gw(`/api/v1/employee/profile/${encodeURIComponent(id)}`),
-  SEARCH: (keyword = "") =>
-    gw(withQuery("/api/employee/search", { keyword })),
+  PROFILE_UPLOAD: (id) => gw(`/api/employee/profile/${encodeURIComponent(id)}`),
+  SEARCH: (keyword = "") => gw(withQuery("/api/employee/search", { keyword })),
   CREATE: gw("/api/employee"),
   UPDATE: (id) => gw(`/api/employee/${id}`),
   DELETE: (id) => gw(`/api/employee/${id}`),

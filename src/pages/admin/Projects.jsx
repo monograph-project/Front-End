@@ -16,7 +16,10 @@ import { useNavigate } from "react-router-dom";
 import Button from "../../components/Button";
 import Checkbox from "../../components/Checkbox";
 import {
+  DropdownContent,
+  DropdownItem,
   DropdownMenuRoot,
+  DropdownSeparator,
   DropdownTrigger,
 } from "../../components/DropdownMenu";
 import Field from "../../components/Field";
@@ -143,7 +146,9 @@ function projectYear(project, currentYear) {
 
   const rawDate = project?.createdAt ?? project?.updatedAt;
   const time = rawDate ? new Date(rawDate).getTime() : Number.NaN;
-  return Number.isNaN(time) ? String(currentYear) : String(new Date(time).getFullYear());
+  return Number.isNaN(time)
+    ? String(currentYear)
+    : String(new Date(time).getFullYear());
 }
 
 function normalizeProjectRecord(row) {
@@ -191,7 +196,7 @@ function normalizeProjectRecord(row) {
     tags: [visibility, group?.name].filter(Boolean),
     collaboratorInitials: members.map(memberInitials).filter(Boolean),
     targetDate: project?.targetDate ?? project?.deadline ?? null,
-    canOpenWorkspace: Boolean(ownerUsername && repository?.repositoryName),
+    canOpenWorkspace: Boolean(project?.id ?? repository?.id ?? repositoryName),
     memberNames,
   };
 }
@@ -347,7 +352,9 @@ export default function Projects() {
 
   const yearOptions = useMemo(() => {
     const years = new Set(projects.map((p) => projectYear(p, currentYear)));
-    const sorted = [...years].sort((a, b) => String(b).localeCompare(String(a)));
+    const sorted = [...years].sort((a, b) =>
+      String(b).localeCompare(String(a)),
+    );
     return [
       { value: "all", label: t("adminProjects.filters.yearAll") },
       ...sorted.map((y) => ({
@@ -414,10 +421,8 @@ export default function Projects() {
   }, [filteredProjects]);
 
   const openWorkspace = (p) => {
-    if (!p.canOpenWorkspace) return;
-    navigate(
-      `/admin/projects/${encodeURIComponent(p.ownerUsername)}/${encodeURIComponent(p.repositoryName)}`,
-    );
+    if (!p?.id) return;
+    navigate(`/admin/projects/workspace/${encodeURIComponent(p.id)}`);
   };
 
   const projectHeaderData = useMemo(

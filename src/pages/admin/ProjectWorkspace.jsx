@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import {
@@ -20,14 +21,29 @@ import {
   GitBranch,
   Info,
   LibraryBig,
+  Link2,
   ScrollText,
   Target,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import Button from "../../components/Button";
+import GlobalModal from "../../components/GlobalModal";
+import SearchableSelect from "../../components/SearchableSelect";
 import Select from "../../components/Select";
 import TableToolbar from "../../components/TableToolbar";
+import ProjectRepositoryDocsPanel from "../../components/project/ProjectRepositoryDocsPanel";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { cn } from "../../lib/utils";
+import {
+  useFacultyProject,
+  useInviteFacultyProjectMembers,
+  useRepositorySearch,
+  useStudentSearch,
+  useStudentsPage,
+  useUpdateFacultyProject,
+} from "../../services/useApi";
 
 /** GitHub-style green ramp using theme chart success (see `index.css`). */
 const HEAT_GREEN_FILLS = [
@@ -41,6 +57,149 @@ const HEAT_GREEN_FILLS = [
 ];
 
 const WEEKDAY_ROW_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+function unwrapProjectRow(row) {
+  return row?.json && typeof row.json === "object" ? row.json : row;
+}
+
+function displayName(person, fallback = "-") {
+  if (!person) return fallback;
+  if (typeof person === "string") return person || fallback;
+  const full = [person.firstName, person.lastName].filter(Boolean).join(" ").trim();
+  return (
+    full ||
+    person.displayName ||
+    person.userName ||
+    person.username ||
+    person.email ||
+    (person.id != null ? String(person.id) : fallback)
+  );
+}
+
+function studentIdValue(student) {
+  const value =
+    student?.id ??
+    student?.studentId ??
+    student?.student_id ??
+    student?.uuid ??
+    "";
+  return value != null && value !== "" ? String(value) : "";
+}
+
+function studentToOption(student) {
+  if (!student) return null;
+  const id = studentIdValue(student);
+  if (!id) return null;
+  return {
+    value: id,
+    label: displayName(student, id),
+    description:
+      student?.email ??
+      student?.code ??
+      student?.department?.name ??
+      student?.batch?.name ??
+      undefined,
+  };
+}
+
+function normalizeStudentOptions(page) {
+  const list = Array.isArray(page?.content) ? page.content : [];
+  return list.map(studentToOption).filter(Boolean);
+}
+
+function mergeOptions(...groups) {
+  const merged = [];
+  const seen = new Set();
+  for (const group of groups) {
+    for (const option of Array.isArray(group) ? group : []) {
+      if (!option?.value || seen.has(option.value)) continue;
+      seen.add(option.value);
+      merged.push(option);
+    }
+  }
+  return merged;
+}
+
+function memberListFromGroup(group) {
+  const members = group?.groupMembers ?? group?.groupMember ?? group?.members ?? [];
+  return Array.isArray(members) ? members : [];
+}
+
+function projectAcademicYearLabel(project) {
+  const academicYear = project?.group?.academicYear;
+  if (!academicYear) return "—";
+  const direct =
+    academicYear?.name ??
+    academicYear?.label ??
+    academicYear?.title ??
+    academicYear?.year;
+  if (String(direct ?? "").trim()) return String(direct).trim();
+  const start = academicYear?.startDate ? new Date(academicYear.startDate).getFullYear() : Number.NaN;
+  const end = academicYear?.endDate ? new Date(academicYear.endDate).getFullYear() : Number.NaN;
+  if (!Number.isNaN(start) && !Number.isNaN(end)) return `${start}-${end}`;
+  if (!Number.isNaN(start)) return String(start);
+  return "—";
+}
+
+function repositoryRowToOption(row) {
+  const id = row?.id ?? row?.repositoryId ?? row?.uuid ?? "";
+  const owner = String(
+    row?.ownerUsername ??
+      row?.ownerUsername?.user_name ??
+      row?.ownerUsername?.username ??
+      row?.owner?.user_name ??
+      row?.owner?.username ??
+      row?.owner ??
+      "",
+  ).trim();
+  const name = String(row?.repositoryName ?? row?.name ?? "").trim();
+  const label = owner && name ? `${owner}/${name}` : name || owner || String(id || "");
+  const value = id ? String(id) : `${owner}/${name}`.trim();
+  if (!value || !label) return null;
+  return {
+    value,
+    label,
+    description: typeof row?.description === "string" ? row.description : undefined,
+  };
+}
+
+function repositorySelectedFallbackOption(project, formRepoId, repoOptions = []) {
+  const v = String(formRepoId ?? "").trim();
+  if (!v) return null;
+  const selectedFromOptions = (Array.isArray(repoOptions) ? repoOptions : []).find(
+    (option) => option?.value === v,
+  );
+  if (selectedFromOptions) return selectedFromOptions;
+  const nested = project?.projectRepository;
+  const nestedId = nested?.id ?? nested?.repositoryId;
+  if (nested && String(nestedId ?? "") === v) {
+    const owner =
+      nested.ownerUsername ??
+      nested.owner?.username ??
+      nested.owner?.user_name ??
+      nested.owner ??
+      "";
+    const name = nested.repositoryName ?? nested.name ?? "";
+    const label = owner && name ? `${owner}/${name}` : name || owner || v;
+    return { value: v, label: String(label) };
+  }
+  return { value: v, label: v };
+}
+
+function buildProjectUpdatePayload(project, extra = {}) {
+  return {
+    projectName: project?.projectName ?? "",
+    group: String(project?.group?.id ?? project?.group ?? ""),
+    teacher: String(project?.teacher?.id ?? project?.teacher ?? ""),
+    ...extra,
+  };
+}
+
+function contributorSeedFromId(id) {
+  return String(id ?? "")
+    .split("")
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+}
 
 function heatLevelIndex(count, max) {
   if (max <= 0 || count <= 0) return 0;
@@ -234,13 +393,6 @@ const documentSections = [
   },
 ];
 
-const proposalTabDefs = [
-  { id: "overview", label: "Overview", Icon: Target },
-  { id: "proposal", label: "Proposal", Icon: BookOpen },
-  { id: "documents", label: "Documents", Icon: FileText },
-  { id: "activity", label: "Activity", Icon: Activity },
-];
-
 const proposalSections = [
   {
     title: "Introduction",
@@ -261,33 +413,6 @@ const proposalSections = [
     title: "Expected outcome",
     body:
       "A GitHub-like research workspace where admins and supervisors can review both implementation progress and the quality of academic documentation.",
-  },
-];
-
-const repositoryActivity = [
-  {
-    file: "proposal/introduction.md",
-    change: "Expanded background and faculty context",
-    author: "Amina Rahimi",
-    time: "2 hours ago",
-  },
-  {
-    file: "proposal/literature-review.md",
-    change: "Added four new references and comparison notes",
-    author: "Bilal Sadiqi",
-    time: "Yesterday",
-  },
-  {
-    file: "docs/methodology.md",
-    change: "Revised evaluation flow and sample selection",
-    author: "Farzana Noori",
-    time: "2 days ago",
-  },
-  {
-    file: "planning/timeline.xlsx",
-    change: "Updated milestone ownership and delivery dates",
-    author: "Hamid Popal",
-    time: "3 days ago",
   },
 ];
 
@@ -318,21 +443,169 @@ function SectionCard({ icon, title, value, note }) {
 }
 
 function ProjectWorkspace() {
-  const { owner, repo } = useParams();
+  const { id, owner, repo } = useParams();
   const { t } = useTranslation();
-  const displayOwner = owner ? decodeURIComponent(owner) : "";
-  const displayRepo = repo ? decodeURIComponent(repo) : "";
+  const queryClient = useQueryClient();
+  const proposalTabDefs = useMemo(
+    () => [
+      { id: "overview", label: t("adminProjectWorkspace.tabs.overview"), Icon: Target },
+      { id: "proposal", label: t("adminProjectWorkspace.tabs.proposal"), Icon: BookOpen },
+      { id: "documents", label: t("adminProjectWorkspace.tabs.documents"), Icon: FileText },
+      { id: "activity", label: t("adminProjectWorkspace.tabs.activity"), Icon: Activity },
+    ],
+    [t],
+  );
+  const urlOwner = owner ? decodeURIComponent(owner) : "";
+  const urlRepo = repo ? decodeURIComponent(repo) : "";
   const [selectedContributorId, setSelectedContributorId] = useState(
-    contributors[0].id,
+    contributors[0]?.id ?? 1,
   );
   const [contributionYear, setContributionYear] = useState(() =>
     new Date().getFullYear(),
   );
   const [activeTab, setActiveTab] = useState("overview");
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [connectRepoOpen, setConnectRepoOpen] = useState(false);
+  const [inviteSearchTerm, setInviteSearchTerm] = useState("");
+  const [selectedInvitees, setSelectedInvitees] = useState([]);
+  const [repoSearchTerm, setRepoSearchTerm] = useState("");
+  const [selectedRepoId, setSelectedRepoId] = useState("");
+
+  const debouncedInviteSearchTerm = useDebouncedValue(inviteSearchTerm, 300);
+  const debouncedRepoSearchTerm = useDebouncedValue(repoSearchTerm, 300);
+
+  const { data: projectResponse, isLoading: projectLoading } = useFacultyProject(id, {
+    enabled: Boolean(id),
+    notifyOnError: true,
+  });
+  const project = useMemo(() => unwrapProjectRow(projectResponse), [projectResponse]);
+
+  const { data: studentPage } = useStudentsPage(
+    { page: 0, pageSize: 500, notifyOnError: false },
+    { staleTime: 60_000 },
+  );
+  const { data: searchedStudents = [], isFetching: isSearchingInvitees } = useStudentSearch(
+    debouncedInviteSearchTerm,
+    {
+      enabled: debouncedInviteSearchTerm.length > 0,
+      staleTime: 30_000,
+      notifyOnError: false,
+    },
+  );
+  const { data: repoHits = [], isFetching: repoSearchBusy } = useRepositorySearch(
+    debouncedRepoSearchTerm,
+    { notifyOnError: false },
+  );
+
+  const inviteProjectMembers = useInviteFacultyProjectMembers({
+    toastSuccess: "adminProjectWorkspace.invite.success",
+    toastError: "apiErrors.failed_to_update_faculty_project",
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["faculty-projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["faculty-projects", "detail", id] });
+      setInviteOpen(false);
+      setSelectedInvitees([]);
+      setInviteSearchTerm("");
+    },
+  });
+
+  const connectRepository = useUpdateFacultyProject({
+    toastSuccess: "adminProjectWorkspace.repository.success",
+    toastError: "apiErrors.failed_to_update_faculty_project",
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["faculty-projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["faculty-projects", "detail", id] });
+      setConnectRepoOpen(false);
+      setSelectedRepoId("");
+      setRepoSearchTerm("");
+    },
+  });
+
+  const projectMembers = useMemo(() => memberListFromGroup(project?.group), [project]);
+  const inviteeOptions = useMemo(
+    () => normalizeStudentOptions(studentPage),
+    [studentPage],
+  );
+  const searchedInviteeOptions = useMemo(
+    () => searchedStudents.map(studentToOption).filter(Boolean),
+    [searchedStudents],
+  );
+  const selectedInviteeOptions = useMemo(() => {
+    const byId = new Map();
+    projectMembers.forEach((member) => {
+      const option = studentToOption(member);
+      if (option) byId.set(option.value, option);
+    });
+    inviteeOptions.forEach((option) => byId.set(option.value, option));
+    searchedInviteeOptions.forEach((option) => byId.set(option.value, option));
+    return selectedInvitees.map((inviteeId) => byId.get(inviteeId)).filter(Boolean);
+  }, [inviteeOptions, projectMembers, searchedInviteeOptions, selectedInvitees]);
+  const existingMemberIds = useMemo(
+    () => new Set(projectMembers.map((member) => studentIdValue(member)).filter(Boolean)),
+    [projectMembers],
+  );
+  const inviteSelectOptions = useMemo(() => {
+    const filteredBase = mergeOptions(searchedInviteeOptions, inviteeOptions).filter(
+      (option) => !existingMemberIds.has(option.value),
+    );
+    return mergeOptions(selectedInviteeOptions, filteredBase);
+  }, [existingMemberIds, inviteeOptions, searchedInviteeOptions, selectedInviteeOptions]);
+
+  const repoSearchOptions = useMemo(
+    () => repoHits.map(repositoryRowToOption).filter(Boolean),
+    [repoHits],
+  );
+  const selectedRepoFallback = repositorySelectedFallbackOption(
+    project,
+    selectedRepoId,
+    repoSearchOptions,
+  );
+  const repoSelectOptions = useMemo(
+    () => mergeOptions(selectedRepoFallback ? [selectedRepoFallback] : [], repoSearchOptions),
+    [repoSearchOptions, selectedRepoFallback],
+  );
+
+  const workspaceContributors = useMemo(() => {
+    if (!projectMembers.length) return contributors;
+    return projectMembers.map((member, index) => {
+      const initials = displayName(member, "")
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? "")
+        .join("");
+      return {
+        id: studentIdValue(member) || `member-${index}`,
+        name: displayName(member),
+        role: member?.department?.name ?? member?.batch?.name ?? t("adminProjectWorkspace.team.memberRole"),
+        initials: initials || "ST",
+        completion: Math.min(95, 62 + index * 7),
+        tasksDone: 6 + index * 2,
+        activeTasks: Math.max(1, 3 - (index % 3)),
+        reviewScore: Math.min(98, 76 + index * 5),
+        commits: 18 + index * 9,
+        docsTouched: 2 + index,
+        note: t("adminProjectWorkspace.team.memberNote", { name: displayName(member) }),
+        seed: contributorSeedFromId(studentIdValue(member) || index),
+      };
+    });
+  }, [projectMembers, t]);
 
   const selectedContributor =
-    contributors.find((item) => item.id === selectedContributorId) ||
-    contributors[0];
+    workspaceContributors.find((item) => item.id === selectedContributorId) ||
+    workspaceContributors[0];
+
+  const displayOwner =
+    project?.projectRepository?.owner ??
+    project?.projectRepository?.ownerUsername ??
+    urlOwner;
+  const displayRepo =
+    project?.projectRepository?.repositoryName ??
+    urlRepo;
+  const leadSupervisor = displayName(project?.teacher);
+  const academicYearLabel = projectAcademicYearLabel(project);
+  const hasAssignedRepository = Boolean(project?.projectRepository?.repositoryName);
+  const groupName = project?.group?.name ?? "—";
 
   const repoPath =
     displayOwner && displayRepo
@@ -344,15 +617,15 @@ function ProjectWorkspace() {
       buildRepoContributionYear(
         displayOwner || "owner",
         displayRepo || "repo",
-        selectedContributor.id,
-        selectedContributor.seed,
+        selectedContributor?.id,
+        selectedContributor?.seed,
         contributionYear,
       ),
     [
       displayOwner,
       displayRepo,
-      selectedContributor.id,
-      selectedContributor.seed,
+      selectedContributor?.id,
+      selectedContributor?.seed,
       contributionYear,
     ],
   );
@@ -366,6 +639,43 @@ function ProjectWorkspace() {
       label: String(v),
     }));
   }, []);
+
+  const connectRepositorySubmit = () => {
+    const repoId = String(selectedRepoId ?? "").trim();
+    if (!repoId || !id || !project) return;
+    connectRepository.mutate({
+      id,
+      ...buildProjectUpdatePayload(project, { projectRepository: repoId }),
+    });
+  };
+
+  const inviteMembersSubmit = () => {
+    if (!id || !selectedInvitees.length) return;
+    inviteProjectMembers.mutate({
+      id,
+      invitations: selectedInvitees,
+    });
+  };
+
+  if (id && projectLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-light-app-bg p-4 dark:bg-dark-card-bg">
+        <p className="text-sm text-muted dark:text-dark-muted">
+          {t("adminProjectWorkspace.loading")}
+        </p>
+      </div>
+    );
+  }
+
+  if (id && !projectLoading && !project) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-light-app-bg p-4 dark:bg-dark-card-bg">
+        <p className="text-sm text-muted dark:text-dark-muted">
+          {t("adminProjectWorkspace.notFound")}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
@@ -388,6 +698,8 @@ function ProjectWorkspace() {
               <h1 className="mt-4 text-2xl font-bold tracking-tight text-primary dark:text-dark-primary">
                 {displayRepo
                   ? displayRepo.replace(/-/g, " ")
+                  : project?.projectName
+                    ? project.projectName.replace(/-/g, " ")
                   : t("adminProjectWorkspace.defaultTitle")}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted dark:text-dark-muted">
@@ -400,38 +712,77 @@ function ProjectWorkspace() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 xl:min-w-[360px]">
-              <div className={`${SURFACE_INSET} p-4`}>
-                <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
-                  Project phase
-                </p>
-                <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                  Validation and proposal review
-                </p>
+            <div className="flex w-full max-w-[26rem] flex-col gap-3 xl:min-w-[360px]">
+              <div className="grid grid-cols-2 gap-3">
+                <div className={`${SURFACE_INSET} p-4`}>
+                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
+                    {t("adminProjectWorkspace.summary.academicYear")}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                    {academicYearLabel}
+                  </p>
+                </div>
+                <div className={`${SURFACE_INSET} p-4`}>
+                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
+                    {t("adminProjectWorkspace.summary.teamMembers")}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                    {projectMembers.length}
+                  </p>
+                </div>
+                <div className={`${SURFACE_INSET} p-4`}>
+                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
+                    {t("adminProjectWorkspace.summary.leadSupervisor")}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                    {leadSupervisor}
+                  </p>
+                </div>
+                <div className={`${SURFACE_INSET} p-4`}>
+                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
+                    {t("adminProjectWorkspace.summary.repositoryState")}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                    {hasAssignedRepository
+                      ? t("adminProjectWorkspace.summary.repositoryConnected")
+                      : t("adminProjectWorkspace.summary.repositoryMissing")}
+                  </p>
+                </div>
               </div>
-              <div className={`${SURFACE_INSET} p-4`}>
-                <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
-                  Completion
-                </p>
-                <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                  78%
-                </p>
-              </div>
-              <div className={`${SURFACE_INSET} p-4`}>
-                <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
-                  Lead supervisor
-                </p>
-                <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                  Dr. Sarah Johnson
-                </p>
-              </div>
-              <div className={`${SURFACE_INSET} p-4`}>
-                <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
-                  Repository sync
-                </p>
-                <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                  14 minutes ago
-                </p>
+
+              <div className={`${SURFACE_INSET} flex flex-col gap-3 p-4`}>
+                <div>
+                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
+                    {t("adminProjectWorkspace.summary.projectGroup")}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                    {groupName}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    className="gap-2"
+                    icon={ <UserPlus className="size-4" aria-hidden />}
+                    onClick={() => setInviteOpen(true)}
+                  >
+                   
+                    {t("adminProjectWorkspace.actions.inviteMembers")}
+                  </Button>
+                  {!hasAssignedRepository ? (
+                    <Button
+                      icon={<Link2 className="size-4" aria-hidden />}
+                      type="button"
+                      variant="secondary"
+                      className="gap-2"
+                      onClick={() => setConnectRepoOpen(true)}
+                    >
+                      
+                      {t("adminProjectWorkspace.actions.connectRepository")}
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
@@ -453,7 +804,7 @@ function ProjectWorkspace() {
           <SectionCard
             icon={Users}
             title="Team members"
-            value={contributors.length}
+            value={projectMembers.length}
             note="Cross-functional contributors across engineering, QA, and coordination."
           />
           <SectionCard
@@ -636,57 +987,11 @@ function ProjectWorkspace() {
         )}
 
         {activeTab === "documents" && (
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-            <div className={`${SURFACE_CARD} p-4 md:p-5`}>
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary dark:text-dark-primary" />
-                <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
-                  Research documents
-                </h2>
-              </div>
-              <div className="mt-4 space-y-3">
-                {documentSections.map((section) => (
-                  <div
-                    key={section.key}
-                    className={`${SURFACE_INSET} p-4`}
-                  >
-                    <p className="font-semibold text-primary dark:text-dark-primary">
-                      {section.title}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                      {section.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className={`${SURFACE_CARD} p-4 md:p-5`}>
-              <div className="flex items-center gap-2">
-                <GitBranch className="h-4 w-4 text-primary dark:text-dark-primary" />
-                <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
-                  Recent document changes
-                </h2>
-              </div>
-              <div className="mt-4 space-y-3">
-                {repositoryActivity.map((item) => (
-                  <div
-                    key={item.file}
-                    className={`${SURFACE_INSET} p-4`}
-                  >
-                    <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                      {item.file}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                      {item.change}
-                    </p>
-                    <p className="mt-2 text-xs text-muted dark:text-dark-muted">
-                      {item.author} • {item.time}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <section className="flex flex-col gap-4">
+            <ProjectRepositoryDocsPanel
+              owner={displayOwner ?? ""}
+              repo={displayRepo ?? ""}
+            />
           </section>
         )}
 
@@ -737,8 +1042,8 @@ function ProjectWorkspace() {
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  {contributors.map((person) => {
-                    const isActive = person.id === selectedContributor.id;
+                  {workspaceContributors.map((person) => {
+                    const isActive = person.id === selectedContributor?.id;
 
                     return (
                       <button
@@ -808,7 +1113,7 @@ function ProjectWorkspace() {
                       Selected member
                     </p>
                     <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                      {selectedContributor.name}
+                      {selectedContributor?.name ?? "—"}
                     </p>
                   </div>
                   <div className={`${SURFACE_INSET} p-4`}>
@@ -824,7 +1129,7 @@ function ProjectWorkspace() {
                       Commits
                     </p>
                     <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
-                      {selectedContributor.commits}
+                      {selectedContributor?.commits ?? 0}
                     </p>
                   </div>
                   <div className={`${SURFACE_INSET} p-4`}>
@@ -832,7 +1137,7 @@ function ProjectWorkspace() {
                       Review score
                     </p>
                     <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
-                      {selectedContributor.reviewScore}%
+                      {selectedContributor?.reviewScore ?? 0}%
                     </p>
                   </div>
                 </div>
@@ -849,8 +1154,8 @@ function ProjectWorkspace() {
                     })}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                    {t("adminProjectWorkspace.activity.heatmapSubheading", {
-                      name: selectedContributor.name,
+                      {t("adminProjectWorkspace.activity.heatmapSubheading", {
+                      name: selectedContributor?.name ?? "—",
                       repo: repoPath,
                     })}
                   </p>
@@ -860,7 +1165,7 @@ function ProjectWorkspace() {
                     {t("adminProjectWorkspace.activity.contributorNote")}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-primary dark:text-dark-primary">
-                    {selectedContributor.note}
+                    {selectedContributor?.note ?? "—"}
                   </p>
                 </div>
               </div>
@@ -986,6 +1291,143 @@ function ProjectWorkspace() {
             </div>
           </section>
         )}
+
+        <GlobalModal
+          variant="sheet"
+          open={inviteOpen}
+          setOpen={setInviteOpen}
+          title={t("adminProjectWorkspace.invite.title")}
+          subtitle={t("adminProjectWorkspace.invite.subtitle")}
+          isClose
+          footer={
+            <>
+              <Button
+                type="button"
+                variant="tertiary"
+                onClick={() => setInviteOpen(false)}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                disabled={
+                  !selectedInvitees.length || inviteProjectMembers.isPending
+                }
+                onClick={inviteMembersSubmit}
+              >
+                {inviteProjectMembers.isPending
+                  ? t("adminProjects.form.project.actions.submitting")
+                  : t("adminProjectWorkspace.invite.submit")}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 text-[11px] font-semibold text-muted dark:text-dark-muted">
+                {t("adminProjectWorkspace.invite.search")}
+              </p>
+              <SearchableSelect
+                multiple
+                value={selectedInvitees}
+                onValueChange={setSelectedInvitees}
+                options={inviteSelectOptions}
+                placeholder={t("adminProjectWorkspace.invite.search")}
+                searchPlaceholder={t("adminProjectWorkspace.invite.search")}
+                searchValue={inviteSearchTerm}
+                onSearchChange={setInviteSearchTerm}
+                loading={isSearchingInvitees}
+                clearSearchOnOpen={false}
+                className="min-h-8 bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)"
+              />
+              <p className="mt-2 text-[11px] text-muted dark:text-dark-muted">
+                {t("adminProjectWorkspace.invite.hint")}
+              </p>
+            </div>
+
+            <div className={`${SURFACE_INSET} p-4`}>
+              <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
+                {t("adminProjectWorkspace.invite.selected")}
+              </p>
+              <div className="mt-3 space-y-2">
+                {selectedInviteeOptions.length ? (
+                  selectedInviteeOptions.map((option) => (
+                    <div
+                      key={option.value}
+                      className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 py-2 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+                    >
+                      <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                        {option.label}
+                      </p>
+                      <p className="mt-1 text-xs text-muted dark:text-dark-muted">
+                        {option.description || option.value}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted dark:text-dark-muted">
+                    {t("adminProjectWorkspace.empty.noStudentsFound")}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </GlobalModal>
+
+        <GlobalModal
+          variant="sheet"
+          open={connectRepoOpen}
+          setOpen={setConnectRepoOpen}
+          title={t("adminProjectWorkspace.repository.title")}
+          subtitle={t("adminProjectWorkspace.repository.subtitle")}
+          isClose
+          footer={
+            <>
+              <Button
+                type="button"
+                variant="tertiary"
+                onClick={() => setConnectRepoOpen(false)}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                disabled={!String(selectedRepoId ?? "").trim() || connectRepository.isPending}
+                onClick={connectRepositorySubmit}
+              >
+                {connectRepository.isPending
+                  ? t("adminProjects.form.project.actions.submitting")
+                  : t("adminProjectWorkspace.repository.submit")}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 text-[11px] font-semibold text-muted dark:text-dark-muted">
+                {t("adminProjectWorkspace.repository.search")}
+              </p>
+              <SearchableSelect
+                value={selectedRepoId}
+                onValueChange={setSelectedRepoId}
+                options={repoSelectOptions}
+                placeholder={t("adminProjectWorkspace.repository.search")}
+                searchPlaceholder={t("adminProjectWorkspace.repository.search")}
+                searchValue={repoSearchTerm}
+                onSearchChange={setRepoSearchTerm}
+                loading={repoSearchBusy}
+                clearable
+                clearSearchOnOpen={false}
+                className="min-h-8 bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)"
+              />
+              <p className="mt-2 text-[11px] text-muted dark:text-dark-muted">
+                {t("adminProjectWorkspace.repository.hint")}
+              </p>
+            </div>
+          </div>
+        </GlobalModal>
       </div>
     </div>
   );

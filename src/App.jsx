@@ -173,6 +173,10 @@ export default function App() {
               element={<GroupRegistrationPage />}
             />
             <Route
+              path="projects/workspace/:id"
+              element={<ProjectWorkspace />}
+            />
+            <Route
               path="projects/:owner/:repo"
               element={<ProjectWorkspace />}
             />

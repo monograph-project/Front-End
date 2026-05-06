@@ -32,7 +32,7 @@ export default function Avatar({
     <RadixAvatar.Root className={clsx(sizeClass, className)}>
       {showImg ? (
         <RadixAvatar.Image
-          className="size-full rounded-[inherit] object-cover"
+          className="size-full rounded-[inherit]  object-cover"
           src={url}
           alt={alt}
           onError={() => setBroken(true)}
