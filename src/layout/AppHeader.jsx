@@ -292,10 +292,25 @@ export default function AppHeader({
           ></DropdownTrigger>
 
           <DropdownContent align="end" className="w-48">
-            <DropdownLabel>{t("common.sections.account")}</DropdownLabel>
-            <DropdownItem onClick={navigateToProfile}>
-              {t("common.actions.profile")}
+            <DropdownItem>
+            <div onClick={navigateToProfile} className="flex items-center gap-4 ltr:flex-row rtl:flex-row-reverse">
+              <AvatarDemo
+                src={resolveProfilePhotoUrl(user)}
+                initials={buildPersonInitials(user)}
+              />
+              <div className="flex flex-col">
+                <span className="font-medium text-gray-900 ltr:text-left rtl:text-right">{user.username}</span>
+                <span
+                  className="text-gray-500 text-sm truncate max-w-[140px] ltr:text-left rtl:text-right"
+                  title={user.email}
+                >
+                  {user.email}
+                </span>
+              </div>
+            </div>
             </DropdownItem>
+            <DropdownSeparator /> 
+          
             <DropdownItem onClick={navigateToAccountSettings}>
               {t("common.actions.settings")}
             </DropdownItem>

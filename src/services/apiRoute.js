@@ -1938,6 +1938,23 @@ export async function updateFacultyProject(id, body) {
   }
 }
 
+export async function inviteFacultyProjectMembers(id, body) {
+  try {
+    const { data } = await axiosInstance.request({
+      url: FACULTY_PROJECT.INVITE(id),
+      method: "GET",
+      data: body,
+    });
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to invite project members.",
+      "apiErrors.failed_to_update_faculty_project",
+    );
+  }
+}
+
 export async function deleteFacultyProject(id) {
   try {
     await axiosInstance.delete(FACULTY_PROJECT.DELETE(id));
@@ -3452,7 +3469,32 @@ export async function vcGetRepositoryTree(owner, repo, params = {}) {
     const { data } = await axiosInstance.get(VC.REPO_TREE(owner, repo, params));
     return data;
   } catch (err) {
+    const status = err?.response?.status;
+    if (status === 404) {
+      try {
+        const { data } = await axiosInstance.get(
+          VC.REPO_TREE_LEGACY(owner, repo, params),
+        );
+        return data;
+      } catch (err2) {
+        throwApiError(
+          err2,
+          "Failed to load tree.",
+          "apiErrors.failed_to_load_tree",
+        );
+      }
+    }
     throwApiError(err, "Failed to load tree.", "apiErrors.failed_to_load_tree");
+  }
+}
+
+export async function vcGetRepositoryRefs(owner, repo) {
+  try {
+    const { data } = await axiosInstance.get(VC.REPO_INFO_REFS(owner, repo));
+    return data && typeof data === "object" ? data : {};
+  } catch (err) {
+    if (err?.response?.status === 404) return {};
+    throwApiError(err, "Failed to load refs.", "apiErrors.generic");
   }
 }
 

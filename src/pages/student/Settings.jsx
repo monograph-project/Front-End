@@ -20,8 +20,8 @@ export default function StudentSettings() {
   ];
 
   return (
-    <div className="min-h-screen flex-1 bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
-      <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="min-h-screen flex-1 w-full  bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+      <div className="mx-auto w-full max-w-5xl space-y-6">
         <section className={`${SURFACE_CARD} overflow-hidden`}>
           <div className="border-b border-light-divider px-4 py-5 dark:border-dark-divider md:px-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-muted">

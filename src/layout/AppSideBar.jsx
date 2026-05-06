@@ -25,10 +25,7 @@ import Avatar from "../components/Avatar";
 import Tooltip from "../components/Tooltip";
 import { useAuth } from "../context/AuthContext";
 import { useSidebar } from "../context/SidebarContext";
-import {
-  getFacultyDashboardPath,
-  resolveShellBasePath,
-} from "../lib/roles";
+import { getFacultyDashboardPath, resolveShellBasePath } from "../lib/roles";
 import {
   TbLayoutSidebarLeftCollapse,
   TbLayoutSidebarRightCollapse,
@@ -57,12 +54,8 @@ function NavGlyph({ IconComponent, active }) {
 }
 
 export default function AppSidebar() {
-  const {
-    collapsed,
-    handleSidebarToggle,
-    isMobile,
-    mobileMenuOpen,
-  } = useSidebar();
+  const { collapsed, handleSidebarToggle, isMobile, mobileMenuOpen } =
+    useSidebar();
   const drawerExpanded = Boolean(isMobile && mobileMenuOpen);
   const railMode = collapsed && !drawerExpanded;
   const navShowsLabels = !railMode;
@@ -262,7 +255,7 @@ export default function AppSidebar() {
         Icon: NotebookPen,
         path: `${basePath}/notes`,
       },
-      
+
       {
         key: "projects",
         labelKey: "sidebar.staff.projects",
@@ -412,7 +405,7 @@ export default function AppSidebar() {
       className={` flex h-full shrink-0 flex-col overflow-hidden border-default bg-shell transition-[width,min-width] duration-100 ease-out dark:border-dark-app-tertiary dark:bg-dark-app-secondary ltr:border-r rtl:border-l ${isMobile ? "border-none" : ""} ${sidebarWidthClass}`}
     >
       <div
-        className={`flex min-h-14 shrink-0 items-center border-b border-default px-2.5 py-4 dark:border-dark-default ${railMode ? "justify-center px-4 py-4.5" : "justify-end rtl:flex-row-reverse"}`}
+        className={`flex min-h-12 shrink-0 items-center border-b border-default px-2.5 py-[11.5px] dark:border-dark-default ${railMode ? "justify-center px-4 py-4.5" : "justify-end rtl:flex-row-reverse"}`}
       >
         <button
           type="button"
@@ -436,8 +429,9 @@ export default function AppSidebar() {
       >
         {navItems.map((item) => {
           const active = isActive(item.path);
-          const label =
-            item.labelKey.includes(".") ? t(item.labelKey) : item.labelKey;
+          const label = item.labelKey.includes(".")
+            ? t(item.labelKey)
+            : item.labelKey;
           const showNotifBadge =
             NOTIFICATION_NAV_KEYS.has(item.key) &&
             typeof notifUnread === "number" &&
@@ -512,4 +506,3 @@ export default function AppSidebar() {
     </aside>
   );
 }
-

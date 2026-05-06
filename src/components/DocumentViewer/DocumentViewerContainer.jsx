@@ -13,13 +13,15 @@ import { useDocumentLoader } from "./useDocumentLoader";
 /**
  * Embed anywhere (admin / teacher / student shells) via `<DocumentViewerContainer ... />`.
  *
- * Routes raw bytes from `GET VC.REPO_FILE_AT_REF …` plus optional `{Blame}` metadata.
+ * When `blobSha` is set, file bytes come from the MinIO-backed object route (binary-safe).
+ * Otherwise falls back to `REPO_FILE_AT_REF` when the gateway implements it.
  */
 export default function DocumentViewerContainer({
   owner,
   repo,
   filePath,
   branch = "main",
+  blobSha = null,
 }) {
   const { t } = useTranslation();
   const [viewMode, setViewMode] = useState(
@@ -34,6 +36,7 @@ export default function DocumentViewerContainer({
     repo,
     filePath,
     branch,
+    blobSha,
     enabled:
       Boolean(owner && repo && typeof filePath === "string" && filePath.trim() !== ""),
   });

@@ -1,4 +1,6 @@
 import apiClient from "../api/client";
+import { tryDecodeUtf8 } from "../utils/binaryFileHandlers";
+import { parseVicCompressedObject } from "../utils/vicObjectFormat";
 import { VC } from "./RouteConfig";
 import { extractApiError } from "./apiRoute";
 
@@ -12,13 +14,48 @@ function toUint8(buf) {
 }
 
 /**
- * Raw file bytes from the gateway (Git tree / blob endpoint).
+ * Decompressed **blob payload** bytes (`type == "blob"`) from `GET /api/v1/repos/.../objects/{sha}`.
+ * @param {string} owner
+ * @param {string} repo
+ * @param {string} blobSha
+ */
+export async function fetchRepositoryBlobPayload(owner, repo, blobSha) {
+  const url = VC.REPO_OBJECT(owner, repo, blobSha);
+  try {
+    const { data } = await apiClient.get(url, {
+      responseType: "arraybuffer",
+    });
+    const u8 = toUint8(data);
+    const parsed = parseVicCompressedObject(u8);
+    if (String(parsed.type || "").toLowerCase() !== "blob") {
+      throw new Error(`Expected blob object, received: ${parsed.type}`);
+    }
+    return toUint8(parsed.content);
+  } catch (err) {
+    throw new Error(extractApiError(err, "Failed to load blob payload."));
+  }
+}
+
+/**
+ * Prefer `blobSha` (raw object) when available (binary-safe). Otherwise fall back to legacy
+ * `REPO_FILE_AT_REF` if your gateway implements it.
+ *
  * @param {string} owner
  * @param {string} repo
  * @param {string} filePath
  * @param {string} [branch]
+ * @param {string | null} [blobSha]
  */
-export async function fetchFileContent(owner, repo, filePath, branch = "main") {
+export async function fetchFileContent(
+  owner,
+  repo,
+  filePath,
+  branch = "main",
+  blobSha = null,
+) {
+  const trimmed = blobSha != null ? String(blobSha).trim() : "";
+  if (trimmed) return fetchRepositoryBlobPayload(owner, repo, trimmed);
+
   const url = VC.REPO_FILE_AT_REF(owner, repo, branch, filePath);
   try {
     const { data } = await apiClient.get(url, {
@@ -50,8 +87,11 @@ export function normalizeBlameLines(raw) {
  * @param {string} filePath
  * @param {string} [branch]
  */
-export async function fetchFileBlame(owner, repo, filePath, branch = "main") {
-  const url = VC.BLAME_FILE(owner, repo, filePath, { branch });
+export async function fetchFileBlame(owner, repo, filePath, ref = "main") {
+  const url = VC.BLAME_FILE(owner, repo, filePath, {
+    ref,
+    branch: ref,
+  });
   try {
     const { data } = await apiClient.get(url);
     return normalizeBlameLines(data);
@@ -131,5 +171,82 @@ export async function fetchCommitHistory(owner, repo, branch = "main", params = 
     return data?.commits ?? data?.content ?? [];
   } catch (err) {
     throw new Error(extractApiError(err, "Failed to load commits."));
+  }
+}
+
+/**
+ * Commits matching `apiEndpoint.md` `/repos/{owner}/{repo}/commits?path&ref&limit`;
+ * falls back to `COMMITS_ON_BRANCH` when the gateway route is unavailable.
+ * @param {string} owner
+ * @param {string} repo
+ * @param {{ path?: string, ref?: string, limit?: number }} options
+ */
+export async function fetchRepositoryCommits(
+  owner,
+  repo,
+  { path, ref = "main", limit = 40 } = {},
+) {
+  const q = { ref, limit, ...(path ? { path } : {}) };
+  try {
+    const { data } = await apiClient.get(VC.REPO_COMMITS(owner, repo, q));
+    if (Array.isArray(data)) return data;
+    return data?.commits ?? data?.data ?? [];
+  } catch (err) {
+    try {
+      return await fetchCommitHistory(owner, repo, ref, { limit, path });
+    } catch {
+      throw new Error(extractApiError(err, "Failed to load commits."));
+    }
+  }
+}
+
+/**
+ * Compare two refs per `apiEndpoint.md` §5.6.
+ * @returns {Promise<{ baseCommit?: string, headCommit?: string, files?: unknown[] }>}
+ */
+export async function fetchRepositoryCompare(owner, repo, baseRef, headRef) {
+  try {
+    const { data } = await apiClient.get(
+      VC.REPO_COMPARE(owner, repo, baseRef, headRef),
+    );
+    return data && typeof data === "object" ? data : {};
+  } catch (err) {
+    throw new Error(extractApiError(err, "Failed to load compare."));
+  }
+}
+
+/**
+ * Best-effort UTF-8 text for diffing (contents JSON or raw tree bytes).
+ * @returns {Promise<string|null>} `null` if content is not decodable as text.
+ */
+export async function fetchRepositoryFileUtf8ForDiff(
+  owner,
+  repo,
+  filePath,
+  ref = "main",
+) {
+  try {
+    const { data } = await apiClient.get(
+      VC.REPO_CONTENTS(owner, repo, filePath, { ref }),
+    );
+    if (data?.encoding === "base64" && typeof data.content === "string") {
+      try {
+        const bin = atob(String(data.content).replace(/\s/g, ""));
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return tryDecodeUtf8(bytes);
+      } catch {
+        return null;
+      }
+    }
+    if (typeof data?.content === "string") return data.content;
+  } catch {
+    /* fall through */
+  }
+  try {
+    const bytes = await fetchFileContent(owner, repo, filePath, ref);
+    return tryDecodeUtf8(bytes);
+  } catch {
+    return null;
   }
 }

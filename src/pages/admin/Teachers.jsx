@@ -74,7 +74,7 @@ export default function Teachers() {
     setPage(1);
   }, [debouncedSearch, statusFilter]);
 
-  const { data: pageData, isLoading } = useTeachersPage({
+  const { data: pageData } = useTeachersPage({
     page: page - 1,
     pageSize,
     search: debouncedSearch,
@@ -430,10 +430,10 @@ export default function Teachers() {
           <TableBody>
             {teachers.map((teacher) => (
               <TableRow key={teacher.id}>
+              {console.log(teacher)}
                 <TableColumn className="w-10">
                   <Checkbox />
                 </TableColumn>
-
                 <TableColumn className="font-mono text-xs">
                   #{String(teacher.code).padStart(2, "0")}
                 </TableColumn>

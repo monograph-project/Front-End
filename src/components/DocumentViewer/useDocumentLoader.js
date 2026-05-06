@@ -9,6 +9,7 @@ export function useDocumentLoader({
   repo,
   filePath,
   branch = "main",
+  blobSha = null,
   enabled = true,
 }) {
   const [bytes, setBytes] = useState(null);
@@ -24,7 +25,13 @@ export function useDocumentLoader({
     setLoading(true);
     setError(null);
     try {
-      const b = await fetchFileContent(owner, repo, filePath, branch);
+      const b = await fetchFileContent(
+        owner,
+        repo,
+        filePath,
+        branch,
+        blobSha,
+      );
       setBytes(b);
     } catch (e) {
       setError(e?.message ?? "LOAD_ERROR");
@@ -32,7 +39,7 @@ export function useDocumentLoader({
     } finally {
       setLoading(false);
     }
-  }, [enabled, owner, repo, filePath, branch]);
+  }, [enabled, owner, repo, filePath, branch, blobSha]);
 
   useEffect(() => {
     reload();

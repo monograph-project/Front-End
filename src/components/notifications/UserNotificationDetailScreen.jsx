@@ -4,7 +4,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, isValid, parseISO } from "date-fns";
 import { useAuth } from "../../context/AuthContext";
-import { useMarkNotificationRead, useNotification } from "../../services/useApi";
+import {
+  useMarkNotificationRead,
+  useNotification,
+} from "../../services/useApi";
 import Button from "../Button";
 import IC from "../IC";
 import Icon from "../Icon";
@@ -39,7 +42,8 @@ function formatDetailDate(raw) {
 }
 
 /**
- * Single-message detail for the signed-in user’s notification.
+ * Single-message detail for the signed-in user's notification.
+ * Redesigned with modern, refined luxury-minimalism aesthetic.
  * @param {string} basePath - inbox path for back navigation (no trailing slash)
  */
 export default function UserNotificationDetailScreen({ basePath }) {
@@ -82,11 +86,7 @@ export default function UserNotificationDetailScreen({ basePath }) {
 
   const subject = notificationSubject(data ?? {});
   const body =
-    data?.body ??
-    data?.message ??
-    data?.content ??
-    data?.description ??
-    "";
+    data?.body ?? data?.message ?? data?.content ?? data?.description ?? "";
   const typeKey = String(data?.type ?? "custom")
     .toLowerCase()
     .replace(/-/g, "_");
@@ -105,8 +105,7 @@ export default function UserNotificationDetailScreen({ basePath }) {
     .toLowerCase()
     .replace(/-/g, "_");
   const statusDisplay =
-    data?.status &&
-    i18n.exists(`adminShared.notificationStatus.${statusKey}`)
+    data?.status && i18n.exists(`adminShared.notificationStatus.${statusKey}`)
       ? t(`adminShared.notificationStatus.${statusKey}`)
       : data?.status != null
         ? String(data.status)
@@ -123,10 +122,18 @@ export default function UserNotificationDetailScreen({ basePath }) {
 
   if (!notificationId) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-light-app-bg p-6 dark:bg-dark-shell">
-        <p className="text-sm text-(--color-light-text-muted) dark:text-dark-text-muted">
-          {t("notificationInbox.invalidId")}
-        </p>
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-gradient-to-br from-light-app-bg via-white to-light-app-tertiary p-6 dark:from-dark-app-bg dark:via-dark-shell dark:to-dark-app-tertiary">
+        <div className="animate-fade-in">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-light-app-tertiary dark:bg-dark-app-tertiary">
+            <Icon
+              d={IC.bell}
+              className="h-8 w-8 text-light-text-muted dark:text-dark-text-muted"
+            />
+          </div>
+          <p className="text-center text-sm font-medium text-light-text-muted dark:text-dark-text-muted">
+            {t("notificationInbox.invalidId")}
+          </p>
+        </div>
         <Button variant="secondary" onClick={() => navigate(inboxPath)}>
           {t("notificationInbox.back")}
         </Button>
@@ -136,10 +143,14 @@ export default function UserNotificationDetailScreen({ basePath }) {
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-light-app-bg p-8 dark:bg-dark-shell">
-        <div className="flex items-center gap-2 text-sm text-(--color-light-text-muted) dark:text-dark-text-muted">
-          <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          {t("notificationInbox.loading")}
+      <div className="flex flex-1 items-center justify-center bg-gradient-to-br from-light-app-bg via-white to-light-app-tertiary p-8 dark:from-dark-app-bg dark:via-dark-shell dark:to-dark-app-tertiary">
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative h-10 w-10">
+            <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-blue-500 border-r-blue-400 dark:border-t-blue-400 dark:border-r-blue-300" />
+          </div>
+          <p className="text-sm font-medium text-light-text-muted dark:text-dark-text-muted">
+            {t("notificationInbox.loading")}
+          </p>
         </div>
       </div>
     );
@@ -147,17 +158,23 @@ export default function UserNotificationDetailScreen({ basePath }) {
 
   if (isError || !data) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-light-app-bg p-6 text-center dark:bg-dark-shell">
-        <Icon
-          d={IC.bell}
-          className="mx-auto size-12 text-(--color-light-text-muted) dark:text-dark-text-muted"
-        />
-        <h2 className="text-lg font-semibold text-primary dark:text-dark-primary">
-          {t("notificationInbox.notFound")}
-        </h2>
-        <p className="max-w-md text-sm text-(--color-light-text-muted) dark:text-dark-text-muted">
-          {error?.message ? String(error.message) : t("notificationInbox.notFoundHint")}
-        </p>
+      <div className="flex flex-1 flex-col items-center justify-center gap-5 bg-gradient-to-br from-light-app-bg via-white to-light-app-tertiary p-6 dark:from-dark-app-bg dark:via-dark-shell dark:to-dark-app-tertiary">
+        <div className="animate-fade-in">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-light-error-bg dark:bg-dark-error-bg">
+            <Icon
+              d={IC.bell}
+              className="h-8 w-8 text-light-error-text dark:text-dark-error-text"
+            />
+          </div>
+          <h2 className="mb-2 text-center text-lg font-semibold text-light-text-primary dark:text-dark-text-primary">
+            {t("notificationInbox.notFound")}
+          </h2>
+          <p className="max-w-md text-center text-sm text-light-text-secondary dark:text-dark-text-secondary">
+            {error?.message
+              ? String(error.message)
+              : t("notificationInbox.notFoundHint")}
+          </p>
+        </div>
         <Button variant="secondary" onClick={() => navigate(inboxPath)}>
           {t("notificationInbox.back")}
         </Button>
@@ -165,61 +182,96 @@ export default function UserNotificationDetailScreen({ basePath }) {
     );
   }
 
+  // Determine accent color based on channel
+  const channelColorMap = {
+    "IN-APP": "from-blue-500 to-blue-600",
+    EMAIL: "from-purple-500 to-purple-600",
+    PUSH: "from-emerald-500 to-emerald-600",
+    SMS: "from-orange-500 to-orange-600",
+  };
+  const accentGradient =
+    channelColorMap[channelRaw] || "from-slate-400 to-slate-500";
+
   return (
-    <div className="flex flex-1 flex-col gap-4 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
+    <div className="flex w-full  flex-col gap-0 overflow-y-auto bg-gradient-to-br from-light-app-bg via-light-app-secondary to-white p-4 dark:from-dark-app-bg dark:via-dark-shell dark:to-dark-app-secondary md:p-6">
+      {/* Header Navigation */}
+      <div className="mb-6 flex items-center justify-between">
+        <button
           type="button"
-          variant="tertiary"
-          icon={<Icon d={IC.chevLeft} className="size-4 stroke-2" />}
           onClick={() => navigate(inboxPath)}
+          className="inline-flex w-fit items-center gap-2 rounded-xl border border-default bg-bg-shell px-3 py-2 text-xs font-semibold text-secondary transition-colors hover:bg-hover dark:border-dark-default dark:bg-dark-shell dark:text-dark-secondary dark:hover:bg-dark-hover"
         >
+          <Icon d={IC.chevLeft} className="size-3.5 stroke-[2]" />
           {t("notificationInbox.back")}
-        </Button>
+        </button>
       </div>
 
-      <article
-        className={[
-          "mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-(--color-light-card-border) border-l-4 bg-(--color-light-card-bg) shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:shadow-black/25",
-          notificationChannelStripeClass(channelRaw),
-        ].join(" ")}
-      >
-        <header className="border-b border-light-divider px-5 py-4 dark:border-dark-divider md:px-6 md:py-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-(--color-light-text-muted) dark:text-dark-text-muted">
-                {t("notificationInbox.messageLabel")}
-              </p>
-              <h1 className="mt-1 text-lg font-bold leading-snug text-(--color-light-text-primary) dark:text-(--color-dark-text-primary) md:text-xl">
-                {subject || t("notificationInbox.noSubject")}
-              </h1>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+      {/* Main Content Card with accent stripe */}
+      <div className="animate-slide-up mx-auto w-full max-w-6xl">
+        <article className="relative overflow-hidden rounded-2xl border border-light-card-border shadow-lg dark:border-dark-card-border dark:shadow-2xl">
+          {/* Decorative gradient accent bar */}
+          <div
+            className={`absolute top-0 left-0 h-1 w-full bg-gradient-to-r ${accentGradient}`}
+          />
+          {/* Header Section */}
+          <header className="relative bg-light-card-bg dark:bg-dark-card-bg px-6 py-8 md:px-8 md:py-10">
+            {/* Subtle background pattern */}
+            <div className="absolute inset-0 opacity-30 dark:opacity-10">
+              <svg
+                className="h-full w-full"
+                viewBox="0 0 100 100"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <defs>
+                  <pattern
+                    id="dot-pattern"
+                    x="0"
+                    y="0"
+                    width="20"
+                    height="20"
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <circle cx="10" cy="10" r="0.5" fill="currentColor" />
+                  </pattern>
+                </defs>
+                <rect width="100" height="100" fill="url(#dot-pattern)" />
+              </svg>
+            </div>
+
+            <div className="relative">
+              {/* Type, Channel, Direction Pills */}
+              <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span
                   className={[
-                    "rounded-full border px-2.5 py-0.5 text-[10px] font-semibold",
+                    "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all hover:shadow-sm",
                     notificationTypePillClasses(data?.type),
                   ].join(" ")}
                 >
+                  <span className="h-2 w-2 rounded-full opacity-60" />
                   {typeLabel}
                 </span>
                 {channelLabel ? (
                   <span
                     className={[
-                      "rounded-full border px-2.5 py-0.5 text-[10px] font-semibold",
+                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all hover:shadow-sm",
                       notificationChannelPillClasses(channelRaw),
                     ].join(" ")}
                   >
+                    <span className="h-2 w-2 rounded-full opacity-60" />
                     {channelLabel}
                   </span>
                 ) : null}
                 <span
                   className={[
-                    "rounded-full border px-2.5 py-0.5 text-[10px] font-semibold",
+                    "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all hover:shadow-sm",
                     incoming
-                      ? "border-(--color-light-success-border) bg-(--color-light-success-bg) text-(--color-light-success-text) dark:border-(--color-dark-success-border) dark:bg-(--color-dark-success-bg) dark:text-(--color-dark-success-text)"
-                      : "border-(--color-light-card-border) bg-(--color-light-app-secondary) text-(--color-light-text-secondary) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-app-secondary) dark:text-(--color-dark-text-secondary)",
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+                      : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
                   ].join(" ")}
                 >
+                  <span
+                    className={`h-2 w-2 rounded-full ${incoming ? "bg-emerald-500" : "bg-slate-400"}`}
+                  />
                   {incoming
                     ? t("notificationInbox.directionToYou")
                     : t("notificationInbox.directionOtherRecipient")}
@@ -227,57 +279,90 @@ export default function UserNotificationDetailScreen({ basePath }) {
                 {data?.status ? (
                   <StatusPill
                     variant={notificationStatusVariant(data.status)}
-                    dot={false}
+                    dot={true}
                   >
                     {statusDisplay}
                   </StatusPill>
                 ) : null}
               </div>
+
+              {/* Subject/Title */}
+              <div className="mb-6">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+                  {t("notificationInbox.messageLabel")}
+                </p>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-light-text-primary dark:text-dark-text-primary leading-tight">
+                  {subject || (
+                    <span className="text-light-text-muted dark:text-dark-text-muted opacity-50">
+                      {t("notificationInbox.noSubject")}
+                    </span>
+                  )}
+                </h1>
+              </div>
+
+              {/* Metadata Grid */}
+              {(sentDisplay || channelLabel || reference) && (
+                <div className="grid gap-4 border-t border-light-card-border pt-6 dark:border-dark-card-border sm:grid-cols-3">
+                  {sentDisplay ? (
+                    <div>
+                      <dt className="mb-1 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+                        {t("notificationInbox.received")}
+                      </dt>
+                      <dd className="font-medium text-light-text-primary dark:text-dark-text-primary">
+                        {sentDisplay}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {channelLabel ? (
+                    <div>
+                      <dt className="mb-1 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+                        {t("notificationInbox.channel")}
+                      </dt>
+                      <dd className="font-medium text-light-text-primary dark:text-dark-text-primary">
+                        {channelLabel}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {reference !== "" && reference != null ? (
+                    <div className="sm:col-span-1">
+                      <dt className="mb-1 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+                        {t("notificationInbox.reference")}
+                      </dt>
+                      <dd className="font-mono text-xs text-light-text-secondary dark:text-dark-text-secondary break-all">
+                        {String(reference)}
+                      </dd>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          </header>
+          {/* Body Section */}
+          <div className="border-t border-light-card-border px-6 py-8 dark:border-dark-card-border md:px-8 md:py-10">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+              {t("notificationInbox.body")}
+            </p>
+            <div className="relative rounded-xl border border-light-card-border bg-light-app-secondary p-5 text-light-text-primary dark:border-dark-card-border dark:bg-dark-app-secondary dark:text-dark-text-primary">
+              {/* Subtle corners accent */}
+              <div className="absolute top-0 left-0 h-8 w-8 border-l-2 border-t-2 border-blue-200 rounded-tl-lg opacity-20 dark:border-blue-800" />
+              <div className="absolute bottom-0 right-0 h-8 w-8 border-r-2 border-b-2 border-blue-200 rounded-br-lg opacity-20 dark:border-blue-800" />
+
+              <p className="relative whitespace-pre-wrap text-sm leading-relaxed font-light">
+                {body ? (
+                  body
+                ) : (
+                  <span className="text-light-text-muted dark:text-dark-text-muted opacity-50">
+                    {t("notificationInbox.noBody")}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
-          <dl className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
-            {sentDisplay ? (
-              <div className="flex gap-2">
-                <dt className="shrink-0 text-(--color-light-text-muted) dark:text-dark-text-muted">
-                  {t("notificationInbox.received")}
-                </dt>
-                <dd className="font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                  {sentDisplay}
-                </dd>
-              </div>
-            ) : null}
-            {channelLabel ? (
-              <div className="flex gap-2">
-                <dt className="shrink-0 text-(--color-light-text-muted) dark:text-dark-text-muted">
-                  {t("notificationInbox.channel")}
-                </dt>
-                <dd className="font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                  {channelLabel}
-                </dd>
-              </div>
-            ) : null}
-            {reference !== "" && reference != null ? (
-              <div className="flex gap-2 sm:col-span-2">
-                <dt className="shrink-0 text-(--color-light-text-muted) dark:text-dark-text-muted">
-                  {t("notificationInbox.reference")}
-                </dt>
-                <dd className="min-w-0 break-all font-mono text-[11px] text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
-                  {String(reference)}
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-        </header>
+        </article>
+      </div>
 
-        <div className="px-5 py-5 md:px-6 md:py-6">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-(--color-light-text-muted) dark:text-dark-text-muted">
-            {t("notificationInbox.body")}
-          </p>
-          <div className="mt-3 rounded-xl border border-(--color-light-card-border) bg-light-app-secondary px-4 py-4 text-sm leading-relaxed text-(--color-light-text-primary) whitespace-pre-wrap dark:border-(--color-dark-card-border) dark:bg-dark-app-secondary dark:text-(--color-dark-text-primary)">
-            {body ? body : t("notificationInbox.noBody")}
-          </div>
-        </div>
-      </article>
+      {/* Footer Spacing */}
+      <div className="mt-8" />
     </div>
   );
 }
