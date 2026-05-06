@@ -13,7 +13,7 @@ export function BlogShell({ children, className, variant = "feed" }) {
   return (
     <div
       className={cn(
-        "min-h-screen w-full bg-shell  text-primary dark:bg-dark-shell dark:text-dark-primary",
+        "min-h-screen w-full bg-white  text-light-btn-primary-disabled-text  dark:bg-dark-app-secondary  dark:text-dark-text-primary",
         className,
       )}
     >

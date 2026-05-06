@@ -276,7 +276,7 @@ export default function Students() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
+    <div className="flex flex-1 min-h-screen  flex-col gap-6 overflow-y-auto bg-white  p-4 md:p-5 dark:bg-dark-card-bg">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="mb-1 text-2xl font-bold text-primary dark:text-dark-primary">
@@ -579,23 +579,22 @@ export default function Students() {
             )}
           </TableBody>
         </Table>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          totalItems={totalElements}
-          pageSize={pageSize}
-          onPageChange={(nextPage, nextSize) => {
-            if (nextSize !== pageSize) {
-              setPageSize(nextSize);
-              setPage(1);
-              return;
-            }
-            setPage(nextPage);
-          }}
-        />
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={totalElements}
+            pageSize={pageSize}
+            onPageChange={(nextPage, nextSize) => {
+              if (nextSize !== pageSize) {
+                setPageSize(nextSize);
+                setPage(1);
+                return;
+              }
+              setPage(nextPage);
+            }}
+          />
+        </div>
       </div>
 
       {deleteStudentId != null ? (

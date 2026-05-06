@@ -1,6 +1,12 @@
 import { GooeyToaster } from "goey-toast";
 import "goey-toast/styles.css";
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+} from "react-router-dom";
 import { AppTooltipProvider } from "./components/Tooltip";
 import GuestRoute from "./routes/GuestRoute";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -46,6 +52,7 @@ import Home from "./pages/blog/Home";
 import UserProfile from "./pages/admin/Profile";
 import NotificationDetail from "./pages/admin/NotificationDetail";
 import StudentProfile from "./pages/admin/StudentProfile";
+import StudentProfileStudent from "./pages/student/Profile";
 import StudentRegisterPage from "./pages/admin/StudentRegisterPage";
 import StudentEditPage from "./pages/admin/StudentEditPage";
 import TeacherRegisterPage from "./pages/admin/TeacherRegisterPage";
@@ -77,229 +84,266 @@ export default function App() {
   return (
     <ThemeProvider>
       <AppTooltipProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public blog / stories — dedicated marketing header; read anonymously, write when signed in */}
-          <Route element={<PublicWebsiteLayout />}>
-            <Route index element={<Home />} />
-            <Route path="topic/:topic" element={<TopicFeed />} />
-            <Route path="story/:id" element={<StoryDetailPage />} />
-            <Route path="about" element={<About />} />
-            <Route path="download" element={<Download />} />
-            <Route path="documentation" element={<Documentation />} />
-            <Route
-              element={
-                <ProtectedRoute allowedRoles={[...PUBLIC_SITE_MEMBER_ROLES]}>
-                  <Outlet />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="write" element={<WriteStory />} />
-              <Route path="library" element={<ReaderLibrary />} />
-              <Route path="writer/profile" element={<Profile />} />
+        <BrowserRouter>
+          <Routes>
+            {/* Public blog / stories — dedicated marketing header; read anonymously, write when signed in */}
+            <Route element={<PublicWebsiteLayout />}>
+              <Route index element={<Home />} />
+              <Route path="topic/:topic" element={<TopicFeed />} />
+              <Route path="story/:id" element={<StoryDetailPage />} />
+              <Route path="about" element={<About />} />
+              <Route path="download" element={<Download />} />
+              <Route path="documentation" element={<Documentation />} />
+              <Route
+                element={
+                  <ProtectedRoute allowedRoles={[...PUBLIC_SITE_MEMBER_ROLES]}>
+                    <Outlet />
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="write" element={<WriteStory />} />
+                <Route path="library" element={<ReaderLibrary />} />
+                <Route path="writer/profile" element={<Profile />} />
+              </Route>
             </Route>
-          </Route>
 
-          <Route
-            path="/login"
-            element={
-              <GuestRoute>
-                <Login />
-              </GuestRoute>
-            }
-          />
-          <Route
-            path="/signup"
-            element={
-              <GuestRoute>
-                <Signup />
-              </GuestRoute>
-            }
-          />
-          <Route
-            path="/forgot-password"
-            element={
-              <GuestRoute>
-                <ForgotPassword />
-              </GuestRoute>
-            }
-          />
+            <Route
+              path="/login"
+              element={
+                <GuestRoute>
+                  <Login />
+                </GuestRoute>
+              }
+            />
+            <Route
+              path="/signup"
+              element={
+                <GuestRoute>
+                  <Signup />
+                </GuestRoute>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <GuestRoute>
+                  <ForgotPassword />
+                </GuestRoute>
+              }
+            />
 
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <Applayout>
-                  <AppSidebar />
-                </Applayout>
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="users" element={<Users />} />
-            <Route path="users/:id" element={<UserProfile />} />
-            <Route path="student/new" element={<StudentRegisterPage />} />
-            <Route path="student/:id/edit" element={<StudentEditPage />} />
-            <Route path="student" element={<Student />} />
-            <Route path="student/:id" element={<StudentProfile />} />
-            <Route path="teacher/new" element={<TeacherRegisterPage />} />
-            <Route path="teacher/:id/edit" element={<TeacherEditPage />} />
-            <Route path="teacher/:id" element={<TeacherProfile />} />
-            <Route path="teacher" element={<Teacher />} />
-            <Route path="employee/new" element={<EmployeeRegisterPage />} />
-            <Route path="employee/:id/edit" element={<EmployeeEditPage />} />
-            <Route path="employee" element={<Employee />} />
-            <Route path="employee/:id" element={<EmployeeProfile />} />
-            <Route path="notification" element={<Notification />} />
-            <Route path="notification/:id" element={<NotificationDetail />} />
-            <Route path="department" element={<Department />} />
-            <Route path="department/:id" element={<DepartmentProfile />} />
-            <Route path="projects" element={<Projects />} />
             <Route
-              path="projects/register"
-              element={<ProjectRegistrationPage />}
-            />
-            <Route
-              path="projects/register/:id"
-              element={<ProjectRegistrationPage />}
-            />
-            <Route
-              path="projects/groups/register"
-              element={<GroupRegistrationPage />}
-            />
-            <Route
-              path="projects/groups/register/:id"
-              element={<GroupRegistrationPage />}
-            />
-            <Route
-              path="projects/workspace/:id"
-              element={<ProjectWorkspace />}
-            />
-            <Route
-              path="projects/:owner/:repo"
-              element={<ProjectWorkspace />}
-            />
-            <Route path="blogs" element={<Blog />} />
-            <Route path="blogs/:id" element={<BlogDetailPage />} />
-            <Route path="setting" element={<Setting />} />
-            <Route path="report" element={<Reports />} />
-          </Route>
-
-          <Route
-            path="/teacher"
-            element={
-              <ProtectedRoute allowedRoles={["teacher"]}>
-                <Applayout>
-                  <AppSidebar />
-                </Applayout>
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="notifications" element={<TeacherNotifications />} />
-            <Route path="notifications/:id" element={<TeacherNotificationDetail />} />
-            <Route path="settings" element={<Setting />} />
-          </Route>
-
-          <Route
-            path="/student"
-            element={
-              <ProtectedRoute allowedRoles={["student"]}>
-                <StudentActivityProvider>
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
                   <Applayout>
                     <AppSidebar />
                   </Applayout>
-                </StudentActivityProvider>
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<StudentDashboard />} />
-            <Route path="projects" element={<Navigate to="workspace" replace />} />
-            <Route path="repositories" element={<Navigate to="workspace" replace />} />
-            <Route path="tasks" element={<Navigate to="workspace" replace />} />
-            <Route path="contributors" element={<Navigate to="workspace" replace />} />
-            <Route path="workspace" element={<StudentWorkspace />} />
-            <Route
-              path="workspace/repositories/new"
-              element={<StudentNewRepository />}
-            />
-            <Route path="notifications" element={<StudentNotifications />} />
-            <Route path="notifications/:id" element={<StudentNotificationDetail />} />
-            <Route path="settings" element={<StudentSettings />} />
-            <Route path="repository/:owner/:repo" element={<StudentRepositoryLayout />}>
-              <Route index element={<StudentRepoCode />} />
-              <Route path="pull-requests" element={<StudentRepoPullRequests />} />
-              <Route path="tasks" element={<StudentRepoTasks />} />
-              <Route path="contributors" element={<StudentRepoContributors />} />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="users" element={<Users />} />
+              <Route path="users/:id" element={<UserProfile />} />
+              <Route path="student/new" element={<StudentRegisterPage />} />
+              <Route path="student/:id/edit" element={<StudentEditPage />} />
+              <Route path="student" element={<Student />} />
+              <Route path="student/:id" element={<StudentProfile />} />
+              <Route path="teacher/new" element={<TeacherRegisterPage />} />
+              <Route path="teacher/:id/edit" element={<TeacherEditPage />} />
+              <Route path="teacher/:id" element={<TeacherProfile />} />
+              <Route path="teacher" element={<Teacher />} />
+              <Route path="employee/new" element={<EmployeeRegisterPage />} />
+              <Route path="employee/:id/edit" element={<EmployeeEditPage />} />
+              <Route path="employee" element={<Employee />} />
+              <Route path="employee/:id" element={<EmployeeProfile />} />
+              <Route path="notification" element={<Notification />} />
+              <Route path="notification/:id" element={<NotificationDetail />} />
+              <Route path="department" element={<Department />} />
+              <Route path="department/:id" element={<DepartmentProfile />} />
+              <Route path="projects" element={<Projects />} />
+              <Route
+                path="projects/register"
+                element={<ProjectRegistrationPage />}
+              />
+              <Route
+                path="projects/register/:id"
+                element={<ProjectRegistrationPage />}
+              />
+              <Route
+                path="projects/groups/register"
+                element={<GroupRegistrationPage />}
+              />
+              <Route
+                path="projects/groups/register/:id"
+                element={<GroupRegistrationPage />}
+              />
+              <Route
+                path="projects/workspace/:id"
+                element={<ProjectWorkspace />}
+              />
+              <Route
+                path="projects/:owner/:repo"
+                element={<ProjectWorkspace />}
+              />
+              <Route path="blogs" element={<Blog />} />
+              <Route path="blogs/:id" element={<BlogDetailPage />} />
+              <Route path="setting" element={<Setting />} />
+              <Route path="report" element={<Reports />} />
             </Route>
-          </Route>
 
-          <Route
-            path="/staff"
-            element={
-              <ProtectedRoute allowedRoles={["teacher"]}>
-                <Applayout>
-                  <AppSidebar />
-                </Applayout>
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="notifications" element={<StaffNotifications />} />
-            <Route path="notifications/:id" element={<StaffNotificationDetail />} />
-            <Route path="settings" element={<Setting />} />
-          </Route>
+            <Route
+              path="/teacher"
+              element={
+                <ProtectedRoute allowedRoles={["teacher"]}>
+                  <Applayout>
+                    <AppSidebar />
+                  </Applayout>
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="notifications" element={<TeacherNotifications />} />
+              <Route
+                path="notifications/:id"
+                element={<TeacherNotificationDetail />}
+              />
+              <Route path="settings" element={<Setting />} />
+            </Route>
 
-          <Route
-            path="/dean"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <Applayout>
-                  <AppSidebar />
-                </Applayout>
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="notifications" element={<DeanNotifications />} />
-            <Route path="notifications/:id" element={<DeanNotificationDetail />} />
-            <Route path="setting" element={<Setting />} />
-          </Route>
+            <Route
+              path="/student"
+              element={
+                <ProtectedRoute allowedRoles={["student"]}>
+                  <StudentActivityProvider>
+                    <Applayout>
+                      <AppSidebar />
+                    </Applayout>
+                  </StudentActivityProvider>
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<StudentDashboard />} />
+              <Route
+                path="projects"
+                element={<Navigate to="workspace" replace />}
+              />
+              <Route
+                path="repositories"
+                element={<Navigate to="workspace" replace />}
+              />
+              <Route
+                path="tasks"
+                element={<Navigate to="workspace" replace />}
+              />
+              <Route
+                path="contributors"
+                element={<Navigate to="workspace" replace />}
+              />
+              <Route path="workspace" element={<StudentWorkspace />} />
+              <Route
+                path="workspace/repositories/new"
+                element={<StudentNewRepository />}
+              />
+              <Route path="notifications" element={<StudentNotifications />} />
+              <Route
+                path="notifications/:id"
+                element={<StudentNotificationDetail />}
+              />
+              <Route path="settings" element={<StudentSettings />} />
+              <Route path="profile" element={<StudentProfileStudent />} />
+              <Route
+                path="repository/:owner/:repo"
+                element={<StudentRepositoryLayout />}
+              >
+                <Route index element={<StudentRepoCode />} />
+                <Route
+                  path="pull-requests"
+                  element={<StudentRepoPullRequests />}
+                />
+                <Route path="tasks" element={<StudentRepoTasks />} />
+                <Route
+                  path="contributors"
+                  element={<StudentRepoContributors />}
+                />
+              </Route>
+            </Route>
 
-          <Route
-            path="/author"
-            element={
-              <ProtectedRoute allowedRoles={["author"]}>
-                <Applayout>
-                  <AppSidebar />
-                </Applayout>
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<AuthorDashboard />} />
-            <Route path="writing" element={<WriteStory />} />
-            <Route path="published" element={<AuthorPublished />} />
-            <Route path="notifications" element={<AuthorNotifications />} />
-            <Route path="notifications/:id" element={<AuthorNotificationDetail />} />
-            <Route path="settings" element={<Setting />} />
-          </Route>
+            <Route
+              path="/staff"
+              element={
+                <ProtectedRoute allowedRoles={["teacher"]}>
+                  <Applayout>
+                    <AppSidebar />
+                  </Applayout>
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="notifications" element={<StaffNotifications />} />
+              <Route
+                path="notifications/:id"
+                element={<StaffNotificationDetail />}
+              />
+              <Route path="settings" element={<Setting />} />
+            </Route>
 
-          <Route path="/unauthorized" element={<Unauthorized />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-      <GooeyToaster
-        position="top-right"
-        toastOptions={{
-          style: { zIndex: 2147483647 },
-        }}
-      />
+            <Route
+              path="/dean"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <Applayout>
+                    <AppSidebar />
+                  </Applayout>
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="notifications" element={<DeanNotifications />} />
+              <Route
+                path="notifications/:id"
+                element={<DeanNotificationDetail />}
+              />
+              <Route path="setting" element={<Setting />} />
+            </Route>
+
+            <Route
+              path="/author"
+              element={
+                <ProtectedRoute allowedRoles={["author"]}>
+                  <Applayout>
+                    <AppSidebar />
+                  </Applayout>
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AuthorDashboard />} />
+              <Route path="writing" element={<WriteStory />} />
+              <Route path="published" element={<AuthorPublished />} />
+              <Route path="notifications" element={<AuthorNotifications />} />
+              <Route
+                path="notifications/:id"
+                element={<AuthorNotificationDetail />}
+              />
+              <Route path="settings" element={<Setting />} />
+            </Route>
+
+            <Route path="/unauthorized" element={<Unauthorized />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+        <GooeyToaster
+          position="top-right"
+          toastOptions={{
+            style: { zIndex: 2147483647 },
+          }}
+        />
       </AppTooltipProvider>
     </ThemeProvider>
   );

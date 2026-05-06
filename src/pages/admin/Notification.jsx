@@ -2,5 +2,9 @@ import AdminNotificationInboxTable from "../../components/admin/AdminNotificatio
 
 /** Admin notifications as a data table (parity with Students UI). */
 export default function Notification() {
-  return <AdminNotificationInboxTable basePath="/admin/notification" />;
+  return (
+    <div className=" w-full bg-white dark:bg-dark-card-bg min-h-screen">
+      <AdminNotificationInboxTable basePath="/admin/notification" />;
+    </div>
+  );
 }

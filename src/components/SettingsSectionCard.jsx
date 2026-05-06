@@ -12,7 +12,7 @@ export default function SettingsSectionCard({
   return (
     <section
       className={cn(
-        "rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)",
+        "rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg)  dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)",
         className,
       )}
     >

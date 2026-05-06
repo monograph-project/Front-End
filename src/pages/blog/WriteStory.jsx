@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { gooeyToast } from "goey-toast";
 import { Link, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -55,8 +49,7 @@ function insertAtCaret(editorEl, node) {
   if (anchor.nodeType !== Node.ELEMENT_NODE && anchor.parentElement) {
     anchor = anchor.parentElement;
   }
-  const inside =
-    anchor instanceof Element && editorEl.contains(anchor);
+  const inside = anchor instanceof Element && editorEl.contains(anchor);
   if (!inside) {
     editorEl.appendChild(node);
     return;
@@ -153,14 +146,13 @@ export default function WriteStory() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const userInitial =
-    (
-      user?.first_name?.[0] ||
-      user?.last_name?.[0] ||
-      user?.user_name?.[0] ||
-      user?.email?.[0] ||
-      "U"
-    ).toUpperCase();
+  const userInitial = (
+    user?.first_name?.[0] ||
+    user?.last_name?.[0] ||
+    user?.user_name?.[0] ||
+    user?.email?.[0] ||
+    "U"
+  ).toUpperCase();
 
   const initialDraft = useMemo(() => {
     const defaults = {
@@ -186,8 +178,7 @@ export default function WriteStory() {
         visibility: data.visibility || "public",
         cover: data.cover || null,
         body: data.body || "",
-        restoredAt:
-          typeof data.lastSaved === "number" ? data.lastSaved : null,
+        restoredAt: typeof data.lastSaved === "number" ? data.lastSaved : null,
       };
     } catch {
       return defaults;
@@ -239,7 +230,9 @@ export default function WriteStory() {
       queryClient.invalidateQueries({ queryKey: ["articles"] });
       const nextId = data?.id ?? data?.articleId;
       if (nextId) {
-        gooeyToast.success(t("writerStory.success.draftWithId", { id: nextId }));
+        gooeyToast.success(
+          t("writerStory.success.draftWithId", { id: nextId }),
+        );
       }
     },
     showSuccessToast: false,
@@ -309,12 +302,15 @@ export default function WriteStory() {
     editorRef.current?.focus();
   };
 
-  const appendOrInsert = useCallback((el) => {
-    const ed = editorRef.current;
-    if (!ed) return;
-    insertAtCaret(ed, el);
-    autosave();
-  }, [autosave]);
+  const appendOrInsert = useCallback(
+    (el) => {
+      const ed = editorRef.current;
+      if (!ed) return;
+      insertAtCaret(ed, el);
+      autosave();
+    },
+    [autosave],
+  );
 
   const insertImageFile = useCallback(
     (file) => {
@@ -439,7 +435,8 @@ export default function WriteStory() {
             : "";
         if (!url?.trim()) return;
         const embed = document.createElement("div");
-        embed.className = "my-8 w-full overflow-hidden rounded-sm bg-neutral-50 dark:bg-zinc-900";
+        embed.className =
+          "my-8 w-full overflow-hidden rounded-sm bg-neutral-50 dark:bg-zinc-900";
         embed.innerHTML = `<iframe src="${encodeURI(url.trim())}" class="aspect-video min-h-[240px] w-full" title="Embedded content" referrerpolicy="no-referrer" loading="lazy" />`;
         appendOrInsert(embed);
         return;
@@ -491,7 +488,8 @@ export default function WriteStory() {
       ];
     }
     const subtitleStr = subtitle.trim();
-    const desc = subtitleStr || (tagsArr.length ? tagsArr.join(", ") : undefined);
+    const desc =
+      subtitleStr || (tagsArr.length ? tagsArr.join(", ") : undefined);
     return {
       title: title.trim(),
       subtitle: subtitleStr || undefined,
@@ -502,7 +500,9 @@ export default function WriteStory() {
       visibility: mapAudienceToVisibility(visibility),
       contentType: contentKind === "MONOGRAPH" ? "MONOGRAPH" : "WEBLOG",
       coverImageUrl:
-        typeof cover === "string" && cover.startsWith("http") ? cover : undefined,
+        typeof cover === "string" && cover.startsWith("http")
+          ? cover
+          : undefined,
     };
   };
 
@@ -523,7 +523,9 @@ export default function WriteStory() {
       fd.append("blocks", JSON.stringify(base.blocks ?? []));
       fd.append(
         "tags",
-        Array.isArray(base.tags) ? base.tags.join(",") : String(base.tags ?? ""),
+        Array.isArray(base.tags)
+          ? base.tags.join(",")
+          : String(base.tags ?? ""),
       );
       fd.append("visibility", String(base.visibility ?? "PUBLIC"));
       fd.append(
@@ -575,16 +577,14 @@ export default function WriteStory() {
   };
 
   return (
-    <div className="min-h-full bg-white pb-28 text-neutral-900 dark:bg-zinc-950 dark:text-neutral-50">
-      <header
-        className="sticky top-0 z-20 flex h-[52px] items-center justify-between gap-4 border-b border-neutral-200/90 bg-white/90 px-4 backdrop-blur-md dark:border-neutral-800 dark:bg-zinc-950/90 sm:px-6"
-      >
+    <div className="min-h-full bg-white pb-28 text-neutral-900 dark:bg-dark-app-secondary dark:text-neutral-50">
+      <header className="sticky top-0 z-20 flex h-[56px] items-center justify-between gap-4 border-b border-neutral-200/90 bg-white/90 px-4 backdrop-blur-md dark:border-neutral-800 dark:bg-zinc-950/90 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/"
             className="font-blog-display truncate text-xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50"
           >
-            Campus
+            KDR.Write
           </Link>
           <span className="hidden text-sm text-neutral-400 sm:inline dark:text-neutral-500">
             {t("writerStory.meta.draft")}
@@ -596,7 +596,7 @@ export default function WriteStory() {
           ) : null}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <div className="flex shrink-0 items-center justify-between gap-1 sm:gap-2">
           <button
             type="button"
             disabled={!canPublish || submitBusy}
@@ -679,7 +679,10 @@ export default function WriteStory() {
                   value={visibility}
                   onChange={(val) => setVisibility(val)}
                   options={[
-                    { value: "public", label: t("writerStory.audience.public") },
+                    {
+                      value: "public",
+                      label: t("writerStory.audience.public"),
+                    },
                     {
                       value: "unlisted",
                       label: t("writerStory.audience.unlisted"),
@@ -725,22 +728,10 @@ export default function WriteStory() {
               </div>
             </DropdownContent>
           </DropdownMenuRoot>
-
-          <button
-            type="button"
-            title={t("writerStory.notificationsBell")}
-            className="flex size-9 items-center justify-center rounded-full text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-zinc-800"
-          >
-            <Bell className="size-[18px]" strokeWidth={1.85} />
-          </button>
-
-          <div className="ms-1 flex size-8 items-center justify-center rounded-full bg-amber-800 text-xs font-semibold uppercase text-white shadow-inner dark:bg-amber-900">
-            {userInitial}
-          </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[680px] px-6 sm:px-10">
+      <main className="mx-auto w-full max-w-6xl px-6 sm:px-10">
         <div className="pt-14 sm:pt-16">
           <input
             ref={titleRef}
@@ -770,7 +761,9 @@ export default function WriteStory() {
           </figure>
         )}
 
-        <div className={`mt-10 flex flex-wrap items-center gap-2 ${cover ? "" : ""}`}>
+        <div
+          className={`mt-10 flex flex-wrap items-center gap-2 ${cover ? "" : ""}`}
+        >
           {toolbarOpen ? (
             <>
               <ToolChip
@@ -836,9 +829,7 @@ export default function WriteStory() {
             spellCheck
             onDrop={handleDrop}
             onPaste={handlePaste}
-            onInput={(e) =>
-              setIsBodyEmpty(!e.currentTarget.innerText.trim())
-            }
+            onInput={(e) => setIsBodyEmpty(!e.currentTarget.innerText.trim())}
             className="font-blog-serif relative z-[1] min-h-[50vh] w-full border-0 bg-transparent pb-24 text-xl leading-[1.8] text-neutral-900 outline-none empty:before:text-neutral-400 focus:outline-none dark:text-neutral-100"
           />
         </div>
@@ -884,8 +875,7 @@ export default function WriteStory() {
               className="blog-article-prose mt-6 text-neutral-900 dark:text-neutral-100"
               dangerouslySetInnerHTML={{
                 __html:
-                  previewHTML ||
-                  `<p>${t("writerStory.preview.emptyBody")}</p>`,
+                  previewHTML || `<p>${t("writerStory.preview.emptyBody")}</p>`,
               }}
             />
           </div>

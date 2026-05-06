@@ -42,7 +42,11 @@ export default function UserNotificationInbox({ basePath }) {
   const [filter, setFilter] = useState("all");
   const debouncedSearch = useDebouncedValue(search, 300);
 
-  const { data: pageData, isLoading, isError } = useUserNotifications(
+  const {
+    data: pageData,
+    isLoading,
+    isError,
+  } = useUserNotifications(
     userId,
     { page: 0, size: 100 },
     { enabled: Boolean(userId), notifyOnError: true },
@@ -122,7 +126,7 @@ export default function UserNotificationInbox({ basePath }) {
   ];
 
   return (
-    <div className="flex flex-1 flex-col gap-4 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+    <div className="flex flex-1 flex-col gap-4 overflow-y-auto bg-white p-4 md:p-5 dark:bg-dark-app-secondary">
       <header className="flex flex-col gap-1 border-b border-light-divider pb-4 dark:border-dark-divider sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-primary dark:text-dark-primary md:text-2xl">

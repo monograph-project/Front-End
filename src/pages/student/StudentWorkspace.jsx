@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import {
   BookMarked,
   Briefcase,
+  Eye,
   GitFork,
+  GitBranch,
   Globe2,
   LayoutGrid,
   List,
@@ -50,12 +52,7 @@ function forkFlag(item) {
 
 function visibilityKind(v) {
   const s = String(v ?? "").toLowerCase();
-  if (
-    s === "private" ||
-    s === "internal" ||
-    s === "limit" ||
-    s === "hidden"
-  ) {
+  if (s === "private" || s === "internal" || s === "limit" || s === "hidden") {
     return "private";
   }
   return "public";
@@ -77,12 +74,26 @@ function languageLabel(item) {
     item?.primaryLanguage ??
     item?.repository?.language ??
     "";
-  return typeof lang === "string" && lang.trim()
-    ? lang.trim()
-    : "";
+  return typeof lang === "string" && lang.trim() ? lang.trim() : "";
 }
 
-/** @typedef {'contributions' | 'mine' | 'forks' | 'admin' | 'projects'} WorkspaceNav */
+function visibilityStyle(v) {
+  return visibilityKind(v) === "private"
+    ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900/60"
+    : "bg-green-50 text-green-700 border-green-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/60";
+}
+
+function languageDotColor(language) {
+  const colors = {
+    TypeScript: "#3178c6",
+    JavaScript: "#f7df1e",
+    Python: "#3776ab",
+    Markdown: "#083fa1",
+  };
+  return colors[language] || "#858585";
+}
+
+/** @typedef {'contributions' | 'mine' | 'forks' | 'admin' | 'milestones' | 'pullRequests' | 'projects'} WorkspaceNav */
 
 export default function StudentWorkspace() {
   const { t, i18n } = useTranslation();
@@ -96,7 +107,9 @@ export default function StudentWorkspace() {
       : "";
 
   /** @type {[ 'repos' | 'projects', React.Dispatch<React.SetStateAction<'repos' | 'projects'>> ]} */
-  const [mainPanel, setMainPanel] = useState(/** @type {'repos' | 'projects'} */ ("repos"));
+  const [mainPanel, setMainPanel] = useState(
+    /** @type {'repos' | 'projects'} */ ("repos"),
+  );
   /** @type {[Exclude<WorkspaceNav, 'projects'>, import('react').Dispatch<import('react').SetStateAction<Exclude<WorkspaceNav, 'projects'>>>]} */
   const [repoFilter, setRepoFilter] = useState(
     /** @type {Exclude<WorkspaceNav, 'projects'>} */ ("contributions"),
@@ -112,24 +125,28 @@ export default function StudentWorkspace() {
   });
   const studentEntityId = student?.id ?? null;
 
-  const { data: repoList = [], isLoading: reposLoading } = useVcRepositoriesForViewer(
-    vcOwnerAccountId,
-    {
+  const { data: repoList = [], isLoading: reposLoading } =
+    useVcRepositoriesForViewer(vcOwnerAccountId, {
       enabled: Boolean(vcOwnerAccountId),
       notifyOnError: false,
       activityUsernameFallback: vcLogin,
-    },
-  );
+    });
 
   const queriesEnabled = Boolean(studentEntityId);
-  const { data: facultyGroups = [] } = useFacultyGroups({}, {
-    enabled: queriesEnabled,
-    notifyOnError: false,
-  });
-  const { data: facultyProjects = [] } = useFacultyProjects({}, {
-    enabled: queriesEnabled,
-    notifyOnError: false,
-  });
+  const { data: facultyGroups = [] } = useFacultyGroups(
+    {},
+    {
+      enabled: queriesEnabled,
+      notifyOnError: false,
+    },
+  );
+  const { data: facultyProjects = [] } = useFacultyProjects(
+    {},
+    {
+      enabled: queriesEnabled,
+      notifyOnError: false,
+    },
+  );
 
   const { memberGroupIds, assignedProjects } = useMemo(() => {
     const groups = Array.isArray(facultyGroups) ? facultyGroups : [];
@@ -172,6 +189,7 @@ export default function StudentWorkspace() {
       );
     }
     if (nav === "forks") return normalizedRepos.filter((r) => forkFlag(r));
+    if (nav === "milestones" || nav === "pullRequests") return normalizedRepos;
     if (nav === "admin") {
       /* Same scope as ownership until VC exposes administrators */
       return normalizedRepos.filter(
@@ -213,10 +231,24 @@ export default function StudentWorkspace() {
   }, [searchedRepos, sort, i18n.language]);
 
   const sidebarNavItems = /** @type {const} */ ([
-    { id: "contributions", label: "studentWorkspace.nav.contributions" },
-    { id: "mine", label: "studentWorkspace.nav.myRepos" },
-    { id: "forks", label: "studentWorkspace.nav.forks" },
-    { id: "admin", label: "studentWorkspace.nav.adminAccess" },
+    {
+      id: "contributions",
+      label: "studentWorkspace.nav.contributions",
+      icon: BookMarked,
+    },
+    { id: "mine", label: "studentWorkspace.nav.myRepos", icon: Briefcase },
+    { id: "forks", label: "studentWorkspace.nav.forks", icon: GitFork },
+    {
+      id: "milestones",
+      label: "studentWorkspace.nav.milestones",
+      icon: Globe2,
+    },
+    {
+      id: "pullRequests",
+      label: "studentWorkspace.nav.pullRequests",
+      icon: GitBranch,
+    },
+    { id: "admin", label: "studentWorkspace.nav.adminAccess", icon: Lock },
   ]);
 
   const pageTitle =
@@ -226,6 +258,10 @@ export default function StudentWorkspace() {
         ? t("studentWorkspace.page.mine")
         : nav === "forks"
           ? t("studentWorkspace.page.forks")
+          : nav === "milestones"
+            ? t("studentWorkspace.page.milestones")
+            : nav === "pullRequests"
+              ? t("studentWorkspace.page.pullRequests")
           : nav === "admin"
             ? t("studentWorkspace.page.admin")
             : t("studentWorkspace.page.projects");
@@ -242,9 +278,8 @@ export default function StudentWorkspace() {
   const showSearchShell = nav !== "projects";
 
   return (
-    <div className="min-h-screen flex-1 bg-light-app-bg dark:bg-dark-shell">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-0 md:flex-row">
-      
+    <div className="min-h-screen flex-1 bg-white dark:bg-dark-app-secondary">
+      <div className="mx-auto flex w-full  flex-col gap-0 md:flex-row">
         <main className="min-w-0 flex-1 p-4 md:p-5">
           <div
             className="mb-6 flex flex-wrap gap-2 border-b border-light-divider pb-3 dark:border-dark-divider"
@@ -282,20 +317,33 @@ export default function StudentWorkspace() {
           </div>
 
           {mainPanel === "repos" ? (
-            <div className="mb-5 flex flex-wrap gap-2" aria-label={t("studentWorkspace.repoScopeAria")}>
+            <div
+              className="table-toolbar-tabs mb-5 flex max-w-full flex-wrap p-1"
+              role="tablist"
+              aria-label={t("studentWorkspace.repoScopeAria")}
+            >
               {sidebarNavItems.map((item) => (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setRepoFilter(/** @type {typeof repoFilter} */ (item.id))}
+                  role="tab"
+                  aria-selected={repoFilter === item.id}
+                  onClick={() =>
+                    setRepoFilter(/** @type {typeof repoFilter} */ (item.id))
+                  }
                   className={cn(
-                    "rounded-lg border px-3 py-1.5 text-[12px] font-semibold transition-colors",
-                    repoFilter === item.id
-                      ? "border-(--color-light-input-border-focus) bg-accent/10 text-primary dark:border-(--color-dark-input-border-focus) dark:bg-[rgba(0,102,255,0.12)] dark:text-dark-primary"
-                      : "border-(--color-light-card-border) text-secondary hover:border-(--color-light-input-border) hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:text-dark-primary",
+                    "table-toolbar-tab",
+                    repoFilter === item.id && "table-toolbar-tab--active",
                   )}
                 >
-                  {t(item.label)}
+                  <span className="inline-flex items-center gap-2">
+                    <item.icon
+                      className="h-4 w-4 shrink-0"
+                      strokeWidth={1.5}
+                      aria-hidden
+                    />
+                    {t(item.label)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -303,7 +351,7 @@ export default function StudentWorkspace() {
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight text-primary dark:text-dark-primary md:text-3xl">
+              <h1 className="text-xl font-semibold tracking-tight text-primary dark:text-dark-primary md:text-3xl">
                 {pageTitle}
               </h1>
               {showSearchShell ? (
@@ -323,7 +371,11 @@ export default function StudentWorkspace() {
               >
                 <Button
                   icon={
-                    <Plus className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+                    <Plus
+                      className="size-4 shrink-0"
+                      strokeWidth={2}
+                      aria-hidden
+                    />
                   }
                   type="button"
                   variant="primary"
@@ -335,12 +387,6 @@ export default function StudentWorkspace() {
             ) : null}
           </div>
 
-          {!studentEntityId && (
-            <p className="mt-4 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 text-sm leading-relaxed text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
-              {t("studentWorkspace.warnNoStudent")}
-            </p>
-          )}
-
           {showSearchShell && (
             <>
               <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -348,7 +394,10 @@ export default function StudentWorkspace() {
                   <div className="pointer-events-none absolute inset-s-3 top-1/2 -translate-y-1/2 text-muted dark:text-dark-muted">
                     <Search className="size-4" strokeWidth={2} aria-hidden />
                   </div>
-                  <label htmlFor="student-workspace-repo-search" className="sr-only">
+                  <label
+                    htmlFor="student-workspace-repo-search"
+                    className="sr-only"
+                  >
                     {t("studentWorkspace.search.label")}
                   </label>
                   <input
@@ -358,7 +407,7 @@ export default function StudentWorkspace() {
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={t("studentWorkspace.search.placeholder")}
                     autoComplete="off"
-                    className="h-9 w-full rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) py-1.5 ps-9 pe-20 text-xs text-(--color-light-text-primary) outline-none transition-colors placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
+                    className="h-9 w-full rounded-md border border-(--color-light-input-border) bg-(--color-light-input-bg) py-1.5 ps-9 pe-20 text-xs text-(--color-light-text-primary) outline-none transition-colors placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
                   />
                   <div className="pointer-events-none absolute inset-e-10 top-1/2 -translate-y-1/2">
                     <span className="rounded-md border border-(--color-light-input-border) bg-light-app-tertiary px-2 py-0.5 font-mono text-[10px] font-medium text-secondary dark:border-dark-input-border dark:bg-dark-app-tertiary dark:text-dark-secondary">
@@ -406,7 +455,7 @@ export default function StudentWorkspace() {
                       aria-label={t("studentWorkspace.view.listAria")}
                       aria-pressed={layoutMode === "list"}
                     >
-                      <List className="size-4" strokeWidth={2} aria-hidden />
+                      <List className="size-4" strokeWidth={1.5} aria-hidden />
                     </button>
                     <button
                       type="button"
@@ -420,7 +469,11 @@ export default function StudentWorkspace() {
                       aria-pressed={layoutMode === "grid"}
                       aria-label={t("studentWorkspace.view.gridAria")}
                     >
-                      <LayoutGrid className="size-4" strokeWidth={2} aria-hidden />
+                      <LayoutGrid
+                        className="size-4"
+                        strokeWidth={1.5}
+                        aria-hidden
+                      />
                     </button>
                   </div>
                 </div>
@@ -442,21 +495,33 @@ export default function StudentWorkspace() {
                 </p>
               ) : null}
 
-              {!reposLoading && layoutMode === "list" && filteredRepos.length ? (
+              {!reposLoading &&
+              layoutMode === "list" &&
+              filteredRepos.length ? (
                 <ul
-                  className="mt-4 divide-y divide-light-divider overflow-hidden rounded-xl border border-(--color-light-card-border) dark:divide-dark-divider dark:border-(--color-dark-card-border)"
+                  className="mt-4 flex flex-col gap-y-1 overflow-hidden rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-2 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
                   aria-label={t("studentWorkspace.list.aria")}
                 >
                   {filteredRepos.map((item) => (
-                    <RepoListRow key={`${item.ownerUsername}/${item.repositoryName}`} item={item} />
+                    <RepoListRow
+                      key={`${item.ownerUsername}/${item.repositoryName}`}
+                      item={item}
+                      t={t}
+                    />
                   ))}
                 </ul>
               ) : null}
 
-              {!reposLoading && layoutMode === "grid" && filteredRepos.length ? (
+              {!reposLoading &&
+              layoutMode === "grid" &&
+              filteredRepos.length ? (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {filteredRepos.map((item) => (
-                    <RepoGridCard key={`${item.ownerUsername}/${item.repositoryName}`} item={item} t={t} />
+                    <RepoGridCard
+                      key={`${item.ownerUsername}/${item.repositoryName}`}
+                      item={item}
+                      t={t}
+                    />
                   ))}
                 </div>
               ) : null}
@@ -480,7 +545,11 @@ export default function StudentWorkspace() {
                 <div className="grid gap-3 md:grid-cols-2">
                   {assignedProjects.map((proj) => {
                     const pname =
-                      proj.projectName ?? proj.name ?? proj.title ?? proj.id ?? "—";
+                      proj.projectName ??
+                      proj.name ??
+                      proj.title ??
+                      proj.id ??
+                      "—";
                     const repoField =
                       proj.projectRepository ??
                       proj.project_repository ??
@@ -495,7 +564,7 @@ export default function StudentWorkspace() {
                     return (
                       <div
                         key={String(proj.id ?? proj.uuid)}
-                        className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"
+                        className="rounded-md border border-(--color-light-card-border) bg-light-app-tertiary p-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"
                       >
                         <p className="text-sm font-semibold text-primary dark:text-dark-primary">
                           {pname}
@@ -525,11 +594,15 @@ export default function StudentWorkspace() {
 /**
  * @param {{ item: object, t: import('i18next').TFunction }} props
  */
-function RepoListRow({ item }) {
+function RepoListRow({ item, t }) {
   const owner = item.ownerUsername;
   const name = item.repositoryName;
   const to = `/student/repository/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   const visibility = visibilityKind(item.visibility);
+  const visibilityLabel =
+    visibility === "private"
+      ? t("studentWorkspace.repositories.private")
+      : t("studentWorkspace.repositories.public");
   const lang = languageLabel(item);
   const stars = coalesceNumber(
     item.stars,
@@ -539,54 +612,69 @@ function RepoListRow({ item }) {
     item.watchers_count /* some APIs reuse */,
   );
   const forks = coalesceNumber(item.forks, item.forks_count, item.forksCount);
+  const updatedAt = item.updatedAt
+    ? new Date(item.updatedAt).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "";
 
   return (
-    <li className="bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)">
+    <li>
       <Link
         to={to}
-        className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-light-app-tertiary dark:hover:bg-dark-app-tertiary"
+        className="block rounded-lg border border-[#e4e8ef] bg-white p-4 transition-colors hover:border-[#cfd7e6] hover:bg-[#f7f8fa] dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-dark-app-tertiary"
       >
-        <span className="inline-flex shrink-0 text-muted dark:text-dark-muted">
-          {visibility === "private" ? (
-            <Lock className="size-4" strokeWidth={2} aria-hidden />
-          ) : (
-            <Globe2 className="size-4" strokeWidth={2} aria-hidden />
-          )}
-        </span>
-        <div className="min-w-0 flex-1 basis-[220px]">
-          <span className="font-mono text-sm font-semibold text-primary dark:text-dark-primary">
-            {owner}/{name}
-          </span>
-          {item.description ? (
-            <p className="mt-0.5 line-clamp-1 text-xs text-secondary dark:text-dark-secondary">
-              {item.description}
-            </p>
-          ) : null}
-        </div>
-        <div className="ms-auto flex flex-wrap items-center gap-4 text-xs text-muted dark:text-dark-muted">
-          {lang ? (
-            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="cursor-pointer text-sm font-semibold text-[#0a1224] hover:text-[#0066ff] dark:text-dark-text-primary dark:hover:text-(--color-chart-blue-secondary)">
+                {name}
+              </h4>
               <span
-                className="size-2.5 shrink-0 rounded-full bg-accent dark:bg-accent"
-                aria-hidden
-              />
-              <span>{lang}</span>
-            </span>
-          ) : null}
-          <span className="inline-flex items-center gap-4">
-            {forks != null ? (
-              <span className="inline-flex items-center gap-1 font-medium text-secondary dark:text-dark-secondary">
-                <GitFork className="size-4" strokeWidth={2} aria-hidden />
-                {forks}
+                className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${visibilityStyle(item.visibility)}`}
+              >
+                {visibilityLabel}
               </span>
-            ) : null}
-            {stars != null ? (
-              <span className="inline-flex items-center gap-1 font-medium text-secondary dark:text-dark-secondary">
-                <Star className="size-4" strokeWidth={2} aria-hidden />
-                {stars}
-              </span>
-            ) : null}
-          </span>
+            </div>
+
+            <p className="mt-2 line-clamp-2 text-xs text-[#5f6f87] dark:text-dark-text-secondary">
+              {item.description || t("studentWorkspace.repositories.noDesc")}
+            </p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[#5f6f87] dark:text-dark-text-secondary">
+              {lang ? (
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full"
+                    style={{ backgroundColor: languageDotColor(lang) }}
+                  />
+                  <span>{lang}</span>
+                </div>
+              ) : null}
+
+              <div className="flex items-center gap-1">
+                <Star className="h-3 w-3" />
+                <span>{stars != null ? stars : "—"}</span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <GitBranch className="h-3 w-3" />
+                <span>{forks != null ? forks : "—"}</span>
+              </div>
+
+              {updatedAt ? (
+                <span className="text-[#98a2b3] dark:text-dark-text-muted">
+                  {t("studentWorkspace.repositories.updated")} {updatedAt}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="flex-shrink-0">
+            <Eye className="h-4 w-4 cursor-pointer text-[#98a2b3] hover:text-[#0a1224] dark:text-dark-text-muted dark:hover:text-dark-text-primary" />
+          </div>
         </div>
       </Link>
     </li>
@@ -601,6 +689,10 @@ function RepoGridCard({ item, t }) {
   const name = item.repositoryName;
   const to = `/student/repository/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   const visibility = visibilityKind(item.visibility);
+  const visibilityLabel =
+    visibility === "private"
+      ? t("studentWorkspace.repositories.private")
+      : t("studentWorkspace.repositories.public");
   const lang = languageLabel(item);
   const stars = coalesceNumber(
     item.stars,
@@ -609,40 +701,72 @@ function RepoGridCard({ item, t }) {
     item.stargazers_count,
   );
   const forks = coalesceNumber(item.forks, item.forks_count, item.forksCount);
+  const updatedAt = item.updatedAt
+    ? new Date(item.updatedAt).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "";
 
   return (
     <Link
       to={to}
-      className="flex flex-col gap-2 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 shadow-sm transition-colors hover:border-(--color-light-input-border-focus) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:border-(--color-dark-input-border-focus)"
+      className="rounded-lg border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 transition-colors hover:border-(--color-light-input-border) hover:bg-[#f7f8fa] dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-dark-app-tertiary"
     >
-      <div className="flex items-start gap-2">
-        {visibility === "private" ? (
-          <Lock className="mt-0.5 size-4 shrink-0 text-muted dark:text-dark-muted" strokeWidth={2} aria-hidden />
-        ) : (
-          <BookMarked className="mt-0.5 size-4 shrink-0 text-muted dark:text-dark-muted" strokeWidth={2} aria-hidden />
-        )}
-        <p className="min-w-0 wrap-break-word font-mono text-sm font-semibold text-primary dark:text-dark-primary">
-          {owner}/{name}
-        </p>
-      </div>
-      <p className="line-clamp-3 min-h-11 text-xs leading-relaxed text-secondary dark:text-dark-secondary">
-        {item.description || t("studentWorkspace.repositories.noDesc")}
-      </p>
-      <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-light-divider pt-2 text-[11px] text-muted dark:border-dark-divider dark:text-dark-muted">
-        {lang ? (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-accent" aria-hidden />
-            {lang}
-          </span>
-        ) : null}
-        <span className="inline-flex items-center gap-1">
-          <GitFork className="size-3.5" strokeWidth={2} aria-hidden />
-          {forks != null ? forks : "—"}
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Star className="size-3.5" strokeWidth={2} aria-hidden />
-          {stars != null ? stars : "—"}
-        </span>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-sm font-semibold text-[#0a1224] dark:text-dark-text-primary">
+              {owner}/{name}
+            </span>
+            <span
+              className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${visibilityStyle(item.visibility)}`}
+            >
+              {visibilityLabel}
+            </span>
+          </div>
+
+          <p className="mt-2 line-clamp-2 text-xs text-[#5f6f87] dark:text-dark-text-secondary">
+            {item.description || t("studentWorkspace.repositories.noDesc")}
+          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[#5f6f87] dark:text-dark-text-secondary">
+            {lang ? (
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ backgroundColor: languageDotColor(lang) }}
+                />
+                <span>{lang}</span>
+              </div>
+            ) : null}
+
+            <div className="flex items-center gap-1">
+              <Star className="h-3 w-3" />
+              <span>{stars != null ? stars : "—"}</span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <GitFork className="h-3 w-3" />
+              <span>{forks != null ? forks : "—"}</span>
+            </div>
+
+            {updatedAt ? (
+                <span className="text-[#98a2b3] dark:text-dark-text-muted">
+                  {t("studentWorkspace.repositories.updated")} {updatedAt}
+                </span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex-shrink-0">
+          {visibility === "private" ? (
+            <Lock className="h-4 w-4 text-[#98a2b3] dark:text-dark-text-muted" />
+          ) : (
+            <BookMarked className="h-4 w-4 text-[#98a2b3] dark:text-dark-text-muted" />
+          )}
+        </div>
       </div>
     </Link>
   );

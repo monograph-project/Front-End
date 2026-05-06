@@ -1,5 +1,9 @@
 import UserNotificationInbox from "../../components/notifications/UserNotificationInbox";
 
 export default function Notifications() {
-  return <UserNotificationInbox basePath="/student/notifications" />;
+  return (
+    <div className=" w-full min-h-screen bg-white dark:bg-dark-app-secondary ">
+      <UserNotificationInbox basePath="/student/notifications" />
+    </div>
+  );
 }

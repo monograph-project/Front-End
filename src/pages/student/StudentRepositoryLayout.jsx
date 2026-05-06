@@ -1,29 +1,40 @@
 import { NavLink, Outlet, Navigate, useParams } from "react-router-dom";
 import {
   BookMarked,
+  ChevronDown,
+  Eye,
   GitFork,
   GitPullRequest,
   LayoutGrid,
   ListTodo,
+  PencilLine,
   Star,
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
-import Button from "../../components/Button";
 import { useVcRepository } from "../../services/useApi";
 
 function tabClass(active) {
   return cn(
-    "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors sm:gap-2.5",
+    "inline-flex items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium transition-colors",
     active
       ? "border-(--color-light-input-border-focus) text-primary dark:border-(--color-dark-input-border-focus) dark:text-dark-primary"
       : "border-transparent text-muted hover:border-(--color-light-card-border) hover:text-secondary dark:text-dark-muted dark:hover:border-(--color-dark-card-border) dark:hover:text-dark-secondary",
   );
 }
 
-function countOrDash(v) {
-  if (v == null) return "—";
+function repoActionClass(disabled = false) {
+  return cn(
+    "inline-flex h-9 items-center gap-2 rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 text-sm font-semibold text-secondary transition-colors dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-secondary",
+    disabled
+      ? "cursor-not-allowed opacity-55"
+      : "hover:border-(--color-light-input-border) hover:bg-(--color-light-card-hover) hover:text-primary dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary",
+  );
+}
+
+function countOrZero(v) {
+  if (v == null) return "0";
   const n = Number(v);
   return Number.isNaN(n) ? String(v) : String(n);
 }
@@ -56,54 +67,118 @@ export default function StudentRepositoryLayout() {
     meta?.stars ??
     meta?.stargazers_count ??
     meta?.counts?.stars ??
-    null;
+    0;
   const forkCount =
     meta?.forks_count ??
     meta?.forksCount ??
     meta?.forks ??
     meta?.counts?.forks ??
-    null;
+    0;
   const watchCount =
-    meta?.watchers_count ??
-    meta?.subscriptions_count ??
-    meta?.watch_count ??
-    null;
+    meta?.watchers_count ?? meta?.subscriptions_count ?? meta?.watch_count ?? 0;
+  const summary =
+    meta?.description ||
+    (isLoading
+      ? t("studentRepo.shell.loadingSubtitle")
+      : isError
+        ? t("studentRepo.shell.errorSubtitle")
+        : t("studentRepo.shell.placeholderSubtitle"));
 
   if (!decodedOwner.trim() || !decodedRepo.trim()) {
     return <Navigate to="/student/workspace" replace />;
   }
 
   return (
-    <div className="min-h-screen flex-1 bg-light-app-bg dark:bg-dark-shell">
-      <div className="border-b border-light-divider bg-(--color-light-card-bg) dark:border-dark-divider dark:bg-(--color-dark-card-bg)">
-        <div className="mx-auto flex max-w-7xl px-4 py-2 md:px-6">
-          <p className="font-mono text-xs text-muted dark:text-dark-muted">
-            <NavLink
-              to="/student/workspace"
-              className="text-primary underline-offset-4 hover:underline dark:text-dark-primary"
-            >
-              {t("studentRepo.shell.back")}
-            </NavLink>
-            <span aria-hidden className="mx-1.5 opacity-60">
-              /
-            </span>
-            <span className="font-semibold text-secondary dark:text-dark-secondary">
-              {decodedOwner}
-            </span>
-            <span
-              className="mx-1 text-muted opacity-75 dark:text-dark-muted"
-              aria-hidden
-            >
-              /
-            </span>
-            <span className="text-secondary dark:text-dark-secondary">
-              {decodedRepo}
-            </span>
-          </p>
+    <div className="min-h-screen flex-1 bg-white dark:bg-dark-card-bg">
+      <div className="mx-auto  px-4 py-6 md:px-6 lg:px-8">
+        <div className="mb-3 text-xs text-muted dark:text-dark-muted">
+          <NavLink
+            to="/student/workspace"
+            className="transition-colors hover:text-(--color-chart-blue-primary) dark:hover:text-(--color-chart-blue-secondary)"
+          >
+            {t("studentRepo.shell.back")}
+          </NavLink>
+          <span className="mx-2 text-(--color-light-card-border) dark:text-(--color-dark-card-border)">
+            /
+          </span>
+          <span>{decodedOwner}</span>
         </div>
 
+        <header className="border-b border-(--color-light-card-border) pb-5 dark:border-(--color-dark-card-border)">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-(--color-light-card-border) bg-(--color-light-card-bg) text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
+                <BookMarked className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <h1 className="truncate text-2xl font-semibold tracking-tight text-primary md:text-[2rem] dark:text-dark-primary">
+                    {decodedRepo}
+                  </h1>
+                  {visibility ? (
+                    <span className="inline-flex rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-2.5 py-0.5 text-xs font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                      {String(visibility)}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-secondary dark:text-dark-secondary">
+                  {summary}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className={repoActionClass(true)} disabled>
+                <PencilLine className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+                {t("studentRepo.actions.editPins")}
+                <ChevronDown
+                  className="h-4 w-4"
+                  strokeWidth={1.7}
+                  aria-hidden
+                />
+              </button>
+              <button type="button" className={repoActionClass(true)} disabled>
+                <Eye className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+                {t("studentRepo.actions.watch")}
+                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-xs dark:border-(--color-dark-card-border)">
+                  {countOrZero(watchCount)}
+                </span>
+                <ChevronDown
+                  className="h-4 w-4"
+                  strokeWidth={1.7}
+                  aria-hidden
+                />
+              </button>
+              <button type="button" className={repoActionClass(true)} disabled>
+                <GitFork className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+                {t("studentRepo.actions.fork")}
+                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-xs dark:border-(--color-dark-card-border)">
+                  {countOrZero(forkCount)}
+                </span>
+                <ChevronDown
+                  className="h-4 w-4"
+                  strokeWidth={1.7}
+                  aria-hidden
+                />
+              </button>
+              <button type="button" className={repoActionClass(true)} disabled>
+                <Star className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+                {t("studentRepo.actions.star")}
+                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-xs dark:border-(--color-dark-card-border)">
+                  {countOrZero(starCount)}
+                </span>
+                <ChevronDown
+                  className="h-4 w-4"
+                  strokeWidth={1.7}
+                  aria-hidden
+                />
+              </button>
+            </div>
+          </div>
+        </header>
+
         <nav
-          className="mx-auto flex max-w-7xl flex-wrap gap-x-2 gap-y-1 border-t border-light-divider px-2 py-2 dark:border-dark-divider md:px-6"
+          className="mt-4 flex flex-wrap gap-x-6 border-b border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
           aria-label={t("studentRepo.shell.tabsAria")}
         >
           <NavLink
@@ -112,8 +187,8 @@ export default function StudentRepositoryLayout() {
             className={({ isActive }) => tabClass(isActive)}
           >
             <LayoutGrid
-              className="size-4 shrink-0 md:size-[18px]"
-              strokeWidth={2}
+              className="size-4 shrink-0"
+              strokeWidth={1.8}
               aria-hidden
             />
             {t("studentRepo.tabs.code")}
@@ -123,8 +198,8 @@ export default function StudentRepositoryLayout() {
             className={({ isActive }) => tabClass(isActive)}
           >
             <GitPullRequest
-              className="size-4 shrink-0 md:size-[18px]"
-              strokeWidth={2}
+              className="size-4 shrink-0"
+              strokeWidth={1.8}
               aria-hidden
             />
             {t("studentRepo.tabs.pulls")}
@@ -134,8 +209,8 @@ export default function StudentRepositoryLayout() {
             className={({ isActive }) => tabClass(isActive)}
           >
             <ListTodo
-              className="size-4 shrink-0 md:size-[18px]"
-              strokeWidth={2}
+              className="size-4 shrink-0"
+              strokeWidth={1.8}
               aria-hidden
             />
             {t("studentRepo.tabs.tasks")}
@@ -144,85 +219,21 @@ export default function StudentRepositoryLayout() {
             to={`${repoBase}/contributors`}
             className={({ isActive }) => tabClass(isActive)}
           >
-            <Users
-              className="size-4 shrink-0 md:size-[18px]"
-              strokeWidth={2}
-              aria-hidden
-            />
+            <Users className="size-4 shrink-0" strokeWidth={1.8} aria-hidden />
             {t("studentRepo.tabs.contributors")}
           </NavLink>
         </nav>
 
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 border-t border-light-divider px-4 py-5 dark:border-dark-divider md:flex-row md:items-center md:justify-between md:px-6">
-          <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <BookMarked
-              className="size-6 shrink-0 text-muted dark:text-dark-muted"
-              strokeWidth={2}
-              aria-hidden
-            />
-            <h2 className="truncate text-xl font-bold tracking-tight text-primary md:text-2xl dark:text-dark-primary">
-              {decodedRepo}
-            </h2>
-            {visibility ? (
-              <span className="inline-flex rounded-full border border-(--color-light-card-border) px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary dark:border-(--color-dark-card-border) dark:text-dark-secondary">
-                {String(visibility)}
-              </span>
-            ) : null}
-            <p className="basis-full text-xs leading-relaxed text-secondary dark:text-dark-secondary md:basis-auto md:max-w-xl">
-              {meta?.description ||
-                (isLoading
-                  ? t("studentRepo.shell.loadingSubtitle")
-                  : isError
-                    ? t("studentRepo.shell.errorSubtitle")
-                    : "")}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="tertiary"
-              className="h-8 min-h-8 gap-1.5 px-3 text-xs"
-            >
-              {t("studentRepo.actions.watch")}
-              <span className="font-semibold">{countOrDash(watchCount)}</span>
-            </Button>
-            <Button
-              type="button"
-              variant="tertiary"
-              className="h-8 min-h-8 gap-1.5 px-3 text-xs"
-            >
-              <GitFork
-                className="size-3.5 shrink-0"
-                strokeWidth={2}
-                aria-hidden
-              />
-              {countOrDash(forkCount)}
-            </Button>
-            <Button
-              type="button"
-              variant="tertiary"
-              className="h-8 min-h-8 gap-1.5 px-3 text-xs"
-            >
-              <Star
-                className="size-3.5 shrink-0 fill-current opacity-80"
-                strokeWidth={2}
-                aria-hidden
-              />
-              {countOrDash(starCount)}
-            </Button>
-          </div>
+        <div className="pt-6">
+          <Outlet
+            context={{
+              owner: decodedOwner,
+              repo: decodedRepo,
+              repositoryMeta: meta ?? null,
+              repoBase,
+            }}
+          />
         </div>
-      </div>
-
-      <div className="mx-auto w-full max-w-7xl px-4 py-4 md:px-6 md:py-6">
-        <Outlet
-          context={{
-            owner: decodedOwner,
-            repo: decodedRepo,
-            repositoryMeta: meta ?? null,
-            repoBase,
-          }}
-        />
       </div>
     </div>
   );

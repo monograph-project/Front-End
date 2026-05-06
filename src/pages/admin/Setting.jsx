@@ -40,7 +40,11 @@ function Setting() {
     };
     const rest = showOrgAdminPanels
       ? [
-          { id: "system", label: t("settings.tabs.system"), icon: SlidersHorizontal },
+          {
+            id: "system",
+            label: t("settings.tabs.system"),
+            icon: SlidersHorizontal,
+          },
           {
             id: "permissions",
             label: t("settings.tabs.permissions"),
@@ -65,7 +69,7 @@ function Setting() {
   const [activeTab, setActiveTab] = useState("account");
 
   return (
-    <div className="min-h-screen flex-1 bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
+    <div className=" flex-1 bg-white p-4 md:p-5 dark:bg-dark-card-bg min-h-screen">
       <div className="mx-auto w-full max-w-7xl space-y-6">
         <section className={`${SURFACE_CARD} overflow-hidden`}>
           <div className="border-b border-light-divider px-4 py-5 dark:border-dark-divider md:px-6">
@@ -96,7 +100,9 @@ function Setting() {
 
         <div>
           {activeTab === "account" && <UserAccountSettingsTab />}
-          {activeTab === "system" && showOrgAdminPanels && <SystemSettingsTab />}
+          {activeTab === "system" && showOrgAdminPanels && (
+            <SystemSettingsTab />
+          )}
           {activeTab === "permissions" && showOrgAdminPanels && (
             <PermissionSettingsTab />
           )}

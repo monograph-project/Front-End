@@ -178,7 +178,6 @@ function Blogs() {
     }
   };
 
-
   const hasFilters =
     activeStatus !== "all" || query.trim() || sortBy !== "newest";
 
@@ -248,7 +247,7 @@ function Blogs() {
     updateMutation.isPending;
 
   return (
-    <div className="flex min-h-screen flex-1 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
+    <div className="flex min-h-screen flex-1 overflow-y-auto bg-white  p-4 md:p-5 min-h-screen dark:bg-dark-card-bg">
       <div className="mx-auto w-full max-w-7xl space-y-6">
         <section className={`${SURFACE_CARD} overflow-hidden`}>
           <div className="relative border-b border-light-divider px-4 py-6 dark:border-dark-divider md:px-6 md:py-7">

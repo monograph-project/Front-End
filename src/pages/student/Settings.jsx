@@ -7,7 +7,7 @@ import LanguageSettingsTab from "../../components/LanguageSettingsTab";
 import UserAccountSettingsTab from "../../components/UserAccountSettingsTab";
 
 const SURFACE_CARD =
-  "rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
+  "rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg)  dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
 
 export default function StudentSettings() {
   const { t } = useTranslation();
@@ -20,7 +20,7 @@ export default function StudentSettings() {
   ];
 
   return (
-    <div className="min-h-screen flex-1 w-full  bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+    <div className="min-h-screen flex-1 w-full  bg-white p-4 md:p-5 dark:bg-dark-app-secondary">
       <div className="mx-auto w-full max-w-5xl space-y-6">
         <section className={`${SURFACE_CARD} overflow-hidden`}>
           <div className="border-b border-light-divider px-4 py-5 dark:border-dark-divider md:px-6">

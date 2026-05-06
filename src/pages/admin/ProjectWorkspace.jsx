@@ -65,7 +65,10 @@ function unwrapProjectRow(row) {
 function displayName(person, fallback = "-") {
   if (!person) return fallback;
   if (typeof person === "string") return person || fallback;
-  const full = [person.firstName, person.lastName].filter(Boolean).join(" ").trim();
+  const full = [person.firstName, person.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
   return (
     full ||
     person.displayName ||
@@ -121,7 +124,8 @@ function mergeOptions(...groups) {
 }
 
 function memberListFromGroup(group) {
-  const members = group?.groupMembers ?? group?.groupMember ?? group?.members ?? [];
+  const members =
+    group?.groupMembers ?? group?.groupMember ?? group?.members ?? [];
   return Array.isArray(members) ? members : [];
 }
 
@@ -134,8 +138,12 @@ function projectAcademicYearLabel(project) {
     academicYear?.title ??
     academicYear?.year;
   if (String(direct ?? "").trim()) return String(direct).trim();
-  const start = academicYear?.startDate ? new Date(academicYear.startDate).getFullYear() : Number.NaN;
-  const end = academicYear?.endDate ? new Date(academicYear.endDate).getFullYear() : Number.NaN;
+  const start = academicYear?.startDate
+    ? new Date(academicYear.startDate).getFullYear()
+    : Number.NaN;
+  const end = academicYear?.endDate
+    ? new Date(academicYear.endDate).getFullYear()
+    : Number.NaN;
   if (!Number.isNaN(start) && !Number.isNaN(end)) return `${start}-${end}`;
   if (!Number.isNaN(start)) return String(start);
   return "—";
@@ -153,22 +161,28 @@ function repositoryRowToOption(row) {
       "",
   ).trim();
   const name = String(row?.repositoryName ?? row?.name ?? "").trim();
-  const label = owner && name ? `${owner}/${name}` : name || owner || String(id || "");
+  const label =
+    owner && name ? `${owner}/${name}` : name || owner || String(id || "");
   const value = id ? String(id) : `${owner}/${name}`.trim();
   if (!value || !label) return null;
   return {
     value,
     label,
-    description: typeof row?.description === "string" ? row.description : undefined,
+    description:
+      typeof row?.description === "string" ? row.description : undefined,
   };
 }
 
-function repositorySelectedFallbackOption(project, formRepoId, repoOptions = []) {
+function repositorySelectedFallbackOption(
+  project,
+  formRepoId,
+  repoOptions = [],
+) {
   const v = String(formRepoId ?? "").trim();
   if (!v) return null;
-  const selectedFromOptions = (Array.isArray(repoOptions) ? repoOptions : []).find(
-    (option) => option?.value === v,
-  );
+  const selectedFromOptions = (
+    Array.isArray(repoOptions) ? repoOptions : []
+  ).find((option) => option?.value === v);
   if (selectedFromOptions) return selectedFromOptions;
   const nested = project?.projectRepository;
   const nestedId = nested?.id ?? nested?.repositoryId;
@@ -261,7 +275,7 @@ function buildRepoContributionYear(owner, repo, contributorId, seed, year) {
 
 /** Match admin `Projects.jsx` surfaces (tokens from `index.css`). */
 const SURFACE_CARD =
-  "rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
+  "rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg)  dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
 const SURFACE_INSET =
   "rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
 const SURFACE_BADGE =
@@ -396,23 +410,19 @@ const documentSections = [
 const proposalSections = [
   {
     title: "Introduction",
-    body:
-      "This project redesigns the faculty project workspace around contribution visibility, document structure, and academic project governance. The goal is to make research work easier to supervise and easier to evaluate.",
+    body: "This project redesigns the faculty project workspace around contribution visibility, document structure, and academic project governance. The goal is to make research work easier to supervise and easier to evaluate.",
   },
   {
     title: "Problem statement",
-    body:
-      "Current project tracking focuses on progress percentages but hides the real work: document revisions, proposal maturity, research milestones, and contributor consistency across time.",
+    body: "Current project tracking focuses on progress percentages but hides the real work: document revisions, proposal maturity, research milestones, and contributor consistency across time.",
   },
   {
     title: "Objectives",
-    body:
-      "Build a workspace that combines project status, contribution tracking, proposal sections, and document readiness in one reviewable admin surface.",
+    body: "Build a workspace that combines project status, contribution tracking, proposal sections, and document readiness in one reviewable admin surface.",
   },
   {
     title: "Expected outcome",
-    body:
-      "A GitHub-like research workspace where admins and supervisors can review both implementation progress and the quality of academic documentation.",
+    body: "A GitHub-like research workspace where admins and supervisors can review both implementation progress and the quality of academic documentation.",
   },
 ];
 
@@ -448,10 +458,26 @@ function ProjectWorkspace() {
   const queryClient = useQueryClient();
   const proposalTabDefs = useMemo(
     () => [
-      { id: "overview", label: t("adminProjectWorkspace.tabs.overview"), Icon: Target },
-      { id: "proposal", label: t("adminProjectWorkspace.tabs.proposal"), Icon: BookOpen },
-      { id: "documents", label: t("adminProjectWorkspace.tabs.documents"), Icon: FileText },
-      { id: "activity", label: t("adminProjectWorkspace.tabs.activity"), Icon: Activity },
+      {
+        id: "overview",
+        label: t("adminProjectWorkspace.tabs.overview"),
+        Icon: Target,
+      },
+      {
+        id: "proposal",
+        label: t("adminProjectWorkspace.tabs.proposal"),
+        Icon: BookOpen,
+      },
+      {
+        id: "documents",
+        label: t("adminProjectWorkspace.tabs.documents"),
+        Icon: FileText,
+      },
+      {
+        id: "activity",
+        label: t("adminProjectWorkspace.tabs.activity"),
+        Icon: Activity,
+      },
     ],
     [t],
   );
@@ -474,35 +500,37 @@ function ProjectWorkspace() {
   const debouncedInviteSearchTerm = useDebouncedValue(inviteSearchTerm, 300);
   const debouncedRepoSearchTerm = useDebouncedValue(repoSearchTerm, 300);
 
-  const { data: projectResponse, isLoading: projectLoading } = useFacultyProject(id, {
-    enabled: Boolean(id),
-    notifyOnError: true,
-  });
-  const project = useMemo(() => unwrapProjectRow(projectResponse), [projectResponse]);
+  const { data: projectResponse, isLoading: projectLoading } =
+    useFacultyProject(id, {
+      enabled: Boolean(id),
+      notifyOnError: true,
+    });
+  const project = useMemo(
+    () => unwrapProjectRow(projectResponse),
+    [projectResponse],
+  );
 
   const { data: studentPage } = useStudentsPage(
     { page: 0, pageSize: 500, notifyOnError: false },
     { staleTime: 60_000 },
   );
-  const { data: searchedStudents = [], isFetching: isSearchingInvitees } = useStudentSearch(
-    debouncedInviteSearchTerm,
-    {
+  const { data: searchedStudents = [], isFetching: isSearchingInvitees } =
+    useStudentSearch(debouncedInviteSearchTerm, {
       enabled: debouncedInviteSearchTerm.length > 0,
       staleTime: 30_000,
       notifyOnError: false,
-    },
-  );
-  const { data: repoHits = [], isFetching: repoSearchBusy } = useRepositorySearch(
-    debouncedRepoSearchTerm,
-    { notifyOnError: false },
-  );
+    });
+  const { data: repoHits = [], isFetching: repoSearchBusy } =
+    useRepositorySearch(debouncedRepoSearchTerm, { notifyOnError: false });
 
   const inviteProjectMembers = useInviteFacultyProjectMembers({
     toastSuccess: "adminProjectWorkspace.invite.success",
     toastError: "apiErrors.failed_to_update_faculty_project",
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["faculty-projects"] });
-      await queryClient.invalidateQueries({ queryKey: ["faculty-projects", "detail", id] });
+      await queryClient.invalidateQueries({
+        queryKey: ["faculty-projects", "detail", id],
+      });
       setInviteOpen(false);
       setSelectedInvitees([]);
       setInviteSearchTerm("");
@@ -514,14 +542,19 @@ function ProjectWorkspace() {
     toastError: "apiErrors.failed_to_update_faculty_project",
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["faculty-projects"] });
-      await queryClient.invalidateQueries({ queryKey: ["faculty-projects", "detail", id] });
+      await queryClient.invalidateQueries({
+        queryKey: ["faculty-projects", "detail", id],
+      });
       setConnectRepoOpen(false);
       setSelectedRepoId("");
       setRepoSearchTerm("");
     },
   });
 
-  const projectMembers = useMemo(() => memberListFromGroup(project?.group), [project]);
+  const projectMembers = useMemo(
+    () => memberListFromGroup(project?.group),
+    [project],
+  );
   const inviteeOptions = useMemo(
     () => normalizeStudentOptions(studentPage),
     [studentPage],
@@ -538,18 +571,34 @@ function ProjectWorkspace() {
     });
     inviteeOptions.forEach((option) => byId.set(option.value, option));
     searchedInviteeOptions.forEach((option) => byId.set(option.value, option));
-    return selectedInvitees.map((inviteeId) => byId.get(inviteeId)).filter(Boolean);
-  }, [inviteeOptions, projectMembers, searchedInviteeOptions, selectedInvitees]);
+    return selectedInvitees
+      .map((inviteeId) => byId.get(inviteeId))
+      .filter(Boolean);
+  }, [
+    inviteeOptions,
+    projectMembers,
+    searchedInviteeOptions,
+    selectedInvitees,
+  ]);
   const existingMemberIds = useMemo(
-    () => new Set(projectMembers.map((member) => studentIdValue(member)).filter(Boolean)),
+    () =>
+      new Set(
+        projectMembers.map((member) => studentIdValue(member)).filter(Boolean),
+      ),
     [projectMembers],
   );
   const inviteSelectOptions = useMemo(() => {
-    const filteredBase = mergeOptions(searchedInviteeOptions, inviteeOptions).filter(
-      (option) => !existingMemberIds.has(option.value),
-    );
+    const filteredBase = mergeOptions(
+      searchedInviteeOptions,
+      inviteeOptions,
+    ).filter((option) => !existingMemberIds.has(option.value));
     return mergeOptions(selectedInviteeOptions, filteredBase);
-  }, [existingMemberIds, inviteeOptions, searchedInviteeOptions, selectedInviteeOptions]);
+  }, [
+    existingMemberIds,
+    inviteeOptions,
+    searchedInviteeOptions,
+    selectedInviteeOptions,
+  ]);
 
   const repoSearchOptions = useMemo(
     () => repoHits.map(repositoryRowToOption).filter(Boolean),
@@ -561,7 +610,11 @@ function ProjectWorkspace() {
     repoSearchOptions,
   );
   const repoSelectOptions = useMemo(
-    () => mergeOptions(selectedRepoFallback ? [selectedRepoFallback] : [], repoSearchOptions),
+    () =>
+      mergeOptions(
+        selectedRepoFallback ? [selectedRepoFallback] : [],
+        repoSearchOptions,
+      ),
     [repoSearchOptions, selectedRepoFallback],
   );
 
@@ -577,7 +630,10 @@ function ProjectWorkspace() {
       return {
         id: studentIdValue(member) || `member-${index}`,
         name: displayName(member),
-        role: member?.department?.name ?? member?.batch?.name ?? t("adminProjectWorkspace.team.memberRole"),
+        role:
+          member?.department?.name ??
+          member?.batch?.name ??
+          t("adminProjectWorkspace.team.memberRole"),
         initials: initials || "ST",
         completion: Math.min(95, 62 + index * 7),
         tasksDone: 6 + index * 2,
@@ -585,7 +641,9 @@ function ProjectWorkspace() {
         reviewScore: Math.min(98, 76 + index * 5),
         commits: 18 + index * 9,
         docsTouched: 2 + index,
-        note: t("adminProjectWorkspace.team.memberNote", { name: displayName(member) }),
+        note: t("adminProjectWorkspace.team.memberNote", {
+          name: displayName(member),
+        }),
         seed: contributorSeedFromId(studentIdValue(member) || index),
       };
     });
@@ -599,12 +657,12 @@ function ProjectWorkspace() {
     project?.projectRepository?.owner ??
     project?.projectRepository?.ownerUsername ??
     urlOwner;
-  const displayRepo =
-    project?.projectRepository?.repositoryName ??
-    urlRepo;
+  const displayRepo = project?.projectRepository?.repositoryName ?? urlRepo;
   const leadSupervisor = displayName(project?.teacher);
   const academicYearLabel = projectAcademicYearLabel(project);
-  const hasAssignedRepository = Boolean(project?.projectRepository?.repositoryName);
+  const hasAssignedRepository = Boolean(
+    project?.projectRepository?.repositoryName,
+  );
   const groupName = project?.group?.name ?? "—";
 
   const repoPath =
@@ -678,7 +736,7 @@ function ProjectWorkspace() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
+    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-white p-4 md:p-5 dark:bg-dark-card-bg">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <Link
           to="/admin/projects"
@@ -700,7 +758,7 @@ function ProjectWorkspace() {
                   ? displayRepo.replace(/-/g, " ")
                   : project?.projectName
                     ? project.projectName.replace(/-/g, " ")
-                  : t("adminProjectWorkspace.defaultTitle")}
+                    : t("adminProjectWorkspace.defaultTitle")}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted dark:text-dark-muted">
                 {displayOwner && displayRepo
@@ -764,10 +822,9 @@ function ProjectWorkspace() {
                     type="button"
                     variant="primary"
                     className="gap-2"
-                    icon={ <UserPlus className="size-4" aria-hidden />}
+                    icon={<UserPlus className="size-4" aria-hidden />}
                     onClick={() => setInviteOpen(true)}
                   >
-                   
                     {t("adminProjectWorkspace.actions.inviteMembers")}
                   </Button>
                   {!hasAssignedRepository ? (
@@ -778,7 +835,6 @@ function ProjectWorkspace() {
                       className="gap-2"
                       onClick={() => setConnectRepoOpen(true)}
                     >
-                      
                       {t("adminProjectWorkspace.actions.connectRepository")}
                     </Button>
                   ) : null}
@@ -888,17 +944,12 @@ function ProjectWorkspace() {
                 </div>
                 <div className="mt-4 space-y-3">
                   {documentSections.map((section) => (
-                    <div
-                      key={section.key}
-                      className={`${SURFACE_INSET} p-4`}
-                    >
+                    <div key={section.key} className={`${SURFACE_INSET} p-4`}>
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <p className="font-semibold text-primary dark:text-dark-primary">
                           {section.title}
                         </p>
-                        <span className={PILL_STATUS}>
-                          {section.status}
-                        </span>
+                        <span className={PILL_STATUS}>{section.status}</span>
                       </div>
                       <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
                         {section.description}
@@ -927,9 +978,7 @@ function ProjectWorkspace() {
                         <p className="font-semibold text-primary dark:text-dark-primary">
                           {milestone.title}
                         </p>
-                        <span className={PILL_STATUS}>
-                          {milestone.status}
-                        </span>
+                        <span className={PILL_STATUS}>{milestone.status}</span>
                       </div>
                       <p className="mt-2 text-sm text-secondary dark:text-dark-secondary">
                         Owner: {milestone.owner}
@@ -1002,10 +1051,7 @@ function ProjectWorkspace() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="max-w-2xl">
                     <div className={SURFACE_BADGE}>
-                      <Activity
-                        className="size-3.5 shrink-0"
-                        aria-hidden
-                      />
+                      <Activity className="size-3.5 shrink-0" aria-hidden />
                       {t("adminProjectWorkspace.activity.badge")}
                     </div>
                     <p className="mt-4 text-2xl font-bold text-primary dark:text-dark-primary">
@@ -1016,7 +1062,9 @@ function ProjectWorkspace() {
                     </p>
                   </div>
 
-                  <div className={`${SURFACE_INSET} p-4 lg:max-w-md lg:shrink-0`}>
+                  <div
+                    className={`${SURFACE_INSET} p-4 lg:max-w-md lg:shrink-0`}
+                  >
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
                       {t("adminProjectWorkspace.activity.repoScope")}
                     </p>
@@ -1053,7 +1101,7 @@ function ProjectWorkspace() {
                         className={cn(
                           "rounded-xl border p-4 text-left transition-colors duration-200",
                           isActive
-                            ? "border-(--color-light-input-border-focus) bg-light-app-tertiary shadow-sm ring-2 ring-blue-500/15 dark:border-(--color-dark-input-border-focus) dark:bg-dark-app-tertiary dark:ring-blue-400/15"
+                            ? "border-(--color-light-input-border-focus) bg-light-app-tertiary  ring-2 ring-blue-500/15 dark:border-(--color-dark-input-border-focus) dark:bg-dark-app-tertiary dark:ring-blue-400/15"
                             : "border-(--color-light-card-border) bg-(--color-light-card-bg) hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:bg-dark-app-tertiary",
                         )}
                       >
@@ -1154,7 +1202,7 @@ function ProjectWorkspace() {
                     })}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                      {t("adminProjectWorkspace.activity.heatmapSubheading", {
+                    {t("adminProjectWorkspace.activity.heatmapSubheading", {
                       name: selectedContributor?.name ?? "—",
                       repo: repoPath,
                     })}
@@ -1202,10 +1250,7 @@ function ProjectWorkspace() {
                       </div>
                       <div className="flex min-w-0 gap-[3px]">
                         {weekColumns.map((week, wi) => (
-                          <div
-                            key={wi}
-                            className="flex flex-col gap-[3px]"
-                          >
+                          <div key={wi} className="flex flex-col gap-[3px]">
                             {week.map((cell) => {
                               const level = cell.inYear
                                 ? heatLevelIndex(cell.count, maxCount)
@@ -1241,9 +1286,7 @@ function ProjectWorkspace() {
                                       "bg-light-app-tertiary dark:bg-dark-app-tertiary",
                                   )}
                                   style={
-                                    fill
-                                      ? { backgroundColor: fill }
-                                      : undefined
+                                    fill ? { backgroundColor: fill } : undefined
                                   }
                                 />
                               );
@@ -1255,7 +1298,9 @@ function ProjectWorkspace() {
                   </div>
 
                   <div className="mt-4 flex flex-wrap items-center justify-end gap-3 text-xs text-muted dark:text-dark-muted">
-                    <span>{t("adminProjectWorkspace.activity.legendLess")}</span>
+                    <span>
+                      {t("adminProjectWorkspace.activity.legendLess")}
+                    </span>
                     <div className="flex flex-wrap items-center gap-1">
                       {HEAT_GREEN_FILLS.map((color, index) => (
                         <span
@@ -1394,7 +1439,10 @@ function ProjectWorkspace() {
               <Button
                 type="button"
                 variant="primary"
-                disabled={!String(selectedRepoId ?? "").trim() || connectRepository.isPending}
+                disabled={
+                  !String(selectedRepoId ?? "").trim() ||
+                  connectRepository.isPending
+                }
                 onClick={connectRepositorySubmit}
               >
                 {connectRepository.isPending

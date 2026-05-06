@@ -1,5 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Copy, Download, File, Folder, GitBranch } from "lucide-react";
+import {
+  Activity,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  Ellipsis,
+  Eye,
+  File,
+  Folder,
+  GitBranch,
+  GitFork,
+  Link2,
+  Package,
+  Search,
+  Star,
+} from "lucide-react";
 import { saveAs } from "file-saver";
 import { gooeyToast } from "goey-toast";
 import { useTranslation } from "react-i18next";
@@ -82,11 +97,27 @@ function entryCommittedDate(entry) {
   return typeof raw === "string" && raw ? raw : "";
 }
 
-function formatDisplayDate(raw, locale) {
+function formatRelativeTime(raw, locale) {
   if (!raw) return "—";
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(d);
+  const diffMs = d.getTime() - Date.now();
+  const abs = Math.abs(diffMs);
+  const units = [
+    [1000 * 60 * 60 * 24 * 365, "year"],
+    [1000 * 60 * 60 * 24 * 30, "month"],
+    [1000 * 60 * 60 * 24 * 7, "week"],
+    [1000 * 60 * 60 * 24, "day"],
+    [1000 * 60 * 60, "hour"],
+    [1000 * 60, "minute"],
+  ];
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  for (const [ms, unit] of units) {
+    if (abs >= ms || unit === "minute") {
+      return rtf.format(Math.round(diffMs / ms), unit);
+    }
+  }
+  return "just now";
 }
 
 function refsHeadBranch(payload) {
@@ -103,7 +134,6 @@ function refsHeadBranch(payload) {
   return "";
 }
 
-/** @returns {Array<{ value: string, label: string }>} */
 function branchOptionsFromRefsPayload(payload) {
   const refs = payload?.refs;
   const map =
@@ -112,7 +142,6 @@ function branchOptionsFromRefsPayload(payload) {
       : payload?.Branches ??
         payload?.branches ??
         {};
-  /** @type {Array<{ value: string, label: string }>} */
   const opts = [];
   for (const k of Object.keys(map)) {
     const m = /^refs\/heads\/(.+)$/i.exec(String(k));
@@ -122,13 +151,49 @@ function branchOptionsFromRefsPayload(payload) {
   return opts;
 }
 
-/**
- * Advanced Git-like Code tab wired to VC `api/v1` browse APIs + raw object blobs (`/objects/{sha}`).
- *
- * Blob bytes are inflated client-side (`vicObjectFormat`), which matches how the Java service stores MinIO payloads.
- *
- * @param {{ owner?: string; repo?: string; repositoryMeta?: Record<string, unknown> | null }} props
- */
+function countOrZero(v) {
+  if (v == null) return "0";
+  const n = Number(v);
+  return Number.isNaN(n) ? String(v) : String(n);
+}
+
+function darkButtonClass({ green = false, disabled = false } = {}) {
+  return cn(
+    "inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition-colors",
+    green
+      ? "btn-primary border-transparent"
+      : "border-(--color-light-card-border) bg-(--color-light-card-bg) text-secondary hover:border-(--color-light-input-border) hover:bg-(--color-light-card-hover) hover:text-primary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-secondary dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary",
+    disabled && "cursor-not-allowed opacity-55",
+  );
+}
+
+function sidebarRow({ icon: Icon, label, value, href = "" }) {
+  const content = href ? (
+    <a
+      href={href}
+      className="break-all text-(--color-chart-blue-primary) hover:underline dark:text-(--color-chart-blue-secondary)"
+    >
+      {value}
+    </a>
+  ) : (
+    <span>{value}</span>
+  );
+
+  return (
+    <li className="flex items-start gap-3 text-sm text-secondary dark:text-dark-secondary">
+      <Icon
+        className="mt-0.5 h-4 w-4 shrink-0 text-muted dark:text-dark-muted"
+        strokeWidth={1.7}
+        aria-hidden
+      />
+      <span className="min-w-0 break-words">
+        <span className="me-1 text-muted dark:text-dark-muted">{label}</span>
+        {content}
+      </span>
+    </li>
+  );
+}
+
 export default function GithubRepoCodeBrowser({
   owner,
   repo,
@@ -137,6 +202,7 @@ export default function GithubRepoCodeBrowser({
   const { t, i18n } = useTranslation();
   const o = typeof owner === "string" ? owner.trim() : "";
   const r = typeof repo === "string" ? repo.trim() : "";
+  const locale = i18n.language || undefined;
   const metaDefaultBranch =
     repositoryMeta?.default_branch ??
     repositoryMeta?.defaultBranch ??
@@ -152,7 +218,6 @@ export default function GithubRepoCodeBrowser({
     () => branchOptionsFromRefsPayload(refsPayload ?? {}),
     [refsPayload],
   );
-
   const headBranch = refsHeadBranch(refsPayload ?? {});
 
   const [ref, setRef] = useState(String(metaDefaultBranch || "main"));
@@ -161,16 +226,9 @@ export default function GithubRepoCodeBrowser({
     const next =
       branchOpts.some((x) => x.value === headBranch)
         ? headBranch
-        : branchOpts[0]?.value ??
-          metaDefaultBranch ??
-          "main";
+        : branchOpts[0]?.value ?? metaDefaultBranch ?? "main";
     setRef(String(next));
-  }, [
-    branchOpts,
-    headBranch,
-    metaDefaultBranch,
-    ref,
-  ]);
+  }, [branchOpts, headBranch, metaDefaultBranch, ref]);
 
   const [treePath, setTreePath] = useState("");
   const [selected, setSelected] = useState(
@@ -187,6 +245,13 @@ export default function GithubRepoCodeBrowser({
   });
   const rawList = unwrapTreeNodes(treeQuery.data);
 
+  function pathForEntry(entry, nameOverride) {
+    const nm = nameOverride ?? nodeLabel(entry);
+    return typeof entry.path === "string" && entry.path.trim()
+      ? entry.path.trim().replace(/^\/+/, "")
+      : joinPath(treePath, nm);
+  }
+
   const rows = useMemo(() => {
     const list = [...rawList];
     list.sort((a, b) => {
@@ -198,24 +263,9 @@ export default function GithubRepoCodeBrowser({
 
     const f = fileFilter.trim().toLowerCase();
     if (!f) return list;
-    const fullPaths = list.map((e) => pathForRow(e));
-    return list.filter((entry, ix) =>
-      fullPaths[ix].toLowerCase().includes(f),
-    );
-    function pathForRow(entry) {
-      const nm = nodeLabel(entry);
-      return typeof entry.path === "string" && entry.path.trim()
-        ? entry.path.trim().replace(/^\/+/, "")
-        : joinPath(treePath, nm);
-    }
+    const fullPaths = list.map((e) => pathForEntry(e));
+    return list.filter((entry, ix) => fullPaths[ix].toLowerCase().includes(f));
   }, [rawList, fileFilter, i18n.language, treePath]);
-
-  function pathForEntry(entry, nameOverride) {
-    const nm = nameOverride ?? nodeLabel(entry);
-    return typeof entry.path === "string" && entry.path.trim()
-      ? entry.path.trim().replace(/^\/+/, "")
-      : joinPath(treePath, nm);
-  }
 
   const crumbs = useMemo(() => {
     const root = [{ label: t("studentRepo.browser.rootSegment"), path: "" }];
@@ -230,10 +280,7 @@ export default function GithubRepoCodeBrowser({
   }, [t, treePath]);
 
   const headlineCommit = useMemo(() => {
-    const withMsg = [...rawList].sort((a, b) =>
-      entryCommitMessage(b).localeCompare(entryCommitMessage(a)),
-    );
-    const pick = withMsg.find((e) => entryCommitMessage(e));
+    const pick = [...rawList].find((e) => entryCommitMessage(e));
     if (!pick) return null;
     const ph = pick.commit?.id ?? pick.sha ?? pick.commit_id ?? "";
     return {
@@ -254,10 +301,38 @@ export default function GithubRepoCodeBrowser({
     repositoryMeta?.commit_count ??
     repositoryMeta?.CommitsCount ??
     null;
-  const branchCount =
-    repositoryMeta?.branches_count ?? repositoryMeta?.branchCount ?? null;
-  const tagCount =
-    repositoryMeta?.tags_count ?? repositoryMeta?.releases_count ?? null;
+  const branchCount = repositoryMeta?.branches_count ?? repositoryMeta?.branchCount ?? null;
+  const tagCount = repositoryMeta?.tags_count ?? repositoryMeta?.releases_count ?? null;
+  const starCount =
+    repositoryMeta?.stars_count ??
+    repositoryMeta?.starsCount ??
+    repositoryMeta?.stars ??
+    repositoryMeta?.stargazers_count ??
+    0;
+  const forkCount =
+    repositoryMeta?.forks_count ??
+    repositoryMeta?.forksCount ??
+    repositoryMeta?.forks ??
+    0;
+  const watchCount =
+    repositoryMeta?.watchers_count ??
+    repositoryMeta?.subscriptions_count ??
+    repositoryMeta?.watch_count ??
+    0;
+  const topics = Array.isArray(repositoryMeta?.topics)
+    ? repositoryMeta.topics.filter(Boolean)
+    : [];
+  const aboutText =
+    repositoryMeta?.description || t("studentRepo.about.emptyAbout");
+  const homepage =
+    repositoryMeta?.homepage ?? repositoryMeta?.website ?? repositoryMeta?.html_url ?? "";
+  const lastActivityRaw =
+    repositoryMeta?.updatedAt ??
+    repositoryMeta?.updated_at ??
+    repositoryMeta?.pushedAt ??
+    repositoryMeta?.pushed_at ??
+    headlineCommit?.date ??
+    "";
 
   async function copyClone() {
     if (!cloneUrl) {
@@ -299,8 +374,6 @@ export default function GithubRepoCodeBrowser({
     return [{ value: String(ref), label: String(ref) }];
   }, [branchOpts, ref]);
 
-  /** When raw panel needs bytes decode (placeholder — DocumentViewer owns bytes internally). Raw uses separate fetch UX: show helper text */
-
   function onPickEntry(entry) {
     const full = pathForEntry(entry);
     if (nodeDir(entry)) {
@@ -317,170 +390,188 @@ export default function GithubRepoCodeBrowser({
           ? entry.objectId.trim()
           : typeof entry.id === "string" && /^[a-f0-9]{7,}$/i.test(entry.id)
             ? entry.id.trim()
-          : "";
+            : "";
     setSelected({ path: full, sha: sha || undefined });
     setRawOpen(false);
     setHistoryOpen(false);
   }
 
+  const aboutRows = [
+    {
+      key: "activity",
+      icon: Activity,
+      label: t("studentRepo.about.activity"),
+      value: formatRelativeTime(lastActivityRaw, locale),
+    },
+    {
+      key: "custom-properties",
+      icon: Link2,
+      label: t("studentRepo.about.customProperties"),
+      value: topics.length ? String(topics.length) : t("studentRepo.about.none"),
+    },
+    {
+      key: "stars",
+      icon: Star,
+      label: t("studentRepo.about.stars"),
+      value: countOrZero(starCount),
+    },
+    {
+      key: "watching",
+      icon: Eye,
+      label: t("studentRepo.about.watching"),
+      value: countOrZero(watchCount),
+    },
+    {
+      key: "forks",
+      icon: GitFork,
+      label: t("studentRepo.about.forks"),
+      value: countOrZero(forkCount),
+    },
+    {
+      key: "audit-log",
+      icon: Package,
+      label: t("studentRepo.about.auditLog"),
+      value: repositoryMeta?.visibility ?? repositoryMeta?.repository_visibility ?? "—",
+    },
+  ];
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+    <div className="space-y-5 text-secondary dark:text-dark-secondary">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <div className="w-full min-w-[10rem] max-w-[220px] sm:w-52">
             <Select
               value={ref}
               onChange={setRef}
-              options={branchSelectOptions.map((opt) => ({
-                value: opt.value,
-                label: opt.label,
-              }))}
+              className="[&_.inline-flex]:h-10 [&_.inline-flex]:rounded-md [&_.inline-flex]:border-(--color-light-card-border) [&_.inline-flex]:bg-(--color-light-card-bg) [&_.inline-flex]:text-primary dark:[&_.inline-flex]:border-(--color-dark-card-border) dark:[&_.inline-flex]:bg-(--color-dark-card-bg) dark:[&_.inline-flex]:text-dark-primary"
+              options={branchSelectOptions}
               placeholder={t("studentRepo.browser.branchPlaceholder")}
             />
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted dark:text-dark-muted">
-            <GitBranch className="size-4 shrink-0" strokeWidth={2} aria-hidden />
-            <span>
-              {t("studentRepo.browser.branchCounts", {
-                branches:
-                  branchCount != null ?
-                    String(branchCount)
-                  : branchOpts.length ? String(branchOpts.length)
-                  : "—",
-                tags: tagCount != null ? String(tagCount) : "—",
+          <div className="flex flex-wrap items-center gap-4 text-sm text-secondary dark:text-dark-secondary">
+            <span className="inline-flex items-center gap-2">
+              <GitBranch
+                className="h-4 w-4 text-muted dark:text-dark-muted"
+                strokeWidth={1.7}
+                aria-hidden
+              />
+              {t("studentRepo.browser.branches", {
+                count: branchCount != null ? String(branchCount) : String(branchOpts.length || 0),
+              })}
+            </span>
+            <span className="inline-flex items-center gap-2 text-muted dark:text-dark-muted">
+              <TagIcon />
+              {t("studentRepo.browser.tags", {
+                count: tagCount != null ? String(tagCount) : "0",
               })}
             </span>
           </div>
         </div>
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 lg:max-w-md">
+
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
           <label htmlFor="repo-file-find" className="sr-only">
             {t("studentRepo.browser.findFileAria")}
           </label>
-          <input
-            id="repo-file-find"
-            type="search"
-            value={fileFilter}
-            onChange={(e) => setFileFilter(e.target.value)}
-            placeholder={t("studentRepo.browser.findFilePlaceholder")}
-            className="h-9 min-w-[10rem] flex-1 rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3.5 py-1.5 text-xs text-(--color-light-text-primary) outline-none placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
-            autoComplete="off"
-          />
-          <Button
-            type="button"
-            variant="tertiary"
-            className="h-9 min-h-9 px-3 text-xs"
-            disabled
-          >
+          <div className="relative min-w-[16rem] flex-1 xl:max-w-sm">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted dark:text-dark-muted"
+              strokeWidth={1.7}
+              aria-hidden
+            />
+            <input
+              id="repo-file-find"
+              type="search"
+              value={fileFilter}
+              onChange={(e) => setFileFilter(e.target.value)}
+              placeholder={t("studentRepo.browser.findFilePlaceholder")}
+              className="h-10 w-full rounded-md border border-(--color-light-input-border) bg-(--color-light-input-bg) pl-9 pr-3 text-sm text-(--color-light-text-primary) outline-none transition-colors placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
+              autoComplete="off"
+            />
+          </div>
+          <button type="button" className={darkButtonClass({ disabled: true })} disabled>
             {t("studentRepo.browser.addFileDisabled")}
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            disabled={!cloneUrl}
-            onClick={copyClone}
-            icon={<Copy className="size-4 shrink-0" strokeWidth={2} aria-hidden />}
-            className="h-9 min-h-9 gap-1.5 px-3 text-xs"
-          >
+            <ChevronDown className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+          </button>
+          <button type="button" className={darkButtonClass({ green: true, disabled: !cloneUrl })} disabled={!cloneUrl} onClick={copyClone}>
+            <CodeIcon />
             {t("studentRepo.browser.code")}
-          </Button>
+            <ChevronDown className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+          </button>
         </div>
       </div>
 
-      {/* Latest commit ribbon */}
-      <div className="overflow-hidden rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-2.5 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-        {headlineCommit ?
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-            <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-(--color-light-card-bg) text-[11px] font-semibold uppercase text-secondary dark:bg-(--color-dark-card-bg) dark:text-dark-secondary">
-              {(o ?? "").slice(0, 2)}
-            </span>
-            <span className="font-semibold text-primary dark:text-dark-primary">
-              {(o ?? "").split?.(/[/@]/)[0] ?? o}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-secondary dark:text-dark-secondary">
-              {headlineCommit.message}
-            </span>
-            <span className="font-mono text-[11px] text-muted dark:text-dark-muted">
-              {headlineCommit.sha || "—"}
-            </span>
-            <span className="text-muted dark:text-dark-muted">
-              {formatDisplayDate(headlineCommit.date, i18n.language)}
-            </span>
-            {commitTotal != null ?
-              <span className="ms-auto shrink-0 text-[11px] font-semibold text-muted dark:text-dark-muted">
-                {t("studentRepo.code.commitTotal", { count: commitTotal })}
-              </span>
-            : null}
-          </div>
-        : <p className="text-xs leading-relaxed text-muted dark:text-dark-muted">
-            {!treeQuery.isLoading
-              ? t("studentRepo.browser.commitRibbonEmpty")
-              : t("studentRepo.browser.commitRibbonLoading")}
-          </p>}
-      </div>
-
-      {/* Breadcrumbs */}
-      <nav
-        className="flex flex-wrap items-center gap-1 text-xs font-medium text-muted dark:text-dark-muted"
-        aria-label={t("studentRepo.browser.treePathAria")}
-      >
-        {crumbs.map((c, idx) => (
-          <span key={`${c.path}-${idx}`} className="inline-flex items-center gap-1">
-            {idx ?
-              <ChevronRight className="size-3 shrink-0 opacity-70" aria-hidden />
-            : null}
-            <button
-              type="button"
-              className={cn(
-                "rounded px-1 py-0.5 transition-colors hover:bg-light-app-tertiary hover:text-primary dark:hover:bg-dark-app-tertiary dark:hover:text-dark-primary",
-                c.path === treePath
-                  ? "font-semibold text-primary dark:text-dark-primary"
-                  : "",
-              )}
-              onClick={() => {
-                setTreePath(c.path);
-                setSelected(null);
-                setHistoryOpen(false);
-                setRawOpen(false);
-              }}
-            >
-              {c.label}
-            </button>
-          </span>
-        ))}
-      </nav>
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-        <section className="min-w-0">
-          {treeQuery.isFetching && rawList.length ?
-            null
-          : null}
-
-          {!treeQuery.isLoading && rawList.length === 0 ?
-            <div className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-              <p className="text-sm text-secondary dark:text-dark-secondary">
-                {t("studentRepo.browser.treeEmpty")}
-              </p>
-            </div>
-          : null}
-
-          {treeQuery.isLoading && !rawList.length ?
-            <p className="text-sm text-muted dark:text-dark-muted">
-              {t("studentRepo.browser.treeLoading")}
-            </p>
-          : null}
-
-          {!!rawList.length && (
-            <div className="overflow-hidden rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-              <div
-                className={cn(
-                  "hidden border-b border-light-divider bg-light-app-tertiary px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_8rem] dark:border-dark-divider dark:bg-dark-app-tertiary dark:text-dark-muted",
-                )}
-              >
-                <span>{t("studentRepo.code.col.name")}</span>
-                <span>{t("studentRepo.code.col.message")}</span>
-                <span className="md:text-start">{t("studentRepo.code.col.age")}</span>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="min-w-0 space-y-4">
+          <div className="overflow-hidden rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+            {headlineCommit ? (
+              <div className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-(--color-light-card-border) bg-light-app-tertiary text-xs font-semibold uppercase text-primary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-primary">
+                  {(o ?? "").slice(0, 2)}
+                </span>
+                <span className="font-semibold text-primary dark:text-dark-primary">{(o ?? "").split?.(/[/@]/)[0] ?? o}</span>
+                <span className="min-w-0 flex-1 truncate text-secondary dark:text-dark-secondary">
+                  {headlineCommit.message}
+                </span>
+                <span className="font-mono text-xs text-muted dark:text-dark-muted">{headlineCommit.sha || "—"}</span>
+                <span className="text-sm text-muted dark:text-dark-muted">{formatRelativeTime(headlineCommit.date, locale)}</span>
+                <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary dark:text-dark-primary">
+                  <HistoryIcon />
+                  {t("studentRepo.code.commitTotal", { count: commitTotal ?? 0 })}
+                </span>
+                <button type="button" className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:text-dark-muted dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary">
+                  <Ellipsis className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+                </button>
               </div>
-              <div className="divide-y divide-light-divider dark:divide-dark-divider">
+            ) : (
+              <p className="px-4 py-3 text-sm text-muted dark:text-dark-muted">
+                {!treeQuery.isLoading
+                  ? t("studentRepo.browser.commitRibbonEmpty")
+                  : t("studentRepo.browser.commitRibbonLoading")}
+              </p>
+            )}
+
+            <nav
+              className="border-t border-(--color-light-card-border) px-4 py-2 text-xs font-medium text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted"
+              aria-label={t("studentRepo.browser.treePathAria")}
+            >
+              <div className="flex flex-wrap items-center gap-1">
+                {crumbs.map((c, idx) => (
+                  <span key={`${c.path}-${idx}`} className="inline-flex items-center gap-1">
+                    {idx ? <ChevronRight className="size-3 shrink-0 opacity-70" aria-hidden /> : null}
+                    <button
+                      type="button"
+                      className={cn(
+                        "rounded px-1 py-0.5 transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary",
+                        c.path === treePath ? "font-semibold text-primary dark:text-dark-primary" : "",
+                      )}
+                      onClick={() => {
+                        setTreePath(c.path);
+                        setSelected(null);
+                        setHistoryOpen(false);
+                        setRawOpen(false);
+                      }}
+                    >
+                      {c.label}
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </nav>
+
+            {!treeQuery.isLoading && rawList.length === 0 ? (
+              <div className="border-t border-(--color-light-card-border) px-4 py-6 text-sm text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
+                {t("studentRepo.browser.treeEmpty")}
+              </div>
+            ) : null}
+
+            {treeQuery.isLoading && !rawList.length ? (
+              <div className="border-t border-(--color-light-card-border) px-4 py-6 text-sm text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
+                {t("studentRepo.browser.treeLoading")}
+              </div>
+            ) : null}
+
+            {!!rawList.length && (
+              <div className="border-t border-(--color-light-card-border) dark:border-(--color-dark-card-border)">
                 {rows.map((entry, i) => {
                   const nm = nodeLabel(entry) || `entry-${i}`;
                   const dir = nodeDir(entry);
@@ -495,140 +586,117 @@ export default function GithubRepoCodeBrowser({
                       type="button"
                       onClick={() => onPickEntry({ ...entry, path: entry.path })}
                       className={cn(
-                        "grid w-full grid-cols-1 gap-1 px-4 py-2.5 text-left text-sm transition-colors md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_8rem] md:items-center md:gap-2",
+                        "grid w-full grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_110px] items-center gap-3 border-b border-(--color-light-card-border) px-4 py-3 text-left transition-colors last:border-b-0 dark:border-(--color-dark-card-border)",
                         sel
-                          ? "bg-light-app-secondary/80 dark:bg-dark-app-secondary/80"
-                          : "hover:bg-light-app-secondary/50 dark:hover:bg-dark-app-secondary/50",
+                          ? "bg-(--color-light-card-hover) dark:bg-(--color-dark-card-hover)"
+                          : "hover:bg-(--color-light-card-hover) dark:hover:bg-(--color-dark-card-hover)",
                       )}
                     >
-                      <div className="flex min-w-0 items-center gap-2">
-                        {dir ?
-                          <Folder
-                            className="size-4 shrink-0 text-(--color-chart-warning)"
-                            strokeWidth={2}
-                            aria-hidden
-                          />
-                        : <File className="size-4 shrink-0 text-muted dark:text-dark-muted" strokeWidth={2} aria-hidden />}
-                        <span className="min-w-0 truncate font-mono text-[13px] font-semibold text-primary dark:text-dark-primary">
+                      <div className="flex min-w-0 items-center gap-3">
+                        {dir ? (
+                          <Folder className="size-4 shrink-0 text-(--color-chart-warning) dark:text-(--color-chart-warning)" strokeWidth={1.9} aria-hidden />
+                        ) : (
+                          <File className="size-4 shrink-0 text-muted dark:text-dark-muted" strokeWidth={1.9} aria-hidden />
+                        )}
+                        <span className="min-w-0 truncate text-sm font-semibold text-primary dark:text-dark-primary">
                           {nm}
                         </span>
                       </div>
-                      <div className="min-w-0">
-                        <span className="line-clamp-2 text-xs leading-snug text-secondary dark:text-dark-secondary md:line-clamp-1 md:truncate">
-                          {msg}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted md:text-[13px] dark:text-dark-muted">
-                        {formatDisplayDate(whenRaw, i18n.language)}
-                      </div>
+                      <span className="truncate text-sm text-secondary dark:text-dark-secondary">{msg}</span>
+                      <span className="text-right text-sm text-muted dark:text-dark-muted">
+                        {formatRelativeTime(whenRaw, locale)}
+                      </span>
                     </button>
                   );
                 })}
               </div>
-            </div>
-          )}
-        </section>
+            )}
+          </div>
 
-        {/* File viewer */}
-        <section className="min-w-0 space-y-3">
-          {!selected?.path ?
-            <div className="flex min-h-[260px] items-center justify-center rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-6 text-center text-sm text-muted dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-muted">
-              {t("studentRepo.browser.pickFile")}
-            </div>
-          : <>
-              <header className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <File className="size-4 shrink-0 text-muted dark:text-dark-muted" aria-hidden />
-                    <h2 className="truncate font-mono text-sm font-semibold text-primary dark:text-dark-primary">
-                      {selected.path.split("/").pop()}
-                    </h2>
+          {selected?.path ? (
+            <section className="space-y-3">
+              <header className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <File className="size-4 shrink-0 text-muted dark:text-dark-muted" aria-hidden />
+                      <h2 className="truncate font-mono text-sm font-semibold text-primary dark:text-dark-primary">
+                        {selected.path.split("/").pop()}
+                      </h2>
+                    </div>
+                    <p className="mt-1 break-all font-mono text-xs text-muted dark:text-dark-muted">{selected.path}</p>
+                    {selected.sha ? (
+                      <p className="mt-2 font-mono text-xs text-muted dark:text-dark-muted">
+                        {t("studentRepo.browser.blobHint", { sha: selected.sha.slice(0, 12) })}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-xs text-(--color-light-error-text) dark:text-(--color-dark-error-text)">{t("studentRepo.browser.missingSha")}</p>
+                    )}
                   </div>
-                  <p className="mt-1 break-all font-mono text-[11px] leading-relaxed text-muted dark:text-dark-muted">
-                    {selected.path}
-                  </p>
-                  {selected.sha ?
-                    <p className="mt-2 font-mono text-[11px] text-muted dark:text-dark-muted">
-                      {t("studentRepo.browser.blobHint", {
-                        sha: selected.sha.slice(0, 12),
-                      })}
-                    </p>
-                  : <p className="mt-2 text-[11px] text-(--color-light-error-text) dark:text-(--color-dark-error-text)">
-                      {t("studentRepo.browser.missingSha")}
-                    </p>}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant={rawOpen ? "primary" : "secondary"}
-                    className="h-8 px-3 text-xs"
-                    onClick={() => {
-                      setRawOpen((x) => !x);
-                      if (!rawOpen) setHistoryOpen(false);
-                    }}
-                  >
-                    {t("studentRepo.browser.raw")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={historyOpen ? "primary" : "secondary"}
-                    className="h-8 px-3 text-xs"
-                    onClick={() => {
-                      setHistoryOpen((x) => !x);
-                      if (!historyOpen) setRawOpen(false);
-                    }}
-                  >
-                    {t("studentRepo.browser.history")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="h-8 gap-2 px-3 text-xs"
-                    disabled={!selected.sha && !selected.path}
-                    icon={<Download className="size-3.5 shrink-0" aria-hidden />}
-                    onClick={async () => {
-                      gooeyToast.info(t("studentRepo.browser.downloadHint"));
-                      try {
-                        if (!selected?.sha || !selected?.path) return;
-                        const bytes = await fetchRepositoryBlobPayload(
-                          o,
-                          r,
-                          selected.sha.trim(),
-                        );
-                        const nm =
-                          selected.path.split("/").filter(Boolean).pop() ||
-                          "download.bin";
-                        saveAs(new Blob([bytes]), nm);
-                      } catch {
-                        gooeyToast.error(t("studentRepo.browser.downloadFailed"));
-                      }
-                    }}
-                  >
-                    {t("studentRepo.browser.download")}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant={rawOpen ? "primary" : "secondary"}
+                      className="h-8 px-3 text-xs"
+                      onClick={() => {
+                        setRawOpen((x) => !x);
+                        if (!rawOpen) setHistoryOpen(false);
+                      }}
+                    >
+                      {t("studentRepo.browser.raw")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={historyOpen ? "primary" : "secondary"}
+                      className="h-8 px-3 text-xs"
+                      onClick={() => {
+                        setHistoryOpen((x) => !x);
+                        if (!historyOpen) setRawOpen(false);
+                      }}
+                    >
+                      {t("studentRepo.browser.history")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="h-8 gap-2 px-3 text-xs"
+                      disabled={!selected.sha && !selected.path}
+                      icon={<Download className="size-3.5 shrink-0" aria-hidden />}
+                      onClick={async () => {
+                        gooeyToast.info(t("studentRepo.browser.downloadHint"));
+                        try {
+                          if (!selected?.sha || !selected?.path) return;
+                          const bytes = await fetchRepositoryBlobPayload(o, r, selected.sha.trim());
+                          const nm = selected.path.split("/").filter(Boolean).pop() || "download.bin";
+                          saveAs(new Blob([bytes]), nm);
+                        } catch {
+                          gooeyToast.error(t("studentRepo.browser.downloadFailed"));
+                        }
+                      }}
+                    >
+                      {t("studentRepo.browser.download")}
+                    </Button>
+                  </div>
                 </div>
               </header>
 
-              {historyOpen ?
-                <div className="max-h-[min(50vh,420px)] space-y-2 overflow-y-auto rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-3 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+              {historyOpen ? (
+                <div className="max-h-[min(50vh,420px)] space-y-2 overflow-y-auto rounded-md border border-(--color-light-card-border) bg-(--color-light-app-bg) p-3 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-app-secondary)">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
                     {t("studentRepo.browser.historyHeading")}
                   </p>
-                  {commitsQ.isLoading ?
-                    <p className="text-xs text-muted dark:text-dark-muted">
-                      {t("studentRepo.browser.historyLoading")}
-                    </p>
-                  : historyRows.length ?
+                  {commitsQ.isLoading ? (
+                    <p className="text-xs text-muted dark:text-dark-muted">{t("studentRepo.browser.historyLoading")}</p>
+                  ) : historyRows.length ? (
                     <ul className="space-y-2">
                       {historyRows.map((row, ix) => {
                         const sha = row.sha ?? row.id ?? row.commitSha ?? `h-${ix}`;
-                        const msg =
-                          row.message ?? row.subject ?? row.commitMessage ?? "";
+                        const msg = row.message ?? row.subject ?? row.commitMessage ?? "";
                         const authorRow = row.author ?? row.authorName ?? "";
                         return (
                           <li
                             key={String(sha)}
-                            className="rounded-xl border border-(--color-light-card-border) bg-light-app-secondary/40 px-3 py-2 text-xs dark:border-(--color-dark-card-border) dark:bg-dark-app-secondary/30"
+                            className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 py-2 text-xs dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] text-muted dark:text-dark-muted">
                               <span>{String(sha).slice(0, 12)}</span>
@@ -641,43 +709,105 @@ export default function GithubRepoCodeBrowser({
                         );
                       })}
                     </ul>
-                  : <p className="text-xs text-muted dark:text-dark-muted">
-                      {t("studentRepo.browser.historyEmpty")}
-                    </p>}
+                  ) : (
+                    <p className="text-xs text-muted dark:text-dark-muted">{t("studentRepo.browser.historyEmpty")}</p>
+                  )}
                 </div>
-              : null}
+              ) : null}
 
-              {/* Blame/overview lives in shared viewer */}
-              {!selected.sha ?
-                <div className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-                  <p className="text-sm text-muted dark:text-dark-muted">
-                    {t("studentRepo.browser.noBlobShaBody")}
-                  </p>
+              {!selected.sha ? (
+                <div className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+                  <p className="text-sm text-muted dark:text-dark-muted">{t("studentRepo.browser.noBlobShaBody")}</p>
                 </div>
-              : rawOpen ?
+              ) : rawOpen ? (
                 <RawSnippetPanel owner={o} repo={r} blobSha={selected.sha} />
-              : <DocumentViewerContainer
+              ) : (
+                <DocumentViewerContainer
                   owner={o}
                   repo={r}
                   filePath={selected.path}
                   branch={ref}
                   blobSha={selected.sha}
-                />}
-            </>
-          }
+                />
+              )}
+            </section>
+          ) : null}
         </section>
+
+        <aside className="min-w-0" aria-label={t("studentRepo.sidebar.aria")}>
+          <div className="space-y-6">
+            <section className="border-b border-(--color-light-card-border) pb-6 dark:border-(--color-dark-card-border)">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-2xl font-semibold text-primary dark:text-dark-primary">{t("studentRepo.about.title")}</h2>
+                <button type="button" className="text-muted transition-colors hover:text-primary dark:text-dark-muted dark:hover:text-dark-primary">
+                  <Ellipsis className="h-5 w-5" strokeWidth={1.7} aria-hidden />
+                </button>
+              </div>
+              <p className="text-sm leading-6 text-secondary dark:text-dark-secondary">{aboutText}</p>
+              {homepage ? (
+                <a
+                  href={String(homepage)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 text-sm text-(--color-chart-blue-primary) hover:underline dark:text-(--color-chart-blue-secondary)"
+                >
+                  <Link2 className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+                  {String(homepage)}
+                </a>
+              ) : null}
+              <ul className="mt-5 space-y-4">
+                {aboutRows.map((item) => (
+                  <li key={item.key}>
+                    {sidebarRow(item)}
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="border-b border-(--color-light-card-border) pb-6 dark:border-(--color-dark-card-border)">
+              <h3 className="text-xl font-semibold text-primary dark:text-dark-primary">{t("studentRepo.releases.title")}</h3>
+              <p className="mt-4 text-sm text-muted dark:text-dark-muted">{t("studentRepo.releases.empty")}</p>
+              <button type="button" className="mt-2 text-sm font-medium text-(--color-chart-blue-primary) hover:underline dark:text-(--color-chart-blue-secondary)">
+                {t("studentRepo.releases.create")}
+              </button>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-semibold text-primary dark:text-dark-primary">{t("studentRepo.packages.title")}</h3>
+              <p className="mt-4 text-sm text-muted dark:text-dark-muted">{t("studentRepo.packages.empty")}</p>
+            </section>
+          </div>
+        </aside>
       </div>
     </div>
   );
 }
 
-/**
- * Lightweight raw panel: decompress object and show UTF‑8 preview when printable.
- *
- * Full fidelity “Raw” downloads use the toolbar save action.
- *
- * @param {{ owner: string; repo: string; blobSha: string }} props
- */
+function TagIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4 text-muted dark:text-dark-muted" fill="none" aria-hidden>
+      <path d="M2.75 4.25h4.1l5.15 5.15-2.6 2.6L4.25 6.85v-4.1Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx="5.2" cy="5.2" r="0.9" fill="currentColor" />
+    </svg>
+  );
+}
+
+function CodeIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" aria-hidden>
+      <path d="m5.5 4.5-3 3 3 3M10.5 4.5l3 3-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function HistoryIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4 text-muted dark:text-dark-muted" fill="none" aria-hidden>
+      <path d="M2.75 8a5.25 5.25 0 1 0 1.57-3.74L2.75 5.75M2.75 2.75v3h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function RawSnippetPanel({ owner, repo, blobSha }) {
   const { t } = useTranslation();
   const [text, setText] = useState(
@@ -692,16 +822,11 @@ function RawSnippetPanel({ owner, repo, blobSha }) {
       setLoading(true);
       setErr("");
       try {
-        const bytes = await fetchRepositoryBlobPayload(
-          owner,
-          repo,
-          blobSha.trim(),
-        );
+        const bytes = await fetchRepositoryBlobPayload(owner, repo, blobSha.trim());
         const maybe = tryDecodeUtf8(bytes);
         if (!cancelled) setText(maybe == null ? "binary" : maybe);
       } catch (e) {
-        if (!cancelled)
-          setErr(String(e?.message ?? t("studentRepo.browser.rawLoadFailed")));
+        if (!cancelled) setErr(String(e?.message ?? t("studentRepo.browser.rawLoadFailed")));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -712,29 +837,21 @@ function RawSnippetPanel({ owner, repo, blobSha }) {
   }, [blobSha, owner, repo, t]);
 
   if (loading) {
-    return (
-      <p className="text-xs text-muted dark:text-dark-muted">
-        {t("studentRepo.browser.rawLoading")}
-      </p>
-    );
+    return <p className="text-xs text-muted dark:text-dark-muted">{t("studentRepo.browser.rawLoading")}</p>;
   }
   if (err) {
     return (
-      <div className="rounded-xl border border-(--color-light-error-border) bg-(--color-light-error-bg) p-4 text-xs text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)">
+      <div className="rounded-md border border-(--color-light-error-border) bg-(--color-light-error-bg) p-4 text-xs text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)">
         {err}
       </div>
     );
   }
   if (text === "binary") {
-    return (
-      <p className="text-sm text-muted dark:text-dark-muted">
-        {t("studentRepo.browser.rawBinary")}
-      </p>
-    );
+    return <p className="text-sm text-muted dark:text-dark-muted">{t("studentRepo.browser.rawBinary")}</p>;
   }
 
   return (
-    <pre className="max-h-[min(60vh,640px)] overflow-auto rounded-xl border border-(--color-light-card-border) bg-(--color-light-input-bg) p-4 font-mono text-xs text-(--color-light-text-primary) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)">
+    <pre className="max-h-[min(60vh,640px)] overflow-auto rounded-md border border-(--color-light-card-border) bg-(--color-light-input-bg) p-4 font-mono text-xs text-(--color-light-text-primary) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)">
       <code>{text ?? ""}</code>
     </pre>
   );

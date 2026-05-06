@@ -141,11 +141,7 @@ function inferTimelineStatus(start, end) {
   if (endDate && !Number.isNaN(endDate.getTime()) && endDate < now) {
     return "inactive";
   }
-  if (
-    startDate &&
-    !Number.isNaN(startDate.getTime()) &&
-    startDate > now
-  ) {
+  if (startDate && !Number.isNaN(startDate.getTime()) && startDate > now) {
     return "pending";
   }
   return "active";
@@ -185,7 +181,9 @@ function getFacultyStatus(record) {
 
 function getDepartmentMetaLine(record, t) {
   const parts = [record?.shortName, record?.facultyName].filter(Boolean);
-  return parts.length ? parts.join(" • ") : t("adminDepartments.fallback.faculty");
+  return parts.length
+    ? parts.join(" • ")
+    : t("adminDepartments.fallback.faculty");
 }
 
 function getFacultyMetaLine(record) {
@@ -199,7 +197,10 @@ function getFacultyMetaLine(record) {
 function displayName(person, fallback = "-") {
   if (!person) return fallback;
   if (typeof person === "string") return person || fallback;
-  const full = [person.firstName, person.lastName].filter(Boolean).join(" ").trim();
+  const full = [person.firstName, person.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
   return (
     full ||
     person.displayName ||
@@ -214,7 +215,9 @@ function normalizeGroupId(group) {
 }
 
 function groupTitle(group) {
-  return group?.name ?? group?.title ?? (group?.id != null ? String(group.id) : "-");
+  return (
+    group?.name ?? group?.title ?? (group?.id != null ? String(group.id) : "-")
+  );
 }
 
 function groupMembersCount(group) {
@@ -363,7 +366,9 @@ function buildPayload(tabId, values) {
       return {
         academicYearId: ayId,
         academicYear: ayId,
-        type: String(values.type ?? "").trim().toUpperCase(),
+        type: String(values.type ?? "")
+          .trim()
+          .toUpperCase(),
         name: values.name.trim(),
         startDate: values.startDate,
         endDate: values.endDate,
@@ -416,10 +421,16 @@ function getRegistryFieldErrors(tabId, values, academicYears = [], t) {
       err.name = tr("adminRegistry.validation.semesterNameRequired");
     }
     if (!values.academicYear) {
-      err.academicYear = tr("adminRegistry.validation.semesterAcademicYearRequired");
+      err.academicYear = tr(
+        "adminRegistry.validation.semesterAcademicYearRequired",
+      );
     }
     if (
-      !SEMESTER_TYPE_OPTIONS.includes(String(values.type ?? "").trim().toUpperCase())
+      !SEMESTER_TYPE_OPTIONS.includes(
+        String(values.type ?? "")
+          .trim()
+          .toUpperCase(),
+      )
     ) {
       err.type = tr("adminRegistry.validation.semesterTypeInvalid");
     }
@@ -447,7 +458,9 @@ function getRegistryFieldErrors(tabId, values, academicYears = [], t) {
           academicYear?.startDate &&
           new Date(values.startDate) < new Date(academicYear.startDate)
         ) {
-          err.startDate = tr("adminRegistry.validation.semesterStartWithinYear");
+          err.startDate = tr(
+            "adminRegistry.validation.semesterStartWithinYear",
+          );
         }
         if (
           academicYear?.endDate &&
@@ -544,7 +557,10 @@ function RegistryFields({
           value={values.endDate}
           error={fe.endDate}
           onChange={(event) =>
-            setValues((current) => ({ ...current, endDate: event.target.value }))
+            setValues((current) => ({
+              ...current,
+              endDate: event.target.value,
+            }))
           }
         />
         <Select
@@ -626,7 +642,10 @@ function RegistryFields({
           value={values.endDate}
           error={fe.endDate}
           onChange={(event) =>
-            setValues((current) => ({ ...current, endDate: event.target.value }))
+            setValues((current) => ({
+              ...current,
+              endDate: event.target.value,
+            }))
           }
         />
       </div>
@@ -699,7 +718,10 @@ function RegistryFields({
           value={values.endDate}
           error={fe.endDate}
           onChange={(event) =>
-            setValues((current) => ({ ...current, endDate: event.target.value }))
+            setValues((current) => ({
+              ...current,
+              endDate: event.target.value,
+            }))
           }
         />
         <div className="md:col-span-2">
@@ -803,7 +825,9 @@ export default function Departments() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const debouncedSearch = useDebouncedValue(searchInput, 400);
 
-  const [formValues, setFormValues] = useState(getDefaultFormValues("semesters"));
+  const [formValues, setFormValues] = useState(
+    getDefaultFormValues("semesters"),
+  );
   const [registryFieldErrors, setRegistryFieldErrors] = useState({});
 
   const registrySetValues = useCallback((updater) => {
@@ -811,13 +835,20 @@ export default function Departments() {
     setFormValues(updater);
   }, []);
 
-  const { data: departments = EMPTY, isError, error } = useDepartments({
+  const {
+    data: departments = EMPTY,
+    isError,
+    error,
+  } = useDepartments({
     notifyOnError: true,
   });
   const { data: semesters = EMPTY } = useSemesters({}, { notifyOnError: true });
   const { data: batches = EMPTY } = useBatches({ notifyOnError: true });
   const { data: faculties = EMPTY } = useFaculties({ notifyOnError: true });
-  const { data: groups = EMPTY } = useFacultyGroups({}, { notifyOnError: true });
+  const { data: groups = EMPTY } = useFacultyGroups(
+    {},
+    { notifyOnError: true },
+  );
   const { data: academicYears = EMPTY } = useAcademicYears(
     {},
     { notifyOnError: false },
@@ -885,7 +916,15 @@ export default function Departments() {
     if (activeTab === "batches") return batches;
     if (activeTab === "groups") return groups;
     return faculties;
-  }, [activeTab, academicYears, batches, departments, faculties, groups, semesters]);
+  }, [
+    activeTab,
+    academicYears,
+    batches,
+    departments,
+    faculties,
+    groups,
+    semesters,
+  ]);
 
   const filteredRows = useMemo(() => {
     const search = debouncedSearch.trim().toLowerCase();
@@ -969,7 +1008,8 @@ export default function Departments() {
     const values = new Set();
 
     filteredRows.forEach((record) => {
-      if (activeTab === "departments") values.add(String(record?.status ?? "").toLowerCase());
+      if (activeTab === "departments")
+        values.add(String(record?.status ?? "").toLowerCase());
       if (activeTab === "academic-years") {
         values.add(inferTimelineStatus(record?.startDate, record?.endDate));
       }
@@ -1055,7 +1095,16 @@ export default function Departments() {
     return t("adminRegistry.descriptions.faculties", {
       count: faculties.length,
     });
-  }, [activeTab, academicYears.length, batches.length, departments.length, faculties.length, groups.length, semesters.length, t]);
+  }, [
+    activeTab,
+    academicYears.length,
+    batches.length,
+    departments.length,
+    faculties.length,
+    groups.length,
+    semesters.length,
+    t,
+  ]);
 
   const headerData = useMemo(() => {
     if (activeTab === "departments") {
@@ -1306,7 +1355,9 @@ export default function Departments() {
 
   const openEditModal = (record) => {
     if (activeTab === "groups") {
-      navigate(`/admin/projects/groups/register/${encodeURIComponent(normalizeGroupId(record))}`);
+      navigate(
+        `/admin/projects/groups/register/${encodeURIComponent(normalizeGroupId(record))}`,
+      );
       return;
     }
     setRegistryFieldErrors({});
@@ -1339,7 +1390,10 @@ export default function Departments() {
     setRegistryFieldErrors({});
 
     const payload = buildPayload(activeTab, formValues);
-    const mutation = mode === "create" ? activeMutationState.create : activeMutationState.update;
+    const mutation =
+      mode === "create"
+        ? activeMutationState.create
+        : activeMutationState.update;
     if (!mutation) return;
 
     try {
@@ -1356,7 +1410,9 @@ export default function Departments() {
           ...payload,
         });
       }
-      await queryClient.invalidateQueries({ queryKey: activeMutationState.queryKey });
+      await queryClient.invalidateQueries({
+        queryKey: activeMutationState.queryKey,
+      });
       if (activeTab === "semesters" || activeTab === "batches") {
         await queryClient.invalidateQueries({ queryKey: ["semesters"] });
         await queryClient.invalidateQueries({ queryKey: ["batches"] });
@@ -1378,19 +1434,19 @@ export default function Departments() {
       } else {
         await activeMutationState.delete.mutateAsync(deleteRecord.id);
       }
-      await queryClient.invalidateQueries({ queryKey: activeMutationState.queryKey });
+      await queryClient.invalidateQueries({
+        queryKey: activeMutationState.queryKey,
+      });
       const successMessage =
         activeTab === "departments"
           ? t("adminDepartments.delete.success")
           : activeTab === "groups"
             ? t("adminProjects.delete.success")
-          : t("adminRegistry.delete.success");
+            : t("adminRegistry.delete.success");
       gooeyToast.success(successMessage);
       setDeleteRecord(null);
     } catch (e) {
-      gooeyToast.error(
-        e?.message || t("adminRegistry.delete.error"),
-      );
+      gooeyToast.error(e?.message || t("adminRegistry.delete.error"));
     } finally {
       setDeleteSubmitting(false);
     }
@@ -1420,7 +1476,7 @@ export default function Departments() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
+    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-white  p-4 md:p-5 min-h-screen dark:bg-dark-card-bg">
       <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-muted">
@@ -1456,405 +1512,449 @@ export default function Departments() {
                 ? t("adminDepartments.actions.add")
                 : activeTab === "groups"
                   ? t("adminProjects.registry.addGroup")
-                : t("adminRegistry.actions.add")}
+                  : t("adminRegistry.actions.add")}
             </span>
           </Button>
         </div>
       </div>
 
-      <Table
-        toolbar={
-          <TableToolbar>
-            <TableToolbar.Row
-              justify="between"
-              className="items-stretch gap-3 sm:items-center"
-            >
-              <SettingsTabs
-                tabs={tabs}
-                activeTab={activeTab}
-                onChange={setActiveTab}
-              />
-            </TableToolbar.Row>
-            <TableToolbar.Row justify="start" className="gap-2">
-              <div className="min-w-0 flex-1 sm:min-w-[12rem]">
-                <Field
-                  id="registry-search"
-                  placeholder={t("adminRegistry.search")}
-                  value={searchInput}
-                  onChange={(event) => setSearchInput(event.target.value)}
-                  iconD={IC.search}
+      <div className="w-full flex flex-col gap-y-1">
+        <Table
+          toolbar={
+            <TableToolbar>
+              <TableToolbar.Row
+                justify="between"
+                className="items-stretch gap-3 sm:items-center"
+              >
+                <SettingsTabs
+                  tabs={tabs}
+                  activeTab={activeTab}
+                  onChange={setActiveTab}
                 />
-              </div>
-              {statusOptions.length > 0 ? (
-                <div className="w-full shrink-0 sm:w-48">
-                  <Select
-                    options={statusOptions}
-                    value={statusFilter}
-                    onValueChange={setStatusFilter}
+              </TableToolbar.Row>
+              <TableToolbar.Row justify="start" className="gap-2">
+                <div className="min-w-0 flex-1 sm:min-w-[12rem]">
+                  <Field
+                    id="registry-search"
+                    placeholder={t("adminRegistry.search")}
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    iconD={IC.search}
                   />
                 </div>
-              ) : null}
-              <TableToolbar.Section className="w-full shrink-0 justify-start sm:ml-auto sm:w-auto md:justify-end">
-                <TableToolbar.IconButton
-                  type="button"
-                  aria-label={t("adminDepartments.toolbar.filter")}
-                  icon={<Filter className="size-3.5 shrink-0" strokeWidth={2} />}
-                  onClick={() =>
-                    gooeyToast.info(t("adminDepartments.toolbar.filtersPending"))
-                  }
-                >
-                  {t("adminDepartments.toolbar.filter")}
-                </TableToolbar.IconButton>
-                <TableToolbar.IconButton
-                  type="button"
-                  aria-label={t("adminDepartments.toolbar.sort")}
-                  icon={<ArrowUpDown className="size-3.5 shrink-0" strokeWidth={2} />}
-                  onClick={() =>
-                    gooeyToast.info(t("adminDepartments.toolbar.sortPending"))
-                  }
-                >
-                  {t("adminDepartments.toolbar.sort")}
-                </TableToolbar.IconButton>
-                <TableToolbar.IconButton
-                  type="button"
-                  aria-label={t("adminDepartments.toolbar.columns")}
-                  icon={<Columns3 className="size-3.5 shrink-0" strokeWidth={2} />}
-                  onClick={() =>
-                    gooeyToast.info(t("adminDepartments.toolbar.columnsPending"))
-                  }
-                >
-                  {t("adminDepartments.toolbar.columns")}
-                </TableToolbar.IconButton>
-                <TableToolbar.IconButton
-                  type="button"
-                  aria-label={t("adminDepartments.toolbar.hide")}
-                  icon={<EyeOff className="size-3.5 shrink-0" strokeWidth={2} />}
-                  onClick={() =>
-                    gooeyToast.info(t("adminDepartments.toolbar.densityPending"))
-                  }
-                >
-                  {t("adminDepartments.toolbar.hide")}
-                </TableToolbar.IconButton>
-              </TableToolbar.Section>
-            </TableToolbar.Row>
-          </TableToolbar>
-        }
-      >
-        <TableHeader headerData={headerData} />
-        <TableBody>
-          {pageRows.map((record) => (
-            <TableRow
-              key={
-                activeTab === "groups"
-                  ? `${activeTab}-${normalizeGroupId(record)}`
-                  : `${activeTab}-${normalizeId(record?.id ?? record?.code)}`
-              }
-            >
-              <TableColumn className="w-10">
-                <Checkbox />
-              </TableColumn>
+                {statusOptions.length > 0 ? (
+                  <div className="w-full shrink-0 sm:w-48">
+                    <Select
+                      options={statusOptions}
+                      value={statusFilter}
+                      onValueChange={setStatusFilter}
+                    />
+                  </div>
+                ) : null}
+                <TableToolbar.Section className="w-full shrink-0 justify-start sm:ml-auto sm:w-auto md:justify-end">
+                  <TableToolbar.IconButton
+                    type="button"
+                    aria-label={t("adminDepartments.toolbar.filter")}
+                    icon={
+                      <Filter className="size-3.5 shrink-0" strokeWidth={2} />
+                    }
+                    onClick={() =>
+                      gooeyToast.info(
+                        t("adminDepartments.toolbar.filtersPending"),
+                      )
+                    }
+                  >
+                    {t("adminDepartments.toolbar.filter")}
+                  </TableToolbar.IconButton>
+                  <TableToolbar.IconButton
+                    type="button"
+                    aria-label={t("adminDepartments.toolbar.sort")}
+                    icon={
+                      <ArrowUpDown
+                        className="size-3.5 shrink-0"
+                        strokeWidth={2}
+                      />
+                    }
+                    onClick={() =>
+                      gooeyToast.info(t("adminDepartments.toolbar.sortPending"))
+                    }
+                  >
+                    {t("adminDepartments.toolbar.sort")}
+                  </TableToolbar.IconButton>
+                  <TableToolbar.IconButton
+                    type="button"
+                    aria-label={t("adminDepartments.toolbar.columns")}
+                    icon={
+                      <Columns3 className="size-3.5 shrink-0" strokeWidth={2} />
+                    }
+                    onClick={() =>
+                      gooeyToast.info(
+                        t("adminDepartments.toolbar.columnsPending"),
+                      )
+                    }
+                  >
+                    {t("adminDepartments.toolbar.columns")}
+                  </TableToolbar.IconButton>
+                  <TableToolbar.IconButton
+                    type="button"
+                    aria-label={t("adminDepartments.toolbar.hide")}
+                    icon={
+                      <EyeOff className="size-3.5 shrink-0" strokeWidth={2} />
+                    }
+                    onClick={() =>
+                      gooeyToast.info(
+                        t("adminDepartments.toolbar.densityPending"),
+                      )
+                    }
+                  >
+                    {t("adminDepartments.toolbar.hide")}
+                  </TableToolbar.IconButton>
+                </TableToolbar.Section>
+              </TableToolbar.Row>
+            </TableToolbar>
+          }
+        >
+          <TableHeader headerData={headerData} />
+          <TableBody>
+            {pageRows.map((record) => (
+              <TableRow
+                key={
+                  activeTab === "groups"
+                    ? `${activeTab}-${normalizeGroupId(record)}`
+                    : `${activeTab}-${normalizeId(record?.id ?? record?.code)}`
+                }
+              >
+                <TableColumn className="w-10">
+                  <Checkbox />
+                </TableColumn>
 
-              {activeTab === "departments" ? (
-                <>
-                  <TableColumn className="font-mono text-xs">
-                    #{normalizeId(record?.code ?? record?.id)}
-                  </TableColumn>
-                  <TableColumn nowrap={false}>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-default bg-light-app-tertiary text-secondary dark:border-dark-default dark:bg-dark-app-tertiary dark:text-dark-secondary">
-                        <Building2 className="size-4" strokeWidth={2} />
+                {activeTab === "departments" ? (
+                  <>
+                    <TableColumn className="font-mono text-xs">
+                      #{normalizeId(record?.code ?? record?.id)}
+                    </TableColumn>
+                    <TableColumn nowrap={false}>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-default bg-light-app-tertiary text-secondary dark:border-dark-default dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                          <Building2 className="size-4" strokeWidth={2} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
+                            {record?.name ||
+                              t("adminDepartments.fallback.name")}
+                          </div>
+                          <div className="text-xs text-muted dark:text-dark-muted">
+                            {getDepartmentMetaLine(record, t)}
+                          </div>
+                        </div>
                       </div>
+                    </TableColumn>
+                    <TableColumn nowrap={false}>
+                      <span className="line-clamp-1 text-sm text-secondary dark:text-dark-secondary">
+                        {record?.head || t("adminDepartments.fallback.head")}
+                      </span>
+                    </TableColumn>
+                    <TableColumn>
+                      <StatusPill variant={statusToPillVariant(record?.status)}>
+                        {t(
+                          `adminShared.status.${String(record?.status || "inactive").toLowerCase()}`,
+                        )}
+                      </StatusPill>
+                    </TableColumn>
+                    <TableColumn className="whitespace-nowrap text-xs">
+                      {formatRegistryDate(
+                        record?.created,
+                        locale,
+                        t("adminDepartments.fallback.date"),
+                      )}
+                    </TableColumn>
+                  </>
+                ) : null}
+
+                {activeTab === "academic-years" ? (
+                  <>
+                    <TableColumn className="font-mono text-xs">
+                      #{normalizeId(record?.id)}
+                    </TableColumn>
+                    <TableColumn nowrap={false}>
                       <div className="min-w-0">
                         <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
-                          {record?.name || t("adminDepartments.fallback.name")}
-                        </div>
-                        <div className="text-xs text-muted dark:text-dark-muted">
-                          {getDepartmentMetaLine(record, t)}
+                          {record?.name || "-"}
                         </div>
                       </div>
-                    </div>
-                  </TableColumn>
-                  <TableColumn nowrap={false}>
-                    <span className="line-clamp-1 text-sm text-secondary dark:text-dark-secondary">
-                      {record?.head || t("adminDepartments.fallback.head")}
-                    </span>
-                  </TableColumn>
-                  <TableColumn>
-                    <StatusPill variant={statusToPillVariant(record?.status)}>
-                      {t(
-                        `adminShared.status.${String(record?.status || "inactive").toLowerCase()}`,
+                    </TableColumn>
+                    <TableColumn className="text-xs">
+                      {formatDateRange(
+                        record?.startDate,
+                        record?.endDate,
+                        locale,
                       )}
-                    </StatusPill>
-                  </TableColumn>
-                  <TableColumn className="whitespace-nowrap text-xs">
-                    {formatRegistryDate(
-                      record?.created,
-                      locale,
-                      t("adminDepartments.fallback.date"),
-                    )}
-                  </TableColumn>
-                </>
-              ) : null}
+                    </TableColumn>
+                    <TableColumn className="text-xs">
+                      {record?.calendarType || "-"}
+                    </TableColumn>
+                    <TableColumn>
+                      <StatusPill
+                        variant={statusToPillVariant(
+                          inferTimelineStatus(
+                            record?.startDate,
+                            record?.endDate,
+                          ),
+                        )}
+                      >
+                        {t(
+                          `adminShared.status.${inferTimelineStatus(record?.startDate, record?.endDate)}`,
+                        )}
+                      </StatusPill>
+                    </TableColumn>
+                  </>
+                ) : null}
 
-              {activeTab === "academic-years" ? (
-                <>
-                  <TableColumn className="font-mono text-xs">
-                    #{normalizeId(record?.id)}
-                  </TableColumn>
-                  <TableColumn nowrap={false}>
-                    <div className="min-w-0">
-                      <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
-                        {record?.name || "-"}
-                      </div>
-                    </div>
-                  </TableColumn>
-                  <TableColumn className="text-xs">
-                    {formatDateRange(record?.startDate, record?.endDate, locale)}
-                  </TableColumn>
-                  <TableColumn className="text-xs">
-                    {record?.calendarType || "-"}
-                  </TableColumn>
-                  <TableColumn>
-                    <StatusPill
-                      variant={statusToPillVariant(
-                        inferTimelineStatus(record?.startDate, record?.endDate),
-                      )}
-                    >
-                      {t(`adminShared.status.${inferTimelineStatus(record?.startDate, record?.endDate)}`)}
-                    </StatusPill>
-                  </TableColumn>
-                </>
-              ) : null}
-
-              {activeTab === "semesters" ? (
-                <>
-                  <TableColumn className="font-mono text-xs">
-                    #{normalizeId(record?.id)}
-                  </TableColumn>
-                  <TableColumn nowrap={false}>
-                    <div className="min-w-0">
-                      <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
-                        {record?.name || "-"}
-                      </div>
-                      <div className="text-xs text-muted dark:text-dark-muted">
-                        {record?.type || "-"}
-                      </div>
-                    </div>
-                  </TableColumn>
-                  <TableColumn nowrap={false}>
-                    <span className="text-sm text-secondary dark:text-dark-secondary">
-                      {getAcademicYearLabel(record?.academicYear) || "-"}
-                    </span>
-                  </TableColumn>
-                  <TableColumn className="text-xs">
-                    {formatDateRange(record?.startDate, record?.endDate, locale)}
-                  </TableColumn>
-                  <TableColumn>
-                    <StatusPill variant={statusToPillVariant(getSemesterStatus(record))}>
-                      {t(`adminShared.status.${getSemesterStatus(record)}`)}
-                    </StatusPill>
-                  </TableColumn>
-                </>
-              ) : null}
-
-              {activeTab === "batches" ? (
-                <>
-                  <TableColumn className="font-mono text-xs">
-                    #{normalizeId(record?.id)}
-                  </TableColumn>
-                  <TableColumn nowrap={false}>
-                    <div className="min-w-0">
-                      <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
-                        {record?.name || "-"}
-                      </div>
-                      <div className="text-xs text-muted dark:text-dark-muted">
-                        {record?.year || "-"}
-                      </div>
-                    </div>
-                  </TableColumn>
-                  <TableColumn nowrap={false}>
-                    <span className="text-sm text-secondary dark:text-dark-secondary">
-                      {getAcademicYearLabel(record?.academicYear) || "-"}
-                    </span>
-                  </TableColumn>
-                  <TableColumn className="text-xs">
-                    {record?.type || "-"}
-                  </TableColumn>
-                  <TableColumn>
-                    <StatusPill variant={statusToPillVariant(getBatchStatus(record))}>
-                      {t(`adminShared.status.${getBatchStatus(record)}`)}
-                    </StatusPill>
-                  </TableColumn>
-                </>
-              ) : null}
-
-              {activeTab === "groups" ? (
-                <>
-                  <TableColumn className="font-mono text-xs">
-                    #{normalizeGroupId(record)}
-                  </TableColumn>
-                  <TableColumn nowrap={false}>
-                    <div className="min-w-0">
-                      <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
-                        {groupTitle(record)}
-                      </div>
-                    </div>
-                  </TableColumn>
-                  <TableColumn nowrap={false}>
-                    <span className="text-sm text-secondary dark:text-dark-secondary">
-                      {displayName(record?.groupLeader)}
-                    </span>
-                  </TableColumn>
-                  <TableColumn className="text-sm text-secondary dark:text-dark-secondary">
-                    {t("adminProjects.registry.memberCount", {
-                      count: groupMembersCount(record),
-                    })}
-                  </TableColumn>
-                </>
-              ) : null}
-
-              {activeTab === "faculties" ? (
-                <>
-                  <TableColumn className="font-mono text-xs">
-                    #{normalizeId(record?.code || record?.id)}
-                  </TableColumn>
-                  <TableColumn nowrap={false}>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-default bg-light-app-tertiary text-secondary dark:border-dark-default dark:bg-dark-app-tertiary dark:text-dark-secondary">
-                        <Building2 className="size-4" strokeWidth={2} />
-                      </div>
+                {activeTab === "semesters" ? (
+                  <>
+                    <TableColumn className="font-mono text-xs">
+                      #{normalizeId(record?.id)}
+                    </TableColumn>
+                    <TableColumn nowrap={false}>
                       <div className="min-w-0">
                         <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
                           {record?.name || "-"}
                         </div>
                         <div className="text-xs text-muted dark:text-dark-muted">
-                          {getFacultyMetaLine(record) || "-"}
+                          {record?.type || "-"}
                         </div>
                       </div>
-                    </div>
-                  </TableColumn>
-                  <TableColumn nowrap={false}>
-                    <span className="line-clamp-2 text-sm text-secondary dark:text-dark-secondary">
-                      {record?.description || record?.dean || "-"}
-                    </span>
-                  </TableColumn>
-                </>
-              ) : null}
-
-              <TableColumn className="text-center">
-                <DropdownMenuRoot>
-                  <DropdownTrigger showArrow={false}>
-                    <svg
-                      width="15"
-                      height="15"
-                      viewBox="0 0 15 15"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
-                        fill="currentColor"
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </DropdownTrigger>
-                  <DropdownContent align="end">
-                    {activeTab === "departments" ? (
-                      <DropdownItem
-                        onClick={() => navigate(`/admin/department/${record.id}`)}
+                    </TableColumn>
+                    <TableColumn nowrap={false}>
+                      <span className="text-sm text-secondary dark:text-dark-secondary">
+                        {getAcademicYearLabel(record?.academicYear) || "-"}
+                      </span>
+                    </TableColumn>
+                    <TableColumn className="text-xs">
+                      {formatDateRange(
+                        record?.startDate,
+                        record?.endDate,
+                        locale,
+                      )}
+                    </TableColumn>
+                    <TableColumn>
+                      <StatusPill
+                        variant={statusToPillVariant(getSemesterStatus(record))}
                       >
-                        <span>{t("adminShared.actions.viewProfile")}</span>
+                        {t(`adminShared.status.${getSemesterStatus(record)}`)}
+                      </StatusPill>
+                    </TableColumn>
+                  </>
+                ) : null}
+
+                {activeTab === "batches" ? (
+                  <>
+                    <TableColumn className="font-mono text-xs">
+                      #{normalizeId(record?.id)}
+                    </TableColumn>
+                    <TableColumn nowrap={false}>
+                      <div className="min-w-0">
+                        <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
+                          {record?.name || "-"}
+                        </div>
+                        <div className="text-xs text-muted dark:text-dark-muted">
+                          {record?.year || "-"}
+                        </div>
+                      </div>
+                    </TableColumn>
+                    <TableColumn nowrap={false}>
+                      <span className="text-sm text-secondary dark:text-dark-secondary">
+                        {getAcademicYearLabel(record?.academicYear) || "-"}
+                      </span>
+                    </TableColumn>
+                    <TableColumn className="text-xs">
+                      {record?.type || "-"}
+                    </TableColumn>
+                    <TableColumn>
+                      <StatusPill
+                        variant={statusToPillVariant(getBatchStatus(record))}
+                      >
+                        {t(`adminShared.status.${getBatchStatus(record)}`)}
+                      </StatusPill>
+                    </TableColumn>
+                  </>
+                ) : null}
+
+                {activeTab === "groups" ? (
+                  <>
+                    <TableColumn className="font-mono text-xs">
+                      #{normalizeGroupId(record)}
+                    </TableColumn>
+                    <TableColumn nowrap={false}>
+                      <div className="min-w-0">
+                        <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
+                          {groupTitle(record)}
+                        </div>
+                      </div>
+                    </TableColumn>
+                    <TableColumn nowrap={false}>
+                      <span className="text-sm text-secondary dark:text-dark-secondary">
+                        {displayName(record?.groupLeader)}
+                      </span>
+                    </TableColumn>
+                    <TableColumn className="text-sm text-secondary dark:text-dark-secondary">
+                      {t("adminProjects.registry.memberCount", {
+                        count: groupMembersCount(record),
+                      })}
+                    </TableColumn>
+                  </>
+                ) : null}
+
+                {activeTab === "faculties" ? (
+                  <>
+                    <TableColumn className="font-mono text-xs">
+                      #{normalizeId(record?.code || record?.id)}
+                    </TableColumn>
+                    <TableColumn nowrap={false}>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-default bg-light-app-tertiary text-secondary dark:border-dark-default dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                          <Building2 className="size-4" strokeWidth={2} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
+                            {record?.name || "-"}
+                          </div>
+                          <div className="text-xs text-muted dark:text-dark-muted">
+                            {getFacultyMetaLine(record) || "-"}
+                          </div>
+                        </div>
+                      </div>
+                    </TableColumn>
+                    <TableColumn nowrap={false}>
+                      <span className="line-clamp-2 text-sm text-secondary dark:text-dark-secondary">
+                        {record?.description || record?.dean || "-"}
+                      </span>
+                    </TableColumn>
+                  </>
+                ) : null}
+
+                <TableColumn className="text-center">
+                  <DropdownMenuRoot>
+                    <DropdownTrigger showArrow={false}>
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 15 15"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
+                          fill="currentColor"
+                          fillRule="evenodd"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </DropdownTrigger>
+                    <DropdownContent align="end">
+                      {activeTab === "departments" ? (
+                        <DropdownItem
+                          onClick={() =>
+                            navigate(`/admin/department/${record.id}`)
+                          }
+                        >
+                          <span>{t("adminShared.actions.viewProfile")}</span>
+                        </DropdownItem>
+                      ) : null}
+                      <DropdownItem onClick={() => openEditModal(record)}>
+                        <span>{t("adminShared.actions.editDetails")}</span>
                       </DropdownItem>
-                    ) : null}
-                    <DropdownItem onClick={() => openEditModal(record)}>
-                      <span>{t("adminShared.actions.editDetails")}</span>
-                    </DropdownItem>
-                    <DropdownSeparator />
-                    <DropdownItem
-                      variant="danger"
-                      onClick={() =>
-                        setDeleteRecord({
-                          id:
-                            activeTab === "groups"
-                              ? normalizeGroupId(record)
-                              : record?.id,
-                          name:
-                            (activeTab === "groups" ? groupTitle(record) : null) ??
-                            record?.name ??
-                            record?.title ??
-                            record?.code ??
-                            normalizeId(record?.id),
-                          meta:
-                            activeTab === "departments"
-                              ? record?.head || t("adminDepartments.fallback.head")
-                              : activeTab === "academic-years"
-                                ? record?.calendarType || "-"
-                              : activeTab === "semesters"
-                                ? record?.type || "-"
-                                : activeTab === "batches"
-                                  ? getAcademicYearLabel(record?.academicYear) || "-"
-                                  : activeTab === "groups"
-                                    ? displayName(record?.groupLeader)
-                                  : record?.code || "-",
-                        })
-                      }
-                    >
-                      <span>{t("adminShared.actions.delete")}</span>
-                    </DropdownItem>
-                  </DropdownContent>
-                </DropdownMenuRoot>
-              </TableColumn>
-            </TableRow>
-          ))}
+                      <DropdownSeparator />
+                      <DropdownItem
+                        variant="danger"
+                        onClick={() =>
+                          setDeleteRecord({
+                            id:
+                              activeTab === "groups"
+                                ? normalizeGroupId(record)
+                                : record?.id,
+                            name:
+                              (activeTab === "groups"
+                                ? groupTitle(record)
+                                : null) ??
+                              record?.name ??
+                              record?.title ??
+                              record?.code ??
+                              normalizeId(record?.id),
+                            meta:
+                              activeTab === "departments"
+                                ? record?.head ||
+                                  t("adminDepartments.fallback.head")
+                                : activeTab === "academic-years"
+                                  ? record?.calendarType || "-"
+                                  : activeTab === "semesters"
+                                    ? record?.type || "-"
+                                    : activeTab === "batches"
+                                      ? getAcademicYearLabel(
+                                          record?.academicYear,
+                                        ) || "-"
+                                      : activeTab === "groups"
+                                        ? displayName(record?.groupLeader)
+                                        : record?.code || "-",
+                          })
+                        }
+                      >
+                        <span>{t("adminShared.actions.delete")}</span>
+                      </DropdownItem>
+                    </DropdownContent>
+                  </DropdownMenuRoot>
+                </TableColumn>
+              </TableRow>
+            ))}
 
-          {pageRows.length === 0 ? (
-            <TableRow className="table-advanced-tr--empty cursor-default">
-              <TableColumn
-                colSpan={headerData.length}
-                nowrap={false}
-                className="py-12 text-center text-muted dark:text-dark-muted"
-              >
-                <div className="flex flex-col items-center gap-2">
-                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                    {activeTab === "groups" ? (
-                      <UsersRound className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                      <Building2 className="h-5 w-5 text-muted-foreground" />
-                    )}
+            {pageRows.length === 0 ? (
+              <TableRow className="table-advanced-tr--empty cursor-default">
+                <TableColumn
+                  colSpan={headerData.length}
+                  nowrap={false}
+                  className="py-12 text-center text-muted dark:text-dark-muted"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                      {activeTab === "groups" ? (
+                        <UsersRound className="h-5 w-5 text-muted-foreground" />
+                      ) : (
+                        <Building2 className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <span className="font-medium">
+                      {activeTab === "groups"
+                        ? t("adminProjects.faculty.emptyGroups")
+                        : t("adminRegistry.empty.title")}
+                    </span>
+                    <span className="text-xs opacity-75">
+                      {activeTab === "groups"
+                        ? t("adminProjects.registry.emptyHint")
+                        : t("adminRegistry.empty.hint")}
+                    </span>
                   </div>
-                  <span className="font-medium">
-                    {activeTab === "groups"
-                      ? t("adminProjects.faculty.emptyGroups")
-                      : t("adminRegistry.empty.title")}
-                  </span>
-                  <span className="text-xs opacity-75">
-                    {activeTab === "groups"
-                      ? t("adminProjects.registry.emptyHint")
-                      : t("adminRegistry.empty.hint")}
-                  </span>
-                </div>
-              </TableColumn>
-            </TableRow>
-          ) : null}
-        </TableBody>
-      </Table>
+                </TableColumn>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          totalItems={totalElements}
-          pageSize={pageSize}
-          onPageChange={(nextPage, nextSize) => {
-            if (nextSize !== pageSize) {
-              setPageSize(nextSize);
-              setPage(1);
-              return;
-            }
-            setPage(nextPage);
-          }}
-        />
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={totalElements}
+            pageSize={pageSize}
+            onPageChange={(nextPage, nextSize) => {
+              if (nextSize !== pageSize) {
+                setPageSize(nextSize);
+                setPage(1);
+                return;
+              }
+              setPage(nextPage);
+            }}
+          />
+        </div>
       </div>
 
       {activeTab === "departments" ? (
@@ -1915,7 +2015,11 @@ export default function Departments() {
             subtitle={t("adminRegistry.modal.createSubtitle")}
             footer={
               <>
-                <Button type="button" variant="tertiary" onClick={closeFormModals}>
+                <Button
+                  type="button"
+                  variant="tertiary"
+                  onClick={closeFormModals}
+                >
                   {t("adminDepartments.form.actions.cancel")}
                 </Button>
                 <Button
@@ -1954,7 +2058,11 @@ export default function Departments() {
             subtitle={t("adminRegistry.modal.editSubtitle")}
             footer={
               <>
-                <Button type="button" variant="tertiary" onClick={closeFormModals}>
+                <Button
+                  type="button"
+                  variant="tertiary"
+                  onClick={closeFormModals}
+                >
                   {t("adminDepartments.form.actions.cancel")}
                 </Button>
                 <Button
@@ -2006,7 +2114,7 @@ export default function Departments() {
                   ? t("adminDepartments.delete.headLabel")
                   : activeTab === "groups"
                     ? t("adminProjects.delete.meta")
-                  : t("adminRegistry.delete.meta"),
+                    : t("adminRegistry.delete.meta"),
               value: deleteRecord.meta || "-",
               mono: true,
             },

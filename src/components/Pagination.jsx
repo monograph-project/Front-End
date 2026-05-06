@@ -85,15 +85,11 @@ function Pagination({
   };
 
   const sizeStr = String(
-    PAGE_SIZE_OPTIONS.some((o) => o.value === String(pageSize))
-      ? pageSize
-      : 10,
+    PAGE_SIZE_OPTIONS.some((o) => o.value === String(pageSize)) ? pageSize : 10,
   );
 
   return (
-    <div
-      className={`flex flex-wrap items-center gap-x-4 gap-y-3 ${className}`}
-    >
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-3 ${className}`}>
       <div className="flex flex-wrap items-center gap-3">
         {showPageSize && (
           <div className="flex items-center gap-2">
@@ -118,8 +114,7 @@ function Pagination({
           ) : (
             <span>
               <span className="font-medium text-secondary dark:text-dark-secondary">
-                {Math.min((safePage - 1) * pageSize + 1, total)}
-                –
+                {Math.min((safePage - 1) * pageSize + 1, total)}–
                 {Math.min(safePage * pageSize, total)}
               </span>
               {" of "}
@@ -140,7 +135,7 @@ function Pagination({
 
       {showGoTo && safeTotalPages > 1 && (
         <form
-          className="flex items-center gap-2 rounded-xl border border-default bg-(--color-light-input-bg)/50 px-2 py-1 dark:border-dark-default dark:bg-dark-input/40"
+          className="flex items-center gap-2 rounded-xl border border-default bg-(--color-light-input-bg) px-2 py-1 dark:border-dark-default dark:bg-dark-input-bg"
           onSubmit={handleJump}
         >
           <label htmlFor="pagination-jump" className="sr-only">
@@ -157,7 +152,7 @@ function Pagination({
             placeholder="#"
             value={jump}
             onChange={(e) => setJump(e.target.value)}
-            className="focus:border-(--color-light-input-border-focus) h-8 w-11 rounded-lg border border-default bg-(--color-light-input-bg) px-2 text-center text-xs text-primary outline-none transition focus:ring-2 focus:ring-blue-500/15 dark:border-dark-default dark:bg-dark-input dark:text-dark-primary"
+            className="focus:border-(--color-light-input-border-focus) h-8 w-11 rounded-lg border border-default bg-(--color-light-input-bg) px-2 text-center text-xs text-light-text-primary outline-none transition focus:ring-2 focus:ring-blue-500 dark:border-dark-default dark:bg-dark-input-bg dark:text-dark-text-primary"
           />
           <button type="submit" className={`${btnGhost} h-8 px-3`}>
             Go
@@ -195,9 +190,7 @@ function Pagination({
                   key={page}
                   type="button"
                   onClick={() => onPageChange(page, pageSize)}
-                  className={
-                    safePage === page ? pillActive : pillIdle
-                  }
+                  className={safePage === page ? pillActive : pillIdle}
                 >
                   {page}
                 </button>

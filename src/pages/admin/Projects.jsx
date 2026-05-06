@@ -502,7 +502,7 @@ export default function Projects() {
   );
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-shell">
+    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-white  p-4 md:p-5 dark:bg-dark-card-bg min-h-screen ">
       <div className="flex flex-col gap-4">
         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div>

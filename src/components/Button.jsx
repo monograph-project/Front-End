@@ -63,7 +63,7 @@ function Button({
         <BtnSpinner />
       ) : icon ? (
         <span
-          className="inline-flex shrink-0 items-center justify-center [&>svg]:size-[1.05rem] [&>svg]:shrink-0"
+          className="inline-flex shrink-0 items-center justify-center [&>svg]:size-[1rem] [&>svg]:shrink-0"
           aria-hidden
         >
           {icon}
