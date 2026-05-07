@@ -45,6 +45,7 @@ import StudentNotifications from "./pages/student/Notifications";
 import StudentNotificationDetail from "./pages/student/NotificationDetail";
 import StudentRepositoryLayout from "./pages/student/StudentRepositoryLayout";
 import StudentRepoCode from "./pages/student/StudentRepoCode";
+import StudentRepoFileHistory from "./pages/student/StudentRepoFileHistory";
 import StudentRepoPullRequests from "./pages/student/StudentRepoPullRequests";
 import StudentRepoTasks from "./pages/student/StudentRepoTasks";
 import StudentRepoContributors from "./pages/student/StudentRepoContributors";
@@ -260,6 +261,7 @@ export default function App() {
                 element={<StudentRepositoryLayout />}
               >
                 <Route index element={<StudentRepoCode />} />
+                <Route path="history" element={<StudentRepoFileHistory />} />
                 <Route
                   path="pull-requests"
                   element={<StudentRepoPullRequests />}

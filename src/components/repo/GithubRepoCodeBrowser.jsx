@@ -20,8 +20,9 @@ import {
 import { saveAs } from "file-saver";
 import { gooeyToast } from "goey-toast";
 import { useTranslation } from "react-i18next";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import Button from "../Button";
-import DocumentViewerContainer from "../DocumentViewer/DocumentViewerContainer";
+import OverviewMode from "../DocumentViewer/OverviewMode";
 import Select from "../Select";
 import { cn } from "../../lib/utils";
 import {
@@ -31,7 +32,10 @@ import {
   useVcRepositoryTree,
 } from "../../services/useApi";
 import { tryDecodeUtf8 } from "../../utils/binaryFileHandlers";
-import { fetchRepositoryBlobPayload } from "../../services/versionControlService";
+import {
+  fetchFileBlame,
+  fetchRepositoryBlobPayload,
+} from "../../services/versionControlService";
 
 function unwrapTreeNodes(payload) {
   if (payload == null) return [];
@@ -91,6 +95,24 @@ function extractTextFromContentsResponse(data) {
   return null;
 }
 
+function extractBytesFromContentsResponse(data) {
+  if (!data || typeof data !== "object") return null;
+  if (data.encoding === "base64" && typeof data.content === "string") {
+    try {
+      const bin = atob(String(data.content).replace(/\s/g, ""));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof data.content === "string") {
+    return new TextEncoder().encode(data.content);
+  }
+  return null;
+}
+
 function formatBytes(size) {
   const num = Number(size ?? 0);
   if (!Number.isFinite(num) || num <= 0) return "0 B";
@@ -114,14 +136,46 @@ function entryCommitMessage(entry) {
 
 function entryCommittedDate(entry) {
   const raw =
+    entry.last_commit_date ??
+    entry.lastCommitDate ??
     entry.commit?.created ??
     entry.commit?.timestamp ??
+    entry.commit?.date ??
     entry.last_modified ??
     entry.lastModified ??
     entry.updated_at ??
     entry.updatedAt ??
     "";
   return typeof raw === "string" && raw ? raw : "";
+}
+
+function entryCommitSha(entry) {
+  const raw =
+    entry.last_commit_sha ??
+    entry.lastCommitSha ??
+    entry.commit_sha ??
+    entry.commitSha ??
+    entry.commit?.sha ??
+    entry.commit?.id ??
+    entry.commit_id ??
+    entry.sha ??
+    "";
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function entryCommitAuthor(entry) {
+  const raw =
+    entry.last_commit_author ??
+    entry.lastCommitAuthor ??
+    entry.commit_author ??
+    entry.commitAuthor ??
+    entry.author ??
+    entry.authorName ??
+    entry.commit?.author ??
+    entry.commit?.userName ??
+    entry.commit?.authorName ??
+    "";
+  return typeof raw === "string" ? raw.trim() : "";
 }
 
 function formatRelativeTime(raw, locale) {
@@ -145,6 +199,105 @@ function formatRelativeTime(raw, locale) {
     }
   }
   return "just now";
+}
+
+function formatAbsoluteTime(raw, locale) {
+  if (!raw) return "—";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "—";
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(d);
+  } catch {
+    return d.toISOString();
+  }
+}
+
+function commitRowSha(row) {
+  const raw = row?.sha ?? row?.id ?? row?.commitSha ?? row?.commit ?? "";
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function commitRowMessage(row) {
+  const raw = row?.message ?? row?.subject ?? row?.commitMessage ?? "";
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function commitRowAuthor(row) {
+  const raw =
+    row?.author ??
+    row?.authorName ??
+    row?.committer ??
+    row?.userName ??
+    row?.username ??
+    "";
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function commitRowTimestamp(row) {
+  const raw =
+    row?.timestamp ??
+    row?.date ??
+    row?.committedDate ??
+    row?.createdAt ??
+    row?.created_at ??
+    "";
+  return typeof raw === "string" ? raw : "";
+}
+
+function blameLineNumber(row) {
+  const n = Number(
+    row?.lineNumber ?? row?.line ?? row?.line_no ?? row?.lineNo ?? row?.lineIdx,
+  );
+  if (!Number.isFinite(n)) return -1;
+  return Math.max(1, n);
+}
+
+function blameCommitSha(row) {
+  const raw = row?.commit ?? row?.commitSha ?? row?.sha ?? row?.revision ?? "";
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function blameCommitMessage(row) {
+  const raw = row?.commitMessage ?? row?.message ?? row?.subject ?? "";
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function blameCommitAuthor(row) {
+  const raw =
+    row?.author ??
+    row?.authorName ??
+    row?.userName ??
+    row?.username ??
+    row?.committer ??
+    "";
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function blameCommitTimestamp(row) {
+  const raw =
+    row?.timestamp ?? row?.date ?? row?.time ?? row?.committedDate ?? "";
+  return typeof raw === "string" ? raw : "";
+}
+
+function initialsFromName(value) {
+  const parts = String(value ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "?";
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase?.() ?? "")
+    .join("");
+}
+
+function truncateMiddle(value, max = 72) {
+  const text = String(value ?? "");
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1).trimEnd()}…`;
 }
 
 function refsHeadBranch(payload) {
@@ -192,6 +345,13 @@ function darkButtonClass({ green = false, disabled = false } = {}) {
   );
 }
 
+function iconGhostButtonClass({ compact = false } = {}) {
+  return cn(
+    "inline-flex items-center justify-center rounded-md border border-white/16 bg-white/[0.03] text-white/72 transition-colors hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-45",
+    compact ? "h-8 w-8" : "h-9 w-9",
+  );
+}
+
 function sidebarRow({ icon: Icon, label, value, href = "" }) {
   const content = href ? (
     <a
@@ -221,8 +381,12 @@ function sidebarRow({ icon: Icon, label, value, href = "" }) {
 
 export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const outletContext = useOutletContext() ?? {};
   const o = typeof owner === "string" ? owner.trim() : "";
   const r = typeof repo === "string" ? repo.trim() : "";
+  const repoBase =
+    typeof outletContext.repoBase === "string" ? outletContext.repoBase : "";
   const locale = i18n.language || undefined;
   const metaDefaultBranch =
     repositoryMeta?.default_branch ??
@@ -255,8 +419,9 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
     /** @type {null | { path: string, sha?: string }} */ (null),
   );
   const [fileFilter, setFileFilter] = useState("");
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [rawOpen, setRawOpen] = useState(false);
+  const [activeView, setActiveView] = useState(
+    /** @type {"code" | "blame" | "raw"} */ ("code"),
+  );
   const treeParams = useMemo(() => ({ ref, path: treePath }), [ref, treePath]);
   const treeQuery = useVcRepositoryTree(o, r, treeParams, {
     enabled: Boolean(o && r && ref),
@@ -384,7 +549,6 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
         o &&
         r &&
         ref &&
-        historyOpen &&
         selected?.path &&
         !String(selected.path).endsWith("/"),
       ),
@@ -408,6 +572,10 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
     () => extractTextFromContentsResponse(selectedContentsQ.data),
     [selectedContentsQ.data],
   );
+  const selectedBytes = useMemo(
+    () => extractBytesFromContentsResponse(selectedContentsQ.data),
+    [selectedContentsQ.data],
+  );
 
   const fileMeta = useMemo(() => {
     const text = String(selectedText ?? "");
@@ -429,19 +597,48 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
   const selectedEntry = selectedPath
     ? rows.find((entry) => pathForEntry(entry) === selectedPath) ?? null
     : null;
+  const selectedLatestCommit = historyRows[0] ?? null;
+  const selectedHeaderCommit = {
+    message:
+      commitRowMessage(selectedLatestCommit) ||
+      entryCommitMessage(selectedEntry ?? {}) ||
+      headlineCommit?.message ||
+      "",
+    sha:
+      commitRowSha(selectedLatestCommit) ||
+      entryCommitSha(selectedEntry ?? {}) ||
+      "",
+    author:
+      commitRowAuthor(selectedLatestCommit) ||
+      entryCommitAuthor(selectedEntry ?? {}) ||
+      "",
+    timestamp:
+      commitRowTimestamp(selectedLatestCommit) ||
+      entryCommittedDate(selectedEntry ?? {}) ||
+      headlineCommit?.date ||
+      "",
+  };
 
   const branchSelectOptions = useMemo(() => {
     if (branchOpts.length) return branchOpts;
     return [{ value: String(ref), label: String(ref) }];
   }, [branchOpts, ref]);
 
+  const openHistoryPage = useCallback(() => {
+    if (!repoBase || !selected?.path) return;
+    const search = new URLSearchParams({
+      path: selected.path,
+      ref,
+    });
+    navigate(`${repoBase}/history?${search.toString()}`);
+  }, [navigate, ref, repoBase, selected?.path]);
+
   function onPickEntry(entry) {
     const full = pathForEntry(entry);
     if (nodeDir(entry)) {
       setTreePath(full);
       setSelected(null);
-      setRawOpen(false);
-      setHistoryOpen(false);
+      setActiveView("code");
       return;
     }
     const sha =
@@ -453,8 +650,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
             ? entry.id.trim()
             : "";
     setSelected({ path: full, sha: sha || undefined });
-    setRawOpen(false);
-    setHistoryOpen(false);
+    setActiveView("code");
   }
 
   const aboutRows = [
@@ -618,8 +814,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                             onClick={() => {
                               setTreePath(c.path);
                               setSelected(null);
-                              setHistoryOpen(false);
-                              setRawOpen(false);
+                              setActiveView("code");
                             }}
                           >
                             {c.label}
@@ -645,6 +840,8 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                     {rows.map((entry, i) => {
                       const nm = nodeLabel(entry) || `entry-${i}`;
                       const dir = nodeDir(entry);
+                      const msg = entryCommitMessage(entry) || "—";
+                      const whenRaw = entryCommittedDate(entry);
                       const full = pathForEntry(entry, nm);
                       const sel = selected?.path === full;
                       return (
@@ -653,19 +850,27 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                           type="button"
                           onClick={() => onPickEntry({ ...entry, path: entry.path })}
                           className={cn(
-                            "flex w-full items-center gap-3 border-b border-(--color-light-card-border) px-4 py-3 text-left transition-colors last:border-b-0 dark:border-(--color-dark-card-border)",
+                            "grid w-full grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_110px] items-center gap-3 border-b border-(--color-light-card-border) px-4 py-3 text-left transition-colors last:border-b-0 dark:border-(--color-dark-card-border)",
                             sel
                               ? "bg-(--color-light-card-hover) dark:bg-(--color-dark-card-hover)"
                               : "hover:bg-(--color-light-card-hover) dark:hover:bg-(--color-dark-card-hover)",
                           )}
                         >
-                          {dir ? (
-                            <Folder className="size-4 shrink-0 text-(--color-chart-warning)" strokeWidth={1.9} aria-hidden />
-                          ) : (
-                            <File className="size-4 shrink-0 text-muted dark:text-dark-muted" strokeWidth={1.9} aria-hidden />
-                          )}
-                          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-primary dark:text-dark-primary">
-                            {nm}
+                          <div className="flex min-w-0 items-center gap-3">
+                            {dir ? (
+                              <Folder className="size-4 shrink-0 text-(--color-chart-warning)" strokeWidth={1.9} aria-hidden />
+                            ) : (
+                              <File className="size-4 shrink-0 text-muted dark:text-dark-muted" strokeWidth={1.9} aria-hidden />
+                            )}
+                            <span className="min-w-0 truncate text-sm font-semibold text-primary dark:text-dark-primary">
+                              {nm}
+                            </span>
+                          </div>
+                          <span className="truncate text-sm text-secondary dark:text-dark-secondary">
+                            {msg}
+                          </span>
+                          <span className="text-right text-sm text-muted dark:text-dark-muted">
+                            {formatRelativeTime(whenRaw, locale)}
                           </span>
                         </button>
                       );
@@ -681,8 +886,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                     className="text-(--color-chart-blue-primary) hover:underline dark:text-(--color-chart-blue-secondary)"
                     onClick={() => {
                       setSelected(null);
-                      setRawOpen(false);
-                      setHistoryOpen(false);
+                      setActiveView("code");
                     }}
                   >
                     {r}
@@ -693,69 +897,104 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                   </span>
                 </div>
 
-                <div className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-                  <div className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-(--color-light-card-border) bg-light-app-tertiary text-xs font-semibold uppercase text-primary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-primary">
-                      {(o ?? "").slice(0, 2)}
+                <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d1117] text-white shadow-[0_18px_50px_rgba(0,0,0,.24)]">
+                  <div className="flex flex-wrap items-center gap-3 border-b border-white/10 px-4 py-4 text-sm">
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.08] text-xs font-semibold uppercase text-white">
+                      {initialsFromName(selectedHeaderCommit.author || o)}
                     </span>
-                    <span className="font-semibold text-primary dark:text-dark-primary">
-                      {(o ?? "").split?.(/[/@]/)[0] ?? o}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-secondary dark:text-dark-secondary">
-                      {entryCommitMessage(selectedEntry ?? {}) || headlineCommit?.message || "—"}
-                    </span>
-                    <span className="font-mono text-xs text-muted dark:text-dark-muted">
-                      {selectedEntry?.sha?.slice?.(0, 7) || headlineCommit?.sha || "—"}
-                    </span>
-                    <span className="text-sm text-muted dark:text-dark-muted">
-                      {formatRelativeTime(entryCommittedDate(selectedEntry ?? {}) || headlineCommit?.date, locale)}
-                    </span>
-                    <button
-                      type="button"
-                      className="ms-auto inline-flex items-center gap-1 text-sm font-semibold text-primary dark:text-dark-primary"
-                      onClick={() => setHistoryOpen((current) => !current)}
-                    >
-                      <HistoryIcon />
-                      {t("studentRepo.browser.history")}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-                  <div className="flex flex-wrap items-center gap-3 border-b border-(--color-light-card-border) px-3 py-2 dark:border-(--color-dark-card-border)">
-                    <div className="flex items-center gap-2">
-                      <Button
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-semibold text-white/88">
+                          {selectedHeaderCommit.author || ((o ?? "").split?.(/[/@]/)[0] || o)}
+                          </span>
+                          <span className="min-w-0 truncate text-sm text-white/84">
+                            {selectedHeaderCommit.message || "—"}
+                          </span>
+                        </div>
+                    </div>
+                    <div className="ms-auto flex flex-wrap items-center gap-3 text-sm text-white/70">
+                      <span className="font-mono">{selectedHeaderCommit.sha.slice(0, 7) || "—"}</span>
+                      <span>{formatRelativeTime(selectedHeaderCommit.timestamp, locale)}</span>
+                      <button
                         type="button"
-                        variant={!rawOpen ? "primary" : "secondary"}
-                        className="h-8 px-4 text-xs"
+                        className="inline-flex items-center gap-1.5 font-semibold text-white transition-colors hover:text-white/80"
+                        onClick={openHistoryPage}
+                      >
+                        <HistoryIcon />
+                        {t("studentRepo.browser.history")}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/[0.04] px-3 py-2.5">
+                    <div className="flex items-center rounded-lg border border-white/14 bg-white/[0.04] p-1">
+                      <button
+                        type="button"
+                        className={cn(
+                          "rounded-md px-4 py-2 text-sm font-semibold transition-colors",
+                          activeView === "code"
+                            ? "bg-white/[0.12] text-white"
+                            : "text-white/72 hover:text-white",
+                        )}
                         onClick={() => {
-                          setRawOpen(false);
-                          setHistoryOpen(false);
+                          setActiveView("code");
                         }}
                       >
                         {t("studentRepo.tabs.code")}
-                      </Button>
-                      <Button
+                      </button>
+                      <button
                         type="button"
-                        variant={rawOpen ? "primary" : "secondary"}
-                        className="h-8 px-4 text-xs"
+                        className={cn(
+                          "rounded-md px-4 py-2 text-sm font-semibold transition-colors",
+                          activeView === "blame"
+                            ? "bg-white/[0.12] text-white"
+                            : "text-white/72 hover:text-white",
+                        )}
                         onClick={() => {
-                          setRawOpen(true);
-                          setHistoryOpen(false);
+                          setActiveView("blame");
                         }}
                       >
-                        {t("studentRepo.browser.raw")}
-                      </Button>
+                        Blame
+                      </button>
                     </div>
 
-                    <div className="text-xs text-muted dark:text-dark-muted">
+                    <div className="text-sm text-white/70">
                       {fileMeta.lines} lines ({fileMeta.loc} loc) • {formatBytes(fileMeta.bytes)}
                     </div>
 
                     <div className="ms-auto flex items-center gap-2">
+                      {activeView === "blame" ? (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-2 rounded-full border border-white/16 px-3 py-1.5 text-sm text-white/86 transition-colors hover:bg-white/[0.08]"
+                          onClick={openHistoryPage}
+                        >
+                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/14 bg-white/[0.08] text-[11px] font-semibold">
+                            {initialsFromName(selectedHeaderCommit.author || o)}
+                          </span>
+                          Contributors
+                          <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-white/16 px-1.5 text-xs">
+                            {selectedHeaderCommit.author ? 1 : 0}
+                          </span>
+                        </button>
+                      ) : null}
                       <button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-(--color-light-card-border) text-muted transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-muted dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary"
+                        className={cn(
+                          "rounded-md border px-3 py-2 text-sm font-semibold transition-colors",
+                          activeView === "raw"
+                            ? "border-white/18 bg-white/[0.12] text-white"
+                            : "border-white/14 bg-transparent text-white/72 hover:bg-white/[0.08] hover:text-white",
+                        )}
+                        onClick={() => {
+                          setActiveView("raw");
+                        }}
+                      >
+                        {t("studentRepo.browser.raw")}
+                      </button>
+                      <button
+                        type="button"
+                        className={iconGhostButtonClass()}
                         onClick={async () => {
                           try {
                             await navigator.clipboard.writeText(selected.path);
@@ -769,7 +1008,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                       </button>
                       <button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-(--color-light-card-border) text-muted transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-muted dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary"
+                        className={iconGhostButtonClass()}
                         disabled={!selected?.sha}
                         onClick={async () => {
                           gooeyToast.info(t("studentRepo.browser.downloadHint"));
@@ -787,73 +1026,43 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                       </button>
                       <button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-(--color-light-card-border) text-muted transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-muted dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary"
+                        className={iconGhostButtonClass()}
                         disabled
                       >
                         <Pencil className="h-4 w-4" strokeWidth={1.7} aria-hidden />
                       </button>
                       <button
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-(--color-light-card-border) text-muted transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-muted dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary"
+                        className={iconGhostButtonClass()}
                       >
                         <Ellipsis className="h-4 w-4" strokeWidth={1.7} aria-hidden />
                       </button>
                     </div>
                   </div>
 
-                  <div className="p-3">
-                    {historyOpen ? (
-                      <div className="max-h-[min(50vh,420px)] space-y-2 overflow-y-auto rounded-md border border-(--color-light-card-border) bg-(--color-light-app-bg) p-3 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-app-secondary)">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-                          {t("studentRepo.browser.historyHeading")}
-                        </p>
-                        {commitsQ.isLoading ? (
-                          <p className="text-xs text-muted dark:text-dark-muted">
-                            {t("studentRepo.browser.historyLoading")}
-                          </p>
-                        ) : historyRows.length ? (
-                          <ul className="space-y-2">
-                            {historyRows.map((row, ix) => {
-                              const sha = row.sha ?? row.id ?? row.commitSha ?? `h-${ix}`;
-                              const msg = row.message ?? row.subject ?? row.commitMessage ?? "";
-                              const authorRow = row.author ?? row.authorName ?? "";
-                              return (
-                                <li
-                                  key={String(sha)}
-                                  className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 py-2 text-xs dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
-                                >
-                                  <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] text-muted dark:text-dark-muted">
-                                    <span>{String(sha).slice(0, 12)}</span>
-                                    <span>{authorRow ? String(authorRow) : "—"}</span>
-                                  </div>
-                                  <p className="mt-2 text-sm font-semibold leading-snug text-primary dark:text-dark-primary">
-                                    {msg || "—"}
-                                  </p>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        ) : (
-                          <p className="text-xs text-muted dark:text-dark-muted">
-                            {t("studentRepo.browser.historyEmpty")}
-                          </p>
-                        )}
-                      </div>
-                    ) : !selected.sha ? (
-                      <div className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-                        <p className="text-sm text-muted dark:text-dark-muted">
+                  <div className="bg-[#0d1117] p-0">
+                    {!selected.sha ? (
+                      <div className="p-4">
+                        <p className="text-sm text-white/60">
                           {t("studentRepo.browser.noBlobShaBody")}
                         </p>
                       </div>
-                    ) : rawOpen ? (
+                    ) : activeView === "raw" ? (
                       <RawSnippetPanel owner={o} repo={r} blobSha={selected.sha} />
-                    ) : (
-                      <DocumentViewerContainer
+                    ) : activeView === "blame" ? (
+                      <RepositoryBlamePanel
                         owner={o}
                         repo={r}
                         filePath={selected.path}
                         branch={ref}
-                        blobSha={selected.sha}
+                        fileText={selectedText}
+                        locale={locale}
+                        onOpenHistory={openHistoryPage}
+                      />
+                    ) : (
+                      <RepositoryCodePanel
+                        filePath={selected.path}
+                        fileBytes={selectedBytes}
                       />
                     )}
                   </div>
@@ -907,8 +1116,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                         onClick={() => {
                           setTreePath(c.path);
                           setSelected(null);
-                          setHistoryOpen(false);
-                          setRawOpen(false);
+                          setActiveView("code");
                         }}
                       >
                         {c.label}
@@ -1086,6 +1294,321 @@ function HistoryIcon() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+function RepositoryCodePanel({ filePath, fileBytes }) {
+  if (fileBytes?.length) {
+    return (
+      <OverviewMode
+        fileBytes={fileBytes}
+        filePath={filePath}
+        fileType=""
+      />
+    );
+  }
+  return (
+    <div className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 text-sm text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
+      Preview is unavailable for this file response. Use `Raw` or `Download`.
+    </div>
+  );
+}
+
+function RepositoryBlamePanel({
+  owner,
+  repo,
+  filePath,
+  branch,
+  fileText,
+  locale,
+  onOpenHistory,
+}) {
+  const { t } = useTranslation();
+  const [blameRows, setBlameRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [hoveredGroup, setHoveredGroup] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!owner || !repo || !filePath || fileText == null) {
+        setBlameRows([]);
+        setError("");
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError("");
+      try {
+        const rows = await fetchFileBlame(owner, repo, filePath, branch);
+        if (!cancelled) setBlameRows(Array.isArray(rows) ? rows : []);
+      } catch (err) {
+        if (!cancelled) {
+          setBlameRows([]);
+          setError(String(err?.message ?? t("documentViewer.blame.binary")));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [branch, filePath, fileText, owner, repo, t]);
+
+  const lines = useMemo(
+    () => (typeof fileText === "string" ? fileText.split(/\r?\n/) : []),
+    [fileText],
+  );
+
+  const blameByLine = useMemo(() => {
+    const map = new Map();
+    blameRows.forEach((row) => {
+      const lineNumber = blameLineNumber(row);
+      if (lineNumber > 0) map.set(lineNumber, row);
+    });
+    return map;
+  }, [blameRows]);
+
+  const groups = useMemo(() => {
+    if (!lines.length) return [];
+    const grouped = [];
+    let current = null;
+    lines.forEach((content, index) => {
+      const lineNumber = index + 1;
+      const blame = blameByLine.get(lineNumber) ?? null;
+      const sha = blameCommitSha(blame);
+      const key = `${sha || "unknown"}-${lineNumber}`;
+      const row = {
+        lineNumber,
+        content,
+        sha,
+        author: blameCommitAuthor(blame),
+        message: blameCommitMessage(blame),
+        timestamp: blameCommitTimestamp(blame),
+      };
+      if (
+        !current ||
+        current.sha !== row.sha ||
+        current.author !== row.author ||
+        current.message !== row.message ||
+        current.timestamp !== row.timestamp
+      ) {
+        current = {
+          key,
+          sha: row.sha,
+          author: row.author,
+          message: row.message,
+          timestamp: row.timestamp,
+          lines: [row],
+        };
+        grouped.push(current);
+      } else {
+        current.lines.push(row);
+      }
+    });
+    return grouped;
+  }, [blameByLine, lines]);
+
+  const contributorNames = useMemo(() => {
+    const set = new Set();
+    groups.forEach((group) => {
+      if (group.author) set.add(group.author);
+    });
+    return Array.from(set);
+  }, [groups]);
+
+  const [minTs, maxTs] = useMemo(() => {
+    const stamps = groups
+      .map((group) => new Date(group.timestamp).getTime())
+      .filter((value) => Number.isFinite(value));
+    if (!stamps.length) return [0, 0];
+    return [Math.min(...stamps), Math.max(...stamps)];
+  }, [groups]);
+
+  const contributorCount = contributorNames.length || 0;
+
+  if (fileText == null) {
+    return (
+      <div className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 text-sm text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
+        {t("documentViewer.blame.binary")}
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <p className="px-4 py-4 text-sm text-white/60">
+        {t("studentRepo.browser.historyLoading")}
+      </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="m-4 rounded-md border border-(--color-light-error-border) bg-(--color-light-error-bg) p-4 text-sm text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)">
+        {error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden border-t border-white/10 bg-[#0d1117] text-white">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-4 py-4">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-white/72">
+          <span>Older</span>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: 10 }).map((_, index) => {
+              const ratio = index / 9;
+              return (
+                <span
+                  key={index}
+                  className="h-3 w-3 rounded-[2px]"
+                  style={{
+                    backgroundColor: `hsla(34, 88%, ${22 + ratio * 40}%, .95)`,
+                  }}
+                />
+              );
+            })}
+          </div>
+          <span>Newer</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {contributorNames.slice(0, 1).map((name) => (
+            <span
+              key={name}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10 text-xs font-semibold text-white"
+              title={name}
+            >
+              {initialsFromName(name)}
+            </span>
+          ))}
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/86 transition-colors hover:bg-white/[0.08]"
+            onClick={onOpenHistory}
+          >
+            Contributors
+            <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-white/15 px-1.5 text-xs">
+              {contributorCount}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div className="border-b border-white/10 px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+          Line Ownership
+        </p>
+      </div>
+
+      <div>
+        {!groups.length ? (
+          <p className="px-4 py-4 text-xs text-white/60">
+            {t("studentRepo.browser.historyEmpty")}
+          </p>
+        ) : (
+          groups.map((group) => {
+            const ts = new Date(group.timestamp).getTime();
+            const ratio =
+              Number.isFinite(ts) && maxTs > minTs ? (ts - minTs) / (maxTs - minTs) : 0.45;
+            const bg = `hsla(34, 88%, ${20 + ratio * 38}%, ${hoveredGroup === group.key ? 0.26 : 0.14})`;
+            const accent = `hsla(29, 92%, ${28 + ratio * 42}%, .96)`;
+            return (
+              <div
+                key={group.key}
+                className="grid border-b border-white/10 md:grid-cols-[minmax(280px,34%)_minmax(0,1fr)]"
+                onMouseEnter={() => setHoveredGroup(group.key)}
+                onMouseLeave={() => setHoveredGroup("")}
+              >
+                <div className="border-r border-white/10 px-0" style={{ backgroundColor: bg }}>
+                  <div className="grid h-full grid-cols-[4px_minmax(0,1fr)]">
+                    <span style={{ backgroundColor: accent }} />
+                    <div className="p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/20 text-[10px] font-semibold">
+                          {initialsFromName(group.author)}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/70">
+                            <span>{formatRelativeTime(group.timestamp, locale)}</span>
+                            <span className="truncate">{group.author || "—"}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="mt-1 block max-w-full truncate text-left text-[12px] font-medium text-white/88 transition-colors hover:text-white/80"
+                            title={group.message || "—"}
+                            onClick={onOpenHistory}
+                          >
+                            {truncateMiddle(group.message || "—", 44)}
+                          </button>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-white/62">
+                            <button
+                              type="button"
+                              className="font-mono transition-colors hover:text-white"
+                              title={group.sha || ""}
+                              onClick={async () => {
+                                if (!group.sha) return;
+                                try {
+                                  await navigator.clipboard.writeText(group.sha);
+                                  gooeyToast.success("Commit SHA copied.");
+                                } catch {
+                                  gooeyToast.error("Could not copy commit SHA.");
+                                }
+                              }}
+                            >
+                              {group.sha ? group.sha.slice(0, 7) : "—"}
+                            </button>
+                            <button
+                              type="button"
+                              className={iconGhostButtonClass({ compact: true })}
+                              title="Copy SHA"
+                              onClick={async () => {
+                                if (!group.sha) return;
+                                try {
+                                  await navigator.clipboard.writeText(group.sha);
+                                  gooeyToast.success("Commit SHA copied.");
+                                } catch {
+                                  gooeyToast.error("Could not copy commit SHA.");
+                                }
+                              }}
+                            >
+                              <Copy className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="min-w-0 overflow-x-auto">
+                  {group.lines.map((line) => (
+                    <div
+                      key={`${group.key}-${line.lineNumber}`}
+                      className={cn(
+                        "grid grid-cols-[64px_minmax(0,1fr)] border-b border-white/6 font-mono text-[11px] leading-6 last:border-b-0",
+                        hoveredGroup === group.key ? "bg-white/[0.03]" : "",
+                      )}
+                    >
+                      <div className="select-none px-3 text-right text-white/38">
+                        {line.lineNumber}
+                      </div>
+                      <pre className="m-0 px-4 text-white/90">
+                        <code>{line.content || " "}</code>
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
   );
 }
 
