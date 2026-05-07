@@ -10,7 +10,7 @@ export default function StudentEditPage() {
   const { t } = useTranslation();
 
   return (
-    <div className="flex min-h-screen flex-1 flex-col gap-4 overflow-y-auto bg-(--color-light-app-bg) p-4 dark:bg-dark-card-bg md:p-6">
+    <div className="flex min-h-screen flex-1 flex-col gap-4 overflow-y-auto bg-white p-4 dark:bg-dark-card-bg md:p-6">
       <button
         type="button"
         onClick={() => navigate(id ? `/admin/student/${id}` : "/admin/student")}

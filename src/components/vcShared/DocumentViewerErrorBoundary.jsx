@@ -19,7 +19,7 @@ export class DocumentViewerErrorBoundaryInner extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="rounded-2xl border border-(--color-light-error-border) bg-(--color-light-error-bg) p-4 text-sm text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)">
+        <div className="rounded-2xl border border-light-error-border bg-light-error-bg p-4 text-sm text-light-error-text dark:border-dark-error-border dark:bg-dark-error-bg dark:text-dark-error-text">
           {this.props.t("documentViewer.errorBoundary")}
         </div>
       );

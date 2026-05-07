@@ -773,7 +773,7 @@ export default function GroupRegistrationPage() {
 
   if (isEdit && !groupLoading && !group) {
     return (
-      <div className="flex min-h-screen flex-1 flex-col items-start gap-4 bg-light-app-bg p-4 dark:bg-dark-card-bg md:p-5">
+      <div className="flex min-h-screen flex-1 flex-col items-start gap-4 bg-white p-4 dark:bg-dark-card-bg md:p-5">
         <Button variant="tertiary" onClick={() => navigate("/admin/projects?tab=groups")}>
           {t("adminProjects.form.group.actions.back")}
         </Button>

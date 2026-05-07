@@ -21,10 +21,12 @@ import { saveAs } from "file-saver";
 import { gooeyToast } from "goey-toast";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useOutletContext } from "react-router-dom";
+import Avatar from "../Avatar";
 import Button from "../Button";
 import OverviewMode from "../DocumentViewer/OverviewMode";
 import Select from "../Select";
 import { cn } from "../../lib/utils";
+import { resolveProfilePhotoUrl } from "../../lib/profileMedia";
 import {
   useVcRepositoryCommits,
   useVcRepositoryContents,
@@ -35,6 +37,7 @@ import { tryDecodeUtf8 } from "../../utils/binaryFileHandlers";
 import {
   fetchFileBlame,
   fetchRepositoryBlobPayload,
+  fetchCommitHistory,
 } from "../../services/versionControlService";
 
 function unwrapTreeNodes(payload) {
@@ -178,6 +181,21 @@ function entryCommitAuthor(entry) {
   return typeof raw === "string" ? raw.trim() : "";
 }
 
+function entryCommitMeta(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  const message = entryCommitMessage(entry);
+  const timestamp = entryCommittedDate(entry);
+  const sha = entryCommitSha(entry);
+  const author = entryCommitAuthor(entry);
+  if (!message && !timestamp && !sha && !author) return null;
+  return {
+    message,
+    timestamp,
+    sha,
+    author,
+  };
+}
+
 function formatRelativeTime(raw, locale) {
   if (!raw) return "—";
   const d = new Date(raw);
@@ -213,6 +231,34 @@ function formatAbsoluteTime(raw, locale) {
   } catch {
     return d.toISOString();
   }
+}
+
+function formatRelativeDay(raw, locale) {
+  if (!raw) return "—";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "—";
+  const now = new Date();
+  const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  );
+  const diffDays = Math.round(
+    (startOfDay.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  const absDays = Math.abs(diffDays);
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (absDays <= 6) return rtf.format(diffDays, "day");
+  if (absDays <= 30) return rtf.format(Math.round(diffDays / 7), "week");
+  if (absDays <= 365) return rtf.format(Math.round(diffDays / 30), "month");
+  return rtf.format(Math.round(diffDays / 365), "year");
+}
+
+function formatBlameRelativeDate(raw, locale) {
+  const dayText = formatRelativeDay(raw, locale);
+  if (dayText && dayText !== "—") return dayText;
+  return formatRelativeTime(raw, locale);
 }
 
 function commitRowSha(row) {
@@ -280,6 +326,114 @@ function blameCommitTimestamp(row) {
   const raw =
     row?.timestamp ?? row?.date ?? row?.time ?? row?.committedDate ?? "";
   return typeof raw === "string" ? raw : "";
+}
+
+function blameCommitAvatarUrl(row) {
+  return resolveProfilePhotoUrl(row);
+}
+
+function blameCommitAdditions(row) {
+  const raw =
+    row?.additions ??
+    row?.linesAdded ??
+    row?.lines_added ??
+    row?.insertions ??
+    row?.stats?.additions ??
+    row?.commitStats?.additions ??
+    null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+function blameCommitDeletions(row) {
+  const raw =
+    row?.deletions ??
+    row?.linesDeleted ??
+    row?.lines_deleted ??
+    row?.removals ??
+    row?.stats?.deletions ??
+    row?.commitStats?.deletions ??
+    null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+function blameLineContent(row) {
+  const raw =
+    row?.code ??
+    row?.content ??
+    row?.text ??
+    row?.lineContent ??
+    row?.lineText ??
+    row?.sourceLine ??
+    null;
+  return typeof raw === "string" ? raw : null;
+}
+
+function groupBlameSegments(blameRows, fallbackLines) {
+  const lineCount = Array.isArray(fallbackLines) ? fallbackLines.length : 0;
+  if (!lineCount) return [];
+
+  const blameByLine = new Map();
+  (Array.isArray(blameRows) ? blameRows : []).forEach((row) => {
+    const lineNumber = blameLineNumber(row);
+    if (lineNumber > 0) {
+      blameByLine.set(lineNumber, row);
+    }
+  });
+
+  const segments = [];
+  let currentSegment = null;
+
+  for (let index = 0; index < lineCount; index += 1) {
+    const lineNumber = index + 1;
+    const blameRow = blameByLine.get(lineNumber) ?? null;
+    const sha = blameCommitSha(blameRow);
+    const author = blameCommitAuthor(blameRow);
+    const message = blameCommitMessage(blameRow);
+    const timestamp = blameCommitTimestamp(blameRow);
+    const avatarUrl = blameCommitAvatarUrl(blameRow);
+    const additions = blameCommitAdditions(blameRow);
+    const deletions = blameCommitDeletions(blameRow);
+    const content = blameLineContent(blameRow) ?? fallbackLines[index] ?? "";
+
+    const shouldStartNewSegment =
+      !currentSegment ||
+      currentSegment.sha !== sha ||
+      currentSegment.author !== author ||
+      currentSegment.message !== message ||
+      currentSegment.timestamp !== timestamp;
+
+    if (shouldStartNewSegment) {
+      currentSegment = {
+        key: `${sha || "unknown"}-${lineNumber}`,
+        sha,
+        author,
+        message,
+        timestamp,
+        avatarUrl,
+        additions,
+        deletions,
+        startLine: lineNumber,
+        lines: [],
+      };
+      segments.push(currentSegment);
+    } else {
+      if (!currentSegment.avatarUrl && avatarUrl)
+        currentSegment.avatarUrl = avatarUrl;
+      if (currentSegment.additions == null && additions != null)
+        currentSegment.additions = additions;
+      if (currentSegment.deletions == null && deletions != null)
+        currentSegment.deletions = deletions;
+    }
+
+    currentSegment.lines.push({
+      lineNumber,
+      code: content,
+    });
+  }
+
+  return segments;
 }
 
 function initialsFromName(value) {
@@ -418,6 +572,8 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
   const [selected, setSelected] = useState(
     /** @type {null | { path: string, sha?: string }} */ (null),
   );
+  const [fallbackCommitMetaByPath, setFallbackCommitMetaByPath] = useState({});
+  const [folderLatestCommit, setFolderLatestCommit] = useState(null);
   const [fileFilter, setFileFilter] = useState("");
   const [activeView, setActiveView] = useState(
     /** @type {"code" | "blame" | "raw"} */ ("code"),
@@ -429,12 +585,15 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
   });
   const rawList = unwrapTreeNodes(treeQuery.data);
 
-  const pathForEntry = useCallback((entry, nameOverride) => {
-    const nm = nameOverride ?? nodeLabel(entry);
-    return typeof entry.path === "string" && entry.path.trim()
-      ? entry.path.trim().replace(/^\/+/, "")
-      : joinPath(treePath, nm);
-  }, [treePath]);
+  const pathForEntry = useCallback(
+    (entry, nameOverride) => {
+      const nm = nameOverride ?? nodeLabel(entry);
+      return typeof entry.path === "string" && entry.path.trim()
+        ? entry.path.trim().replace(/^\/+/, "")
+        : joinPath(treePath, nm);
+    },
+    [treePath],
+  );
 
   const rows = useMemo(() => {
     const list = [...rawList];
@@ -515,14 +674,6 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
     repositoryMeta?.website ??
     repositoryMeta?.html_url ??
     "";
-  const lastActivityRaw =
-    repositoryMeta?.updatedAt ??
-    repositoryMeta?.updated_at ??
-    repositoryMeta?.pushedAt ??
-    repositoryMeta?.pushed_at ??
-    headlineCommit?.date ??
-    "";
-
   async function copyClone() {
     if (!cloneUrl) {
       gooeyToast.info(t("studentRepo.code.cloneUnavailable"));
@@ -546,11 +697,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
     },
     {
       enabled: Boolean(
-        o &&
-        r &&
-        ref &&
-        selected?.path &&
-        !String(selected.path).endsWith("/"),
+        o && r && ref && selected?.path && !String(selected.path).endsWith("/"),
       ),
       notifyOnError: false,
     },
@@ -595,18 +742,44 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
 
   const selectedPath = selected?.path ?? "";
   const selectedEntry = selectedPath
-    ? rows.find((entry) => pathForEntry(entry) === selectedPath) ?? null
+    ? (rows.find((entry) => pathForEntry(entry) === selectedPath) ?? null)
     : null;
   const selectedLatestCommit = historyRows[0] ?? null;
+
+  const branchSelectOptions = useMemo(() => {
+    if (branchOpts.length) return branchOpts;
+    return [{ value: String(ref), label: String(ref) }];
+  }, [branchOpts, ref]);
+
+  const resolvedHeadlineCommit = useMemo(() => {
+    if (headlineCommit) return headlineCommit;
+    if (!folderLatestCommit) return null;
+    return {
+      message: commitRowMessage(folderLatestCommit),
+      date: commitRowTimestamp(folderLatestCommit),
+      sha: commitRowSha(folderLatestCommit).slice(0, 7),
+      author: commitRowAuthor(folderLatestCommit),
+    };
+  }, [folderLatestCommit, headlineCommit]);
+
+  const lastActivityRaw =
+    repositoryMeta?.updatedAt ??
+    repositoryMeta?.updated_at ??
+    repositoryMeta?.pushedAt ??
+    repositoryMeta?.pushed_at ??
+    resolvedHeadlineCommit?.date ??
+    "";
+
   const selectedHeaderCommit = {
     message:
       commitRowMessage(selectedLatestCommit) ||
       entryCommitMessage(selectedEntry ?? {}) ||
-      headlineCommit?.message ||
+      resolvedHeadlineCommit?.message ||
       "",
     sha:
       commitRowSha(selectedLatestCommit) ||
       entryCommitSha(selectedEntry ?? {}) ||
+      resolvedHeadlineCommit?.sha ||
       "",
     author:
       commitRowAuthor(selectedLatestCommit) ||
@@ -615,14 +788,102 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
     timestamp:
       commitRowTimestamp(selectedLatestCommit) ||
       entryCommittedDate(selectedEntry ?? {}) ||
-      headlineCommit?.date ||
+      resolvedHeadlineCommit?.date ||
       "",
   };
 
-  const branchSelectOptions = useMemo(() => {
-    if (branchOpts.length) return branchOpts;
-    return [{ value: String(ref), label: String(ref) }];
-  }, [branchOpts, ref]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!o || !r || !ref || selected?.path) {
+      setFolderLatestCommit(null);
+      return undefined;
+    }
+
+    async function loadFolderLatestCommit() {
+      try {
+        const commits = await fetchCommitHistory(o, r, ref, {
+          limit: 1,
+          ...(treePath ? { path: treePath } : {}),
+        });
+        if (cancelled) return;
+        setFolderLatestCommit(Array.isArray(commits) ? commits[0] ?? null : null);
+      } catch {
+        if (!cancelled) setFolderLatestCommit(null);
+      }
+    }
+
+    loadFolderLatestCommit();
+    return () => {
+      cancelled = true;
+    };
+  }, [o, r, ref, selected?.path, treePath]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const pendingEntries = rows
+      .map((entry) => {
+        const fullPath = pathForEntry(entry);
+        const existing = entryCommitMeta(entry);
+        const cached = fallbackCommitMetaByPath[fullPath];
+        return {
+          entry,
+          path: fullPath,
+          shouldFetch: !existing && !cached && Boolean(fullPath),
+        };
+      })
+      .filter((item) => item.shouldFetch)
+      .slice(0, 60);
+
+    if (!o || !r || !ref || !pendingEntries.length) return undefined;
+
+    async function loadRowCommitMeta() {
+      const results = await Promise.all(
+        pendingEntries.map(async ({ path }) => {
+          try {
+            const commits = await fetchCommitHistory(o, r, ref, {
+              limit: 1,
+              path,
+            });
+            const latest = Array.isArray(commits) ? commits[0] ?? null : null;
+            if (!latest) return null;
+            return {
+              path,
+              meta: {
+                message: commitRowMessage(latest),
+                timestamp: commitRowTimestamp(latest),
+                sha: commitRowSha(latest),
+                author: commitRowAuthor(latest),
+              },
+            };
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      if (cancelled) return;
+      const next = {};
+      results.forEach((item) => {
+        if (!item?.path || !item.meta) return;
+        if (
+          !item.meta.message &&
+          !item.meta.timestamp &&
+          !item.meta.sha &&
+          !item.meta.author
+        ) {
+          return;
+        }
+        next[item.path] = item.meta;
+      });
+      if (!Object.keys(next).length) return;
+      setFallbackCommitMetaByPath((current) => ({ ...current, ...next }));
+    }
+
+    loadRowCommitMeta();
+    return () => {
+      cancelled = true;
+    };
+  }, [fallbackCommitMetaByPath, o, pathForEntry, r, ref, rows]);
 
   const openHistoryPage = useCallback(() => {
     if (!repoBase || !selected?.path) return;
@@ -705,7 +966,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
             <Select
               value={ref}
               onChange={setRef}
-              className="[&_.inline-flex]:h-10 [&_.inline-flex]:rounded-md [&_.inline-flex]:border-(--color-light-card-border) [&_.inline-flex]:bg-(--color-light-card-bg) [&_.inline-flex]:text-primary dark:[&_.inline-flex]:border-(--color-dark-card-border) dark:[&_.inline-flex]:bg-(--color-dark-card-bg) dark:[&_.inline-flex]:text-dark-primary"
+              className="[&_.inline-flex]:h-8 [&_.inline-flex]:rounded-md [&_.inline-flex]:border-(--color-light-card-border) [&_.inline-flex]:bg-(--color-light-card-bg) [&_.inline-flex]:text-primary dark:[&_.inline-flex]:border-(--color-dark-card-border) dark:[&_.inline-flex]:bg-(--color-dark-card-bg) dark:[&_.inline-flex]:text-dark-primary"
               options={branchSelectOptions}
               placeholder={t("studentRepo.browser.branchPlaceholder")}
             />
@@ -749,22 +1010,22 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
               value={fileFilter}
               onChange={(e) => setFileFilter(e.target.value)}
               placeholder={t("studentRepo.browser.findFilePlaceholder")}
-              className="h-10 w-full rounded-md border border-(--color-light-input-border) bg-(--color-light-input-bg) pl-9 pr-3 text-sm text-(--color-light-text-primary) outline-none transition-colors placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
+              className="h-8 w-full rounded-md border border-(--color-light-input-border) bg-(--color-light-input-bg) pl-9 pr-3 text-sm text-(--color-light-text-primary) outline-none transition-colors placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
               autoComplete="off"
             />
           </div>
-          <button
+          {/* <button
             type="button"
             className={darkButtonClass({ disabled: true })}
             disabled
           >
             {t("studentRepo.browser.addFileDisabled")}
             <ChevronDown className="h-4 w-4" strokeWidth={1.7} aria-hidden />
-          </button>
+          </button> */}
           <button
             type="button"
             className={darkButtonClass({ green: true, disabled: !cloneUrl })}
-            disabled={!cloneUrl}
+            // disabled={!cloneUrl}
             onClick={copyClone}
           >
             <CodeIcon />
@@ -792,24 +1053,34 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
             <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
               <aside className="min-w-0">
                 <div className="overflow-hidden rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-                  <div className="border-b border-(--color-light-card-border) px-4 py-3 dark:border-(--color-dark-card-border)">
-                    <p className="text-xl font-semibold text-primary dark:text-dark-primary">
+                  <div className="border-b border-(--color-light-card-border) px-3 py-2.5 dark:border-(--color-dark-card-border)">
+                    <p className="text-base font-semibold text-primary dark:text-dark-primary">
                       Files
                     </p>
                   </div>
                   <nav
-                    className="border-b border-(--color-light-card-border) px-4 py-2 text-xs font-medium text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted"
+                    className="border-b border-(--color-light-card-border) px-3 py-1.5 text-[11px] font-medium text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted"
                     aria-label={t("studentRepo.browser.treePathAria")}
                   >
                     <div className="flex flex-wrap items-center gap-1">
                       {crumbs.map((c, idx) => (
-                        <span key={`${c.path}-${idx}`} className="inline-flex items-center gap-1">
-                          {idx ? <ChevronRight className="size-3 shrink-0 opacity-70" aria-hidden /> : null}
+                        <span
+                          key={`${c.path}-${idx}`}
+                          className="inline-flex items-center gap-1"
+                        >
+                          {idx ? (
+                            <ChevronRight
+                              className="size-3 shrink-0 opacity-70"
+                              aria-hidden
+                            />
+                          ) : null}
                           <button
                             type="button"
                             className={cn(
                               "rounded px-1 py-0.5 transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary",
-                              c.path === treePath ? "font-semibold text-primary dark:text-dark-primary" : "",
+                              c.path === treePath
+                                ? "font-semibold text-primary dark:text-dark-primary"
+                                : "",
                             )}
                             onClick={() => {
                               setTreePath(c.path);
@@ -826,13 +1097,13 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
 
                   <div className="max-h-[70vh] overflow-y-auto">
                     {treeQuery.isLoading && !rawList.length ? (
-                      <div className="px-4 py-6 text-sm text-muted dark:text-dark-muted">
+                      <div className="px-3 py-4 text-xs text-muted dark:text-dark-muted">
                         {t("studentRepo.browser.treeLoading")}
                       </div>
                     ) : null}
 
                     {!treeQuery.isLoading && !rawList.length ? (
-                      <div className="px-4 py-6 text-sm text-muted dark:text-dark-muted">
+                      <div className="px-3 py-4 text-xs text-muted dark:text-dark-muted">
                         {t("studentRepo.browser.treeEmpty")}
                       </div>
                     ) : null}
@@ -840,17 +1111,26 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                     {rows.map((entry, i) => {
                       const nm = nodeLabel(entry) || `entry-${i}`;
                       const dir = nodeDir(entry);
-                      const msg = entryCommitMessage(entry) || "—";
-                      const whenRaw = entryCommittedDate(entry);
                       const full = pathForEntry(entry, nm);
+                      const fallbackMeta = fallbackCommitMetaByPath[full] ?? null;
+                      const msg =
+                        entryCommitMessage(entry) ||
+                        fallbackMeta?.message ||
+                        "—";
+                      const whenRaw =
+                        entryCommittedDate(entry) ||
+                        fallbackMeta?.timestamp ||
+                        "";
                       const sel = selected?.path === full;
                       return (
                         <button
                           key={`${full}-${i}`}
                           type="button"
-                          onClick={() => onPickEntry({ ...entry, path: entry.path })}
+                          onClick={() =>
+                            onPickEntry({ ...entry, path: entry.path })
+                          }
                           className={cn(
-                            "grid w-full grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_110px] items-center gap-3 border-b border-(--color-light-card-border) px-4 py-3 text-left transition-colors last:border-b-0 dark:border-(--color-dark-card-border)",
+                            "grid w-full grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_92px] items-center gap-2 border-b border-(--color-light-card-border) px-3 py-2 text-left transition-colors last:border-b-0 dark:border-(--color-dark-card-border)",
                             sel
                               ? "bg-(--color-light-card-hover) dark:bg-(--color-dark-card-hover)"
                               : "hover:bg-(--color-light-card-hover) dark:hover:bg-(--color-dark-card-hover)",
@@ -858,18 +1138,26 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                         >
                           <div className="flex min-w-0 items-center gap-3">
                             {dir ? (
-                              <Folder className="size-4 shrink-0 text-(--color-chart-warning)" strokeWidth={1.9} aria-hidden />
+                              <Folder
+                                className="size-4 shrink-0 text-(--color-chart-warning)"
+                                strokeWidth={1.9}
+                                aria-hidden
+                              />
                             ) : (
-                              <File className="size-4 shrink-0 text-muted dark:text-dark-muted" strokeWidth={1.9} aria-hidden />
+                              <File
+                                className="size-4 shrink-0 text-muted dark:text-dark-muted"
+                                strokeWidth={1.9}
+                                aria-hidden
+                              />
                             )}
-                            <span className="min-w-0 truncate text-sm font-semibold text-primary dark:text-dark-primary">
+                            <span className="min-w-0 truncate text-xs font-medium text-primary dark:text-dark-primary">
                               {nm}
                             </span>
                           </div>
-                          <span className="truncate text-sm text-secondary dark:text-dark-secondary">
+                          <span className="truncate text-[11px] text-secondary dark:text-dark-secondary">
                             {msg}
                           </span>
-                          <span className="text-right text-sm text-muted dark:text-dark-muted">
+                          <span className="text-right text-[11px] text-muted dark:text-dark-muted">
                             {formatRelativeTime(whenRaw, locale)}
                           </span>
                         </button>
@@ -880,7 +1168,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
               </aside>
 
               <section className="min-w-0 space-y-3">
-                <div className="flex items-center gap-2 text-sm font-semibold">
+                <div className="flex items-center gap-2 text-xs font-semibold">
                   <button
                     type="button"
                     className="text-(--color-chart-blue-primary) hover:underline dark:text-(--color-chart-blue-secondary)"
@@ -897,27 +1185,39 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                   </span>
                 </div>
 
-                <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d1117] text-white shadow-[0_18px_50px_rgba(0,0,0,.24)]">
-                  <div className="flex flex-wrap items-center gap-3 border-b border-white/10 px-4 py-4 text-sm">
-                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.08] text-xs font-semibold uppercase text-white">
+                <div className="overflow-hidden rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) text-primary shadow-lg dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-primary">
+                  <div className="flex flex-wrap items-center gap-2 border-b border-light-divider px-3 py-2.5 text-xs dark:border-dark-divider">
+                    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-(--color-light-card-border) bg-light-app-tertiary text-[10px] font-medium uppercase text-primary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-primary">
                       {initialsFromName(selectedHeaderCommit.author || o)}
                     </span>
                     <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs font-semibold text-white/88">
-                          {selectedHeaderCommit.author || ((o ?? "").split?.(/[/@]/)[0] || o)}
-                          </span>
-                          <span className="min-w-0 truncate text-sm text-white/84">
-                            {selectedHeaderCommit.message || "—"}
-                          </span>
-                        </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] font-medium text-primary dark:text-dark-primary">
+                          {selectedHeaderCommit.author ||
+                            (o ?? "").split?.(/[/@]/)[0] ||
+                            o}
+                        </span>
+                        <span
+                          className="min-w-0 truncate text-[11px] text-secondary dark:text-dark-secondary"
+                          title={selectedHeaderCommit.message || "—"}
+                        >
+                          {selectedHeaderCommit.message || "—"}
+                        </span>
+                      </div>
                     </div>
-                    <div className="ms-auto flex flex-wrap items-center gap-3 text-sm text-white/70">
-                      <span className="font-mono">{selectedHeaderCommit.sha.slice(0, 7) || "—"}</span>
-                      <span>{formatRelativeTime(selectedHeaderCommit.timestamp, locale)}</span>
+                    <div className="ms-auto flex flex-wrap items-center gap-2 text-[10px] text-muted dark:text-dark-muted">
+                      <span className="font-mono text-[10px]">
+                        {selectedHeaderCommit.sha.slice(0, 7) || "—"}
+                      </span>
+                      <span className="rounded-full border border-(--color-light-card-border) px-1.5 py-0.5 text-[10px] dark:border-(--color-dark-card-border)">
+                        {formatRelativeDay(
+                          selectedHeaderCommit.timestamp,
+                          locale,
+                        )}
+                      </span>
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1.5 font-semibold text-white transition-colors hover:text-white/80"
+                        className="inline-flex items-center gap-1 text-[10px] font-medium text-secondary transition-colors hover:text-primary dark:text-dark-secondary dark:hover:text-dark-primary"
                         onClick={openHistoryPage}
                       >
                         <HistoryIcon />
@@ -926,15 +1226,15 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/[0.04] px-3 py-2.5">
-                    <div className="flex items-center rounded-lg border border-white/14 bg-white/[0.04] p-1">
+                  <div className="flex flex-wrap items-center gap-2 border-b border-light-divider bg-light-app-tertiary px-3 py-1.5 dark:border-dark-divider dark:bg-dark-app-tertiary">
+                    <div className="flex items-center rounded-lg border border-(--color-light-card-border) bg-(--color-light-card-bg) p-0.5 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
                       <button
                         type="button"
                         className={cn(
-                          "rounded-md px-4 py-2 text-sm font-semibold transition-colors",
+                          "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
                           activeView === "code"
-                            ? "bg-white/[0.12] text-white"
-                            : "text-white/72 hover:text-white",
+                            ? "bg-(--color-light-card-hover) text-primary dark:bg-(--color-dark-card-hover) dark:text-dark-primary"
+                            : "text-secondary hover:text-primary dark:text-dark-secondary dark:hover:text-dark-primary",
                         )}
                         onClick={() => {
                           setActiveView("code");
@@ -945,10 +1245,10 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                       <button
                         type="button"
                         className={cn(
-                          "rounded-md px-4 py-2 text-sm font-semibold transition-colors",
+                          "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
                           activeView === "blame"
-                            ? "bg-white/[0.12] text-white"
-                            : "text-white/72 hover:text-white",
+                            ? "bg-(--color-light-card-hover) text-primary dark:bg-(--color-dark-card-hover) dark:text-dark-primary"
+                            : "text-secondary hover:text-primary dark:text-dark-secondary dark:hover:text-dark-primary",
                         )}
                         onClick={() => {
                           setActiveView("blame");
@@ -958,22 +1258,23 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                       </button>
                     </div>
 
-                    <div className="text-sm text-white/70">
-                      {fileMeta.lines} lines ({fileMeta.loc} loc) • {formatBytes(fileMeta.bytes)}
+                    <div className="text-[10px] text-muted dark:text-dark-muted">
+                      {fileMeta.lines} lines ({fileMeta.loc} loc) •{" "}
+                      {formatBytes(fileMeta.bytes)}
                     </div>
 
                     <div className="ms-auto flex items-center gap-2">
                       {activeView === "blame" ? (
                         <button
                           type="button"
-                          className="inline-flex items-center gap-2 rounded-full border border-white/16 px-3 py-1.5 text-sm text-white/86 transition-colors hover:bg-white/[0.08]"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-(--color-light-card-border) px-2 py-0.5 text-[10px] text-secondary transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary"
                           onClick={openHistoryPage}
                         >
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/14 bg-white/[0.08] text-[11px] font-semibold">
+                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-(--color-light-card-border) bg-light-app-tertiary text-[9px] font-medium dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
                             {initialsFromName(selectedHeaderCommit.author || o)}
                           </span>
                           Contributors
-                          <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-white/16 px-1.5 text-xs">
+                          <span className="inline-flex min-w-5 items-center justify-center rounded-full border border-(--color-light-card-border) px-1 text-[9px] dark:border-(--color-dark-card-border)">
                             {selectedHeaderCommit.author ? 1 : 0}
                           </span>
                         </button>
@@ -981,10 +1282,10 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                       <button
                         type="button"
                         className={cn(
-                          "rounded-md border px-3 py-2 text-sm font-semibold transition-colors",
+                          "rounded-md border border-(--color-light-card-border) px-2 py-1 text-[10px] font-medium transition-colors dark:border-(--color-dark-card-border)",
                           activeView === "raw"
-                            ? "border-white/18 bg-white/[0.12] text-white"
-                            : "border-white/14 bg-transparent text-white/72 hover:bg-white/[0.08] hover:text-white",
+                            ? "bg-(--color-light-card-hover) text-primary dark:bg-(--color-dark-card-hover) dark:text-dark-primary"
+                            : "bg-transparent text-secondary hover:bg-(--color-light-card-hover) hover:text-primary dark:text-dark-secondary dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary",
                         )}
                         onClick={() => {
                           setActiveView("raw");
@@ -994,48 +1295,78 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                       </button>
                       <button
                         type="button"
-                        className={iconGhostButtonClass()}
+                        className={iconGhostButtonClass({ compact: true })}
                         onClick={async () => {
                           try {
                             await navigator.clipboard.writeText(selected.path);
-                            gooeyToast.success(t("studentRepo.code.cloneCopied"));
+                            gooeyToast.success(
+                              t("studentRepo.code.cloneCopied"),
+                            );
                           } catch {
-                            gooeyToast.error(t("studentRepo.code.cloneCopyFailed"));
+                            gooeyToast.error(
+                              t("studentRepo.code.cloneCopyFailed"),
+                            );
                           }
                         }}
                       >
-                        <Copy className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+                        <Copy
+                          className="h-4 w-4"
+                          strokeWidth={1.7}
+                          aria-hidden
+                        />
                       </button>
                       <button
                         type="button"
-                        className={iconGhostButtonClass()}
+                        className={iconGhostButtonClass({ compact: true })}
                         disabled={!selected?.sha}
                         onClick={async () => {
-                          gooeyToast.info(t("studentRepo.browser.downloadHint"));
+                          gooeyToast.info(
+                            t("studentRepo.browser.downloadHint"),
+                          );
                           try {
                             if (!selected?.sha || !selected?.path) return;
-                            const bytes = await fetchRepositoryBlobPayload(o, r, selected.sha.trim());
-                            const nm = selected.path.split("/").filter(Boolean).pop() || "download.bin";
+                            const bytes = await fetchRepositoryBlobPayload(
+                              o,
+                              r,
+                              selected.sha.trim(),
+                            );
+                            const nm =
+                              selected.path.split("/").filter(Boolean).pop() ||
+                              "download.bin";
                             saveAs(new Blob([bytes]), nm);
                           } catch {
-                            gooeyToast.error(t("studentRepo.browser.downloadFailed"));
+                            gooeyToast.error(
+                              t("studentRepo.browser.downloadFailed"),
+                            );
                           }
                         }}
                       >
-                        <Download className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+                        <Download
+                          className="h-4 w-4"
+                          strokeWidth={1.7}
+                          aria-hidden
+                        />
                       </button>
                       <button
                         type="button"
-                        className={iconGhostButtonClass()}
+                        className={iconGhostButtonClass({ compact: true })}
                         disabled
                       >
-                        <Pencil className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+                        <Pencil
+                          className="h-4 w-4"
+                          strokeWidth={1.7}
+                          aria-hidden
+                        />
                       </button>
                       <button
                         type="button"
-                        className={iconGhostButtonClass()}
+                        className={iconGhostButtonClass({ compact: true })}
                       >
-                        <Ellipsis className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+                        <Ellipsis
+                          className="h-4 w-4"
+                          strokeWidth={1.7}
+                          aria-hidden
+                        />
                       </button>
                     </div>
                   </div>
@@ -1043,12 +1374,16 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                   <div className="bg-[#0d1117] p-0">
                     {!selected.sha ? (
                       <div className="p-4">
-                        <p className="text-sm text-white/60">
+                        <p className="text-xs text-white/60">
                           {t("studentRepo.browser.noBlobShaBody")}
                         </p>
                       </div>
                     ) : activeView === "raw" ? (
-                      <RawSnippetPanel owner={o} repo={r} blobSha={selected.sha} />
+                      <RawSnippetPanel
+                        owner={o}
+                        repo={r}
+                        blobSha={selected.sha}
+                      />
                     ) : activeView === "blame" ? (
                       <RepositoryBlamePanel
                         owner={o}
@@ -1071,7 +1406,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
             </div>
           ) : (
             <div className="overflow-hidden rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-              {headlineCommit ? (
+              {resolvedHeadlineCommit ? (
                 <div className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
                   <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-(--color-light-card-border) bg-light-app-tertiary text-xs font-semibold uppercase text-primary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-primary">
                     {(o ?? "").slice(0, 2)}
@@ -1080,22 +1415,26 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                     {(o ?? "").split?.(/[/@]/)[0] ?? o}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-secondary dark:text-dark-secondary">
-                    {headlineCommit.message}
+                    {resolvedHeadlineCommit.message || "—"}
                   </span>
                   <span className="font-mono text-xs text-muted dark:text-dark-muted">
-                    {headlineCommit.sha || "—"}
+                    {resolvedHeadlineCommit.sha || "—"}
                   </span>
                   <span className="text-sm text-muted dark:text-dark-muted">
-                    {formatRelativeTime(headlineCommit.date, locale)}
+                    {formatRelativeTime(resolvedHeadlineCommit.date, locale)}
                   </span>
                   <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary dark:text-dark-primary">
                     <HistoryIcon />
-                    {t("studentRepo.code.commitTotal", { count: commitTotal ?? 0 })}
+                    {t("studentRepo.code.commitTotal", {
+                      count: commitTotal ?? 0,
+                    })}
                   </span>
                 </div>
               ) : (
                 <p className="px-4 py-3 text-sm text-muted dark:text-dark-muted">
-                  {!treeQuery.isLoading ? t("studentRepo.browser.commitRibbonEmpty") : t("studentRepo.browser.commitRibbonLoading")}
+                  {!treeQuery.isLoading
+                    ? t("studentRepo.browser.commitRibbonEmpty")
+                    : t("studentRepo.browser.commitRibbonLoading")}
                 </p>
               )}
 
@@ -1105,13 +1444,23 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
               >
                 <div className="flex flex-wrap items-center gap-1">
                   {crumbs.map((c, idx) => (
-                    <span key={`${c.path}-${idx}`} className="inline-flex items-center gap-1">
-                      {idx ? <ChevronRight className="size-3 shrink-0 opacity-70" aria-hidden /> : null}
+                    <span
+                      key={`${c.path}-${idx}`}
+                      className="inline-flex items-center gap-1"
+                    >
+                      {idx ? (
+                        <ChevronRight
+                          className="size-3 shrink-0 opacity-70"
+                          aria-hidden
+                        />
+                      ) : null}
                       <button
                         type="button"
                         className={cn(
                           "rounded px-1 py-0.5 transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary",
-                          c.path === treePath ? "font-semibold text-primary dark:text-dark-primary" : "",
+                          c.path === treePath
+                            ? "font-semibold text-primary dark:text-dark-primary"
+                            : "",
                         )}
                         onClick={() => {
                           setTreePath(c.path);
@@ -1143,21 +1492,38 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                   {rows.map((entry, i) => {
                     const nm = nodeLabel(entry) || `entry-${i}`;
                     const dir = nodeDir(entry);
-                    const msg = entryCommitMessage(entry) || "—";
-                    const whenRaw = entryCommittedDate(entry);
                     const full = pathForEntry(entry, nm);
+                    const fallbackMeta = fallbackCommitMetaByPath[full] ?? null;
+                    const msg =
+                      entryCommitMessage(entry) ||
+                      fallbackMeta?.message ||
+                      "—";
+                    const whenRaw =
+                      entryCommittedDate(entry) ||
+                      fallbackMeta?.timestamp ||
+                      "";
                     return (
                       <button
                         key={`${full}-${i}`}
                         type="button"
-                        onClick={() => onPickEntry({ ...entry, path: entry.path })}
+                        onClick={() =>
+                          onPickEntry({ ...entry, path: entry.path })
+                        }
                         className="grid w-full grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_110px] items-center gap-3 border-b border-(--color-light-card-border) px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-(--color-light-card-hover) dark:border-(--color-dark-card-border) dark:hover:bg-(--color-dark-card-hover)"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           {dir ? (
-                            <Folder className="size-4 shrink-0 text-(--color-chart-warning)" strokeWidth={1.9} aria-hidden />
+                            <Folder
+                              className="size-4 shrink-0 text-(--color-chart-warning"
+                              strokeWidth={1.9}
+                              aria-hidden
+                            />
                           ) : (
-                            <File className="size-4 shrink-0 text-muted dark:text-dark-muted" strokeWidth={1.9} aria-hidden />
+                            <File
+                              className="size-4 shrink-0 text-muted dark:text-dark-muted"
+                              strokeWidth={1.9}
+                              aria-hidden
+                            />
                           )}
                           <span className="min-w-0 truncate text-sm font-semibold text-primary dark:text-dark-primary">
                             {nm}
@@ -1190,7 +1556,11 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                     type="button"
                     className="text-muted transition-colors hover:text-primary dark:text-dark-muted dark:hover:text-dark-primary"
                   >
-                    <Ellipsis className="h-5 w-5" strokeWidth={1.7} aria-hidden />
+                    <Ellipsis
+                      className="h-5 w-5"
+                      strokeWidth={1.7}
+                      aria-hidden
+                    />
                   </button>
                 </div>
                 <p className="text-sm leading-6 text-secondary dark:text-dark-secondary">
@@ -1300,11 +1670,7 @@ function HistoryIcon() {
 function RepositoryCodePanel({ filePath, fileBytes }) {
   if (fileBytes?.length) {
     return (
-      <OverviewMode
-        fileBytes={fileBytes}
-        filePath={filePath}
-        fileType=""
-      />
+      <OverviewMode fileBytes={fileBytes} filePath={filePath} fileType="" />
     );
   }
   return (
@@ -1358,81 +1724,42 @@ function RepositoryBlamePanel({
     };
   }, [branch, filePath, fileText, owner, repo, t]);
 
-  const lines = useMemo(
+  const fileLines = useMemo(
     () => (typeof fileText === "string" ? fileText.split(/\r?\n/) : []),
     [fileText],
   );
 
-  const blameByLine = useMemo(() => {
+  const segments = useMemo(
+    () => groupBlameSegments(blameRows, fileLines),
+    [blameRows, fileLines],
+  );
+
+  const contributors = useMemo(() => {
     const map = new Map();
-    blameRows.forEach((row) => {
-      const lineNumber = blameLineNumber(row);
-      if (lineNumber > 0) map.set(lineNumber, row);
+    segments.forEach((segment) => {
+      const key = segment.author || segment.avatarUrl || "";
+      if (!key || map.has(key)) return;
+      map.set(key, {
+        name: segment.author || "",
+        avatarUrl: segment.avatarUrl || null,
+      });
     });
-    return map;
-  }, [blameRows]);
-
-  const groups = useMemo(() => {
-    if (!lines.length) return [];
-    const grouped = [];
-    let current = null;
-    lines.forEach((content, index) => {
-      const lineNumber = index + 1;
-      const blame = blameByLine.get(lineNumber) ?? null;
-      const sha = blameCommitSha(blame);
-      const key = `${sha || "unknown"}-${lineNumber}`;
-      const row = {
-        lineNumber,
-        content,
-        sha,
-        author: blameCommitAuthor(blame),
-        message: blameCommitMessage(blame),
-        timestamp: blameCommitTimestamp(blame),
-      };
-      if (
-        !current ||
-        current.sha !== row.sha ||
-        current.author !== row.author ||
-        current.message !== row.message ||
-        current.timestamp !== row.timestamp
-      ) {
-        current = {
-          key,
-          sha: row.sha,
-          author: row.author,
-          message: row.message,
-          timestamp: row.timestamp,
-          lines: [row],
-        };
-        grouped.push(current);
-      } else {
-        current.lines.push(row);
-      }
-    });
-    return grouped;
-  }, [blameByLine, lines]);
-
-  const contributorNames = useMemo(() => {
-    const set = new Set();
-    groups.forEach((group) => {
-      if (group.author) set.add(group.author);
-    });
-    return Array.from(set);
-  }, [groups]);
+    return Array.from(map.values());
+  }, [segments]);
 
   const [minTs, maxTs] = useMemo(() => {
-    const stamps = groups
-      .map((group) => new Date(group.timestamp).getTime())
+    const stamps = segments
+      .map((segment) => new Date(segment.timestamp).getTime())
       .filter((value) => Number.isFinite(value));
     if (!stamps.length) return [0, 0];
     return [Math.min(...stamps), Math.max(...stamps)];
-  }, [groups]);
+  }, [segments]);
 
-  const contributorCount = contributorNames.length || 0;
+  const contributorCount = contributors.length || 0;
 
   if (fileText == null) {
     return (
-      <div className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 text-sm text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
+      <div className="rounded-md border border-(--color-light-card-border) bg-white p-4 text-sm text-muted dark:border-dark-default  dark:bg-dark-card-bg dark:text-dark-text-muted">
         {t("documentViewer.blame.binary")}
       </div>
     );
@@ -1440,7 +1767,7 @@ function RepositoryBlamePanel({
 
   if (loading) {
     return (
-      <p className="px-4 py-4 text-sm text-white/60">
+      <p className="px-4 py-4 text-xs text-muted dark:text-dark-muted">
         {t("studentRepo.browser.historyLoading")}
       </p>
     );
@@ -1448,16 +1775,16 @@ function RepositoryBlamePanel({
 
   if (error) {
     return (
-      <div className="m-4 rounded-md border border-(--color-light-error-border) bg-(--color-light-error-bg) p-4 text-sm text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)">
+      <div className="m-4 rounded-md border border-light-error-border bg-color-light-error-bg p-4 text-sm text--light-error-text dark:border--dark-error-border dark:bg-color-dark-error-bg dark:text-color-dark-error-tex">
         {error}
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden border-t border-white/10 bg-[#0d1117] text-white">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-4 py-4">
-        <div className="flex flex-wrap items-center gap-3 text-sm text-white/72">
+    <div className="overflow-hidden border-t border-light-divider bg-white  dark:border-dark-divider dark:bg-(--color-dark-card-bg) dark:text-dark-primary">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-light-divider px-3 py-2.5 dark:border-dark-divider">
+        <div className="flex flex-wrap items-center gap-2.5 text-[11px] text-muted dark:text-dark-muted">
           <span>Older</span>
           <div className="flex items-center gap-1">
             {Array.from({ length: 10 }).map((_, index) => {
@@ -1465,7 +1792,7 @@ function RepositoryBlamePanel({
               return (
                 <span
                   key={index}
-                  className="h-3 w-3 rounded-[2px]"
+                  className="h-2.5 w-2.5 rounded-[2px]"
                   style={{
                     backgroundColor: `hsla(34, 88%, ${22 + ratio * 40}%, .95)`,
                   }}
@@ -1477,128 +1804,134 @@ function RepositoryBlamePanel({
         </div>
 
         <div className="flex items-center gap-3">
-          {contributorNames.slice(0, 1).map((name) => (
-            <span
-              key={name}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10 text-xs font-semibold text-white"
-              title={name}
-            >
-              {initialsFromName(name)}
-            </span>
+          {contributors.slice(0, 1).map((person) => (
+            <Avatar
+              key={`${person.name}-${person.avatarUrl || "fallback"}`}
+              src={person.avatarUrl}
+              alt={person.name}
+              initials={initialsFromName(person.name)}
+              className="rounded-full border border-(--color-light-card-border) shadow-sm dark:border-(--color-dark-card-border)"
+              sizeClass="inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-full"
+            />
           ))}
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/86 transition-colors hover:bg-white/[0.08]"
+            className="inline-flex items-center gap-1.5 rounded-full border border-(--color-light-card-border) px-2.5 py-1 text-[11px] text-secondary transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary"
             onClick={onOpenHistory}
           >
             Contributors
-            <span className="inline-flex min-w-6 items-center justify-center rounded-full border border-white/15 px-1.5 text-xs">
+            <span className="inline-flex min-w-6  items-center justify-center rounded-full border border-(--color-light-card-border) px-1.5 text-[10px] dark:border-(--color-dark-card-border)">
               {contributorCount}
             </span>
           </button>
         </div>
       </div>
 
-      <div className="border-b border-white/10 px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+      <div className="border-b border-light-divider px-3 py-2 dark:border-dark-divider">
+        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
           Line Ownership
         </p>
       </div>
 
-      <div>
-        {!groups.length ? (
-          <p className="px-4 py-4 text-xs text-white/60">
+      <div className="overflow-x-auto">
+        {!segments.length ? (
+          <p className="px-4 py-4 text-xs text-muted dark:text-dark-muted">
             {t("studentRepo.browser.historyEmpty")}
           </p>
         ) : (
-          groups.map((group) => {
-            const ts = new Date(group.timestamp).getTime();
+          segments.map((segment) => {
+            const ts = new Date(segment.timestamp).getTime();
             const ratio =
-              Number.isFinite(ts) && maxTs > minTs ? (ts - minTs) / (maxTs - minTs) : 0.45;
-            const bg = `hsla(34, 88%, ${20 + ratio * 38}%, ${hoveredGroup === group.key ? 0.26 : 0.14})`;
+              Number.isFinite(ts) && maxTs > minTs
+                ? (ts - minTs) / (maxTs - minTs)
+                : 0.45;
+            const bg = `hsla(34, 88%, ${56 + ratio * 18}%, ${hoveredGroup === segment.key ? 0.22 : 0.12})`;
             const accent = `hsla(29, 92%, ${28 + ratio * 42}%, .96)`;
             return (
               <div
-                key={group.key}
-                className="grid border-b border-white/10 md:grid-cols-[minmax(280px,34%)_minmax(0,1fr)]"
-                onMouseEnter={() => setHoveredGroup(group.key)}
+                key={segment.key}
+                className="grid min-w-190 border-b border-default md:grid-cols-[minmax(220px,28%)_minmax(0,1fr)] dark:border-dark-default"
+                onMouseEnter={() => setHoveredGroup(segment.key)}
                 onMouseLeave={() => setHoveredGroup("")}
               >
-                <div className="border-r border-white/10 px-0" style={{ backgroundColor: bg }}>
+                <div
+                  className="border-r border-default px-0 dark:border-dark-default"
+                  style={{ backgroundColor: bg }}
+                >
                   <div className="grid h-full grid-cols-[4px_minmax(0,1fr)]">
                     <span style={{ backgroundColor: accent }} />
-                    <div className="p-4">
-                      <div className="flex items-start gap-3">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/20 text-[10px] font-semibold">
-                          {initialsFromName(group.author)}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/70">
-                            <span>{formatRelativeTime(group.timestamp, locale)}</span>
-                            <span className="truncate">{group.author || "—"}</span>
-                          </div>
+                    <div className="p-3">
+                      <div className="group relative min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex shrink-0 rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-2 py-0.5 text-[10px] font-medium text-primary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-primary">
+                            {formatBlameRelativeDate(segment.timestamp, locale)}
+                          </span>
+                          <Avatar
+                            src={segment.avatarUrl}
+                            alt={segment.author}
+                            initials={initialsFromName(segment.author)}
+                            className="shrink-0 rounded-full border border-(--color-light-card-border) shadow-sm dark:border-(--color-dark-card-border)"
+                            sizeClass="inline-flex h-7 w-7 items-center justify-center overflow-hidden rounded-full"
+                          />
                           <button
                             type="button"
-                            className="mt-1 block max-w-full truncate text-left text-[12px] font-medium text-white/88 transition-colors hover:text-white/80"
-                            title={group.message || "—"}
+                            className="min-w-0 flex-1 truncate text-left text-[11px] text-secondary transition-colors hover:text-primary dark:text-dark-secondary dark:hover:text-dark-primary"
                             onClick={onOpenHistory}
                           >
-                            {truncateMiddle(group.message || "—", 44)}
+                            {truncateMiddle(segment.message || "—", 34)}
                           </button>
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-white/62">
-                            <button
-                              type="button"
-                              className="font-mono transition-colors hover:text-white"
-                              title={group.sha || ""}
-                              onClick={async () => {
-                                if (!group.sha) return;
-                                try {
-                                  await navigator.clipboard.writeText(group.sha);
-                                  gooeyToast.success("Commit SHA copied.");
-                                } catch {
-                                  gooeyToast.error("Could not copy commit SHA.");
-                                }
-                              }}
-                            >
-                              {group.sha ? group.sha.slice(0, 7) : "—"}
-                            </button>
-                            <button
-                              type="button"
-                              className={iconGhostButtonClass({ compact: true })}
-                              title="Copy SHA"
-                              onClick={async () => {
-                                if (!group.sha) return;
-                                try {
-                                  await navigator.clipboard.writeText(group.sha);
-                                  gooeyToast.success("Commit SHA copied.");
-                                } catch {
-                                  gooeyToast.error("Could not copy commit SHA.");
-                                }
-                              }}
-                            >
-                              <Copy className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
-                            </button>
+                        </div>
+                        <div className="mt-1 truncate text-[10px] text-muted dark:text-dark-muted">
+                          {segment.author || "—"}
+                        </div>
+                        <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 hidden w-64 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-2.5 py-2 text-left text-[10px] leading-4 text-secondary shadow-lg group-hover:block dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-secondary">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="font-medium text-primary dark:text-dark-primary">
+                              {segment.message || "—"}
+                            </p>
+                            <span className="shrink-0 rounded-full border border-(--color-light-card-border) px-1.5 py-0.5 text-[9px] text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
+                              {segment.lines.length} line
+                              {segment.lines.length === 1 ? "" : "s"}
+                            </span>
                           </div>
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-medium text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
+                              +{segment.additions ?? "—"}
+                            </span>
+                            <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[9px] font-medium text-red-700 dark:bg-red-500/12 dark:text-red-300">
+                              -{segment.deletions ?? "—"}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-muted dark:text-dark-muted">
+                            {segment.author || "—"} •{" "}
+                            {formatAbsoluteTime(segment.timestamp, locale)}
+                          </p>
+                        </div>
+                        <div className="mt-1 text-[10px] text-muted dark:text-dark-muted">
+                          {segment.lines.length} line
+                          {segment.lines.length === 1 ? "" : "s"}
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="min-w-0 overflow-x-auto">
-                  {group.lines.map((line) => (
+                <div className="min-w-0">
+                  {segment.lines.map((line) => (
                     <div
-                      key={`${group.key}-${line.lineNumber}`}
+                      key={`${segment.key}-${line.lineNumber}`}
                       className={cn(
-                        "grid grid-cols-[64px_minmax(0,1fr)] border-b border-white/6 font-mono text-[11px] leading-6 last:border-b-0",
-                        hoveredGroup === group.key ? "bg-white/[0.03]" : "",
+                        "grid grid-cols-[48px_minmax(0,1fr)] border-b border-light-divider font-mono text-[10px] leading-5 last:border-b-0 dark:border-dark-divider",
+                        hoveredGroup === segment.key
+                          ? "bg-(--color-light-card-hover) dark:bg-(--color-dark-card-hover)"
+                          : "",
                       )}
                     >
-                      <div className="select-none px-3 text-right text-white/38">
+                      <div className="select-none px-2.5 text-right text-muted dark:text-dark-muted">
                         {line.lineNumber}
                       </div>
-                      <pre className="m-0 px-4 text-white/90">
-                        <code>{line.content || " "}</code>
+                      <pre className="m-0 px-3 py-0 text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                        <code>{line.code || " "}</code>
                       </pre>
                     </div>
                   ))}

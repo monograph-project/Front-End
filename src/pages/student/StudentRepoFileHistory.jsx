@@ -379,7 +379,7 @@ export default function StudentRepoFileHistory() {
                 Loading files…
               </p>
             ) : compareErr ? (
-              <p className="px-4 py-4 text-sm text-(--color-light-error-text) dark:text-(--color-dark-error-text)">
+              <p className="px-4 py-4 text-sm text-light-error-text dark:text-dark-error-text">
                 {compareErr}
               </p>
             ) : !files.length ? (
@@ -415,7 +415,7 @@ export default function StudentRepoFileHistory() {
                             Loading changes…
                           </p>
                         ) : diffState.error ? (
-                          <p className="px-4 py-4 text-sm text-(--color-light-error-text) dark:text-(--color-dark-error-text)">
+                          <p className="px-4 py-4 text-sm text-light-error-text dark:text-dark-error-text">
                             {diffState.error}
                           </p>
                         ) : (

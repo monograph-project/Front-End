@@ -17,7 +17,7 @@ import { useVcRepository } from "../../services/useApi";
 
 function tabClass(active) {
   return cn(
-    "inline-flex items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium transition-colors",
+    "inline-flex items-center gap-1.5 border-b-2 px-1 py-2.5 text-xs font-medium transition-colors",
     active
       ? "border-(--color-light-input-border-focus) text-primary dark:border-(--color-dark-input-border-focus) dark:text-dark-primary"
       : "border-transparent text-muted hover:border-(--color-light-card-border) hover:text-secondary dark:text-dark-muted dark:hover:border-(--color-dark-card-border) dark:hover:text-dark-secondary",
@@ -26,7 +26,7 @@ function tabClass(active) {
 
 function repoActionClass(disabled = false) {
   return cn(
-    "inline-flex h-9 items-center gap-2 rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 text-sm font-semibold text-secondary transition-colors dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-secondary",
+    "inline-flex h-8 items-center gap-1.5 rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) px-2.5 text-xs font-medium text-secondary transition-colors dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-secondary",
     disabled
       ? "cursor-not-allowed opacity-55"
       : "hover:border-(--color-light-input-border) hover:bg-(--color-light-card-hover) hover:text-primary dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary",
@@ -90,7 +90,7 @@ export default function StudentRepositoryLayout() {
 
   return (
     <div className="min-h-screen flex-1 bg-white dark:bg-dark-card-bg">
-      <div className="mx-auto  px-4 py-6 md:px-6 lg:px-8">
+      <div className="mx-auto px-4 py-5 md:px-6 lg:px-8">
         <div className="mb-3 text-xs text-muted dark:text-dark-muted">
           <NavLink
             to="/student/workspace"
@@ -104,24 +104,24 @@ export default function StudentRepositoryLayout() {
           <span>{decodedOwner}</span>
         </div>
 
-        <header className="border-b border-(--color-light-card-border) pb-5 dark:border-(--color-dark-card-border)">
+        <header className="border-b border-(--color-light-card-border) pb-4 dark:border-(--color-dark-card-border)">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="flex min-w-0 items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-(--color-light-card-border) bg-(--color-light-card-bg) text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
-                <BookMarked className="h-5 w-5" strokeWidth={1.8} aria-hidden />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-(--color-light-card-border) bg-(--color-light-card-bg) text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
+                <BookMarked className="h-4.5 w-4.5" strokeWidth={1.5} aria-hidden />
               </div>
               <div className="min-w-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <h1 className="truncate text-2xl font-semibold tracking-tight text-primary md:text-[2rem] dark:text-dark-primary">
+                  <h1 className="truncate text-xl font-semibold tracking-tight text-primary md:text-[1.75rem] dark:text-dark-primary">
                     {decodedRepo}
                   </h1>
                   {visibility ? (
-                    <span className="inline-flex rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-2.5 py-0.5 text-xs font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                    <span className="inline-flex rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-2 py-0.5 text-[11px] font-medium text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
                       {String(visibility)}
                     </span>
                   ) : null}
                 </div>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-secondary dark:text-dark-secondary">
+                <p className="mt-1.5 max-w-3xl text-xs leading-5 text-secondary dark:text-dark-secondary">
                   {summary}
                 </p>
               </div>
@@ -140,7 +140,7 @@ export default function StudentRepositoryLayout() {
               <button type="button" className={repoActionClass(true)} disabled>
                 <Eye className="h-4 w-4" strokeWidth={1.7} aria-hidden />
                 {t("studentRepo.actions.watch")}
-                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-xs dark:border-(--color-dark-card-border)">
+                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-[10px] dark:border-(--color-dark-card-border)">
                   {countOrZero(watchCount)}
                 </span>
                 <ChevronDown
@@ -152,7 +152,7 @@ export default function StudentRepositoryLayout() {
               <button type="button" className={repoActionClass(true)} disabled>
                 <GitFork className="h-4 w-4" strokeWidth={1.7} aria-hidden />
                 {t("studentRepo.actions.fork")}
-                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-xs dark:border-(--color-dark-card-border)">
+                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-[10px] dark:border-(--color-dark-card-border)">
                   {countOrZero(forkCount)}
                 </span>
                 <ChevronDown
@@ -164,7 +164,7 @@ export default function StudentRepositoryLayout() {
               <button type="button" className={repoActionClass(true)} disabled>
                 <Star className="h-4 w-4" strokeWidth={1.7} aria-hidden />
                 {t("studentRepo.actions.star")}
-                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-xs dark:border-(--color-dark-card-border)">
+                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-[10px] dark:border-(--color-dark-card-border)">
                   {countOrZero(starCount)}
                 </span>
                 <ChevronDown
@@ -178,7 +178,7 @@ export default function StudentRepositoryLayout() {
         </header>
 
         <nav
-          className="mt-4 flex flex-wrap gap-x-6 border-b border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
+          className="mt-3 flex flex-wrap gap-x-4 border-b border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
           aria-label={t("studentRepo.shell.tabsAria")}
         >
           <NavLink
@@ -224,7 +224,7 @@ export default function StudentRepositoryLayout() {
           </NavLink>
         </nav>
 
-        <div className="pt-6">
+        <div className="pt-5">
           <Outlet
             context={{
               owner: decodedOwner,

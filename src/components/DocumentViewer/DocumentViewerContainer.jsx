@@ -104,7 +104,7 @@ export default function DocumentViewerContainer({
           </div>
           <button
             type="button"
-            className="text-[11px] font-semibold text-(--color-light-text-muted) underline-offset-4 hover:text-(--color-light-text-secondary) hover:underline dark:text-(--color-dark-text-muted)"
+            className="text-[11px] font-semibold text-(--color-light-text-muted) underline-offset-4 hover:text-light-text-secondary hover:underline dark:text-dark-text-muted"
             onClick={() => reload()}
           >
             {t("documentViewer.reload")}
@@ -114,7 +114,7 @@ export default function DocumentViewerContainer({
         {loading ?
           <DocumentViewerLoading />
         : error ?
-          <div className="rounded-2xl border border-(--color-light-error-border) bg-(--color-light-error-bg) p-6 text-xs text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)">
+          <div className="rounded-2xl border border-light-error-border bg-light-error-bg p-6 text-xs text-light-error-text dark:border-dark-error-border dark:bg-dark-error-bg dark:text-dark-error-text">
             {error}
           </div>
         : viewMode === "overview" ?
@@ -131,7 +131,7 @@ export default function DocumentViewerContainer({
             {blameBusy ?
               <DocumentViewerLoading />
             : blameErr ?
-              <div className="rounded-2xl border border-(--color-light-error-border) bg-(--color-light-error-bg) p-6 text-xs text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)">
+              <div className="rounded-2xl border border-light-error-border bg-light-error-bg p-6 text-xs text-light-error-text dark:border-dark-error-border dark:bg-dark-error-bg dark:text-dark-error-text">
                 {blameErr}
               </div>
             : bytes ?
