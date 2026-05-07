@@ -26,7 +26,12 @@ function isZipMagic(bytes) {
  *
  * @param {{ fileBytes: Uint8Array, filePath: string, fileType: string }} props
  */
-export default function OverviewMode({ fileBytes, filePath, fileType }) {
+export default function OverviewMode({
+  fileBytes,
+  filePath,
+  fileType,
+  embedded = false,
+}) {
   const { t } = useTranslation();
 
   const [plainDocxLoading, setPlainDocxLoading] = useState(false);
@@ -80,11 +85,15 @@ export default function OverviewMode({ fileBytes, filePath, fileType }) {
 
   if (ext === "pdf") {
     return (
-      <div className="overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+      <div
+        className={embedded
+          ? "overflow-hidden"
+          : "overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
+      >
         <iframe
           title={filePath}
           src={blobUrl ?? undefined}
-          className="h-[560px] w-full rounded-2xl"
+          className={embedded ? "h-[560px] w-full" : "h-[560px] w-full rounded-2xl"}
         />
       </div>
     );
@@ -92,7 +101,11 @@ export default function OverviewMode({ fileBytes, filePath, fileType }) {
 
   if (isImageExtension(ext)) {
     return (
-      <div className="flex justify-center rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+      <div
+        className={embedded
+          ? "flex justify-center p-4"
+          : "flex justify-center rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
+      >
         {blobUrl ? (
           <img
             src={blobUrl}
@@ -106,7 +119,11 @@ export default function OverviewMode({ fileBytes, filePath, fileType }) {
 
   if (ext === "docx" || ext === "doc") {
     return (
-      <div className="space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+      <div
+        className={embedded
+          ? "space-y-3 p-4"
+          : "space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
+      >
         <p className="text-xs text-muted dark:text-dark-muted">
           {t("documentViewer.overview.docxFallbackHint")}
         </p>
@@ -126,7 +143,11 @@ export default function OverviewMode({ fileBytes, filePath, fileType }) {
 
   if (ext === "xlsx" || ext === "xls" || ext === "csv") {
     return (
-      <div className="space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+      <div
+        className={embedded
+          ? "space-y-3 p-4"
+          : "space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
+      >
         <p className="text-sm text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
           {t("documentViewer.overview.sheetFallback")}
         </p>
@@ -139,14 +160,22 @@ export default function OverviewMode({ fileBytes, filePath, fileType }) {
 
   if (isLikelyTextExtension(ext) && textMaybe != null) {
     return (
-      <pre className="max-h-[560px] overflow-auto rounded-2xl border border-(--color-light-card-border) bg-(--color-light-input-bg) p-4 text-xs text-(--color-light-text-primary) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)">
+      <pre
+        className={embedded
+          ? "max-h-[560px] overflow-auto bg-(--color-light-input-bg) p-4 text-xs text-(--color-light-text-primary) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)"
+          : "max-h-[560px] overflow-auto rounded-2xl border border-(--color-light-card-border) bg-(--color-light-input-bg) p-4 text-xs text-(--color-light-text-primary) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)"}
+      >
         <code>{textMaybe}</code>
       </pre>
     );
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+    <div
+      className={embedded
+        ? "space-y-3 p-4"
+        : "space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
+    >
       <p className="text-sm text-muted dark:text-dark-muted">
         {t("documentViewer.overview.binaryFallback")}
       </p>

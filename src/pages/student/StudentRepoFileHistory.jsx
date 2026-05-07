@@ -5,7 +5,9 @@ import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { useVcRepositoryCommits } from "../../services/useApi";
 import {
+  fetchCommitDetails,
   fetchRepositoryBlobPayload,
+  fetchRepositoryCommitDiff,
   fetchRepositoryCompare,
 } from "../../services/versionControlService";
 import { tryDecodeUtf8 } from "../../utils/binaryFileHandlers";
@@ -105,6 +107,18 @@ async function fetchBlobUtf8BySha(owner, repo, blobSha) {
   return tryDecodeUtf8(bytes);
 }
 
+async function withTimeout(promise, ms, message) {
+  let timerId = null;
+  const timeout = new Promise((_, reject) => {
+    timerId = setTimeout(() => reject(new Error(message)), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timerId) clearTimeout(timerId);
+  }
+}
+
 function normalizeDiffRows(oldText, newText) {
   const parts = diffLines(oldText ?? "", newText ?? "");
   const rows = [];
@@ -130,6 +144,174 @@ function normalizeDiffRows(oldText, newText) {
   return rows;
 }
 
+function normalizePatchRows(patchText) {
+  const patch = String(patchText ?? "");
+  if (!patch.trim()) return [];
+
+  const lines = patch.split("\n");
+  const rows = [];
+  let oldLine = 0;
+  let newLine = 0;
+
+  for (const line of lines) {
+    if (line.startsWith("@@")) {
+      const match = /@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+      if (match) {
+        oldLine = Number(match[1]);
+        newLine = Number(match[2]);
+      }
+      continue;
+    }
+    if (
+      line.startsWith("diff ") ||
+      line.startsWith("index ") ||
+      line.startsWith("--- ") ||
+      line.startsWith("+++ ")
+    ) {
+      continue;
+    }
+    if (line.startsWith("\\ No newline")) continue;
+
+    if (line.startsWith("+")) {
+      rows.push({
+        type: "added",
+        oldLine: null,
+        newLine,
+        content: line.slice(1),
+      });
+      newLine += 1;
+      continue;
+    }
+    if (line.startsWith("-")) {
+      rows.push({
+        type: "removed",
+        oldLine,
+        newLine: null,
+        content: line.slice(1),
+      });
+      oldLine += 1;
+      continue;
+    }
+
+    const content = line.startsWith(" ") ? line.slice(1) : line;
+    rows.push({
+      type: "context",
+      oldLine,
+      newLine,
+      content,
+    });
+    oldLine += 1;
+    newLine += 1;
+  }
+
+  return rows;
+}
+
+function normalizePatchFilePath(raw) {
+  const text = String(raw ?? "").trim();
+  return text.replace(/^a\//, "").replace(/^b\//, "");
+}
+
+function splitUnifiedDiffByFile(diffText) {
+  const text = String(diffText ?? "");
+  if (!text.trim()) return new Map();
+
+  const sections = text.split(/^diff --git /m).filter(Boolean);
+  const map = new Map();
+
+  sections.forEach((section) => {
+    const chunk = section.startsWith("a/") ? `diff --git ${section}` : section;
+    const lines = chunk.split("\n");
+    let path = "";
+    for (const line of lines) {
+      if (line.startsWith("+++ ")) {
+        path = normalizePatchFilePath(line.slice(4));
+        if (path === "/dev/null") path = "";
+      } else if (!path && line.startsWith("--- ")) {
+        const candidate = normalizePatchFilePath(line.slice(4));
+        if (candidate !== "/dev/null") path = candidate;
+      }
+    }
+    if (!path) {
+      const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(lines[0] ?? "");
+      path = normalizePatchFilePath(header?.[2] ?? header?.[1] ?? "");
+    }
+    if (path) map.set(path, chunk);
+  });
+
+  return map;
+}
+
+function fileChangeCount(row, kind) {
+  const raw =
+    kind === "add"
+      ? row?.additions ?? row?.linesAdded ?? row?.lines_added ?? row?.insertions
+      : row?.deletions ?? row?.linesDeleted ?? row?.lines_deleted ?? row?.removals;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+function fileBlobSha(row, kind) {
+  const raw =
+    kind === "base"
+      ? row?.baseSha ??
+        row?.base_sha ??
+        row?.oldSha ??
+        row?.old_sha ??
+        row?.fromSha ??
+        row?.from_sha ??
+        row?.previousSha
+      : row?.headSha ??
+        row?.head_sha ??
+        row?.newSha ??
+        row?.new_sha ??
+        row?.toSha ??
+        row?.to_sha ??
+        row?.currentSha;
+  return String(raw ?? "").trim();
+}
+
+function filePatchText(row) {
+  const raw =
+    row?.patch ??
+    row?.diff ??
+    row?.unifiedDiff ??
+    row?.patchText ??
+    row?.patch_text ??
+    row?.diffText ??
+    row?.diff_text ??
+    "";
+  return String(raw ?? "").trim();
+}
+
+function normalizeCommitDetailFiles(raw) {
+  const files =
+    raw?.files ??
+    raw?.changedFiles ??
+    raw?.changed_files ??
+    raw?.diffs ??
+    raw?.entries ??
+    [];
+  return Array.isArray(files) ? files : [];
+}
+
+function normalizeCompareFiles(raw) {
+  const files = raw?.files ?? raw?.changedFiles ?? raw?.changed_files ?? [];
+  return Array.isArray(files) ? files : [];
+}
+
+function summarizeRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  return list.reduce(
+    (acc, row) => {
+      if (row?.type === "added") acc.additions += 1;
+      if (row?.type === "removed") acc.deletions += 1;
+      return acc;
+    },
+    { additions: 0, deletions: 0 },
+  );
+}
+
 export default function StudentRepoFileHistory() {
   const { t, i18n } = useTranslation();
   const { owner, repo, repoBase } = useOutletContext() ?? {};
@@ -141,6 +323,8 @@ export default function StudentRepoFileHistory() {
   const [compareData, setCompareData] = useState(null);
   const [compareBusy, setCompareBusy] = useState(false);
   const [compareErr, setCompareErr] = useState("");
+  const [commitDetailData, setCommitDetailData] = useState(null);
+  const [commitDiffPatches, setCommitDiffPatches] = useState(new Map());
 
   const commitsQ = useVcRepositoryCommits(
     owner,
@@ -169,6 +353,30 @@ export default function StudentRepoFileHistory() {
 
   const selectedCommitRow =
     commits.find((row) => commitRowSha(row) === selectedCommit) ?? null;
+  const selectedCommitMeta = useMemo(
+    () => ({
+      sha: selectedCommit || commitRowSha(selectedCommitRow) || "",
+      message:
+        commitRowMessage(commitDetailData) ||
+        commitRowMessage(selectedCommitRow) ||
+        "",
+      author:
+        commitRowAuthor(commitDetailData) ||
+        commitRowAuthor(selectedCommitRow) ||
+        "",
+      timestamp:
+        commitRowTimestamp(commitDetailData) ||
+        commitRowTimestamp(selectedCommitRow) ||
+        "",
+      parentSha:
+        commitRowParentSha(commitDetailData) ||
+        commitRowParentSha(selectedCommitRow) ||
+        "",
+    }),
+    [commitDetailData, selectedCommit, selectedCommitRow],
+  );
+  const selectedParentSha =
+    selectedCommitMeta.parentSha || "";
 
   useEffect(() => {
     let cancelled = false;
@@ -178,8 +386,7 @@ export default function StudentRepoFileHistory() {
         setCompareErr("");
         return;
       }
-      const parentSha = commitRowParentSha(selectedCommitRow);
-      if (!parentSha) {
+      if (!selectedParentSha) {
         setCompareData({ files: [] });
         setCompareErr("");
         return;
@@ -187,7 +394,12 @@ export default function StudentRepoFileHistory() {
       setCompareBusy(true);
       setCompareErr("");
       try {
-        const data = await fetchRepositoryCompare(owner, repo, parentSha, selectedCommit);
+        const data = await fetchRepositoryCompare(
+          owner,
+          repo,
+          selectedParentSha,
+          selectedCommit,
+        );
         if (!cancelled) setCompareData(data ?? { files: [] });
       } catch (error) {
         if (!cancelled) {
@@ -202,21 +414,127 @@ export default function StudentRepoFileHistory() {
     return () => {
       cancelled = true;
     };
-  }, [owner, repo, selectedCommit, selectedCommitRow]);
+  }, [owner, repo, selectedCommit, selectedCommitRow, selectedParentSha]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      if (!owner || !repo || !selectedCommit) {
+        setCommitDetailData(null);
+        return;
+      }
+      try {
+        const data = await fetchCommitDetails(owner, repo, selectedCommit);
+        if (!cancelled) setCommitDetailData(data ?? null);
+      } catch {
+        if (!cancelled) setCommitDetailData(null);
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [owner, repo, selectedCommit]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      if (!owner || !repo || !selectedCommitRow) {
+        setCommitDiffPatches(new Map());
+        return;
+      }
+      if (!selectedParentSha) {
+        setCommitDiffPatches(new Map());
+        return;
+      }
+      try {
+        const raw = await fetchRepositoryCommitDiff(
+          owner,
+          repo,
+          selectedParentSha,
+          selectedCommit,
+        );
+        if (cancelled) return;
+        const text =
+          typeof raw === "string"
+            ? raw
+            : typeof raw?.diff === "string"
+              ? raw.diff
+              : typeof raw?.patch === "string"
+                ? raw.patch
+                : "";
+        setCommitDiffPatches(splitUnifiedDiffByFile(text));
+      } catch {
+        if (!cancelled) setCommitDiffPatches(new Map());
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [owner, repo, selectedCommit, selectedCommitRow, selectedParentSha]);
 
   const files = useMemo(() => {
-    const list = Array.isArray(compareData?.files) ? compareData.files : [];
-    return list.map((row, index) => ({
-      key: String(row?.path ?? row?.filePath ?? row?.filename ?? `file-${index}`),
-      path: String(row?.path ?? row?.filePath ?? row?.filename ?? `file-${index}`),
-      status: String(row?.status ?? "modified"),
-      baseSha: String(row?.baseSha ?? row?.base_sha ?? "").trim(),
-      headSha: String(row?.headSha ?? row?.head_sha ?? "").trim(),
-    }));
-  }, [compareData]);
+    const compareList = normalizeCompareFiles(compareData);
+    const detailList = normalizeCommitDetailFiles(commitDetailData);
+    const byPath = new Map();
+
+    [...compareList, ...detailList].forEach((row, index) => {
+      const path = String(
+        row?.path ?? row?.filePath ?? row?.filename ?? row?.name ?? `file-${index}`,
+      );
+      const prev = byPath.get(path) ?? {};
+      byPath.set(path, {
+        key: `${selectedCommit || "commit"}:${path}`,
+        path,
+        status: String(row?.status ?? prev.status ?? "modified"),
+        baseSha: fileBlobSha(row, "base") || prev.baseSha || "",
+        headSha: fileBlobSha(row, "head") || prev.headSha || "",
+        patch:
+          filePatchText(row) ||
+          prev.patch ||
+          commitDiffPatches.get(path) ||
+          "",
+        additions: fileChangeCount(row, "add") ?? prev.additions ?? null,
+        deletions: fileChangeCount(row, "delete") ?? prev.deletions ?? null,
+      });
+    });
+
+    for (const [path, patch] of commitDiffPatches.entries()) {
+      const prev = byPath.get(path) ?? {};
+      const patchRows = normalizePatchRows(patch);
+      const patchSummary = summarizeRows(patchRows);
+      byPath.set(path, {
+        key: `${selectedCommit || "commit"}:${path}`,
+        path,
+        status: prev.status || "modified",
+        baseSha: prev.baseSha || "",
+        headSha: prev.headSha || "",
+        patch: prev.patch || patch,
+        additions: prev.additions ?? patchSummary.additions,
+        deletions: prev.deletions ?? patchSummary.deletions,
+      });
+    }
+
+    return Array.from(byPath.values());
+  }, [commitDetailData, commitDiffPatches, compareData, selectedCommit]);
 
   const [expandedFile, setExpandedFile] = useState("");
   const [diffCache, setDiffCache] = useState({});
+
+  useEffect(() => {
+    setDiffCache({});
+  }, [selectedCommit]);
+
+  const selectedCommitSummary = useMemo(() => {
+    const additions = files.reduce((sum, file) => sum + (file.additions ?? 0), 0);
+    const deletions = files.reduce((sum, file) => sum + (file.deletions ?? 0), 0);
+    return {
+      filesChanged: files.length,
+      additions,
+      deletions,
+    };
+  }, [files]);
 
   useEffect(() => {
     if (!files.length) {
@@ -231,23 +549,63 @@ export default function StudentRepoFileHistory() {
     let cancelled = false;
     async function run() {
       const file = files.find((item) => item.key === expandedFile);
-      if (!file || diffCache[file.key]?.rows) return;
+      if (!file) return;
+      const existing = diffCache[file.key];
+      if (existing?.loading || existing?.rows?.length || existing?.error) return;
       setDiffCache((current) => ({
         ...current,
         [file.key]: { loading: true, rows: [], error: "" },
       }));
       try {
+        if (file.patch) {
+          const patchRows = normalizePatchRows(file.patch);
+          if (cancelled) return;
+          setDiffCache((current) => ({
+            ...current,
+            [file.key]: {
+              loading: false,
+              rows: patchRows,
+              error: patchRows.length ? "" : "No line diff found in patch payload.",
+            },
+          }));
+          return;
+        }
+        if (!file.baseSha && !file.headSha) {
+          if (cancelled) return;
+          setDiffCache((current) => ({
+            ...current,
+            [file.key]: {
+              loading: false,
+              rows: [],
+              error: "No diff payload returned for this file.",
+            },
+          }));
+          return;
+        }
         const [beforeText, afterText] = await Promise.all([
-          file.status === "added" ? Promise.resolve("") : fetchBlobUtf8BySha(owner, repo, file.baseSha),
-          file.status === "deleted" ? Promise.resolve("") : fetchBlobUtf8BySha(owner, repo, file.headSha),
+          file.status === "added"
+            ? Promise.resolve("")
+            : withTimeout(
+                fetchBlobUtf8BySha(owner, repo, file.baseSha),
+                12000,
+                "Timed out loading previous file version.",
+              ),
+          file.status === "deleted"
+            ? Promise.resolve("")
+            : withTimeout(
+                fetchBlobUtf8BySha(owner, repo, file.headSha),
+                12000,
+                "Timed out loading current file version.",
+              ),
         ]);
         if (cancelled) return;
+        const rows = normalizeDiffRows(beforeText ?? "", afterText ?? "");
         setDiffCache((current) => ({
           ...current,
           [file.key]: {
             loading: false,
-            rows: normalizeDiffRows(beforeText ?? "", afterText ?? ""),
-            error: "",
+            rows,
+            error: rows.length ? "" : "No visible line changes found for this file.",
           },
         }));
       } catch (error) {
@@ -355,15 +713,26 @@ export default function StudentRepoFileHistory() {
             ) : (
               <div className="px-4 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted dark:text-dark-muted">
-                  <span className="font-mono">{selectedCommit.slice(0, 12)}</span>
-                  <span>{formatAbsoluteTime(commitRowTimestamp(selectedCommitRow), locale)}</span>
+                  <span className="font-mono">{selectedCommitMeta.sha.slice(0, 12)}</span>
+                  <span>{formatAbsoluteTime(selectedCommitMeta.timestamp, locale)}</span>
                 </div>
                 <h3 className="mt-2 text-lg font-semibold text-primary dark:text-dark-primary">
-                  {commitRowMessage(selectedCommitRow) || "—"}
+                  {selectedCommitMeta.message || "—"}
                 </h3>
                 <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-                  {commitRowAuthor(selectedCommitRow) || "—"}
+                  {selectedCommitMeta.author || "—"}
                 </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+                  <span className="rounded-full border border-(--color-light-card-border) px-2 py-1 text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
+                    {selectedCommitSummary.filesChanged} file{selectedCommitSummary.filesChanged === 1 ? "" : "s"} changed
+                  </span>
+                  <span className="rounded-full bg-emerald-50 px-2 py-1 font-medium text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
+                    +{selectedCommitSummary.additions}
+                  </span>
+                  <span className="rounded-full bg-red-50 px-2 py-1 font-medium text-red-700 dark:bg-red-500/12 dark:text-red-300">
+                    -{selectedCommitSummary.deletions}
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -390,6 +759,9 @@ export default function StudentRepoFileHistory() {
               <div className="space-y-3 p-4">
                 {files.map((file) => {
                   const diffState = diffCache[file.key] ?? { loading: false, rows: [], error: "" };
+                  const rowSummary = summarizeRows(diffState.rows);
+                  const additions = file.additions ?? rowSummary.additions;
+                  const deletions = file.deletions ?? rowSummary.deletions;
                   return (
                     <section
                       key={file.key}
@@ -397,17 +769,32 @@ export default function StudentRepoFileHistory() {
                     >
                       <button
                         type="button"
-                        onClick={() => setExpandedFile(file.key)}
-                        className="flex w-full items-center justify-between gap-3 bg-light-app-tertiary px-4 py-3 text-left dark:bg-dark-app-tertiary"
+                        onClick={() =>
+                          setExpandedFile((current) =>
+                            current === file.key ? "" : file.key,
+                          )
+                        }
+                        className="flex w-full items-center justify-between gap-3 bg-light-app-tertiary px-4 py-3 text-left transition-colors hover:bg-(--color-light-card-hover) dark:bg-dark-app-tertiary dark:hover:bg-(--color-dark-card-hover)"
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-sm font-semibold text-primary dark:text-dark-primary">
                             {file.path}
                           </p>
-                          <p className="mt-1 text-xs uppercase tracking-wide text-muted dark:text-dark-muted">
-                            {file.status}
-                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+                            <span className="uppercase tracking-wide text-muted dark:text-dark-muted">
+                              {file.status}
+                            </span>
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
+                              +{additions}
+                            </span>
+                            <span className="rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-700 dark:bg-red-500/12 dark:text-red-300">
+                              -{deletions}
+                            </span>
+                          </div>
                         </div>
+                        <span className="text-xs text-muted dark:text-dark-muted">
+                          {expandedFile === file.key ? "Hide" : "Show"}
+                        </span>
                       </button>
                       {expandedFile === file.key ? (
                         diffState.loading ? (
@@ -419,7 +806,13 @@ export default function StudentRepoFileHistory() {
                             {diffState.error}
                           </p>
                         ) : (
-                          <div className="overflow-auto">
+                          <div className="overflow-auto border-t border-(--color-light-card-border) dark:border-(--color-dark-card-border)">
+                            <div className="grid grid-cols-[48px_48px_24px_minmax(0,1fr)] bg-light-app-tertiary px-0 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted dark:bg-dark-app-tertiary dark:text-dark-muted">
+                              <span className="px-2 text-right">Old</span>
+                              <span className="px-2 text-right">New</span>
+                              <span className="px-1 text-center"></span>
+                              <span className="px-2">Content</span>
+                            </div>
                             {diffState.rows.map((diffRow, index) => {
                               const isAdded = diffRow.type === "added";
                               const isRemoved = diffRow.type === "removed";

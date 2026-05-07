@@ -127,7 +127,21 @@ export async function fetchMergeConflicts(owner, repo, prNumber) {
     const { data } = await apiClient.get(VC.MERGE_CONFLICTS(owner, repo, prNumber));
     return Array.isArray(data) ? data : data?.conflicts ?? [];
   } catch (err) {
+    if (err?.response?.status === 404) {
+      return [];
+    }
     throw new Error(extractApiError(err, "Failed to load merge conflicts."));
+  }
+}
+
+export async function mergePullRequest(owner, repo, prNumber) {
+  try {
+    const { data } = await apiClient.post(
+      VC.MERGE_PULL_REQUEST(owner, repo, prNumber),
+    );
+    return data ?? {};
+  } catch (err) {
+    throw new Error(extractApiError(err, "Failed to merge pull request."));
   }
 }
 
@@ -212,6 +226,18 @@ export async function fetchRepositoryCompare(owner, repo, baseRef, headRef) {
     return data && typeof data === "object" ? data : {};
   } catch (err) {
     throw new Error(extractApiError(err, "Failed to load compare."));
+  }
+}
+
+export async function fetchRepositoryCommitDiff(owner, repo, baseSha, headSha) {
+  try {
+    const { data } = await apiClient.get(
+      VC.DIFF_COMMITS(owner, repo, baseSha, headSha),
+      { responseType: "text" },
+    );
+    return data;
+  } catch (err) {
+    throw new Error(extractApiError(err, "Failed to load commit diff."));
   }
 }
 

@@ -426,6 +426,20 @@ export const VC = {
         params,
       ),
     ),
+  REPO_INVITE: (owner, repo, guest) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/invitations/${encodeURIComponent(guest)}`,
+    ),
+  REPO_INVITATIONS_MINE: (user) =>
+    gw(`/api/v1/repos/invitations/${encodeURIComponent(user)}`),
+  REPO_INVITATION_ACCEPT: (invitationId, userId) =>
+    gw(
+      `/api/v1/repos/invitations/${encodeURIComponent(invitationId)}/accept/${encodeURIComponent(userId)}`,
+    ),
+  REPO_INVITATION_REJECT: (invitationId, userId) =>
+    gw(
+      `/api/v1/repos/invitations/${encodeURIComponent(invitationId)}/reject/${encodeURIComponent(userId)}`,
+    ),
   PULL_REQUEST_FILES: (owner, repo, number) =>
     gw(
       `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(number)}/files`,
@@ -434,13 +448,17 @@ export const VC = {
     gw(
       `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(number)}/files/${encodeURIComponent(fileIndex)}/diff`,
     ),
+  MERGE_PULL_REQUEST: (owner, repo, number) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(number)}/merge`,
+    ),
   MERGE_CONFLICTS: (owner, repo, number) =>
     gw(
-      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/merge/${encodeURIComponent(number)}/conflicts`,
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(number)}/conflicts`,
     ),
   MERGE_RESOLVE: (owner, repo, number) =>
     gw(
-      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/merge/${encodeURIComponent(number)}/resolve`,
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(number)}/conflicts/resolve`,
     ),
 };
 

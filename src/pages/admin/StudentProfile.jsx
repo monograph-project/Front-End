@@ -64,8 +64,7 @@ const GENDER_I18N = {
 function profileInitials(fullName) {
   const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2)
-    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase() ||
-      "?";
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase() || "?";
   return (parts[0]?.slice(0, 2) || "?").toUpperCase();
 }
 
@@ -200,7 +199,10 @@ export default function StudentProfile() {
   const peerCompare = useMemo(() => {
     const cohort = Math.min(
       96,
-      Math.max(48, aspectScore + Math.round((student?.id?.length || 3) % 9) - 4),
+      Math.max(
+        48,
+        aspectScore + Math.round((student?.id?.length || 3) % 9) - 4,
+      ),
     );
     return { subject: aspectScore, peer: cohort };
   }, [aspectScore, student?.id]);
@@ -297,7 +299,9 @@ export default function StudentProfile() {
     `${student.firstName || ""} ${student.lastName || ""}`.trim() ||
     t("studentProfile.na");
   const g = (student.gender || "").toLowerCase();
-  const genderLabel = GENDER_I18N[g] ? t(GENDER_I18N[g]) : displayOrDash(student.gender, "");
+  const genderLabel = GENDER_I18N[g]
+    ? t(GENDER_I18N[g])
+    : displayOrDash(student.gender, "");
   const { tags, loc } = sidebarPillsFromStudent(student, t);
   const statusKey = (student.status || "active").toLowerCase();
 
@@ -337,9 +341,7 @@ export default function StudentProfile() {
   ];
 
   const firstName =
-    `${student.firstName || ""}`.trim() ||
-    fullName.split(/\s+/)[0] ||
-    fullName;
+    `${student.firstName || ""}`.trim() || fullName.split(/\s+/)[0] || fullName;
 
   const mailHref =
     typeof student.email === "string" && student.email.trim()
@@ -352,7 +354,7 @@ export default function StudentProfile() {
     <AdminProfileGreenScope>
       <AdminPersonProfileFrame
         sidebar={
-          <div className="overflow-visible rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) pb-8 shadow-[var(--shadow-md)] dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:shadow-[var(--shadow-dark-md)]">
+          <div className="overflow-visible rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) pb-8  dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) ">
             <AdminPersonProfileHero
               onBack={() => navigate("/admin/student")}
               verifiedLabel={t("adminPersonProfile.verified")}
@@ -393,7 +395,9 @@ export default function StudentProfile() {
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <AdminPersonProfileMiniCard
                   label={t("adminPersonProfile.sidebar.location")}
-                  value={(loc ?? "").trim() !== "" ? loc : t("studentProfile.na")}
+                  value={
+                    (loc ?? "").trim() !== "" ? loc : t("studentProfile.na")
+                  }
                 />
                 <AdminPersonProfileMiniCard
                   label={t("adminPersonProfile.mini.timezone")}
@@ -449,92 +453,90 @@ export default function StudentProfile() {
         }
         children={
           <>
-          
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <GitBranch
+                  className="size-5 text-(--color-light-admin-profile-violet) dark:text-(--color-dark-admin-profile-violet)"
+                  strokeWidth={2}
+                  aria-hidden
+                />
+                <h2 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                  {t("adminPersonProfile.sections.repositoryActivity")}
+                </h2>
+                {activityLoading ? (
+                  <span className="text-[11px] text-muted dark:text-dark-muted">
+                    {t("adminPersonProfile.activity.loading")}
+                  </span>
+                ) : null}
+              </div>
+              {!vcUsername ? (
+                <p className="rounded-2xl border border-dashed border-(--color-light-card-border) bg-(--color-light-card-bg) px-4 py-8 text-center text-sm text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
+                  {t("adminPersonProfile.activity.noUsername")}
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                  <StudentActivityColumn
+                    tone="bg-(--color-light-admin-profile-violet-soft-bg) text-(--color-light-admin-profile-violet-soft-text) dark:bg-(--color-dark-admin-profile-violet-soft-bg) dark:text-(--color-dark-admin-profile-violet-soft-text)"
+                    title={t("adminPersonProfile.activity.pushes")}
+                    rows={buckets.pushes}
+                    emptyLabel={t("adminPersonProfile.activity.empty")}
+                  />
+                  <StudentActivityColumn
+                    tone="bg-(--color-light-admin-profile-violet-soft-bg) text-(--color-light-admin-profile-violet-strong) dark:bg-(--color-dark-admin-profile-violet-soft-bg) dark:text-(--color-dark-admin-profile-violet)"
+                    title={t("adminPersonProfile.activity.pullRequests")}
+                    rows={buckets.pulls}
+                    emptyLabel={t("adminPersonProfile.activity.empty")}
+                  />
+                  <StudentActivityColumn
+                    tone="bg-(--color-light-success-bg) text-(--color-light-success-text) dark:bg-green-950/50 dark:text-green-300"
+                    title={t("adminPersonProfile.activity.merges")}
+                    rows={buckets.merges}
+                    emptyLabel={t("adminPersonProfile.activity.empty")}
+                  />
+                </div>
+              )}
+            </div>
 
-          <div>
-            <div className="mb-3 flex items-center gap-2">
-              <GitBranch
-                className="size-5 text-(--color-light-admin-profile-violet) dark:text-(--color-dark-admin-profile-violet)"
-                strokeWidth={2}
-                aria-hidden
+            {pipelineRows.length ? (
+              <AdminPersonProfilePipeline
+                title={t("adminPersonProfile.pipeline.title")}
+                stageLabels={pipelineStageLabels}
+                rows={pipelineRows}
               />
-              <h2 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                {t("adminPersonProfile.sections.repositoryActivity")}
+            ) : null}
+
+            <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 md:p-5 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+              <h2 className="mb-3 text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                {t("adminPersonProfile.sections.publicRecord")}
               </h2>
-              {activityLoading ? (
-                <span className="text-[11px] text-muted dark:text-dark-muted">
-                  {t("adminPersonProfile.activity.loading")}
-                </span>
-              ) : null}
-            </div>
-            {!vcUsername ? (
-              <p className="rounded-2xl border border-dashed border-(--color-light-card-border) bg-(--color-light-card-bg) px-4 py-8 text-center text-sm text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
-                {t("adminPersonProfile.activity.noUsername")}
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-                <StudentActivityColumn
-                  tone="bg-(--color-light-admin-profile-violet-soft-bg) text-(--color-light-admin-profile-violet-soft-text) dark:bg-(--color-dark-admin-profile-violet-soft-bg) dark:text-(--color-dark-admin-profile-violet-soft-text)"
-                  title={t("adminPersonProfile.activity.pushes")}
-                  rows={buckets.pushes}
-                  emptyLabel={t("adminPersonProfile.activity.empty")}
-                />
-                <StudentActivityColumn
-                  tone="bg-(--color-light-admin-profile-violet-soft-bg) text-(--color-light-admin-profile-violet-strong) dark:bg-(--color-dark-admin-profile-violet-soft-bg) dark:text-(--color-dark-admin-profile-violet)"
-                  title={t("adminPersonProfile.activity.pullRequests")}
-                  rows={buckets.pulls}
-                  emptyLabel={t("adminPersonProfile.activity.empty")}
-                />
-                <StudentActivityColumn
-                  tone="bg-(--color-light-success-bg) text-(--color-light-success-text) dark:bg-green-950/50 dark:text-green-300"
-                  title={t("adminPersonProfile.activity.merges")}
-                  rows={buckets.merges}
-                  emptyLabel={t("adminPersonProfile.activity.empty")}
-                />
-              </div>
-            )}
-          </div>
-
-          {pipelineRows.length ? (
-            <AdminPersonProfilePipeline
-              title={t("adminPersonProfile.pipeline.title")}
-              stageLabels={pipelineStageLabels}
-              rows={pipelineRows}
-            />
-          ) : null}
-
-          <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 md:p-5 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-            <h2 className="mb-3 text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-              {t("adminPersonProfile.sections.publicRecord")}
-            </h2>
-            <div className="grid gap-3 text-xs md:grid-cols-3">
-              <div>
-                <p className="font-semibold text-muted dark:text-dark-muted">
-                  {t("studentProfile.fields.email")}
-                </p>
-                <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                  {student.email || t("studentProfile.na")}
-                </p>
-              </div>
-              <div>
-                <p className="font-semibold text-muted dark:text-dark-muted">
-                  {t("studentProfile.fields.phone")}
-                </p>
-                <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                  {student.phone || t("studentProfile.na")}
-                </p>
-              </div>
-              <div>
-                <p className="font-semibold text-muted dark:text-dark-muted">
-                  {t("studentProfile.fields.enrollmentDate")}
-                </p>
-                <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                  {formatDisplayDate(student.enrollmentDate) ||
-                    t("studentProfile.na")}
-                </p>
+              <div className="grid gap-3 text-xs md:grid-cols-3">
+                <div>
+                  <p className="font-semibold text-muted dark:text-dark-muted">
+                    {t("studentProfile.fields.email")}
+                  </p>
+                  <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                    {student.email || t("studentProfile.na")}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-semibold text-muted dark:text-dark-muted">
+                    {t("studentProfile.fields.phone")}
+                  </p>
+                  <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                    {student.phone || t("studentProfile.na")}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-semibold text-muted dark:text-dark-muted">
+                    {t("studentProfile.fields.enrollmentDate")}
+                  </p>
+                  <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                    {formatDisplayDate(student.enrollmentDate) ||
+                      t("studentProfile.na")}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
           </>
         }
       />

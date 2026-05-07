@@ -828,6 +828,31 @@ export async function vcListPullRequests(owner, repo) {
   }
 }
 
+export async function vcCreatePullRequest(owner, repo, body) {
+  if (!owner || !repo)
+    throwClientApiError("Owner and repository are required.");
+  try {
+    const { data } = await axiosInstance.post(VC.REPO_PULLS(owner, repo), body);
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to create pull request.");
+  }
+}
+
+export async function vcInviteRepositoryCollaborator(owner, repo, guest) {
+  if (!owner || !repo || !guest) {
+    throwClientApiError("Owner, repository, and guest are required.");
+  }
+  try {
+    const { data } = await axiosInstance.post(
+      VC.REPO_INVITE(owner, repo, guest),
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to send repository invitation.");
+  }
+}
+
 /**
  * VC user activity timeline (`GET /api/v1/repos/:username/activity`).
  * Parsed client-side into pushes / pull requests / merges when `type` is absent.

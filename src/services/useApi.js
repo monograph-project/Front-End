@@ -1,11 +1,19 @@
-import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { gooeyToast } from "goey-toast";
 import * as Api from "./apiRoute";
 import {
+  fetchMergeConflicts,
   fetchRepositoryCompare,
   fetchRepositoryCommits,
+  mergePullRequest,
+  resolveMergeConflict,
 } from "./versionControlService";
 
 function httpStatusKey(status) {
@@ -2147,6 +2155,106 @@ export function useVcRepoPullRequests(owner, repo, queryOptions = {}) {
   return q;
 }
 
+export function useVcCreatePullRequest(options) {
+  return useApiMutation({
+    mutationFn: ({ owner, repo, ...body }) =>
+      Api.vcCreatePullRequest(owner, repo, body),
+    mutationKey: ["vc", "repos", "pulls", "create"],
+    toastSuccess: "Pull request created",
+    ...options,
+  });
+}
+
+export function useVcMergeConflicts(owner, repo, prNumber, queryOptions = {}) {
+  const {
+    enabled: enabledOverride,
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(owner && repo && prNumber != null && prNumber !== "");
+
+  const q = useQuery({
+    queryKey: ["vc", "repos", "pulls", owner, repo, prNumber, "conflicts"],
+    queryFn: () => fetchMergeConflicts(owner, repo, prNumber),
+    staleTime: 15_000,
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.generic");
+  return q;
+}
+
+export function useVcMergePullRequest(options = {}) {
+  const queryClient = useQueryClient();
+  const { onSuccess: userOnSuccess, ...rest } = options;
+
+  return useApiMutation({
+    mutationFn: ({ owner, repo, prNumber }) =>
+      mergePullRequest(owner, repo, prNumber),
+    mutationKey: ["vc", "repos", "pulls", "merge"],
+    toastSuccess: "Pull request merged",
+    ...rest,
+    onSuccess: async (data, variables, context) => {
+      const owner = variables?.owner;
+      const repo = variables?.repo;
+      const prNumber = variables?.prNumber;
+      if (owner && repo) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["vc", "repos", "pulls", owner, repo],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["vc", "repos", "pulls", owner, repo, prNumber, "conflicts"],
+          }),
+        ]);
+      }
+      userOnSuccess?.(data, variables, context);
+    },
+  });
+}
+
+export function useVcResolveMergeConflict(options = {}) {
+  const queryClient = useQueryClient();
+  const { onSuccess: userOnSuccess, ...rest } = options;
+
+  return useApiMutation({
+    mutationFn: ({ owner, repo, prNumber, body }) =>
+      resolveMergeConflict(owner, repo, prNumber, body),
+    mutationKey: ["vc", "repos", "pulls", "resolve-conflict"],
+    toastSuccess: "Conflict resolved",
+    ...rest,
+    onSuccess: async (data, variables, context) => {
+      const owner = variables?.owner;
+      const repo = variables?.repo;
+      const prNumber = variables?.prNumber;
+      if (owner && repo) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["vc", "repos", "pulls", owner, repo],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["vc", "repos", "pulls", owner, repo, prNumber, "conflicts"],
+          }),
+        ]);
+      }
+      userOnSuccess?.(data, variables, context);
+    },
+  });
+}
+
+export function useVcInviteRepositoryCollaborator(options) {
+  return useApiMutation({
+    mutationFn: ({ owner, repo, guest }) =>
+      Api.vcInviteRepositoryCollaborator(owner, repo, guest),
+    mutationKey: ["vc", "repos", "collaborators", "invite"],
+    toastSuccess: "Repository invitation sent",
+    ...options,
+  });
+}
+
 /**
  * @param {string | null | undefined} username VC login shown in repos paths
  * @param {{ notifyOnError?: boolean; enabled?: boolean; limit?: number } & Omit<import("@tanstack/react-query").UseQueryOptions, "queryKey"|"queryFn">} queryOptions
@@ -2175,6 +2283,23 @@ export function useVcUserActivity(username, queryOptions = {}) {
     notifyOnError,
     "apiErrors.failed_to_load_repository",
   );
+  return q;
+}
+
+export function useUserSearch(keyword, queryOptions = {}) {
+  const trimmedKeyword = String(keyword ?? "").trim();
+  const {
+    enabled = trimmedKeyword.length > 0,
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["users", "search", trimmedKeyword],
+    queryFn: () => Api.searchUsers(trimmedKeyword),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_search_users");
   return q;
 }
 

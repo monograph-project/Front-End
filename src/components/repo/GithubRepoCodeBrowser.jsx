@@ -37,7 +37,7 @@ import { tryDecodeUtf8 } from "../../utils/binaryFileHandlers";
 import {
   fetchFileBlame,
   fetchRepositoryBlobPayload,
-  fetchCommitHistory,
+  fetchRepositoryCommits,
 } from "../../services/versionControlService";
 
 function unwrapTreeNodes(payload) {
@@ -489,6 +489,31 @@ function countOrZero(v) {
   return Number.isNaN(n) ? String(v) : String(n);
 }
 
+function commitMetaCacheKey(ref, path) {
+  return `${String(ref ?? "").trim()}::${String(path ?? "").trim()}`;
+}
+
+function summarizeBranchDelta(branchName, defaultBranch, aheadBy, behindBy) {
+  const ahead = Math.max(0, Number(aheadBy) || 0);
+  const behind = Math.max(0, Number(behindBy) || 0);
+  if (!branchName || branchName === defaultBranch) return "";
+  if (!ahead && !behind) return `${branchName} is up to date with ${defaultBranch}`;
+  if (ahead && behind)
+    return `${branchName} is ${ahead} commit${ahead === 1 ? "" : "s"} ahead and ${behind} commit${behind === 1 ? "" : "s"} behind ${defaultBranch}`;
+  if (ahead)
+    return `${branchName} is ${ahead} commit${ahead === 1 ? "" : "s"} ahead of ${defaultBranch}`;
+  return `${branchName} is ${behind} commit${behind === 1 ? "" : "s"} behind ${defaultBranch}`;
+}
+
+function buildPullRequestUrl(repoBase, baseRef, headRef) {
+  const search = new URLSearchParams({
+    base: String(baseRef ?? "").trim(),
+    head: String(headRef ?? "").trim(),
+    create: "1",
+  });
+  return `${repoBase}/pull-requests?${search.toString()}`;
+}
+
 function darkButtonClass({ green = false, disabled = false } = {}) {
   return cn(
     "inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition-colors",
@@ -574,6 +599,12 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
   );
   const [fallbackCommitMetaByPath, setFallbackCommitMetaByPath] = useState({});
   const [folderLatestCommit, setFolderLatestCommit] = useState(null);
+  const [branchStatus, setBranchStatus] = useState({
+    loading: false,
+    aheadBy: 0,
+    behindBy: 0,
+    comparedTo: String(metaDefaultBranch || "main"),
+  });
   const [fileFilter, setFileFilter] = useState("");
   const [activeView, setActiveView] = useState(
     /** @type {"code" | "blame" | "raw"} */ ("code"),
@@ -793,6 +824,11 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
   };
 
   useEffect(() => {
+    setFallbackCommitMetaByPath({});
+    setFolderLatestCommit(null);
+  }, [ref]);
+
+  useEffect(() => {
     let cancelled = false;
     if (!o || !r || !ref || selected?.path) {
       setFolderLatestCommit(null);
@@ -801,12 +837,19 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
 
     async function loadFolderLatestCommit() {
       try {
-        const commits = await fetchCommitHistory(o, r, ref, {
+        const commits = await fetchRepositoryCommits(o, r, {
+          ref,
           limit: 1,
           ...(treePath ? { path: treePath } : {}),
         });
+        const fallbackCommits =
+          !Array.isArray(commits) || !commits.length
+            ? await fetchRepositoryCommits(o, r, { ref, limit: 1 })
+            : commits;
         if (cancelled) return;
-        setFolderLatestCommit(Array.isArray(commits) ? commits[0] ?? null : null);
+        setFolderLatestCommit(
+          Array.isArray(fallbackCommits) ? fallbackCommits[0] ?? null : null,
+        );
       } catch {
         if (!cancelled) setFolderLatestCommit(null);
       }
@@ -824,7 +867,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
       .map((entry) => {
         const fullPath = pathForEntry(entry);
         const existing = entryCommitMeta(entry);
-        const cached = fallbackCommitMetaByPath[fullPath];
+        const cached = fallbackCommitMetaByPath[commitMetaCacheKey(ref, fullPath)];
         return {
           entry,
           path: fullPath,
@@ -838,11 +881,12 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
 
     async function loadRowCommitMeta() {
       const results = await Promise.all(
-        pendingEntries.map(async ({ path }) => {
+        pendingEntries.map(async ({ entry, path }) => {
           try {
-            const commits = await fetchCommitHistory(o, r, ref, {
+            const commits = await fetchRepositoryCommits(o, r, {
+              ref,
               limit: 1,
-              path,
+              ...(nodeDir(entry) ? {} : { path }),
             });
             const latest = Array.isArray(commits) ? commits[0] ?? null : null;
             if (!latest) return null;
@@ -873,7 +917,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
         ) {
           return;
         }
-        next[item.path] = item.meta;
+        next[commitMetaCacheKey(ref, item.path)] = item.meta;
       });
       if (!Object.keys(next).length) return;
       setFallbackCommitMetaByPath((current) => ({ ...current, ...next }));
@@ -884,6 +928,73 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
       cancelled = true;
     };
   }, [fallbackCommitMetaByPath, o, pathForEntry, r, ref, rows]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const baseRef = String(metaDefaultBranch || "main");
+    if (!o || !r || !ref || !baseRef || ref === baseRef) {
+      setBranchStatus({
+        loading: false,
+        aheadBy: 0,
+        behindBy: 0,
+        comparedTo: baseRef,
+      });
+      return undefined;
+    }
+
+    async function loadBranchStatus() {
+      setBranchStatus((current) => ({
+        ...current,
+        loading: true,
+        comparedTo: baseRef,
+      }));
+      try {
+        const [selectedCommits, baseCommits] = await Promise.all([
+          fetchRepositoryCommits(o, r, { ref, limit: 200 }),
+          fetchRepositoryCommits(o, r, { ref: baseRef, limit: 200 }),
+        ]);
+        if (cancelled) return;
+        const selectedShas = new Set(
+          (Array.isArray(selectedCommits) ? selectedCommits : [])
+            .map((row) => commitRowSha(row))
+            .filter(Boolean),
+        );
+        const baseShas = new Set(
+          (Array.isArray(baseCommits) ? baseCommits : [])
+            .map((row) => commitRowSha(row))
+            .filter(Boolean),
+        );
+        let aheadBy = 0;
+        let behindBy = 0;
+        selectedShas.forEach((sha) => {
+          if (!baseShas.has(sha)) aheadBy += 1;
+        });
+        baseShas.forEach((sha) => {
+          if (!selectedShas.has(sha)) behindBy += 1;
+        });
+        setBranchStatus({
+          loading: false,
+          aheadBy,
+          behindBy,
+          comparedTo: baseRef,
+        });
+      } catch {
+        if (!cancelled) {
+          setBranchStatus({
+            loading: false,
+            aheadBy: 0,
+            behindBy: 0,
+            comparedTo: baseRef,
+          });
+        }
+      }
+    }
+
+    loadBranchStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [metaDefaultBranch, o, r, ref]);
 
   const openHistoryPage = useCallback(() => {
     if (!repoBase || !selected?.path) return;
@@ -991,6 +1102,11 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                 count: tagCount != null ? String(tagCount) : "0",
               })}
             </span>
+            {headBranch && ref === headBranch ? (
+              <span className="inline-flex items-center rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-2 py-1 text-[11px] font-medium text-primary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-primary">
+                HEAD
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -1034,6 +1150,48 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
           </button>
         </div>
       </div>
+
+      {ref !== metaDefaultBranch ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 py-2 text-xs dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+          <span className="font-medium text-primary dark:text-dark-primary">
+            {branchStatus.loading
+              ? "Checking branch status…"
+              : summarizeBranchDelta(
+                  ref,
+                  branchStatus.comparedTo || metaDefaultBranch,
+                  branchStatus.aheadBy,
+                  branchStatus.behindBy,
+                )}
+          </span>
+          {!branchStatus.loading && branchStatus.aheadBy > 0 ? (
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
+              +{branchStatus.aheadBy} ahead
+            </span>
+          ) : null}
+          {!branchStatus.loading && branchStatus.behindBy > 0 ? (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-500/12 dark:text-amber-300">
+              -{branchStatus.behindBy} behind
+            </span>
+          ) : null}
+          {!branchStatus.loading && branchStatus.aheadBy > 0 && repoBase ? (
+            <button
+              type="button"
+              className="ml-auto inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/12 dark:text-emerald-300 dark:hover:bg-emerald-500/18"
+              onClick={() =>
+                navigate(
+                  buildPullRequestUrl(
+                    repoBase,
+                    branchStatus.comparedTo || metaDefaultBranch,
+                    ref,
+                  ),
+                )
+              }
+            >
+              Create pull request
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <div
         className={cn(
@@ -1112,7 +1270,9 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                       const nm = nodeLabel(entry) || `entry-${i}`;
                       const dir = nodeDir(entry);
                       const full = pathForEntry(entry, nm);
-                      const fallbackMeta = fallbackCommitMetaByPath[full] ?? null;
+                      const fallbackMeta =
+                        fallbackCommitMetaByPath[commitMetaCacheKey(ref, full)] ??
+                        null;
                       const msg =
                         entryCommitMessage(entry) ||
                         fallbackMeta?.message ||
@@ -1493,7 +1653,9 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                     const nm = nodeLabel(entry) || `entry-${i}`;
                     const dir = nodeDir(entry);
                     const full = pathForEntry(entry, nm);
-                    const fallbackMeta = fallbackCommitMetaByPath[full] ?? null;
+                    const fallbackMeta =
+                      fallbackCommitMetaByPath[commitMetaCacheKey(ref, full)] ??
+                      null;
                     const msg =
                       entryCommitMessage(entry) ||
                       fallbackMeta?.message ||
@@ -1670,7 +1832,12 @@ function HistoryIcon() {
 function RepositoryCodePanel({ filePath, fileBytes }) {
   if (fileBytes?.length) {
     return (
-      <OverviewMode fileBytes={fileBytes} filePath={filePath} fileType="" />
+      <OverviewMode
+        fileBytes={fileBytes}
+        filePath={filePath}
+        fileType=""
+        embedded
+      />
     );
   }
   return (

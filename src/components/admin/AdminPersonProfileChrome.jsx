@@ -172,7 +172,7 @@ export function AdminPersonProfileExpandableList({
           className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-(--color-light-admin-profile-link) dark:text-(--color-dark-admin-profile-link)"
           onClick={() => setOpen((x) => !x)}
         >
-          {open ? collapseLabel ?? "" : expandLabel ?? ""}
+          {open ? (collapseLabel ?? "") : (expandLabel ?? "")}
           <ChevronDown
             className={`size-4 transition-transform ${open ? "rotate-180" : ""}`}
           />
@@ -270,7 +270,9 @@ export function AdminPersonProfilePipeline({ title, stageLabels, rows }) {
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
                         {lbl}
                       </p>
-                      <p className={`mt-1 text-lg font-bold tabular-nums ${active ? "text-(--color-light-admin-profile-violet-strong) dark:text-(--color-dark-admin-profile-violet)" : "text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)"}`}>
+                      <p
+                        className={`mt-1 text-lg font-bold tabular-nums ${active ? "text-(--color-light-admin-profile-violet-strong) dark:text-(--color-dark-admin-profile-violet)" : "text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)"}`}
+                      >
                         {count}
                       </p>
                       <div
@@ -299,9 +301,9 @@ export function AdminPersonProfilePipeline({ title, stageLabels, rows }) {
  */
 export function AdminPersonProfileFrame({ sidebar, children }) {
   return (
-    <div className="flex flex-1 flex-col bg-(--color-light-admin-profile-surface-muted) dark:bg-(--color-dark-admin-profile-surface-muted)">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col gap-6 overflow-y-auto p-4 md:p-6 lg:flex-row lg:gap-10 lg:p-8">
-        <aside className="flex w-full shrink-0 flex-col lg:max-w-[400px]">
+    <div className="flex flex-1 flex-col bg-white dark:bg-dark-card-bg">
+      <div className="mx-auto flex w-full max-w-360 flex-1 flex-col gap-6 overflow-y-auto p-4 md:p-6 lg:flex-row lg:gap-10 lg:p-8">
+        <aside className="flex w-full shrink-0 flex-col lg:max-w-100">
           {sidebar}
         </aside>
         <div className="flex min-w-0 flex-1 flex-col gap-5">{children}</div>
