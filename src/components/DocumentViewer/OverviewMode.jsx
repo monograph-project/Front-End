@@ -1,9 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { saveAs } from "file-saver";
+import { renderAsync as renderDocxAsync } from "docx-preview";
 import Button from "../Button";
 import DocumentViewerLoading from "../vcShared/DocumentViewerLoading";
-import { extractDocxPlainText } from "../../services/documentRenderingService";
+import {
+  extractDocxHtml,
+  extractDocxPlainText,
+} from "../../services/documentRenderingService";
 import {
   getFileExtension,
   isImageExtension,
@@ -18,11 +22,7 @@ function isZipMagic(bytes) {
 /**
  * Renders gateway file bytes across common MIME shapes. Embed this in admin / teacher / student routes.
  *
- * Heavy Syncfusion controls (hosted Word / Sheet / annotated PDF APIs) attach cleanly once
- * `VITE_SYNCFUSION_DOC_EDITOR_SERVICE_URL`, `VITE_SYNCFUSION_SPREADSHEET_SERVICE_URL`, or
- * `VITE_SYNCFUSION_PDF_SERVICE_URL` point at your Gateway web services matching Syncfusion demos.
- *
- * Until then we prefer lossless previews: browser PDF iframe, DOCX plaintext extraction, and downloads via `file-saver`.
+ * DOCX files use a read-only document renderer so repository content displays directly from the fetched bytes.
  *
  * @param {{ fileBytes: Uint8Array, filePath: string, fileType: string }} props
  */
@@ -36,6 +36,7 @@ export default function OverviewMode({
 
   const [plainDocxLoading, setPlainDocxLoading] = useState(false);
   const [plainDocx, setPlainDocx] = useState("");
+  const [docxHtml, setDocxHtml] = useState("");
 
   const ext = fileType || getFileExtension(filePath);
 
@@ -56,14 +57,24 @@ export default function OverviewMode({
       if ((ext === "docx" || ext === "doc") && fileBytes?.length && isZipMagic(fileBytes)) {
         setPlainDocxLoading(true);
         try {
-          const text = await extractDocxPlainText(fileBytes);
-          if (!cancelled) setPlainDocx(text ?? "");
+          const [html, text] = await Promise.all([
+            extractDocxHtml(fileBytes),
+            extractDocxPlainText(fileBytes),
+          ]);
+          if (!cancelled) {
+            setDocxHtml(html ?? "");
+            setPlainDocx(text ?? "");
+          }
         } catch {
-          if (!cancelled) setPlainDocx("");
+          if (!cancelled) {
+            setDocxHtml("");
+            setPlainDocx("");
+          }
         } finally {
           if (!cancelled) setPlainDocxLoading(false);
         }
       } else if (!cancelled) {
+        setDocxHtml("");
         setPlainDocx("");
       }
     }
@@ -119,25 +130,15 @@ export default function OverviewMode({
 
   if (ext === "docx" || ext === "doc") {
     return (
-      <div
-        className={embedded
-          ? "space-y-3 p-4"
-          : "space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
-      >
-        <p className="text-xs text-muted dark:text-dark-muted">
-          {t("documentViewer.overview.docxFallbackHint")}
-        </p>
-        {plainDocxLoading ? (
-          <DocumentViewerLoading />
-        ) : (
-          <pre className="max-h-[520px] overflow-auto whitespace-pre-wrap rounded-xl border border-light-divider bg-(--color-light-input-bg) p-3 text-xs text-(--color-light-text-primary) dark:border-dark-divider dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)">
-            {plainDocx || t("documentViewer.overview.emptyPreview")}
-          </pre>
-        )}
-        <Button type="button" variant="secondary" onClick={onDownload}>
-          {t("documentViewer.overview.download")}
-        </Button>
-      </div>
+      <ReadonlyDocxPreview
+        embedded={embedded}
+        fileBytes={fileBytes}
+        filePath={filePath}
+        onDownload={onDownload}
+        fallbackLoading={plainDocxLoading}
+        fallbackHtml={docxHtml}
+        fallbackText={plainDocx}
+      />
     );
   }
 
@@ -182,6 +183,133 @@ export default function OverviewMode({
       <Button type="button" variant="secondary" onClick={onDownload}>
         {t("documentViewer.overview.download")}
       </Button>
+    </div>
+  );
+}
+
+function ReadonlyDocxPreview({
+  embedded,
+  fileBytes,
+  filePath,
+  onDownload,
+  fallbackLoading,
+  fallbackHtml,
+  fallbackText,
+}) {
+  const { t } = useTranslation();
+  const previewHostRef = useRef(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function render() {
+      const host = previewHostRef.current;
+      if (!host || !fileBytes?.length) return;
+
+      setLoading(true);
+      setLoadError("");
+      host.innerHTML = "";
+
+      try {
+        const blob = new Blob([fileBytes], {
+          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        });
+
+        await renderDocxAsync(blob, host, undefined, {
+          className: "docx-preview-host",
+          ignoreWidth: false,
+          ignoreHeight: false,
+          breakPages: true,
+          experimental: true,
+          inWrapper: true,
+          useBase64URL: true,
+          renderChanges: false,
+          renderHeaders: true,
+          renderFooters: true,
+          renderFootnotes: true,
+          renderEndnotes: true,
+          renderComments: true,
+        });
+
+        if (!cancelled) {
+          setLoading(false);
+          if (!host.textContent?.trim() && !host.querySelector(".docx")) {
+            setLoadError("Document renderer returned an empty preview.");
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLoadError(String(error?.message ?? "Failed to render document."));
+          setLoading(false);
+        }
+      }
+    }
+
+    render();
+
+    return () => {
+      cancelled = true;
+      if (previewHostRef.current) {
+        previewHostRef.current.innerHTML = "";
+      }
+    };
+  }, [fileBytes, filePath]);
+
+  return (
+    <div
+      className={embedded
+        ? "space-y-3 p-0"
+        : "space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4">
+        <div>
+          <p className="text-xs text-muted dark:text-dark-muted">Document preview</p>
+          <p className="mt-1 text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+            {filePath}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={onDownload}>
+            Download docx
+          </Button>
+        </div>
+      </div>
+
+      {loading ? <DocumentViewerLoading /> : null}
+
+      {!loadError ? (
+        <div className="px-4 pb-4">
+          <div
+            ref={previewHostRef}
+            className={embedded
+              ? "docx-render-shell max-h-[560px] overflow-auto rounded-xl bg-white p-4 shadow-inner"
+              : "docx-render-shell max-h-[720px] overflow-auto rounded-xl bg-white p-4 shadow-inner"}
+          />
+        </div>
+      ) : fallbackLoading ? (
+        <DocumentViewerLoading />
+      ) : (
+        <div className="px-4 pb-4">
+          <p className="mb-3 text-xs text-muted dark:text-dark-muted">
+            {t("documentViewer.overview.docxFallbackHint")}
+          </p>
+          <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">{loadError}</p>
+          <div className="max-h-[520px] overflow-auto rounded-xl border border-light-divider bg-(--color-light-input-bg) p-3 dark:border-dark-divider dark:bg-(--color-dark-input-bg)">
+            {fallbackHtml ? (
+              <div
+                className="vc-docx-preview prose prose-sm max-w-none text-(--color-light-text-primary) dark:prose-invert dark:text-(--color-dark-text-primary) [&_p]:my-0 [&_p+P]:mt-3 [&_table]:mt-4 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-light-divider [&_td]:px-3 [&_td]:py-2 dark:[&_td]:border-dark-divider [&_.vc-docx-empty]:opacity-40 [&_.vc-docx-strike]:line-through [&_.vc-docx-underline]:underline"
+                dangerouslySetInnerHTML={{ __html: fallbackHtml }}
+              />
+            ) : (
+              <pre className="whitespace-pre-wrap text-xs text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                {fallbackText || t("documentViewer.overview.emptyPreview")}
+              </pre>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -13,6 +13,26 @@ function toUint8(buf) {
   return new Uint8Array(buf);
 }
 
+function decodeBase64ToBytes(content) {
+  const bin = atob(String(content ?? "").replace(/\s/g, ""));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+async function fetchFileContentViaContents(owner, repo, filePath, ref = "main") {
+  const { data } = await apiClient.get(
+    VC.REPO_CONTENTS(owner, repo, filePath, { ref }),
+  );
+  if (data?.encoding === "base64" && typeof data.content === "string") {
+    return decodeBase64ToBytes(data.content);
+  }
+  if (typeof data?.content === "string") {
+    return new TextEncoder().encode(data.content);
+  }
+  throw new Error("Failed to load file.");
+}
+
 /**
  * Decompressed **blob payload** bytes (`type == "blob"`) from `GET /api/v1/repos/.../objects/{sha}`.
  * @param {string} owner
@@ -63,7 +83,16 @@ export async function fetchFileContent(
     });
     return toUint8(data);
   } catch (err) {
-    throw new Error(extractApiError(err, "Failed to load file."));
+    try {
+      return await fetchFileContentViaContents(owner, repo, filePath, branch);
+    } catch (fallbackErr) {
+      throw new Error(
+        extractApiError(
+          fallbackErr,
+          extractApiError(err, "Failed to load file."),
+        ),
+      );
+    }
   }
 }
 
@@ -257,10 +286,7 @@ export async function fetchRepositoryFileUtf8ForDiff(
     );
     if (data?.encoding === "base64" && typeof data.content === "string") {
       try {
-        const bin = atob(String(data.content).replace(/\s/g, ""));
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        return tryDecodeUtf8(bytes);
+        return tryDecodeUtf8(decodeBase64ToBytes(data.content));
       } catch {
         return null;
       }

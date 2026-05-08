@@ -5,10 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:force": "vite --force",
+    "dev:reset": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$cache = Join-Path ($env:LOCALAPPDATA ? $env:LOCALAPPDATA : (Join-Path (Get-Location) '.local-cache')) 'finalproject-vite-cache'; Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; if (Test-Path 'node_modules/.vite') { Remove-Item -Recurse -Force 'node_modules/.vite' }; if (Test-Path '.vite-cache') { Remove-Item -Recurse -Force '.vite-cache' }; if (Test-Path $cache) { Remove-Item -Recurse -Force $cache }; npm run dev:force\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "json-server --watch ./src/server/db.json --port 5000"
+    "server": "json-server --watch ./src/server/db.json --port 5000",
+    "syncfusion:word:up": "docker compose -f docker-compose.syncfusion-word.yml up -d",
+    "syncfusion:word:down": "docker compose -f docker-compose.syncfusion-word.yml down",
+    "syncfusion:word:logs": "docker compose -f docker-compose.syncfusion-word.yml logs -f"
   },
   "dependencies": {
     "@radix-ui/react-accessible-icon": "^1.1.8",
@@ -38,6 +43,7 @@
     "diff": "^9.0.0",
     "diff-match-patch": "^1.0.5",
     "diff2html": "^3.4.56",
+    "docx-preview": "^0.3.7",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.38.0",
     "goey-toast": "^0.3.0",

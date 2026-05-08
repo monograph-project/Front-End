@@ -24,6 +24,7 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import Avatar from "../Avatar";
 import Button from "../Button";
 import OverviewMode from "../DocumentViewer/OverviewMode";
+import { useDocumentLoader } from "../DocumentViewer/useDocumentLoader";
 import Select from "../Select";
 import { cn } from "../../lib/utils";
 import { resolveProfilePhotoUrl } from "../../lib/profileMedia";
@@ -33,7 +34,11 @@ import {
   useVcRepositoryRefs,
   useVcRepositoryTree,
 } from "../../services/useApi";
-import { tryDecodeUtf8 } from "../../utils/binaryFileHandlers";
+import {
+  getFileExtension,
+  isKnownBinaryExtension,
+  tryDecodeUtf8,
+} from "../../utils/binaryFileHandlers";
 import {
   fetchFileBlame,
   fetchRepositoryBlobPayload,
@@ -454,6 +459,14 @@ function truncateMiddle(value, max = 72) {
   return `${text.slice(0, max - 1).trimEnd()}…`;
 }
 
+function isBinarySelection(filePath, fileBytes, fileText) {
+  const ext = getFileExtension(filePath);
+  if (isKnownBinaryExtension(ext)) return true;
+  if (!fileBytes?.length) return false;
+  if (typeof fileText === "string") return false;
+  return tryDecodeUtf8(fileBytes) == null;
+}
+
 function refsHeadBranch(payload) {
   const head =
     typeof payload?.HEAD === "string"
@@ -746,13 +759,27 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
     },
   );
 
-  const selectedText = useMemo(
-    () => extractTextFromContentsResponse(selectedContentsQ.data),
-    [selectedContentsQ.data],
-  );
-  const selectedBytes = useMemo(
-    () => extractBytesFromContentsResponse(selectedContentsQ.data),
-    [selectedContentsQ.data],
+  const selectedBlobQ = useDocumentLoader({
+    owner: o,
+    repo: r,
+    filePath: selected?.path ?? "",
+    branch: ref,
+    blobSha: selected?.sha ?? null,
+    enabled: Boolean(o && r && ref && selected?.path),
+  });
+
+  const selectedBytes = useMemo(() => {
+    if (selectedBlobQ.bytes?.length) return selectedBlobQ.bytes;
+    return extractBytesFromContentsResponse(selectedContentsQ.data);
+  }, [selectedBlobQ.bytes, selectedContentsQ.data]);
+  const selectedText = useMemo(() => {
+    const fromBytes = selectedBytes?.length ? tryDecodeUtf8(selectedBytes) : null;
+    if (typeof fromBytes === "string") return fromBytes;
+    return extractTextFromContentsResponse(selectedContentsQ.data);
+  }, [selectedBytes, selectedContentsQ.data]);
+  const selectedIsBinary = useMemo(
+    () => isBinarySelection(selected?.path ?? "", selectedBytes, selectedText),
+    [selected?.path, selectedBytes, selectedText],
   );
 
   const fileMeta = useMemo(() => {
@@ -766,10 +793,11 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
       : 0;
     const bytes =
       selectedContentsQ.data?.size ??
+      selectedBytes?.length ??
       selectedContentsQ.data?.content?.length ??
       new TextEncoder().encode(text).length;
     return { lines, loc, bytes };
-  }, [selectedContentsQ.data, selectedText]);
+  }, [selectedBytes, selectedContentsQ.data, selectedText]);
 
   const selectedPath = selected?.path ?? "";
   const selectedEntry = selectedPath
@@ -1551,6 +1579,9 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                         filePath={selected.path}
                         branch={ref}
                         fileText={selectedText}
+                        fileBytes={selectedBytes}
+                        isBinary={selectedIsBinary}
+                        historyRows={historyRows}
                         locale={locale}
                         onOpenHistory={openHistoryPage}
                       />
@@ -1558,6 +1589,12 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                       <RepositoryCodePanel
                         filePath={selected.path}
                         fileBytes={selectedBytes}
+                        fileText={selectedText}
+                        fileMeta={fileMeta}
+                        headerCommit={selectedHeaderCommit}
+                        branch={ref}
+                        isBinary={selectedIsBinary}
+                        onOpenHistory={openHistoryPage}
                       />
                     )}
                   </div>
@@ -1829,7 +1866,29 @@ function HistoryIcon() {
   );
 }
 
-function RepositoryCodePanel({ filePath, fileBytes }) {
+function RepositoryCodePanel({
+  filePath,
+  fileBytes,
+  fileText,
+  fileMeta,
+  headerCommit,
+  branch,
+  isBinary,
+  onOpenHistory,
+}) {
+  if (isBinary) {
+    return (
+      <RepositoryBinaryCodePanel
+        filePath={filePath}
+        fileBytes={fileBytes}
+        fileMeta={fileMeta}
+        headerCommit={headerCommit}
+        branch={branch}
+        onOpenHistory={onOpenHistory}
+      />
+    );
+  }
+
   if (fileBytes?.length) {
     return (
       <OverviewMode
@@ -1853,6 +1912,9 @@ function RepositoryBlamePanel({
   filePath,
   branch,
   fileText,
+  fileBytes,
+  isBinary,
+  historyRows,
   locale,
   onOpenHistory,
 }) {
@@ -1865,7 +1927,7 @@ function RepositoryBlamePanel({
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (!owner || !repo || !filePath || fileText == null) {
+      if (!owner || !repo || !filePath || fileText == null || isBinary) {
         setBlameRows([]);
         setError("");
         setLoading(false);
@@ -1889,7 +1951,22 @@ function RepositoryBlamePanel({
     return () => {
       cancelled = true;
     };
-  }, [branch, filePath, fileText, owner, repo, t]);
+  }, [branch, filePath, fileText, isBinary, owner, repo, t]);
+
+  if (isBinary) {
+    return (
+      <RepositoryBinaryBlamePanel
+        owner={owner}
+        repo={repo}
+        filePath={filePath}
+        branch={branch}
+        fileBytes={fileBytes}
+        historyRows={historyRows}
+        locale={locale}
+        onOpenHistory={onOpenHistory}
+      />
+    );
+  }
 
   const fileLines = useMemo(
     () => (typeof fileText === "string" ? fileText.split(/\r?\n/) : []),
@@ -2107,6 +2184,238 @@ function RepositoryBlamePanel({
             );
           })
         )}
+      </div>
+    </div>
+  );
+}
+
+function RepositoryBinaryCodePanel({
+  filePath,
+  fileBytes,
+  fileMeta,
+  branch,
+  onOpenHistory,
+}) {
+  const ext = getFileExtension(filePath) || "binary";
+
+  if (!fileBytes?.length) {
+    return (
+      <div className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 text-sm text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
+        Preview is unavailable for this binary file response. Use Download to save the original bytes.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="rounded-full bg-sky-50 px-2 py-0.5 font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-500/12 dark:text-sky-300">
+              Binary preview
+            </span>
+            <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 font-medium text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
+              .{ext}
+            </span>
+            <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 font-medium text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
+              {formatBytes(fileMeta?.bytes)}
+            </span>
+            <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 font-medium text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
+              ref {branch}
+            </span>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+              {filePath}
+            </p>
+            <p className="mt-1 text-xs text-secondary dark:text-dark-secondary">
+              This preview tracks the original binary document instead of converting it into a text buffer.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="rounded-md border border-(--color-light-card-border) px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary"
+            onClick={onOpenHistory}
+          >
+            Open history
+          </button>
+        </div>
+      </div>
+
+      <OverviewMode
+        fileBytes={fileBytes}
+        filePath={filePath}
+        fileType=""
+        embedded
+      />
+    </div>
+  );
+}
+
+function RepositoryBinaryBlamePanel({
+  owner,
+  repo,
+  filePath,
+  branch,
+  fileBytes,
+  historyRows,
+  locale,
+  onOpenHistory,
+}) {
+  const [selectedRevision, setSelectedRevision] = useState("");
+
+  useEffect(() => {
+    const firstSha = commitRowSha(historyRows?.[0]);
+    setSelectedRevision((current) => current || firstSha || String(branch ?? ""));
+  }, [branch, historyRows]);
+
+  const resolvedRef = selectedRevision || String(branch ?? "");
+  const previewQ = useDocumentLoader({
+    owner,
+    repo,
+    filePath,
+    branch: resolvedRef,
+    enabled: Boolean(owner && repo && filePath && resolvedRef),
+  });
+
+  const selectedCommit =
+    (Array.isArray(historyRows)
+      ? historyRows.find((row) => commitRowSha(row) === selectedRevision)
+      : null) ?? historyRows?.[0] ?? null;
+
+  return (
+    <div className="overflow-hidden rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--color-light-card-border) px-4 py-3 dark:border-(--color-dark-card-border)">
+        <div>
+          <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+            Binary revision tracking
+          </p>
+          <p className="mt-1 text-xs text-secondary dark:text-dark-secondary">
+            Line blame is not meaningful for this file type, so this panel tracks revision ownership per commit instead.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="rounded-md border border-(--color-light-card-border) px-3 py-1.5 text-xs font-medium text-secondary transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary"
+          onClick={onOpenHistory}
+        >
+          Open full history
+        </button>
+      </div>
+
+      <div className="grid gap-0 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="border-b border-(--color-light-card-border) dark:border-(--color-dark-card-border) xl:border-b-0 xl:border-r">
+          <div className="border-b border-(--color-light-card-border) px-4 py-3 dark:border-(--color-dark-card-border)">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+              Revision timeline
+            </p>
+          </div>
+          <div className="max-h-[560px] overflow-y-auto">
+            {!historyRows?.length ? (
+              <p className="px-4 py-4 text-sm text-muted dark:text-dark-muted">
+                No revision history returned for this file.
+              </p>
+            ) : (
+              historyRows.map((row, index) => {
+                const sha = commitRowSha(row) || `revision-${index}`;
+                const active = sha === selectedRevision;
+                return (
+                  <button
+                    key={`${sha}-${index}`}
+                    type="button"
+                    onClick={() => setSelectedRevision(sha)}
+                    className={cn(
+                      "w-full border-b border-(--color-light-card-border) px-4 py-3 text-left transition-colors last:border-b-0 dark:border-(--color-dark-card-border)",
+                      active
+                        ? "bg-(--color-light-card-hover) dark:bg-(--color-dark-card-hover)"
+                        : "hover:bg-(--color-light-card-hover) dark:hover:bg-(--color-dark-card-hover)",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2 text-[11px] text-muted dark:text-dark-muted">
+                      <span className="font-mono">{sha.slice(0, 12)}</span>
+                      <span>{formatRelativeTime(commitRowTimestamp(row), locale)}</span>
+                    </div>
+                    <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
+                      {commitRowMessage(row) || "—"}
+                    </p>
+                    <p className="mt-1 text-xs text-secondary dark:text-dark-secondary">
+                      {commitRowAuthor(row) || "—"}
+                    </p>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4 p-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-2 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                Selected commit
+              </p>
+              <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
+                {(selectedCommit && commitRowSha(selectedCommit).slice(0, 12)) || String(branch ?? "—")}
+              </p>
+            </div>
+            <div className="rounded-lg border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-2 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                Author
+              </p>
+              <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
+                {(selectedCommit && commitRowAuthor(selectedCommit)) || "—"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-2 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                Updated
+              </p>
+              <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
+                {(selectedCommit && formatAbsoluteTime(commitRowTimestamp(selectedCommit), locale)) || "—"}
+              </p>
+            </div>
+          </div>
+
+          {selectedCommit ? (
+            <div className="rounded-lg border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-2 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                Commit message
+              </p>
+              <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
+                {commitRowMessage(selectedCommit) || "—"}
+              </p>
+            </div>
+          ) : null}
+
+          {previewQ.loading ? (
+            <p className="text-sm text-muted dark:text-dark-muted">Loading binary revision…</p>
+          ) : previewQ.error ? (
+            <div className="rounded-md border border-(--color-light-error-border) bg-(--color-light-error-bg) p-4 text-sm text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)">
+              {previewQ.error}
+            </div>
+          ) : previewQ.bytes?.length ? (
+            <OverviewMode
+              fileBytes={previewQ.bytes}
+              filePath={filePath}
+              fileType=""
+              embedded
+            />
+          ) : fileBytes?.length ? (
+            <OverviewMode
+              fileBytes={fileBytes}
+              filePath={filePath}
+              fileType=""
+              embedded
+            />
+          ) : (
+            <p className="text-sm text-muted dark:text-dark-muted">
+              No preview returned for this binary revision.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
