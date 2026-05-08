@@ -1,4 +1,38 @@
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"]);
+const BINARY_EXT = new Set([
+  "pdf",
+  "doc",
+  "docx",
+  "ppt",
+  "pptx",
+  "xls",
+  "xlsx",
+  "zip",
+  "rar",
+  "7z",
+  "gz",
+  "tar",
+  "jar",
+  "war",
+  "class",
+  "exe",
+  "dll",
+  "so",
+  "bin",
+  "dat",
+  "mp3",
+  "wav",
+  "mp4",
+  "mov",
+  "avi",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "bmp",
+  "ico",
+]);
 
 /**
  * @param {string} filePath
@@ -13,6 +47,10 @@ export function getFileExtension(filePath = "") {
 
 export function isImageExtension(ext) {
   return IMAGE_EXT.has(String(ext).toLowerCase());
+}
+
+export function isKnownBinaryExtension(ext) {
+  return BINARY_EXT.has(String(ext).toLowerCase());
 }
 
 export function isLikelyTextExtension(ext) {

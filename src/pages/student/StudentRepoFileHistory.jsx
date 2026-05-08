@@ -2,7 +2,9 @@ import { diffLines } from "diff";
 import { useEffect, useMemo, useState } from "react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { saveAs } from "file-saver";
 import { cn } from "../../lib/utils";
+import OverviewMode from "../../components/DocumentViewer/OverviewMode";
 import { useVcRepositoryCommits } from "../../services/useApi";
 import {
   fetchCommitDetails,
@@ -10,7 +12,11 @@ import {
   fetchRepositoryCommitDiff,
   fetchRepositoryCompare,
 } from "../../services/versionControlService";
-import { tryDecodeUtf8 } from "../../utils/binaryFileHandlers";
+import {
+  getFileExtension,
+  isKnownBinaryExtension,
+  tryDecodeUtf8,
+} from "../../utils/binaryFileHandlers";
 
 function commitRowSha(row) {
   const raw = row?.sha ?? row?.id ?? row?.commitSha ?? row?.commit ?? "";
@@ -284,6 +290,13 @@ function filePatchText(row) {
   return String(raw ?? "").trim();
 }
 
+function fileIsBinary(row) {
+  const direct = row?.binary ?? row?.isBinary ?? row?.binaryFile ?? row?.binary_file;
+  if (typeof direct === "boolean") return direct;
+  const path = String(row?.path ?? row?.filePath ?? row?.filename ?? row?.name ?? "").trim();
+  return isKnownBinaryExtension(getFileExtension(path));
+}
+
 function normalizeCommitDetailFiles(raw) {
   const files =
     raw?.files ??
@@ -488,6 +501,7 @@ export default function StudentRepoFileHistory() {
         key: `${selectedCommit || "commit"}:${path}`,
         path,
         status: String(row?.status ?? prev.status ?? "modified"),
+        binary: fileIsBinary(row) || prev.binary || false,
         baseSha: fileBlobSha(row, "base") || prev.baseSha || "",
         headSha: fileBlobSha(row, "head") || prev.headSha || "",
         patch:
@@ -508,6 +522,7 @@ export default function StudentRepoFileHistory() {
         key: `${selectedCommit || "commit"}:${path}`,
         path,
         status: prev.status || "modified",
+        binary: prev.binary || false,
         baseSha: prev.baseSha || "",
         headSha: prev.headSha || "",
         patch: prev.patch || patch,
@@ -557,6 +572,18 @@ export default function StudentRepoFileHistory() {
         [file.key]: { loading: true, rows: [], error: "" },
       }));
       try {
+        if (file.binary) {
+          if (cancelled) return;
+          setDiffCache((current) => ({
+            ...current,
+            [file.key]: {
+              loading: false,
+              rows: [],
+              error: "",
+            },
+          }));
+          return;
+        }
         if (file.patch) {
           const patchRows = normalizePatchRows(file.patch);
           if (cancelled) return;
@@ -784,11 +811,16 @@ export default function StudentRepoFileHistory() {
                             <span className="uppercase tracking-wide text-muted dark:text-dark-muted">
                               {file.status}
                             </span>
+                            {file.binary ? (
+                              <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 font-medium text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
+                                Binary
+                              </span>
+                            ) : null}
                             <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
-                              +{additions}
+                              +{additions ?? 0}
                             </span>
                             <span className="rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-700 dark:bg-red-500/12 dark:text-red-300">
-                              -{deletions}
+                              -{deletions ?? 0}
                             </span>
                           </div>
                         </div>
@@ -797,6 +829,9 @@ export default function StudentRepoFileHistory() {
                         </span>
                       </button>
                       {expandedFile === file.key ? (
+                        file.binary ? (
+                          <BinaryHistoryPanel owner={owner} repo={repo} file={file} />
+                        ) :
                         diffState.loading ? (
                           <p className="px-4 py-4 text-sm text-muted dark:text-dark-muted">
                             Loading changes…
@@ -845,7 +880,7 @@ export default function StudentRepoFileHistory() {
                             })}
                           </div>
                         )
-                      ) : null}
+                        ) : null}
                     </section>
                   );
                 })}
@@ -854,6 +889,133 @@ export default function StudentRepoFileHistory() {
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function BinaryHistoryPanel({ owner, repo, file }) {
+  const [activeRevision, setActiveRevision] = useState(
+    file?.status === "deleted" ? "base" : "head",
+  );
+  const [state, setState] = useState({ loading: false, bytes: null, error: "" });
+
+  const revisions = [
+    {
+      key: "base",
+      label: "Previous version",
+      sha: String(file?.baseSha ?? "").trim(),
+    },
+    {
+      key: "head",
+      label: "Current version",
+      sha: String(file?.headSha ?? "").trim(),
+    },
+  ].filter((item) => item.sha);
+
+  useEffect(() => {
+    if (!revisions.some((item) => item.key === activeRevision)) {
+      setActiveRevision(revisions[0]?.key ?? "head");
+    }
+  }, [activeRevision, revisions]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const current = revisions.find((item) => item.key === activeRevision);
+    if (!owner || !repo || !current?.sha) {
+      setState({ loading: false, bytes: null, error: "" });
+      return undefined;
+    }
+
+    setState({ loading: true, bytes: null, error: "" });
+    (async () => {
+      try {
+        const bytes = await fetchRepositoryBlobPayload(owner, repo, current.sha);
+        if (!cancelled) {
+          setState({ loading: false, bytes, error: "" });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setState({
+            loading: false,
+            bytes: null,
+            error: String(error?.message ?? "Could not load binary revision."),
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRevision, owner, repo, revisions]);
+
+  function downloadActive() {
+    if (!state.bytes?.length) return;
+    const current = revisions.find((item) => item.key === activeRevision);
+    const ext = getFileExtension(file?.path ?? "");
+    const stem = String(file?.path ?? "download").split("/").pop() || "download";
+    const suffix = activeRevision === "base" ? "previous" : "current";
+    const name = ext
+      ? stem.replace(new RegExp(`\\.${ext}$`, "i"), `-${suffix}.${ext}`)
+      : `${stem}-${suffix}`;
+    saveAs(new Blob([state.bytes]), name);
+  }
+
+  return (
+    <div className="space-y-3 border-t border-(--color-light-card-border) p-4 dark:border-(--color-dark-card-border)">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+            Binary file change
+          </p>
+          <p className="mt-1 text-xs text-muted dark:text-dark-muted">
+            Textual diff is not available for this file type. You can inspect and download each revision.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="rounded-md border border-(--color-light-card-border) px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:bg-(--color-light-card-hover) hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:bg-(--color-dark-card-hover) dark:hover:text-dark-primary"
+          onClick={downloadActive}
+          disabled={!state.bytes?.length}
+        >
+          Download shown revision
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {revisions.map((revision) => (
+          <button
+            key={revision.key}
+            type="button"
+            className={cn(
+              "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+              activeRevision === revision.key
+                ? "border-(--color-light-input-border-focus) bg-blue-50 text-blue-700 dark:border-(--color-dark-input-border-focus) dark:bg-blue-500/12 dark:text-blue-300"
+                : "border-(--color-light-card-border) text-secondary hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:text-dark-primary",
+            )}
+            onClick={() => setActiveRevision(revision.key)}
+          >
+            {revision.label}
+          </button>
+        ))}
+      </div>
+
+      {state.loading ? (
+        <p className="text-sm text-muted dark:text-dark-muted">Loading revision…</p>
+      ) : state.error ? (
+        <p className="text-sm text-(--color-light-error-text) dark:text-(--color-dark-error-text)">
+          {state.error}
+        </p>
+      ) : state.bytes?.length ? (
+        <OverviewMode
+          embedded
+          fileBytes={state.bytes}
+          filePath={file?.path ?? ""}
+          fileType=""
+        />
+      ) : (
+        <p className="text-sm text-muted dark:text-dark-muted">No binary preview available.</p>
+      )}
     </div>
   );
 }

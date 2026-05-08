@@ -274,6 +274,8 @@ export default function ConflictResolver({ owner, repo, prNumber, onResolved }) 
           ) : null}
 
           <ConflictMarkerViewer
+            owner={owner}
+            repo={repo}
             conflict={current}
             blockChoices={blockChoicesByPath[conflictPath(current)] ?? {}}
             onPickResolution={pickBlockResolution}
