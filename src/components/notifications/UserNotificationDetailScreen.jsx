@@ -1,10 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { format, isValid, parseISO } from "date-fns";
 import { useAuth } from "../../context/AuthContext";
 import {
+  useVcAcceptRepositoryInvitation,
+  useVcRejectRepositoryInvitation,
   useMarkNotificationRead,
   useNotification,
 } from "../../services/useApi";
@@ -24,6 +26,7 @@ import {
   notificationTypePillClasses,
 } from "../../utils/notificationVisuals";
 import { resolveNotificationRecipientId } from "../../lib/notificationRecipientId";
+import { optimisticallyMarkNotificationRead } from "../../utils/notificationCache";
 
 function formatDetailDate(raw) {
   if (!raw) return "";
@@ -41,6 +44,43 @@ function formatDetailDate(raw) {
   }
 }
 
+function parseNotificationMetadata(raw) {
+  if (!raw) return null;
+  if (typeof raw === "object") return raw;
+  if (typeof raw !== "string") return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function resolveActionTarget(metadata) {
+  const uiPath =
+    typeof metadata?.uiPath === "string" && metadata.uiPath.trim()
+      ? metadata.uiPath.trim()
+      : "";
+  if (uiPath) return { kind: "ui", value: uiPath };
+
+  const absolute =
+    typeof metadata?.actionUrl === "string" && metadata.actionUrl.trim()
+      ? metadata.actionUrl.trim()
+      : typeof metadata?.viewEndpoint === "string" && metadata.viewEndpoint.trim()
+        ? metadata.viewEndpoint.trim()
+        : "";
+  if (!absolute) return null;
+
+  try {
+    const parsed = new URL(absolute, window.location.href);
+    if (parsed.origin === window.location.origin) {
+      return { kind: "ui", value: `${parsed.pathname}${parsed.search}${parsed.hash}` };
+    }
+  } catch {
+    /* ignore parse failure */
+  }
+  return { kind: "external", value: absolute };
+}
+
 /**
  * Single-message detail for the signed-in user's notification.
  * Redesigned with modern, refined luxury-minimalism aesthetic.
@@ -55,6 +95,7 @@ export default function UserNotificationDetailScreen({ basePath }) {
   const userId = resolveNotificationRecipientId(user);
   const queryClient = useQueryClient();
   const markedRef = useRef(false);
+  const [actionMessage, setActionMessage] = useState("");
 
   const { data, isLoading, isError, error } = useNotification(notificationId, {
     enabled: Boolean(notificationId),
@@ -73,6 +114,34 @@ export default function UserNotificationDetailScreen({ basePath }) {
     },
   });
 
+  const acceptInvitation = useVcAcceptRepositoryInvitation({
+    onSuccess: async (response) => {
+      const nextStatus =
+        response?.status ?? response?.data?.status ?? "ACCEPTED";
+      setActionMessage(`Invitation ${String(nextStatus).toLowerCase()}.`);
+      await queryClient.invalidateQueries({
+        queryKey: ["notifications", "user", userId],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["notifications", "unread", userId],
+      });
+    },
+  });
+
+  const rejectInvitation = useVcRejectRepositoryInvitation({
+    onSuccess: async (response) => {
+      const nextStatus =
+        response?.status ?? response?.data?.status ?? "REJECTED";
+      setActionMessage(`Invitation ${String(nextStatus).toLowerCase()}.`);
+      await queryClient.invalidateQueries({
+        queryKey: ["notifications", "user", userId],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["notifications", "unread", userId],
+      });
+    },
+  });
+
   useEffect(() => {
     markedRef.current = false;
   }, [notificationId]);
@@ -81,8 +150,13 @@ export default function UserNotificationDetailScreen({ basePath }) {
     if (!data || !notificationId || !isNotificationUnread(data)) return;
     if (markedRef.current) return;
     markedRef.current = true;
+    optimisticallyMarkNotificationRead(queryClient, userId, notificationId);
     markReadMutate(notificationId);
-  }, [data, notificationId, markReadMutate]);
+  }, [data, markReadMutate, notificationId, queryClient, userId]);
+
+  useEffect(() => {
+    setActionMessage("");
+  }, [notificationId]);
 
   const subject = notificationSubject(data ?? {});
   const body =
@@ -113,10 +187,28 @@ export default function UserNotificationDetailScreen({ basePath }) {
 
   const incoming = isNotificationIncoming(data ?? {}, userId);
   const reference = data?.referenceId ?? data?.reference ?? "";
+  const metadata = useMemo(
+    () => parseNotificationMetadata(data?.metadata),
+    [data?.metadata],
+  );
+  const actionTarget = useMemo(
+    () => resolveActionTarget(metadata),
+    [metadata],
+  );
+  const invitationId =
+    typeof metadata?.invitationId === "string" ? metadata.invitationId : "";
+  const showInvitationActions =
+    String(data?.type ?? "") === "REPOSITORY_INVITATION_SENT" &&
+    String(metadata?.actionType ?? "") === "REPOSITORY_INVITATION" &&
+    invitationId &&
+    userId &&
+    !actionMessage;
 
   const sentDisplay = formatDetailDate(
     data?.createdAt ?? data?.sentAt ?? data?.created_at,
   );
+  const senderName = metadata?.senderName ?? "";
+  const receiverName = metadata?.receiverName ?? "";
 
   const inboxPath = basePath.replace(/\/$/, "");
 
@@ -191,6 +283,15 @@ export default function UserNotificationDetailScreen({ basePath }) {
   };
   const accentGradient =
     channelColorMap[channelRaw] || "from-slate-400 to-slate-500";
+
+  const openRelatedItem = () => {
+    if (!actionTarget?.value) return;
+    if (actionTarget.kind === "ui") {
+      navigate(actionTarget.value);
+      return;
+    }
+    window.location.assign(actionTarget.value);
+  };
 
   return (
     <div className="flex w-full  flex-col gap-0 overflow-y-auto bg-gradient-to-br from-light-app-bg via-light-app-secondary to-white p-4 dark:from-dark-app-bg dark:via-dark-shell dark:to-dark-app-secondary md:p-6">
@@ -335,6 +436,76 @@ export default function UserNotificationDetailScreen({ basePath }) {
                   ) : null}
                 </div>
               )}
+
+              {(senderName || receiverName) && (
+                <div className="mt-6 grid gap-4 border-t border-light-card-border pt-6 dark:border-dark-card-border sm:grid-cols-2">
+                  {senderName ? (
+                    <div>
+                      <dt className="mb-1 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+                        Sender
+                      </dt>
+                      <dd className="font-medium text-light-text-primary dark:text-dark-text-primary">
+                        {senderName}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {receiverName ? (
+                    <div>
+                      <dt className="mb-1 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+                        Receiver
+                      </dt>
+                      <dd className="font-medium text-light-text-primary dark:text-dark-text-primary">
+                        {receiverName}
+                      </dd>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              {actionTarget ? (
+                <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-light-card-border pt-6 dark:border-dark-card-border">
+                  <Button type="button" variant="secondary" onClick={openRelatedItem}>
+                    Open related item
+                  </Button>
+                </div>
+              ) : null}
+
+              {showInvitationActions ? (
+                <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-light-card-border pt-6 dark:border-dark-card-border">
+                  <Button
+                    type="button"
+                    loading={acceptInvitation.isPending}
+                    disabled={acceptInvitation.isPending || rejectInvitation.isPending}
+                    onClick={() =>
+                      acceptInvitation.mutate({
+                        invitationId,
+                        userId,
+                      })
+                    }
+                  >
+                    Accept invitation
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    loading={rejectInvitation.isPending}
+                    disabled={acceptInvitation.isPending || rejectInvitation.isPending}
+                    onClick={() =>
+                      rejectInvitation.mutate({
+                        invitationId,
+                        userId,
+                      })
+                    }
+                  >
+                    Decline invitation
+                  </Button>
+                </div>
+              ) : null}
+              {actionMessage ? (
+                <div className="mt-6 rounded-xl border border-(--color-light-success-border) bg-(--color-light-success-bg) px-4 py-3 text-sm text-(--color-light-success-text) dark:border-(--color-dark-success-border) dark:bg-(--color-dark-success-bg) dark:text-(--color-dark-success-text)">
+                  {actionMessage}
+                </div>
+              ) : null}
             </div>
           </header>
           {/* Body Section */}

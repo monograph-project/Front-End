@@ -4,7 +4,11 @@ import { useTranslation } from "react-i18next";
 import Button from "../Button";
 import DocumentViewerErrorBoundary from "../vcShared/DocumentViewerErrorBoundary";
 import DocumentViewerLoading from "../vcShared/DocumentViewerLoading";
-import { fetchFileBlame } from "../../services/versionControlService";
+import {
+  fetchDocumentBlame,
+  fetchFileBlame,
+  fetchRepositoryCommits,
+} from "../../services/versionControlService";
 import { getFileExtension } from "../../utils/binaryFileHandlers";
 import BlameMode from "./BlameMode";
 import OverviewMode from "./OverviewMode";
@@ -30,6 +34,10 @@ export default function DocumentViewerContainer({
   const [blameLines, setBlameLines] = useState([]);
   const [blameBusy, setBlameBusy] = useState(false);
   const [blameErr, setBlameErr] = useState(null);
+  const [fallbackMeta, setFallbackMeta] = useState(null);
+  const ext =
+    typeof filePath === "string" ? getFileExtension(filePath) : "";
+  const supportsDocumentBlame = ext === "docx" || ext === "pdf";
 
   const { bytes, loading, error, reload } = useDocumentLoader({
     owner,
@@ -47,11 +55,55 @@ export default function DocumentViewerContainer({
       setBlameErr(null);
       if (viewMode !== "blame" || !bytes) {
         setBlameLines([]);
+        setFallbackMeta(null);
         return;
       }
       setBlameBusy(true);
       try {
-        const rows = await fetchFileBlame(owner, repo, filePath, branch);
+        const documentBlame = supportsDocumentBlame
+          ? await fetchDocumentBlame(owner, repo, filePath, branch)
+          : null;
+        if (supportsDocumentBlame && !documentBlame?.segments?.length) {
+          try {
+            const commits = await fetchRepositoryCommits(owner, repo, {
+              path: filePath,
+              ref: branch,
+              limit: 1,
+            });
+            const latest = Array.isArray(commits) ? commits[0] : null;
+            if (!cancelled) {
+              setFallbackMeta(
+                latest
+                  ? {
+                      commitSha: latest.sha ?? latest.id ?? latest.commitSha ?? "",
+                      author:
+                        latest.author ??
+                        latest.authorName ??
+                        latest.userName ??
+                        "",
+                      message:
+                        latest.message ??
+                        latest.subject ??
+                        latest.commitMessage ??
+                        "",
+                      timestamp:
+                        latest.timestamp ??
+                        latest.date ??
+                        latest.committedDate ??
+                        "",
+                    }
+                  : null,
+              );
+            }
+          } catch {
+            if (!cancelled) setFallbackMeta(null);
+          }
+        } else if (!cancelled) {
+          setFallbackMeta(null);
+        }
+        const rows = supportsDocumentBlame
+          ? (documentBlame?.segments ?? [])
+          : await fetchFileBlame(owner, repo, filePath, branch);
         if (!cancelled)
           setBlameLines(Array.isArray(rows) ? rows : []);
       } catch (e) {
@@ -67,12 +119,7 @@ export default function DocumentViewerContainer({
     return () => {
       cancelled = true;
     };
-  }, [viewMode, owner, repo, filePath, branch, bytes]);
-
-  const ext =
-    typeof filePath === "string" ?
-      getFileExtension(filePath)
-    : "";
+  }, [viewMode, owner, repo, filePath, branch, bytes, supportsDocumentBlame]);
 
   if (!owner || !repo || !String(filePath ?? "").trim()) {
     return (
@@ -135,7 +182,12 @@ export default function DocumentViewerContainer({
                 {blameErr}
               </div>
             : bytes ?
-              <BlameMode blameData={blameLines} fileBytes={bytes} />
+              <BlameMode
+                blameData={blameLines}
+                fileBytes={bytes}
+                filePath={filePath}
+                fallbackMeta={fallbackMeta}
+              />
             : null}
           </>
         : null}

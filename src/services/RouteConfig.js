@@ -418,6 +418,13 @@ export const VC = {
         params,
       ),
     ),
+  DOCUMENT_BLAME_FILE: (owner, repo, filePath, params = {}) =>
+    gw(
+      withQuery(
+        `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/document-blame/${vcRepoPathSegments(filePath)}`,
+        params,
+      ),
+    ),
   /** GET `/api/v1/repos/.../diff/{baseSha}/{headSha}` */
   DIFF_COMMITS: (owner, repo, baseSha, headSha, params = {}) =>
     gw(
@@ -429,6 +436,10 @@ export const VC = {
   REPO_INVITE: (owner, repo, guest) =>
     gw(
       `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/invitations/${encodeURIComponent(guest)}`,
+    ),
+  REPO_INVITATIONS_FOR_REPO: (owner, repo) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/invitations`,
     ),
   REPO_INVITATIONS_MINE: (user) =>
     gw(`/api/v1/repos/invitations/${encodeURIComponent(user)}`),

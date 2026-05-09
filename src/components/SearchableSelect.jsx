@@ -76,9 +76,13 @@ export default function SearchableSelect({
   options = [],
   value: controlledValue,
   defaultValue,
+  open: controlledOpen,
+  defaultOpen = false,
+  onOpenChange,
   onChange,
   onValueChange,
   multiple = false,
+  closeOnSelect = true,
   placeholder = "Select…",
   searchPlaceholder = "Search…",
   clearable = true,
@@ -104,7 +108,9 @@ export default function SearchableSelect({
   );
   const selected = isControlled ? controlledValue : internalValue;
 
-  const [open, setOpen] = React.useState(false);
+  const isOpenControlled = controlledOpen !== undefined;
+  const [internalOpen, setInternalOpen] = React.useState(defaultOpen);
+  const open = isOpenControlled ? controlledOpen : internalOpen;
   const [internalQuery, setInternalQuery] = React.useState("");
   const [focusedIndex, setFocusedIndex] = React.useState(-1);
   const searchRef = React.useRef(null);
@@ -120,6 +126,13 @@ export default function SearchableSelect({
     onSearchChange?.(normalizedValue);
   }, [onSearchChange, searchValue]);
 
+  const setOpen = React.useCallback((nextOpen) => {
+    if (!isOpenControlled) {
+      setInternalOpen(nextOpen);
+    }
+    onOpenChange?.(nextOpen);
+  }, [isOpenControlled, onOpenChange]);
+
   // ── Derived ─────────────────────────────────────────────────────────────
   const groups = React.useMemo(() => normaliseOptions(options), [options]);
   const allFlat = React.useMemo(() => flattenOptions(groups), [groups]);
@@ -133,7 +146,8 @@ export default function SearchableSelect({
         options: g.options.filter(
           (o) =>
             o.label.toLowerCase().includes(q) ||
-            o.description?.toLowerCase().includes(q),
+            o.description?.toLowerCase().includes(q) ||
+            o.searchText?.toLowerCase().includes(q),
         ),
       }))
       .filter((g) => g.options.length > 0);
@@ -163,7 +177,9 @@ export default function SearchableSelect({
       next = arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
     } else {
       next = val;
-      setOpen(false);
+      if (closeOnSelect) {
+        setOpen(false);
+      }
     }
     if (!isControlled) setInternalValue(next);
     (onChange ?? onValueChange)?.(next);

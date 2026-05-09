@@ -54,7 +54,11 @@ export default function OverviewMode({
   useEffect(() => {
     let cancelled = false;
     async function extract() {
-      if ((ext === "docx" || ext === "doc") && fileBytes?.length && isZipMagic(fileBytes)) {
+      if (
+        (ext === "docx" || ext === "doc") &&
+        fileBytes?.length &&
+        isZipMagic(fileBytes)
+      ) {
         setPlainDocxLoading(true);
         try {
           const [html, text] = await Promise.all([
@@ -97,14 +101,20 @@ export default function OverviewMode({
   if (ext === "pdf") {
     return (
       <div
-        className={embedded
-          ? "overflow-hidden"
-          : "overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
+        className={
+          embedded
+            ? "overflow-hidden"
+            : "overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+        }
       >
         <iframe
           title={filePath}
           src={blobUrl ?? undefined}
-          className={embedded ? "h-[560px] w-full" : "h-[560px] w-full rounded-2xl"}
+          className={
+            embedded
+              ? "h-[560px] w-full rounded-none"
+              : "h-[560px] w-full rounded-2xl"
+          }
         />
       </div>
     );
@@ -113,15 +123,21 @@ export default function OverviewMode({
   if (isImageExtension(ext)) {
     return (
       <div
-        className={embedded
-          ? "flex justify-center p-4"
-          : "flex justify-center rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
+        className={
+          embedded
+            ? "flex justify-center p-4"
+            : "flex justify-center rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+        }
       >
         {blobUrl ? (
           <img
             src={blobUrl}
             alt={filePath}
-            className="max-h-[560px] w-auto max-w-full rounded-xl border border-light-divider object-contain dark:border-dark-divider"
+            className={
+              embedded
+                ? "max-h-[560px] w-auto max-w-full rounded-none border border-light-divider object-contain dark:border-dark-divider"
+                : "max-h-[560px] w-auto max-w-full rounded-xl border border-light-divider object-contain dark:border-dark-divider"
+            }
           />
         ) : null}
       </div>
@@ -145,9 +161,11 @@ export default function OverviewMode({
   if (ext === "xlsx" || ext === "xls" || ext === "csv") {
     return (
       <div
-        className={embedded
-          ? "space-y-3 p-4"
-          : "space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
+        className={
+          embedded
+            ? "space-y-3 p-4"
+            : "space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+        }
       >
         <p className="text-sm text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
           {t("documentViewer.overview.sheetFallback")}
@@ -162,9 +180,11 @@ export default function OverviewMode({
   if (isLikelyTextExtension(ext) && textMaybe != null) {
     return (
       <pre
-        className={embedded
-          ? "max-h-[560px] overflow-auto bg-(--color-light-input-bg) p-4 text-xs text-(--color-light-text-primary) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)"
-          : "max-h-[560px] overflow-auto rounded-2xl border border-(--color-light-card-border) bg-(--color-light-input-bg) p-4 text-xs text-(--color-light-text-primary) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)"}
+        className={
+          embedded
+            ? "max-h-[560px] overflow-auto rounded-none bg-(--color-light-input-bg) p-4 text-xs text-(--color-light-text-primary) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)"
+            : "max-h-[560px] overflow-auto rounded-2xl border border-(--color-light-card-border) bg-(--color-light-input-bg) p-4 text-xs text-(--color-light-text-primary) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)"
+        }
       >
         <code>{textMaybe}</code>
       </pre>
@@ -173,9 +193,11 @@ export default function OverviewMode({
 
   return (
     <div
-      className={embedded
-        ? "space-y-3 p-4"
-        : "space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
+      className={
+        embedded
+          ? "space-y-3 p-4"
+          : "space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+      }
     >
       <p className="text-sm text-muted dark:text-dark-muted">
         {t("documentViewer.overview.binaryFallback")}
@@ -259,13 +281,17 @@ function ReadonlyDocxPreview({
 
   return (
     <div
-      className={embedded
-        ? "space-y-3 p-0"
-        : "space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"}
+      className={
+        embedded
+          ? "space-y-3 p-0"
+          : "space-y-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+      }
     >
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4">
         <div>
-          <p className="text-xs text-muted dark:text-dark-muted">Document preview</p>
+          <p className="text-xs text-muted dark:text-dark-muted">
+            Document preview
+          </p>
           <p className="mt-1 text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
             {filePath}
           </p>
@@ -283,9 +309,11 @@ function ReadonlyDocxPreview({
         <div className="px-4 pb-4">
           <div
             ref={previewHostRef}
-            className={embedded
-              ? "docx-render-shell max-h-[560px] overflow-auto rounded-xl bg-white p-4 shadow-inner"
-              : "docx-render-shell max-h-[720px] overflow-auto rounded-xl bg-white p-4 shadow-inner"}
+            className={
+              embedded
+                ? "docx-render-shell max-h-[560px] overflow-auto rounded-none bg-white p-4 "
+                : "docx-render-shell max-h-[720px] overflow-auto rounded-xl bg-white p-4 "
+            }
           />
         </div>
       ) : fallbackLoading ? (
@@ -295,7 +323,9 @@ function ReadonlyDocxPreview({
           <p className="mb-3 text-xs text-muted dark:text-dark-muted">
             {t("documentViewer.overview.docxFallbackHint")}
           </p>
-          <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">{loadError}</p>
+          <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">
+            {loadError}
+          </p>
           <div className="max-h-[520px] overflow-auto rounded-xl border border-light-divider bg-(--color-light-input-bg) p-3 dark:border-dark-divider dark:bg-(--color-dark-input-bg)">
             {fallbackHtml ? (
               <div

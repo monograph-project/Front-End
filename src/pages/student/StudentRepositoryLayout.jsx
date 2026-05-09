@@ -126,54 +126,6 @@ export default function StudentRepositoryLayout() {
                 </p>
               </div>
             </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className={repoActionClass(true)} disabled>
-                <PencilLine className="h-4 w-4" strokeWidth={1.7} aria-hidden />
-                {t("studentRepo.actions.editPins")}
-                <ChevronDown
-                  className="h-4 w-4"
-                  strokeWidth={1.7}
-                  aria-hidden
-                />
-              </button>
-              <button type="button" className={repoActionClass(true)} disabled>
-                <Eye className="h-4 w-4" strokeWidth={1.7} aria-hidden />
-                {t("studentRepo.actions.watch")}
-                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-[10px] dark:border-(--color-dark-card-border)">
-                  {countOrZero(watchCount)}
-                </span>
-                <ChevronDown
-                  className="h-4 w-4"
-                  strokeWidth={1.7}
-                  aria-hidden
-                />
-              </button>
-              <button type="button" className={repoActionClass(true)} disabled>
-                <GitFork className="h-4 w-4" strokeWidth={1.7} aria-hidden />
-                {t("studentRepo.actions.fork")}
-                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-[10px] dark:border-(--color-dark-card-border)">
-                  {countOrZero(forkCount)}
-                </span>
-                <ChevronDown
-                  className="h-4 w-4"
-                  strokeWidth={1.7}
-                  aria-hidden
-                />
-              </button>
-              <button type="button" className={repoActionClass(true)} disabled>
-                <Star className="h-4 w-4" strokeWidth={1.7} aria-hidden />
-                {t("studentRepo.actions.star")}
-                <span className="rounded-full border border-(--color-light-card-border) px-1.5 text-[10px] dark:border-(--color-dark-card-border)">
-                  {countOrZero(starCount)}
-                </span>
-                <ChevronDown
-                  className="h-4 w-4"
-                  strokeWidth={1.7}
-                  aria-hidden
-                />
-              </button>
-            </div>
           </div>
         </header>
 
@@ -199,7 +151,7 @@ export default function StudentRepositoryLayout() {
           >
             <GitPullRequest
               className="size-4 shrink-0"
-              strokeWidth={1.8}
+              strokeWidth={1.5}
               aria-hidden
             />
             {t("studentRepo.tabs.pulls")}

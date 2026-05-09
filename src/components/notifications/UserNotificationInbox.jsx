@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "../../context/AuthContext";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import {
+  useMarkNotificationRead,
   useUserNotificationUnreadCount,
   useUserNotifications,
 } from "../../services/useApi";
@@ -27,6 +29,7 @@ import {
   notificationTypePillClasses,
 } from "../../utils/notificationVisuals";
 import { resolveNotificationRecipientId } from "../../lib/notificationRecipientId";
+import { optimisticallyMarkNotificationRead } from "../../utils/notificationCache";
 
 /**
  * Inbox list for the signed-in user. Navigate to `${basePath}/:id` on row click.
@@ -35,6 +38,7 @@ import { resolveNotificationRecipientId } from "../../lib/notificationRecipientI
 export default function UserNotificationInbox({ basePath }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = resolveNotificationRecipientId(user);
 
@@ -55,6 +59,17 @@ export default function UserNotificationInbox({ basePath }) {
   const { data: unreadRaw } = useUserNotificationUnreadCount(userId, {
     enabled: Boolean(userId),
     notifyOnError: false,
+  });
+  const markReadMutation = useMarkNotificationRead({
+    showErrorToast: false,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["notifications", "user", userId],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["notifications", "unread", userId],
+      });
+    },
   });
 
   const unreadTotal =
@@ -192,11 +207,15 @@ export default function UserNotificationInbox({ basePath }) {
               <li key={item.id}>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    if (item.unread) {
+                      optimisticallyMarkNotificationRead(queryClient, userId, item.id);
+                      markReadMutation.mutate(String(item.id));
+                    }
                     navigate(
                       `${basePath.replace(/\/$/, "")}/${encodeURIComponent(item.id)}`,
-                    )
-                  }
+                    );
+                  }}
                   className={[
                     "flex w-full gap-3 border-l-4 py-3 ps-3 pe-4 text-left transition-colors md:ps-4",
                     notificationChannelStripeClass(item.channelRaw),

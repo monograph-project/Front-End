@@ -129,6 +129,24 @@ export async function fetchFileBlame(owner, repo, filePath, ref = "main") {
   }
 }
 
+export async function fetchDocumentBlame(owner, repo, filePath, ref = "main") {
+  const url = VC.DOCUMENT_BLAME_FILE(owner, repo, filePath, {
+    ref,
+    branch: ref,
+  });
+  try {
+    const { data } = await apiClient.get(url);
+    return data && typeof data === "object" ? data : {};
+  } catch (err) {
+    if (err?.response?.status === 404 || err?.response?.status === 500) {
+      return null;
+    }
+    throw new Error(
+      extractApiError(err, "Failed to load document blame data."),
+    );
+  }
+}
+
 export async function fetchPullRequestFiles(owner, repo, prNumber) {
   try {
     const { data } = await apiClient.get(VC.PULL_REQUEST_FILES(owner, repo, prNumber));

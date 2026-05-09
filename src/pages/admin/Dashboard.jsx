@@ -185,7 +185,7 @@ export default function Dashboard() {
   const stats = STAT_SETS[user?.role] ?? STAT_SETS.student;
 
   return (
-    <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto bg-shell p-4 md:p-5 dark:bg-dark-card-bg">
+    <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto bg-white p-4 md:p-5 dark:bg-dark-card-bg">
       <div className=" grid grid-cols-2 lg:grid-cols-4  gap-3">
         {stats.map((stat) => (
           <StatCard

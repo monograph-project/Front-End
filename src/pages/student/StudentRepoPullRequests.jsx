@@ -8,6 +8,7 @@ import {
   GitMerge,
   GitPullRequest,
   Loader2,
+  Search,
   XCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -284,6 +285,93 @@ function mergeMessageClass(tone) {
   }
 }
 
+const PR_STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  { value: "open", label: "Open" },
+  { value: "conflicting", label: "Conflicting" },
+  { value: "merged", label: "Merged" },
+  { value: "closed", label: "Closed" },
+  { value: "draft", label: "Draft" },
+];
+
+function matchesPrStatusFilter(pr, filter) {
+  const status = prStatusValue(pr);
+  switch (filter) {
+    case "open":
+      return ["OPENED", "READY_FOR_REVIEW"].includes(status);
+    case "conflicting":
+      return ["CONFLICTING", "CONFLICTED"].includes(status);
+    case "merged":
+      return status === "MERGED" || status === "MERGE";
+    case "closed":
+      return status === "CLOSED";
+    case "draft":
+      return status === "DRAFT";
+    case "all":
+    default:
+      return true;
+  }
+}
+
+function pullRequestSearchText(pr) {
+  return [
+    prTitle(pr),
+    prAuthorName(pr),
+    readableSourceBranch(pr),
+    readableTargetBranch(pr),
+    pr?.description,
+    pr?.summary,
+    pr?.body,
+    prStatusMeta(pr).label,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function PullRequestSummaryCard({ label, value, hint, icon: Icon, tone = "neutral" }) {
+  const toneClasses = {
+    neutral:
+      "border-(--color-light-card-border) bg-light-app-tertiary text-primary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-primary",
+    open:
+      "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/12 dark:text-emerald-100",
+    conflicting:
+      "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/12 dark:text-amber-100",
+    merged:
+      "border-purple-200 bg-purple-50 text-purple-900 dark:border-purple-500/20 dark:bg-purple-500/12 dark:text-purple-100",
+    closed:
+      "border-slate-200 bg-slate-50 text-slate-900 dark:border-slate-500/20 dark:bg-slate-500/12 dark:text-slate-100",
+  };
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border px-4 py-3 shadow-sm transition-colors",
+        toneClasses[tone] ?? toneClasses.neutral,
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75">
+            {label}
+          </p>
+          <p className="mt-2 text-2xl font-semibold leading-none">{value}</p>
+        </div>
+        {Icon ? (
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-current/12 bg-white/60 dark:bg-white/5">
+            <Icon className="h-4.5 w-4.5" strokeWidth={1.8} />
+          </span>
+        ) : null}
+      </div>
+      {hint ? (
+        <p className="mt-3 text-xs leading-relaxed opacity-80">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function refsHeadBranch(payload) {
   const head =
     typeof payload?.HEAD === "string"
@@ -546,7 +634,7 @@ function PullRequestCard({
   return (
     <article
       key={prId}
-      className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"
+      className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-4 py-4 shadow-sm transition-colors hover:border-(--color-light-input-border-focus) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:border-(--color-dark-input-border-focus)"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -563,6 +651,11 @@ function PullRequestCard({
             <p className="min-w-0 truncate text-sm font-semibold text-primary dark:text-dark-primary">
               {prTitle(pr)}
             </p>
+            {prId ? (
+              <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 text-[10px] font-medium text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
+                #{prId}
+              </span>
+            ) : null}
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
@@ -584,6 +677,12 @@ function PullRequestCard({
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-secondary dark:text-dark-secondary">
         <span>by {prAuthorName(pr)}</span>
+        <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 text-[11px] dark:border-(--color-dark-card-border)">
+          Head {shortSha(sourceHash) || "—"}
+        </span>
+        <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 text-[11px] dark:border-(--color-dark-card-border)">
+          Base {shortSha(targetHash) || "—"}
+        </span>
         {isConflicting ? (
           <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-500/12 dark:text-amber-300">
             Needs conflict resolution
@@ -745,6 +844,8 @@ export default function StudentRepoPullRequests() {
   const [expandedFile, setExpandedFile] = useState("");
   const [activePrId, setActivePrId] = useState(params.get("pr") || "");
   const [mergingPrId, setMergingPrId] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
     if (!branchOpts.length) return;
@@ -877,6 +978,15 @@ export default function StudentRepoPullRequests() {
       { total: 0, open: 0, conflicting: 0, merged: 0, closed: 0, draft: 0 },
     );
   }, [data]);
+
+  const visiblePullRequests = useMemo(() => {
+    const needle = searchTerm.trim().toLowerCase();
+    return (data ?? []).filter((pr) => {
+      if (!matchesPrStatusFilter(pr, statusFilter)) return false;
+      if (!needle) return true;
+      return pullRequestSearchText(pr).includes(needle);
+    });
+  }, [data, searchTerm, statusFilter]);
 
   const canSubmit =
     createMode &&
@@ -1030,21 +1140,50 @@ export default function StudentRepoPullRequests() {
               />
             </div>
 
-            <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-              <div className="flex flex-wrap items-center gap-2 text-sm text-primary dark:text-dark-primary">
-                <GitCompareArrows className="h-4 w-4" strokeWidth={1.8} aria-hidden />
-                <span className="font-semibold">{baseRef || "base"}</span>
-                <span className="text-muted dark:text-dark-muted">← into ←</span>
-                <span className="font-semibold">{headRef || "compare"}</span>
-              </div>
-              <p className="mt-2 text-xs text-secondary dark:text-dark-secondary">
-                Review the changes between these branches, then create the pull request.
-              </p>
-              {baseRef && headRef && baseRef === headRef ? (
-                <p className="mt-2 text-xs text-(--color-light-error-text) dark:text-(--color-dark-error-text)">
-                  Base and compare branches must be different.
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
+              <div className="rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-primary dark:text-dark-primary">
+                  <GitCompareArrows className="h-4 w-4" strokeWidth={1.8} aria-hidden />
+                  <span className="rounded-full border border-(--color-light-card-border) bg-(--color-light-card-bg) px-2.5 py-1 font-semibold dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+                    {headRef || "compare"}
+                  </span>
+                  <span className="text-muted dark:text-dark-muted">into</span>
+                  <span className="rounded-full border border-(--color-light-card-border) bg-(--color-light-card-bg) px-2.5 py-1 font-semibold dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+                    {baseRef || "base"}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-relaxed text-secondary dark:text-dark-secondary">
+                  Review the branch diff, confirm the summary, and open a pull request when the target branch is correct.
                 </p>
-              ) : null}
+                {baseRef && headRef && baseRef === headRef ? (
+                  <p className="mt-3 text-xs font-medium text-(--color-light-error-text) dark:text-(--color-dark-error-text)">
+                    Base and compare branches must be different.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                <PullRequestSummaryCard
+                  label="Files changed"
+                  value={changeSummary.files}
+                  hint={compareState.loading ? "Refreshing branch comparison…" : "Files included in this pull request."}
+                  icon={GitPullRequest}
+                />
+                <PullRequestSummaryCard
+                  label="Additions"
+                  value={`+${changeSummary.additions}`}
+                  hint="New lines introduced by the compare branch."
+                  icon={CheckCircle2}
+                  tone="open"
+                />
+                <PullRequestSummaryCard
+                  label="Deletions"
+                  value={`-${changeSummary.deletions}`}
+                  hint="Lines removed or replaced in the target branch."
+                  icon={XCircle}
+                  tone="closed"
+                />
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -1206,46 +1345,40 @@ export default function StudentRepoPullRequests() {
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-                  Total
-                </p>
-                <p className="mt-2 text-2xl font-semibold text-primary dark:text-dark-primary">
-                  {prSummary.total}
-                </p>
-              </div>
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-500/20 dark:bg-emerald-500/12">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                  Open
-                </p>
-                <p className="mt-2 text-2xl font-semibold text-emerald-800 dark:text-emerald-200">
-                  {prSummary.open}
-                </p>
-              </div>
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/12">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
-                  Conflicting
-                </p>
-                <p className="mt-2 text-2xl font-semibold text-amber-800 dark:text-amber-200">
-                  {prSummary.conflicting}
-                </p>
-              </div>
-              <div className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 dark:border-purple-500/20 dark:bg-purple-500/12">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-purple-700 dark:text-purple-300">
-                  Merged
-                </p>
-                <p className="mt-2 text-2xl font-semibold text-purple-800 dark:text-purple-200">
-                  {prSummary.merged}
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-500/20 dark:bg-slate-500/12">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                  Closed / Draft
-                </p>
-                <p className="mt-2 text-2xl font-semibold text-slate-800 dark:text-slate-200">
-                  {prSummary.closed + prSummary.draft}
-                </p>
-              </div>
+              <PullRequestSummaryCard
+                label="Total"
+                value={prSummary.total}
+                hint="All pull requests for this repository."
+                icon={GitPullRequest}
+              />
+              <PullRequestSummaryCard
+                label="Open"
+                value={prSummary.open}
+                hint="Ready to review or merge."
+                icon={CheckCircle2}
+                tone="open"
+              />
+              <PullRequestSummaryCard
+                label="Conflicting"
+                value={prSummary.conflicting}
+                hint="Needs a merge resolution before merging."
+                icon={AlertTriangle}
+                tone="conflicting"
+              />
+              <PullRequestSummaryCard
+                label="Merged"
+                value={prSummary.merged}
+                hint="Already applied to the base branch."
+                icon={GitMerge}
+                tone="merged"
+              />
+              <PullRequestSummaryCard
+                label="Closed / Draft"
+                value={prSummary.closed + prSummary.draft}
+                hint="Inactive or not yet ready for review."
+                icon={CircleDot}
+                tone="closed"
+              />
             </div>
 
             {isLoading ? (
@@ -1253,22 +1386,63 @@ export default function StudentRepoPullRequests() {
             ) : !data.length ? (
               <p className="text-sm text-muted dark:text-dark-muted">{t("studentRepo.pulls.empty")}</p>
             ) : (
-              <div className="space-y-2">
-                {(data ?? []).map((pr) => (
-                  <PullRequestCard
-                    key={String(pr.id ?? pr.number ?? pr.uuid ?? prTitle(pr))}
-                    pr={pr}
-                    owner={owner}
-                    repo={repo}
-                    locale={locale}
-                    activePrId={activePrId}
-                    setActivePrId={setActivePrId}
-                    mergePr={mergePr}
-                    mergingPrId={mergingPrId}
-                    onMerge={onMerge}
-                    refetch={refetch}
-                  />
-                ))}
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3 dark:border-dark-input-border dark:bg-(--color-dark-input-bg)">
+                    <Search className="h-4 w-4 shrink-0 text-muted dark:text-dark-muted" strokeWidth={1.8} />
+                    <input
+                      type="search"
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      className="h-11 w-full bg-transparent text-sm text-(--color-light-text-primary) outline-none placeholder:text-(--color-light-text-muted) dark:text-(--color-dark-text-primary) dark:placeholder:text-dark-text-muted"
+                      placeholder="Search by title, author, or branch"
+                    />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-[220px_auto]">
+                    <Select
+                      label="Status"
+                      value={statusFilter}
+                      onChange={setStatusFilter}
+                      options={PR_STATUS_FILTER_OPTIONS}
+                      placeholder="Filter by status"
+                    />
+                    <div className="flex items-end">
+                      <div className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 py-2 text-xs text-secondary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-secondary">
+                        Showing <span className="font-semibold text-primary dark:text-dark-primary">{visiblePullRequests.length}</span> of{" "}
+                        <span className="font-semibold text-primary dark:text-dark-primary">{prSummary.total}</span> pull requests
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {!visiblePullRequests.length ? (
+                  <div className="rounded-2xl border border-dashed border-(--color-light-card-border) bg-light-app-tertiary px-5 py-8 text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+                    <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                      No pull requests match the current filters.
+                    </p>
+                    <p className="mt-2 text-xs text-secondary dark:text-dark-secondary">
+                      Try another status or clear the search term to see more results.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {visiblePullRequests.map((pr) => (
+                      <PullRequestCard
+                        key={String(pr.id ?? pr.number ?? pr.uuid ?? prTitle(pr))}
+                        pr={pr}
+                        owner={owner}
+                        repo={repo}
+                        locale={locale}
+                        activePrId={activePrId}
+                        setActivePrId={setActivePrId}
+                        mergePr={mergePr}
+                        mergingPrId={mergingPrId}
+                        onMerge={onMerge}
+                        refetch={refetch}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>

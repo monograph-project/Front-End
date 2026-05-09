@@ -1952,6 +1952,26 @@ export function useVcRepository(owner, repo, queryOptions = {}) {
   return q;
 }
 
+export function useVcRepositoryInvitations(owner, repo, queryOptions = {}) {
+  const {
+    enabled = Boolean(owner && repo),
+    notifyOnError = false,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["vc", "repos", owner, repo, "invitations"],
+    queryFn: () => Api.vcListRepositoryInvitations(owner, repo),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository_invitations",
+  );
+  return q;
+}
+
 export function useVcRepositoryTree(owner, repo, params = {}, queryOptions = {}) {
   const {
     enabled = Boolean(owner && repo),
@@ -2251,6 +2271,26 @@ export function useVcInviteRepositoryCollaborator(options) {
       Api.vcInviteRepositoryCollaborator(owner, repo, guest),
     mutationKey: ["vc", "repos", "collaborators", "invite"],
     toastSuccess: "Repository invitation sent",
+    ...options,
+  });
+}
+
+export function useVcAcceptRepositoryInvitation(options = {}) {
+  return useApiMutation({
+    mutationFn: ({ invitationId, userId }) =>
+      Api.vcAcceptRepositoryInvitation(invitationId, userId),
+    mutationKey: ["vc", "repos", "invitations", "accept"],
+    toastSuccess: "Repository invitation accepted",
+    ...options,
+  });
+}
+
+export function useVcRejectRepositoryInvitation(options = {}) {
+  return useApiMutation({
+    mutationFn: ({ invitationId, userId }) =>
+      Api.vcRejectRepositoryInvitation(invitationId, userId),
+    mutationKey: ["vc", "repos", "invitations", "reject"],
+    toastSuccess: "Repository invitation declined",
     ...options,
   });
 }

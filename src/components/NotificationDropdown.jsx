@@ -24,6 +24,7 @@ import {
   notificationChannelStripeClass,
   notificationTypePillClasses,
 } from "../utils/notificationVisuals";
+import { optimisticallyMarkNotificationRead } from "../utils/notificationCache";
 
 const DOT_COLORS = [
   "bg-violet-500",
@@ -136,9 +137,10 @@ export default function NotificationDropdown({ onClose }) {
         (n) => String(n.id) === String(id) && n.unread,
       );
       if (!item) return;
+      optimisticallyMarkNotificationRead(queryClient, userId, id);
       markReadMutation.mutate(String(id));
     },
-    [markReadMutation, notifications],
+    [markReadMutation, notifications, queryClient, userId],
   );
 
   const markAllRead = useCallback(() => {

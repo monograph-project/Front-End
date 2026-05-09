@@ -24,7 +24,9 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import Avatar from "../Avatar";
 import Button from "../Button";
 import OverviewMode from "../DocumentViewer/OverviewMode";
+import BlameMode from "../DocumentViewer/BlameMode";
 import { useDocumentLoader } from "../DocumentViewer/useDocumentLoader";
+import { extractDocxPlainText } from "../../services/documentRenderingService";
 import Select from "../Select";
 import { cn } from "../../lib/utils";
 import { resolveProfilePhotoUrl } from "../../lib/profileMedia";
@@ -40,6 +42,7 @@ import {
   tryDecodeUtf8,
 } from "../../utils/binaryFileHandlers";
 import {
+  fetchDocumentBlame,
   fetchFileBlame,
   fetchRepositoryBlobPayload,
   fetchRepositoryCommits,
@@ -467,6 +470,101 @@ function isBinarySelection(filePath, fileBytes, fileText) {
   return tryDecodeUtf8(fileBytes) == null;
 }
 
+function supportsDocumentBlame(filePath) {
+  const ext = getFileExtension(filePath);
+  return ext === "docx" || ext === "pdf";
+}
+
+function documentBlameCommitSha(row) {
+  const raw = row?.commitSha ?? row?.sha ?? "";
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function documentBlameCommitMessage(row) {
+  const raw = row?.message ?? row?.commitMessage ?? "";
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function documentBlameCommitAuthor(row) {
+  const raw = row?.author ?? row?.authorName ?? row?.userName ?? "";
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function documentBlameCommitTimestamp(row) {
+  const raw = row?.timestamp ?? row?.date ?? "";
+  return typeof raw === "string" ? raw : "";
+}
+
+function buildDocumentOwnershipSegments(documentRows) {
+  const rows = Array.isArray(documentRows) ? documentRows : [];
+  const result = [];
+  let current = null;
+  let lineNumber = 1;
+
+  rows.forEach((row, rowIndex) => {
+    const sha = documentBlameCommitSha(row);
+    const author = documentBlameCommitAuthor(row);
+    const message = documentBlameCommitMessage(row);
+    const timestamp = documentBlameCommitTimestamp(row);
+    const text = typeof row?.text === "string" ? row.text : "";
+    const lines = text.split(/\r?\n/);
+    if (!lines.length) lines.push("");
+
+    const shouldStart =
+      !current ||
+      current.sha !== sha ||
+      current.author !== author ||
+      current.message !== message ||
+      current.timestamp !== timestamp;
+
+    if (shouldStart) {
+      current = {
+        key: `${sha || "unknown"}-${rowIndex}-${lineNumber}`,
+        sha,
+        author,
+        message,
+        timestamp,
+        page: row?.page ?? null,
+        kind: row?.kind ?? "segment",
+        lines: [],
+      };
+      result.push(current);
+    }
+
+    lines.forEach((line) => {
+      current.lines.push({
+        lineNumber,
+        code: line || " ",
+      });
+      lineNumber += 1;
+    });
+  });
+
+  return result;
+}
+
+function buildSingleCommitDocumentOwnership(text, selectedCommit) {
+  const commit = selectedCommit ?? null;
+  const lines = String(text ?? "").split(/\r?\n/);
+  if (!lines.length) return [];
+
+  return [
+    {
+      key: `${commitRowSha(commit) || "document"}-1`,
+      sha: commitRowSha(commit),
+      author: commitRowAuthor(commit),
+      message: commitRowMessage(commit),
+      timestamp: commitRowTimestamp(commit),
+      page: null,
+      kind: "document",
+      lines: lines.map((line, index) => ({
+        lineNumber: index + 1,
+        code: line || " ",
+      })),
+    },
+  ];
+}
+
 function refsHeadBranch(payload) {
   const head =
     typeof payload?.HEAD === "string"
@@ -510,7 +608,8 @@ function summarizeBranchDelta(branchName, defaultBranch, aheadBy, behindBy) {
   const ahead = Math.max(0, Number(aheadBy) || 0);
   const behind = Math.max(0, Number(behindBy) || 0);
   if (!branchName || branchName === defaultBranch) return "";
-  if (!ahead && !behind) return `${branchName} is up to date with ${defaultBranch}`;
+  if (!ahead && !behind)
+    return `${branchName} is up to date with ${defaultBranch}`;
   if (ahead && behind)
     return `${branchName} is ${ahead} commit${ahead === 1 ? "" : "s"} ahead and ${behind} commit${behind === 1 ? "" : "s"} behind ${defaultBranch}`;
   if (ahead)
@@ -773,7 +872,9 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
     return extractBytesFromContentsResponse(selectedContentsQ.data);
   }, [selectedBlobQ.bytes, selectedContentsQ.data]);
   const selectedText = useMemo(() => {
-    const fromBytes = selectedBytes?.length ? tryDecodeUtf8(selectedBytes) : null;
+    const fromBytes = selectedBytes?.length
+      ? tryDecodeUtf8(selectedBytes)
+      : null;
     if (typeof fromBytes === "string") return fromBytes;
     return extractTextFromContentsResponse(selectedContentsQ.data);
   }, [selectedBytes, selectedContentsQ.data]);
@@ -876,7 +977,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
             : commits;
         if (cancelled) return;
         setFolderLatestCommit(
-          Array.isArray(fallbackCommits) ? fallbackCommits[0] ?? null : null,
+          Array.isArray(fallbackCommits) ? (fallbackCommits[0] ?? null) : null,
         );
       } catch {
         if (!cancelled) setFolderLatestCommit(null);
@@ -895,7 +996,8 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
       .map((entry) => {
         const fullPath = pathForEntry(entry);
         const existing = entryCommitMeta(entry);
-        const cached = fallbackCommitMetaByPath[commitMetaCacheKey(ref, fullPath)];
+        const cached =
+          fallbackCommitMetaByPath[commitMetaCacheKey(ref, fullPath)];
         return {
           entry,
           path: fullPath,
@@ -916,7 +1018,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
               limit: 1,
               ...(nodeDir(entry) ? {} : { path }),
             });
-            const latest = Array.isArray(commits) ? commits[0] ?? null : null;
+            const latest = Array.isArray(commits) ? (commits[0] ?? null) : null;
             if (!latest) return null;
             return {
               path,
@@ -1299,8 +1401,9 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                       const dir = nodeDir(entry);
                       const full = pathForEntry(entry, nm);
                       const fallbackMeta =
-                        fallbackCommitMetaByPath[commitMetaCacheKey(ref, full)] ??
-                        null;
+                        fallbackCommitMetaByPath[
+                          commitMetaCacheKey(ref, full)
+                        ] ?? null;
                       const msg =
                         entryCommitMessage(entry) ||
                         fallbackMeta?.message ||
@@ -1694,9 +1797,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                       fallbackCommitMetaByPath[commitMetaCacheKey(ref, full)] ??
                       null;
                     const msg =
-                      entryCommitMessage(entry) ||
-                      fallbackMeta?.message ||
-                      "—";
+                      entryCommitMessage(entry) || fallbackMeta?.message || "—";
                     const whenRaw =
                       entryCommittedDate(entry) ||
                       fallbackMeta?.timestamp ||
@@ -2201,13 +2302,14 @@ function RepositoryBinaryCodePanel({
   if (!fileBytes?.length) {
     return (
       <div className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 text-sm text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
-        Preview is unavailable for this binary file response. Use Download to save the original bytes.
+        Preview is unavailable for this binary file response. Use Download to
+        save the original bytes.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+    <div className="space-y-4  border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
@@ -2229,7 +2331,8 @@ function RepositoryBinaryCodePanel({
               {filePath}
             </p>
             <p className="mt-1 text-xs text-secondary dark:text-dark-secondary">
-              This preview tracks the original binary document instead of converting it into a text buffer.
+              This preview tracks the original binary document instead of
+              converting it into a text buffer.
             </p>
           </div>
         </div>
@@ -2266,35 +2369,233 @@ function RepositoryBinaryBlamePanel({
   onOpenHistory,
 }) {
   const [selectedRevision, setSelectedRevision] = useState("");
+  const [documentBlame, setDocumentBlame] = useState(null);
+  const [documentBlameLoading, setDocumentBlameLoading] = useState(false);
+  const [documentBlameError, setDocumentBlameError] = useState("");
+  const [documentBlameUnavailable, setDocumentBlameUnavailable] =
+    useState(false);
+  const [hoveredSegment, setHoveredSegment] = useState("");
+  const docBlameCapable = supportsDocumentBlame(filePath);
 
   useEffect(() => {
     const firstSha = commitRowSha(historyRows?.[0]);
-    setSelectedRevision((current) => current || firstSha || String(branch ?? ""));
+    setSelectedRevision(
+      (current) => current || firstSha || String(branch ?? ""),
+    );
   }, [branch, historyRows]);
 
   const resolvedRef = selectedRevision || String(branch ?? "");
+  const selectedRevisionContentsQ = useVcRepositoryContents(
+    owner,
+    repo,
+    filePath,
+    { ref: resolvedRef },
+    {
+      enabled: Boolean(owner && repo && filePath && resolvedRef),
+      notifyOnError: false,
+    },
+  );
+  const selectedRevisionBlobSha =
+    typeof selectedRevisionContentsQ.data?.sha === "string"
+      ? selectedRevisionContentsQ.data.sha.trim()
+      : null;
   const previewQ = useDocumentLoader({
     owner,
     repo,
     filePath,
     branch: resolvedRef,
+    blobSha: selectedRevisionBlobSha,
     enabled: Boolean(owner && repo && filePath && resolvedRef),
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadDocumentBlame() {
+      if (!docBlameCapable || !owner || !repo || !filePath || !resolvedRef) {
+        setDocumentBlame(null);
+        setDocumentBlameError("");
+        setDocumentBlameUnavailable(false);
+        setDocumentBlameLoading(false);
+        return;
+      }
+
+      setDocumentBlameLoading(true);
+      setDocumentBlameError("");
+      setDocumentBlameUnavailable(false);
+      try {
+        const data = await fetchDocumentBlame(owner, repo, filePath, resolvedRef);
+        if (!cancelled) {
+          if (data == null) {
+            setDocumentBlame(null);
+            setDocumentBlameUnavailable(true);
+            return;
+          }
+          setDocumentBlame(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setDocumentBlame(null);
+          setDocumentBlameError(String(err?.message ?? "Failed to load document blame."));
+        }
+      } finally {
+        if (!cancelled) setDocumentBlameLoading(false);
+      }
+    }
+
+    loadDocumentBlame();
+    return () => {
+      cancelled = true;
+    };
+  }, [docBlameCapable, filePath, owner, repo, resolvedRef]);
 
   const selectedCommit =
     (Array.isArray(historyRows)
       ? historyRows.find((row) => commitRowSha(row) === selectedRevision)
-      : null) ?? historyRows?.[0] ?? null;
+      : null) ??
+    historyRows?.[0] ??
+    null;
+
+  const blameSegments = Array.isArray(documentBlame?.segments)
+    ? documentBlame.segments
+    : [];
+  const groupedDocumentOwnership = useMemo(
+    () => buildDocumentOwnershipSegments(blameSegments),
+    [blameSegments],
+  );
+  const [fallbackDocumentText, setFallbackDocumentText] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFallbackDocumentText() {
+      if (
+        !docBlameCapable ||
+        !documentBlameUnavailable ||
+        getFileExtension(filePath) !== "docx"
+      ) {
+        setFallbackDocumentText("");
+        return;
+      }
+
+      const bytes = previewQ.bytes?.length ? previewQ.bytes : fileBytes;
+      if (!bytes?.length) {
+        setFallbackDocumentText("");
+        return;
+      }
+
+      try {
+        const text = await extractDocxPlainText(bytes);
+        if (!cancelled) {
+          setFallbackDocumentText(String(text ?? ""));
+        }
+      } catch {
+        if (!cancelled) {
+          setFallbackDocumentText("");
+        }
+      }
+    }
+
+    loadFallbackDocumentText();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    docBlameCapable,
+    documentBlameUnavailable,
+    fileBytes,
+    filePath,
+    previewQ.bytes,
+  ]);
+
+  const fallbackOwnership = useMemo(
+    () => buildSingleCommitDocumentOwnership(fallbackDocumentText, selectedCommit),
+    [fallbackDocumentText, selectedCommit],
+  );
+  const fallbackDocumentBlameRows = useMemo(() => {
+    if (!fallbackDocumentText) return [];
+    return [
+      {
+        id: "fallback-document",
+        kind: "document",
+        text: fallbackDocumentText,
+        commitSha: commitRowSha(selectedCommit),
+        author: commitRowAuthor(selectedCommit),
+        message: commitRowMessage(selectedCommit),
+        timestamp: commitRowTimestamp(selectedCommit),
+      },
+    ];
+  }, [fallbackDocumentText, selectedCommit]);
+
+  if (docBlameCapable && !documentBlameUnavailable) {
+    const blameRowsForViewer = blameSegments;
+    return (
+      <div className="overflow-hidden border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+        {documentBlameLoading ? (
+          <p className="px-4 py-4 text-sm text-muted dark:text-dark-muted">
+            Loading document blame…
+          </p>
+        ) : documentBlameError ? (
+          <div className="m-4 rounded-md border border-(--color-light-error-border) bg-(--color-light-error-bg) p-4 text-sm text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)">
+            {documentBlameError}
+          </div>
+        ) : !blameRowsForViewer.length ? (
+          <div className="space-y-4 p-4">
+            <p className="text-sm text-muted dark:text-dark-muted">
+              No document blame segments were returned for this revision.
+            </p>
+          </div>
+        ) : (
+          <BlameMode
+            blameData={blameRowsForViewer}
+            fileBytes={previewQ.bytes?.length ? previewQ.bytes : fileBytes}
+            filePath={filePath}
+            fallbackMeta={
+              selectedCommit
+                ? {
+                    commitSha: commitRowSha(selectedCommit),
+                    author: commitRowAuthor(selectedCommit),
+                    message: commitRowMessage(selectedCommit),
+                    timestamp: commitRowTimestamp(selectedCommit),
+                  }
+                : null
+            }
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (docBlameCapable && fallbackDocumentBlameRows.length) {
+    return (
+      <div className="overflow-hidden border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+        <BlameMode
+          blameData={fallbackDocumentBlameRows}
+          fileBytes={previewQ.bytes?.length ? previewQ.bytes : fileBytes}
+          filePath={filePath}
+          fallbackMeta={
+            selectedCommit
+              ? {
+                  commitSha: commitRowSha(selectedCommit),
+                  author: commitRowAuthor(selectedCommit),
+                  message: commitRowMessage(selectedCommit),
+                  timestamp: commitRowTimestamp(selectedCommit),
+                }
+              : null
+          }
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="overflow-hidden rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+    <div className="overflow-hidden  border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--color-light-card-border) px-4 py-3 dark:border-(--color-dark-card-border)">
         <div>
           <p className="text-sm font-semibold text-primary dark:text-dark-primary">
             Binary revision tracking
           </p>
           <p className="mt-1 text-xs text-secondary dark:text-dark-secondary">
-            Line blame is not meaningful for this file type, so this panel tracks revision ownership per commit instead.
+            Line blame is not meaningful for this file type, so this panel
+            tracks revision ownership per commit instead.
           </p>
         </div>
         <button
@@ -2336,7 +2637,9 @@ function RepositoryBinaryBlamePanel({
                   >
                     <div className="flex items-center justify-between gap-2 text-[11px] text-muted dark:text-dark-muted">
                       <span className="font-mono">{sha.slice(0, 12)}</span>
-                      <span>{formatRelativeTime(commitRowTimestamp(row), locale)}</span>
+                      <span>
+                        {formatRelativeTime(commitRowTimestamp(row), locale)}
+                      </span>
                     </div>
                     <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
                       {commitRowMessage(row) || "—"}
@@ -2358,7 +2661,9 @@ function RepositoryBinaryBlamePanel({
                 Selected commit
               </p>
               <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
-                {(selectedCommit && commitRowSha(selectedCommit).slice(0, 12)) || String(branch ?? "—")}
+                {(selectedCommit &&
+                  commitRowSha(selectedCommit).slice(0, 12)) ||
+                  String(branch ?? "—")}
               </p>
             </div>
             <div className="rounded-lg border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-2 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
@@ -2374,7 +2679,12 @@ function RepositoryBinaryBlamePanel({
                 Updated
               </p>
               <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
-                {(selectedCommit && formatAbsoluteTime(commitRowTimestamp(selectedCommit), locale)) || "—"}
+                {(selectedCommit &&
+                  formatAbsoluteTime(
+                    commitRowTimestamp(selectedCommit),
+                    locale,
+                  )) ||
+                  "—"}
               </p>
             </div>
           </div>
@@ -2391,7 +2701,9 @@ function RepositoryBinaryBlamePanel({
           ) : null}
 
           {previewQ.loading ? (
-            <p className="text-sm text-muted dark:text-dark-muted">Loading binary revision…</p>
+            <p className="text-sm text-muted dark:text-dark-muted">
+              Loading binary revision…
+            </p>
           ) : previewQ.error ? (
             <div className="rounded-md border border-(--color-light-error-border) bg-(--color-light-error-bg) p-4 text-sm text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)">
               {previewQ.error}

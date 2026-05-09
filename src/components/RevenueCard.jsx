@@ -38,7 +38,7 @@ export default function RevenueCard() {
   const [period, setPeriod] = useState("All");
   const periods = ["All", "This Month", "This Week"];
   return (
-    <div className="bg-card dark:bg-dark-accent-light border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] flex-1">
+    <div className="bg-white  dark:bg-dark-card-bg border border-default dark:border-dark-divider rounded-xl p-4 md:p-4.5 flex-1">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5">
           <span className="text-[13px] font-semibold text-primary dark:text-dark-primary">

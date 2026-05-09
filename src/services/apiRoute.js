@@ -853,6 +853,49 @@ export async function vcInviteRepositoryCollaborator(owner, repo, guest) {
   }
 }
 
+export async function vcListRepositoryInvitations(owner, repo) {
+  if (!owner || !repo) {
+    throwClientApiError("Owner and repository are required.");
+  }
+  try {
+    const { data } = await axiosInstance.get(
+      VC.REPO_INVITATIONS_FOR_REPO(owner, repo),
+    );
+    return Array.isArray(data) ? data : unwrapListPayload(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(err, "Failed to load repository invitations.");
+  }
+}
+
+export async function vcAcceptRepositoryInvitation(invitationId, userId) {
+  if (!invitationId || !userId) {
+    throwClientApiError("Invitation id and user id are required.");
+  }
+  try {
+    const { data } = await axiosInstance.post(
+      VC.REPO_INVITATION_ACCEPT(invitationId, userId),
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to accept repository invitation.");
+  }
+}
+
+export async function vcRejectRepositoryInvitation(invitationId, userId) {
+  if (!invitationId || !userId) {
+    throwClientApiError("Invitation id and user id are required.");
+  }
+  try {
+    const { data } = await axiosInstance.post(
+      VC.REPO_INVITATION_REJECT(invitationId, userId),
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to reject repository invitation.");
+  }
+}
+
 /**
  * VC user activity timeline (`GET /api/v1/repos/:username/activity`).
  * Parsed client-side into pushes / pull requests / merges when `type` is absent.

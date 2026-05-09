@@ -11,7 +11,7 @@ export default function StatCard({
 }) {
   const isUp = deltaDir === "up";
   return (
-    <div className="bg-card dark:bg-dark-accent-light border border-default dark:border-dark-default rounded-xl p-4 md:p-[18px] flex-1 min-w-0">
+    <div className=" bg-white  dark:bg-dark-card-bg  border border-default dark:border-dark-divider rounded-xl p-4 md:p-4.5 flex-1 min-w-0">
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-1.75">
           <div className="w-7 h-7 rounded-lg bg-accent-light dark:bg-accent-dark-light flex items-center justify-center">

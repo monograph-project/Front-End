@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Mail,
   Send,
@@ -18,6 +19,7 @@ import {
   useSessionProfile,
   useUserSearch,
   useVcInviteRepositoryCollaborator,
+  useVcRepositoryInvitations,
   useVcRepository,
 } from "../../services/useApi";
 
@@ -115,10 +117,11 @@ export default function StudentRepoContributors() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language || undefined;
   const { owner, repo, repositoryMeta } = useOutletContext() ?? {};
+  const queryClient = useQueryClient();
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteSearchOpen, setInviteSearchOpen] = useState(false);
   const [inviteQuery, setInviteQuery] = useState("");
   const [selectedInvitee, setSelectedInvitee] = useState("");
-  const [localInvitations, setLocalInvitations] = useState([]);
 
   const { data: sessionUser } = useSessionProfile({
     notifyOnError: false,
@@ -126,22 +129,28 @@ export default function StudentRepoContributors() {
   const { data: fresh } = useVcRepository(owner, repo, {
     notifyOnError: false,
     enabled: Boolean(owner && repo),
+    refetchInterval: 15000,
+  });
+  const invitationsQ = useVcRepositoryInvitations(owner, repo, {
+    notifyOnError: false,
+    enabled: Boolean(owner && repo),
+    refetchInterval: 10000,
   });
   const searchQ = useUserSearch(inviteQuery, {
     notifyOnError: false,
     enabled: inviteOpen && inviteQuery.trim().length > 0,
   });
   const inviteMutation = useVcInviteRepositoryCollaborator({
-    onSuccess: (data) => {
-      const next = invitationRow(data);
-      if (next) {
-        setLocalInvitations((current) => [
-          next,
-          ...current.filter((row) => row.id !== next.id),
-        ]);
-      }
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["vc", "repos", owner, repo, "invitations"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["vc", "repos", owner, repo],
+      });
       setSelectedInvitee("");
       setInviteQuery("");
+      setInviteSearchOpen(false);
       setInviteOpen(false);
     },
   });
@@ -189,27 +198,61 @@ export default function StudentRepoContributors() {
       .map((user) => {
         const username = usernameOf(user);
         const id = String(user?.id ?? "").trim();
-        const inviteKey = username || id;
+        const inviteKey = id;
+        const email = emailOf(user);
+        const label = displayName(user);
+        const description = [username ? `@${username}` : "", email]
+          .filter(Boolean)
+          .join(" • ");
         if (!inviteKey) return null;
         return {
           value: inviteKey,
-          label: displayName(user),
-          description: emailOf(user) || username || id,
+          label,
+          description: description || id,
           username,
-          email: emailOf(user),
+          email,
+          searchText: [label, username, email, id].filter(Boolean).join(" "),
           avatarUrl: resolveProfilePhotoUrl(user),
           initials: buildPersonInitials(user),
         };
       })
       .filter(Boolean)
-      .filter((option) => option.value !== owner)
+      .filter((option) => {
+        const sessionId = String(sessionUser?.id ?? "").trim();
+        const ownerId = String(
+          repositoryMeta?.ownerUserId ?? fresh?.ownerUserId ?? "",
+        ).trim();
+        return option.value !== sessionId && option.value !== ownerId;
+      })
       .filter((option) => !existingUsernames.has(option.username));
-  }, [existingUsernames, owner, searchQ.data]);
+  }, [
+    existingUsernames,
+    fresh?.ownerUserId,
+    repositoryMeta?.ownerUserId,
+    searchQ.data,
+    sessionUser?.id,
+  ]);
 
   const selectedInviteeOption =
     searchOptions.find((option) => option.value === selectedInvitee) ?? null;
 
-  const totalInvites = localInvitations.length;
+  const invitationRows = useMemo(
+    () =>
+      normalizeList(invitationsQ.data)
+        .map(invitationRow)
+        .filter(Boolean),
+    [invitationsQ.data],
+  );
+
+  const totalInvites = invitationRows.filter(
+    (row) => row.status.toUpperCase() === "PENDING",
+  ).length;
+
+  useEffect(() => {
+    if (!inviteOpen) {
+      setInviteSearchOpen(false);
+    }
+  }, [inviteOpen]);
 
   async function submitInvite() {
     if (!selectedInvitee || !owner || !repo) return;
@@ -231,7 +274,10 @@ export default function StudentRepoContributors() {
             <Button
               type="button"
               icon={<UserPlus className="h-4 w-4" strokeWidth={1.8} />}
-              onClick={() => setInviteOpen(true)}
+              onClick={() => {
+                setInviteOpen(true);
+                setInviteSearchOpen(true);
+              }}
             >
               Invite collaborator
             </Button>
@@ -313,7 +359,7 @@ export default function StudentRepoContributors() {
             </div>
           )}
 
-          {localInvitations.length ? (
+          {invitationRows.length ? (
             <section className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
               <div className="border-b border-(--color-light-card-border) px-4 py-3 dark:border-(--color-dark-card-border)">
                 <p className="text-sm font-semibold text-primary dark:text-dark-primary">
@@ -321,7 +367,7 @@ export default function StudentRepoContributors() {
                 </p>
               </div>
               <div className="space-y-2 p-4">
-                {localInvitations.map((invite) => (
+                {invitationRows.map((invite) => (
                   <div
                     key={invite.id}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"
@@ -334,7 +380,13 @@ export default function StudentRepoContributors() {
                         Sent {formatInviteTime(invite.createdAt, locale)}
                       </p>
                     </div>
-                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/12 dark:text-amber-300">
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                      invite.status === "ACCEPTED"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/12 dark:text-emerald-300"
+                        : invite.status === "REJECTED"
+                          ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/12 dark:text-rose-300"
+                          : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/12 dark:text-amber-300"
+                    }`}>
                       {invite.status}
                     </span>
                   </div>
@@ -357,7 +409,10 @@ export default function StudentRepoContributors() {
             <Button
               type="button"
               variant="tertiary"
-              onClick={() => setInviteOpen(false)}
+              onClick={() => {
+                setInviteSearchOpen(false);
+                setInviteOpen(false);
+              }}
             >
               Cancel
             </Button>
@@ -379,20 +434,51 @@ export default function StudentRepoContributors() {
               Find user
             </p>
             <SearchableSelect
+              open={inviteSearchOpen}
+              onOpenChange={setInviteSearchOpen}
               value={selectedInvitee}
               onValueChange={setSelectedInvitee}
+              closeOnSelect={false}
               options={searchOptions}
               placeholder="Search by name, username, or email"
               searchPlaceholder="Type to search users"
               searchValue={inviteQuery}
-              onSearchChange={setInviteQuery}
+              onSearchChange={(nextValue) => {
+                setInviteQuery(nextValue);
+                if (selectedInvitee) {
+                  setSelectedInvitee("");
+                }
+              }}
               loading={searchQ.isFetching}
               clearable
               clearSearchOnOpen={false}
               className="min-h-8 bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)"
+              contentClassName="z-[1105]"
+              renderOption={(option) => (
+                <div className="flex min-w-0 items-start gap-3">
+                  <Avatar
+                    src={option.avatarUrl}
+                    alt={option.label}
+                    initials={option.initials}
+                    className="rounded-full border border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
+                    sizeClass="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
+                      {option.label}
+                    </div>
+                    <div className="truncate text-xs text-muted dark:text-dark-muted">
+                      {option.username ? `@${option.username}` : option.value}
+                    </div>
+                    <div className="truncate text-xs text-muted dark:text-dark-muted">
+                      {option.email || option.description}
+                    </div>
+                  </div>
+                </div>
+              )}
             />
             <p className="mt-2 text-[11px] text-muted dark:text-dark-muted">
-              Existing collaborators are filtered out automatically.
+              Searches one backend term across name, username, and email. Existing collaborators are filtered out automatically.
             </p>
           </div>
 
