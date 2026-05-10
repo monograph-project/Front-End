@@ -16,6 +16,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { gooeyToast } from "goey-toast";
+import {
+  addCompleting,
+  removeCompleting,
+  getCompletingSet,
+} from "../../lib/completingTasksStore";
 import Button from "../../components/Button";
 import Field from "../../components/Field";
 import GlobalModal from "../../components/GlobalModal";
@@ -25,7 +31,11 @@ import RepoOverviewStatCard from "../../components/repo/RepoOverviewStatCard";
 import { REPO_OVERVIEW_STAT_PALETTES } from "../../components/repo/repoOverviewStatPalettes";
 import SettingsSectionCard from "../../components/SettingsSectionCard";
 import { useAuth } from "../../context/AuthContext";
-import { canEditIssueOrMilestoneGradingForms } from "../../lib/vcAcademicVisibility";
+import {
+  canEditIssueOrMilestoneGradingForms,
+  repoViewerUsername,
+  usernamesLikelySame,
+} from "../../lib/vcAcademicVisibility";
 import {
   useVcCreateRepoMilestone,
   useVcCreateRepoTask,
@@ -78,7 +88,9 @@ function intOrNull(value) {
 }
 
 function normalizeTaskStatus(value) {
-  const raw = String(value ?? "").trim().toLowerCase();
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase();
   if (!raw) return "open";
   if (raw === "in_progress" || raw === "in-progress") return "progress";
   if (raw === "in_review" || raw === "in-review") return "review";
@@ -89,9 +101,91 @@ function containsIgnoreCase(source, needleLower) {
   return source != null && String(source).toLowerCase().includes(needleLower);
 }
 
+function taskAssigneeUsername(task) {
+  const assigned = task?.assignedTo ?? task?.assigned_to ?? task?.assignee;
+  if (assigned && typeof assigned === "object") {
+    return String(
+      assigned.userName ??
+        assigned.username ??
+        assigned.user_name ??
+        assigned.login ??
+        "",
+    ).trim();
+  }
+  return String(
+    assigned ?? task?.assigneeUsername ?? task?.assignedToUsername ?? "",
+  ).trim();
+}
+
+function taskBelongsToUser(task, username) {
+  return (
+    usernamesLikelySame(taskAssigneeUsername(task), username) ||
+    usernamesLikelySame(task?.createdBy, username)
+  );
+}
+
+function countTasksByStatus(list) {
+  const counts = {
+    total: list.length,
+    open: 0,
+    progress: 0,
+    review: 0,
+    completed: 0,
+    cancelled: 0,
+  };
+  list.forEach((task) => {
+    const status = normalizeTaskStatus(task?.status);
+    if (Object.prototype.hasOwnProperty.call(counts, status)) {
+      counts[status] += 1;
+    }
+  });
+  return counts;
+}
+
+function milestoneTaskCounts(tasks, milestone) {
+  const milestoneNumber = Number(milestone?.number);
+  const milestoneId =
+    milestone?.id != null && milestone?.id !== "" ? String(milestone.id) : "";
+  const list = tasks.filter((task) => {
+    if (Number.isFinite(milestoneNumber) && task?.milestoneNumber != null) {
+      return Number(task.milestoneNumber) === milestoneNumber;
+    }
+    return milestoneId && task?.milestoneId != null
+      ? String(task.milestoneId) === milestoneId
+      : false;
+  });
+  return countTasksByStatus(list);
+}
+
+function withDerivedMilestoneProgress(milestone, tasks) {
+  const counts = milestoneTaskCounts(tasks, milestone);
+  const requiredTasks = asNumber(milestone?.requiredTasks);
+  const completionTarget =
+    requiredTasks != null && requiredTasks > 0 ? requiredTasks : counts.total;
+  const completionPercentage =
+    completionTarget > 0
+      ? Math.round(
+          (Math.min(counts.completed, completionTarget) / completionTarget) *
+            100,
+        )
+      : progressValue(milestone?.completionPercentage);
+
+  return {
+    ...milestone,
+    totalTasks: counts.total,
+    openTasks: counts.open,
+    inProgressTasks: counts.progress,
+    inReviewTasks: counts.review,
+    completedTasks: counts.completed,
+    completionPercentage,
+  };
+}
+
 /** Client-side task search aligned with VC `TaskService` list filtering. */
 function taskMatchesDeferredSearch(task, searchRaw) {
-  const needle = String(searchRaw ?? "").trim().toLowerCase();
+  const needle = String(searchRaw ?? "")
+    .trim()
+    .toLowerCase();
   if (!needle) return true;
   return (
     containsIgnoreCase(task?.title, needle) ||
@@ -122,16 +216,10 @@ function filterRepoTasksForStudentView(list, filters) {
     scopeFilter,
     currentUsername,
   } = filters;
-  const userNorm = currentUsername ? currentUsername.trim().toLowerCase() : "";
 
   return list.filter((task) => {
-    if (scopeFilter === "mine" && userNorm) {
-      const assignee = String(
-        task?.assignedTo?.userName ?? task?.assignedTo?.username ?? "",
-      )
-        .trim()
-        .toLowerCase();
-      if (assignee !== userNorm) return false;
+    if (scopeFilter === "mine" && currentUsername) {
+      if (!taskBelongsToUser(task, currentUsername)) return false;
     }
     if (milestoneFilter !== "all") {
       const m = Number(milestoneFilter);
@@ -147,7 +235,11 @@ function filterRepoTasksForStudentView(list, filters) {
 }
 
 function normalizePriority(value) {
-  return String(value ?? "medium").trim().toLowerCase() || "medium";
+  return (
+    String(value ?? "medium")
+      .trim()
+      .toLowerCase() || "medium"
+  );
 }
 
 function taskStatusTone(status) {
@@ -191,9 +283,8 @@ function StatusBadge({ label, tone }) {
   );
 }
 
-function MilestoneCard({ milestone, locale, t, to }) {
+function MilestoneCard({ milestone, locale, t, to, completingCount = 0 }) {
   const status = String(milestone?.status ?? "open").toLowerCase();
-  const completion = progressValue(milestone?.completionPercentage);
   const dueDate = formatDate(milestone?.dueDate, locale);
   const totalTasks = asNumber(milestone?.totalTasks) ?? 0;
   const completedTasks = asNumber(milestone?.completedTasks) ?? 0;
@@ -201,6 +292,17 @@ function MilestoneCard({ milestone, locale, t, to }) {
   const requiredTasks = asNumber(milestone?.requiredTasks);
   const completionTarget =
     requiredTasks != null && requiredTasks > 0 ? requiredTasks : totalTasks;
+  let completion = 0;
+  let effectiveCompleted = completedTasks;
+  if (completionTarget > 0) {
+    effectiveCompleted = Math.min(
+      completionTarget,
+      completedTasks + Number(completingCount || 0),
+    );
+    completion = Math.round((effectiveCompleted / completionTarget) * 100);
+  } else {
+    completion = progressValue(milestone?.completionPercentage);
+  }
 
   return (
     <Link
@@ -230,7 +332,7 @@ function MilestoneCard({ milestone, locale, t, to }) {
               }
             />
           </div>
-          {milestone?.description ? (
+            {milestone?.description ? (
             <p className="mt-2 line-clamp-2 text-xs leading-5 text-secondary dark:text-dark-secondary">
               {milestone.description}
             </p>
@@ -266,7 +368,7 @@ function MilestoneCard({ milestone, locale, t, to }) {
         <span className="inline-flex items-center gap-1.5">
           <CheckCircle2 className="h-3.5 w-3.5 text-muted dark:text-dark-muted" />
           {t("studentRepo.tasks.milestones.completedTasks", {
-            count: completedTasks,
+            count: effectiveCompleted,
             total: completionTarget,
           })}
         </span>
@@ -275,12 +377,23 @@ function MilestoneCard({ milestone, locale, t, to }) {
   );
 }
 
-function TaskListItem({ task, milestoneMap, locale, t, to }) {
+function TaskListItem({
+  task,
+  milestoneMap,
+  locale,
+  t,
+  to,
+  onComplete,
+  canComplete,
+  isCompleting,
+}) {
   const status = normalizeTaskStatus(task?.status);
   const priority = normalizePriority(task?.priority);
   const dueDate = formatDate(task?.dueDate, locale);
   const milestone = milestoneMap.get(task?.milestoneNumber);
-  const title = task?.title || t("studentRepo.tasks.unnamed", { index: task?.number ?? "—" });
+  const title =
+    task?.title ||
+    t("studentRepo.tasks.unnamed", { index: task?.number ?? "—" });
   const commentsCount = asNumber(task?.commentsCount) ?? 0;
 
   return (
@@ -313,14 +426,28 @@ function TaskListItem({ task, milestoneMap, locale, t, to }) {
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-secondary dark:text-dark-secondary">
-            <span>{t("studentRepo.tasks.detail.createdBy", { user: task?.createdBy || "—" })}</span>
+            <span>
+              {t("studentRepo.tasks.detail.createdBy", {
+                user: task?.createdBy || "—",
+              })}
+            </span>
             {task?.assignedTo?.userName ? (
-              <span>{t("studentRepo.tasks.detail.assignee", { user: task.assignedTo.userName })}</span>
+              <span>
+                {t("studentRepo.tasks.detail.assignee", {
+                  user: task.assignedTo.userName,
+                })}
+              </span>
             ) : (
               <span>{t("studentRepo.tasks.detail.unassigned")}</span>
             )}
-            {dueDate ? <span>{t("studentRepo.tasks.detail.due", { date: dueDate })}</span> : null}
-            <span>{t("studentRepo.tasks.detail.comments", { count: commentsCount })}</span>
+            {dueDate ? (
+              <span>
+                {t("studentRepo.tasks.detail.due", { date: dueDate })}
+              </span>
+            ) : null}
+            <span>
+              {t("studentRepo.tasks.detail.comments", { count: commentsCount })}
+            </span>
           </div>
         </div>
 
@@ -335,6 +462,23 @@ function TaskListItem({ task, milestoneMap, locale, t, to }) {
             label={t(`studentRepo.tasks.priority.${priority}`)}
             tone={priorityTone(priority)}
           />
+          {canComplete &&
+          normalizeTaskStatus(task?.status) === "review" &&
+          task?.linkedPrId ? (
+            <Button
+              type="button"
+              variant="secondary"
+              loading={Boolean(isCompleting)}
+              disabled={Boolean(isCompleting)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onComplete && onComplete(task?.number, task?.linkedPrId);
+              }}
+            >
+              {t("studentRepo.tasks.actions.complete")}
+            </Button>
+          ) : null}
         </div>
       </div>
     </Link>
@@ -469,7 +613,12 @@ function TaskRequirementRows({ rows, onChange, t }) {
           </div>
         ))}
       </div>
-      <Button type="button" variant="secondary" icon={<Plus />} onClick={addRow}>
+      <Button
+        type="button"
+        variant="secondary"
+        icon={<Plus />}
+        onClick={addRow}
+      >
         {t("studentRepo.tasks.createTask.requirements.addRow")}
       </Button>
       <p className="text-xs text-secondary dark:text-dark-secondary">
@@ -506,7 +655,9 @@ export default function StudentRepoTasks() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [milestoneFilter, setMilestoneFilter] = useState("all");
-  const [scopeFilter, setScopeFilter] = useState("all");
+  const [scopeFilter, setScopeFilter] = useState(() =>
+    typeof isTeacher === "function" && isTeacher() ? "all" : "mine",
+  );
   const [createMilestoneOpen, setCreateMilestoneOpen] = useState(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [milestoneDraft, setMilestoneDraft] = useState({
@@ -530,23 +681,25 @@ export default function StudentRepoTasks() {
     requirementRows: [""],
   });
   const deferredSearch = useDeferredValue(search);
+  const [completing, setCompleting] = useState(() => new Set());
 
-  const { data: dashboard, isFetching: dashboardLoading } = useVcRepoTaskDashboard(
-    owner,
-    repo,
-    { notifyOnError: false },
-  );
+  const { data: dashboard, isFetching: dashboardLoading } =
+    useVcRepoTaskDashboard(owner, repo, { notifyOnError: false });
 
   /** No query params: backend may not bind optional filters; open/closed tabs filter client-side. */
-  const { data: milestones = [], isFetching: milestonesLoading } = useVcRepoMilestones(
-    owner,
-    repo,
-    { state: "all" },
-    { notifyOnError: false },
-  );
+  const { data: milestones = [], isFetching: milestonesLoading } =
+    useVcRepoMilestones(
+      owner,
+      repo,
+      { state: "all" },
+      { notifyOnError: false },
+    );
 
-  const currentUsername =
-    typeof user?.username === "string" ? user.username.trim() : "";
+  const currentUsername = repoViewerUsername(user);
+  const canViewAllTasks =
+    (typeof isTeacher === "function" && isTeacher()) ||
+    (typeof isAdmin === "function" && isAdmin());
+  const effectiveScopeFilter = canViewAllTasks ? scopeFilter : "mine";
 
   const invalidateTaskDomain = async () => {
     await Promise.all([
@@ -564,6 +717,48 @@ export default function StudentRepoTasks() {
       }),
     ]);
   };
+
+  async function handleCompleteTask(taskNumber, pullRequestId) {
+    const key = String(taskNumber);
+    setCompleting((prev) => {
+      const s = new Set(prev);
+      s.add(key);
+      return s;
+    });
+    addCompleting(key);
+    try {
+      const res = await fetch(
+        `/api/v1/task/repos/${owner}/${repo}/tasks/${taskNumber}/complete`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pullRequestId }),
+        },
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => null);
+        throw new Error(text || res.statusText || "Failed to complete task");
+      }
+      gooeyToast.success(
+        t("studentRepo.tasks.toasts.completeSuccess", { number: taskNumber }) ||
+          "Task completed",
+      );
+      await invalidateTaskDomain();
+    } catch (err) {
+      console.error("Failed to complete task", err);
+      gooeyToast.error(
+        t("studentRepo.tasks.toasts.completeError") ||
+          String(err?.message || err),
+      );
+    } finally {
+      setCompleting((prev) => {
+        const s = new Set(prev);
+        s.delete(key);
+        return s;
+      });
+      removeCompleting(key);
+    }
+  }
 
   const createMilestoneMutation = useVcCreateRepoMilestone({
     onSuccess: async () => {
@@ -606,58 +801,83 @@ export default function StudentRepoTasks() {
     { notifyOnError: false },
   );
 
+  const completingCounts = useMemo(() => {
+    const map = new Map();
+    const global = getCompletingSet();
+    const lookups = global.size ? global : completing;
+    const progressTasks =
+      effectiveScopeFilter === "mine" && currentUsername
+        ? allRepoTasks.filter((task) => taskBelongsToUser(task, currentUsername))
+        : allRepoTasks;
+    for (const task of progressTasks) {
+      if (!task) continue;
+      if (!task?.milestoneNumber) continue;
+      if (lookups.has(String(task.number))) {
+        const m = Number(task.milestoneNumber);
+        map.set(m, (map.get(m) || 0) + 1);
+      }
+    }
+    return map;
+  }, [allRepoTasks, completing, currentUsername, effectiveScopeFilter]);
+
+  const taskScopeForProgress = useMemo(() => {
+    if (effectiveScopeFilter === "mine" && currentUsername) {
+      return allRepoTasks.filter((task) => taskBelongsToUser(task, currentUsername));
+    }
+    return allRepoTasks;
+  }, [allRepoTasks, currentUsername, effectiveScopeFilter]);
+
   const tasks = useMemo(
     () =>
       filterRepoTasksForStudentView(allRepoTasks, {
         deferredSearch,
         statusFilter,
         milestoneFilter,
-        scopeFilter,
+        scopeFilter: effectiveScopeFilter,
         currentUsername,
       }),
     [
       allRepoTasks,
       currentUsername,
       deferredSearch,
+      effectiveScopeFilter,
       milestoneFilter,
-      scopeFilter,
       statusFilter,
     ],
   );
 
   const milestoneCounts = useMemo(() => {
-    const openFromBackend = asNumber(dashboard?.openMilestones);
-    const closedFromBackend = asNumber(dashboard?.closedMilestones);
-    if (openFromBackend != null || closedFromBackend != null) {
-      return {
-        open: openFromBackend ?? 0,
-        closed: closedFromBackend ?? 0,
-      };
-    }
-    const open = milestones.filter(
+    const scopedMilestones = milestones.map((item) =>
+      withDerivedMilestoneProgress(item, taskScopeForProgress),
+    );
+    const open = scopedMilestones.filter(
       (item) => String(item?.status ?? "open").toLowerCase() !== "closed",
     ).length;
-    const closed = milestones.length - open;
+    const closed = scopedMilestones.length - open;
     return { open, closed };
-  }, [dashboard?.closedMilestones, dashboard?.openMilestones, milestones]);
+  }, [milestones, taskScopeForProgress]);
 
   const visibleMilestones = useMemo(
     () =>
-      milestones.filter((item) =>
-        milestoneState === "closed"
-          ? String(item?.status ?? "").toLowerCase() === "closed"
-          : String(item?.status ?? "open").toLowerCase() !== "closed",
-      ),
-    [milestoneState, milestones],
+      milestones
+        .map((item) => withDerivedMilestoneProgress(item, taskScopeForProgress))
+        .filter((item) =>
+          milestoneState === "closed"
+            ? String(item?.status ?? "").toLowerCase() === "closed"
+            : String(item?.status ?? "open").toLowerCase() !== "closed",
+        ),
+    [milestoneState, milestones, taskScopeForProgress],
   );
 
   const milestoneMap = useMemo(() => {
     const map = new Map();
-    milestones.forEach((item) => {
-      if (item?.number != null) map.set(item.number, item);
-    });
+    milestones
+      .map((item) => withDerivedMilestoneProgress(item, taskScopeForProgress))
+      .forEach((item) => {
+        if (item?.number != null) map.set(item.number, item);
+      });
     return map;
-  }, [milestones]);
+  }, [milestones, taskScopeForProgress]);
 
   const statusOptions = useMemo(
     () => [
@@ -693,13 +913,14 @@ export default function StudentRepoTasks() {
     [milestones, t],
   );
 
-  const scopeOptions = useMemo(
-    () => [
+  const scopeOptions = useMemo(() => {
+    const mine = { value: "mine", label: t("studentRepo.tasks.filters.scopeMine") };
+    if (!canViewAllTasks) return [mine];
+    return [
       { value: "all", label: t("studentRepo.tasks.filters.scopeAll") },
-      { value: "mine", label: t("studentRepo.tasks.filters.scopeMine") },
-    ],
-    [t],
-  );
+      mine,
+    ];
+  }, [canViewAllTasks, t]);
 
   const priorityOptions = useMemo(
     () => [
@@ -724,7 +945,13 @@ export default function StudentRepoTasks() {
   );
 
   const summaryTiles = useMemo(() => {
-    const totalTasks = asNumber(dashboard?.totalTasks) ?? allRepoTasks.length;
+    const scopedCounts = countTasksByStatus(taskScopeForProgress);
+    const useBackendDashboard =
+      effectiveScopeFilter === "mine" &&
+      asNumber(dashboard?.totalTasks) != null;
+    const totalTasks = useBackendDashboard
+      ? asNumber(dashboard?.totalTasks) ?? 0
+      : scopedCounts.total;
     return [
       {
         key: "total",
@@ -738,7 +965,9 @@ export default function StudentRepoTasks() {
         key: "open",
         icon: CircleDot,
         label: t("studentRepo.tasks.statOpen"),
-        value: asNumber(dashboard?.openTasks) ?? 0,
+        value: useBackendDashboard
+          ? asNumber(dashboard?.openTasks) ?? 0
+          : scopedCounts.open,
         hint: t("studentRepo.tasks.summary.openHint"),
         paletteIndex: 1,
       },
@@ -746,7 +975,9 @@ export default function StudentRepoTasks() {
         key: "progress",
         icon: Gauge,
         label: t("studentRepo.tasks.statInProgress"),
-        value: asNumber(dashboard?.inProgressTasks) ?? 0,
+        value: useBackendDashboard
+          ? asNumber(dashboard?.inProgressTasks) ?? 0
+          : scopedCounts.progress,
         hint: t("studentRepo.tasks.summary.progressHint"),
         paletteIndex: 2,
       },
@@ -754,7 +985,9 @@ export default function StudentRepoTasks() {
         key: "review",
         icon: ListChecks,
         label: t("studentRepo.tasks.statInReview"),
-        value: asNumber(dashboard?.inReviewTasks) ?? 0,
+        value: useBackendDashboard
+          ? asNumber(dashboard?.inReviewTasks) ?? 0
+          : scopedCounts.review,
         hint: t("studentRepo.tasks.summary.reviewHint"),
         paletteIndex: 3,
       },
@@ -762,12 +995,14 @@ export default function StudentRepoTasks() {
         key: "completed",
         icon: CheckCircle2,
         label: t("studentRepo.tasks.statCompleted"),
-        value: asNumber(dashboard?.completedTasks) ?? 0,
+        value: useBackendDashboard
+          ? asNumber(dashboard?.completedTasks) ?? 0
+          : scopedCounts.completed,
         hint: t("studentRepo.tasks.summary.completedHint"),
         paletteIndex: 0,
       },
     ];
-  }, [allRepoTasks.length, dashboard, t]);
+  }, [dashboard, effectiveScopeFilter, taskScopeForProgress, t]);
 
   const isLoading = dashboardLoading || milestonesLoading || tasksLoading;
 
@@ -807,11 +1042,11 @@ export default function StudentRepoTasks() {
         taskDraft.milestoneNumber !== "none"
           ? intOrNull(taskDraft.milestoneNumber)
           : null,
-      ...(draftTaskMilestone?.id
-        ? { milestoneId: draftTaskMilestone.id }
-        : {}),
+      ...(draftTaskMilestone?.id ? { milestoneId: draftTaskMilestone.id } : {}),
       priority: String(taskDraft.priority || "medium").toUpperCase(),
-      labels: asArray(taskDraft.labels).map((item) => String(item).toUpperCase()),
+      labels: asArray(taskDraft.labels).map((item) =>
+        String(item).toUpperCase(),
+      ),
       dueDate: isoFromDateInput(taskDraft.dueDate),
       estimatedHours: intOrNull(taskDraft.estimatedHours),
       maxScore: intOrNull(taskDraft.maxScore),
@@ -900,6 +1135,7 @@ export default function StudentRepoTasks() {
                 locale={i18n.language}
                 t={t}
                 to={`milestone/${encodeURIComponent(String(milestone.number))}`}
+                completingCount={completingCounts.get(Number(milestone.number)) || 0}
               />
             ))}
           </div>
@@ -915,61 +1151,66 @@ export default function StudentRepoTasks() {
         title={t("studentRepo.tasks.issues.title")}
         description={t("studentRepo.tasks.issues.subtitle")}
         action={
-            <Button
-              icon={<CirclePlus />}
-              onClick={() => setCreateTaskOpen(true)}
-              disabled={!currentUsername}
-              title={
-                !currentUsername
-                  ? t("studentRepo.tasks.authRequiredUsername")
-                  : undefined
-              }
-            >
-              {t("studentRepo.tasks.actions.newTask")}
-            </Button>
+          <Button
+            icon={<CirclePlus />}
+            onClick={() => setCreateTaskOpen(true)}
+            disabled={!currentUsername}
+            title={
+              !currentUsername
+                ? t("studentRepo.tasks.authRequiredUsername")
+                : undefined
+            }
+          >
+            {t("studentRepo.tasks.actions.newTask")}
+          </Button>
         }
         contentClassName="space-y-5"
       >
-          <FilterToolbar
-            search={search}
-            setSearch={setSearch}
-            statusFilter={statusFilter}
-            setStatusFilter={setStatusFilter}
-            milestoneFilter={milestoneFilter}
-            setMilestoneFilter={setMilestoneFilter}
-            scopeFilter={scopeFilter}
-            setScopeFilter={setScopeFilter}
-            statusOptions={statusOptions}
-            milestoneOptions={milestoneOptions}
-            scopeOptions={scopeOptions}
-            t={t}
-          />
+        <FilterToolbar
+          search={search}
+          setSearch={setSearch}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          milestoneFilter={milestoneFilter}
+          setMilestoneFilter={setMilestoneFilter}
+          scopeFilter={effectiveScopeFilter}
+          setScopeFilter={setScopeFilter}
+          statusOptions={statusOptions}
+          milestoneOptions={milestoneOptions}
+          scopeOptions={scopeOptions}
+          t={t}
+        />
 
-          <div className="flex items-center gap-2 text-xs text-muted dark:text-dark-muted">
-            <Filter className="h-3.5 w-3.5" />
-            {t("studentRepo.tasks.filters.showing", { count: tasks.length })}
+        <div className="flex items-center gap-2 text-xs text-muted dark:text-dark-muted">
+          <Filter className="h-3.5 w-3.5" />
+          {t("studentRepo.tasks.filters.showing", { count: tasks.length })}
+        </div>
+
+        {!isLoading && !tasks.length ? (
+          <div className="rounded-2xl border border-dashed border-(--color-light-card-border) bg-light-app-tertiary px-5 py-8 text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+            <p className="text-sm font-medium text-primary dark:text-dark-primary">
+              {t("studentRepo.tasks.empty")}
+            </p>
           </div>
-
-          {!isLoading && !tasks.length ? (
-            <div className="rounded-2xl border border-dashed border-(--color-light-card-border) bg-light-app-tertiary px-5 py-8 text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-              <p className="text-sm font-medium text-primary dark:text-dark-primary">
-                {t("studentRepo.tasks.empty")}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {tasks.map((task) => (
-                <TaskListItem
-                  key={task.id ?? task.number}
-                  task={task}
-                  milestoneMap={milestoneMap}
-                  locale={i18n.language}
-                  t={t}
-                  to={`issue/${encodeURIComponent(String(task.number))}`}
-                />
-              ))}
-            </div>
-          )}
+        ) : (
+          <div className="space-y-3">
+            {tasks.map((task) => (
+              <TaskListItem
+                key={task.id ?? task.number}
+                task={task}
+                milestoneMap={milestoneMap}
+                locale={i18n.language}
+                t={t}
+                to={`issue/${encodeURIComponent(String(task.number))}`}
+                onComplete={handleCompleteTask}
+                canComplete={
+                  canEditGradingForms ||
+                  (currentUsername && currentUsername === String(owner))
+                }
+              />
+            ))}
+          </div>
+        )}
       </SettingsSectionCard>
 
       <GlobalModal
@@ -1033,7 +1274,9 @@ export default function StudentRepoTasks() {
                 }
               />
             </div>
-            <Field label={t("studentRepo.tasks.createMilestone.fields.description")}>
+            <Field
+              label={t("studentRepo.tasks.createMilestone.fields.description")}
+            >
               <textarea
                 value={milestoneDraft.description}
                 onChange={(e) =>
@@ -1068,7 +1311,9 @@ export default function StudentRepoTasks() {
                 <>
                   <Field
                     register={{}}
-                    label={t("studentRepo.tasks.createMilestone.fields.maxScore")}
+                    label={t(
+                      "studentRepo.tasks.createMilestone.fields.maxScore",
+                    )}
                     type="number"
                     value={milestoneDraft.maxScore}
                     onChange={(e) =>
@@ -1122,7 +1367,9 @@ export default function StudentRepoTasks() {
                 "studentRepo.tasks.createMilestone.sections.contentHint",
               )}
             >
-              <Field label={t("studentRepo.tasks.createMilestone.fields.rubric")}>
+              <Field
+                label={t("studentRepo.tasks.createMilestone.fields.rubric")}
+              >
                 <textarea
                   value={milestoneDraft.rubric}
                   onChange={(e) =>
@@ -1312,7 +1559,9 @@ export default function StudentRepoTasks() {
             title={t("studentRepo.tasks.createTask.sections.content")}
             subtitle={t("studentRepo.tasks.createTask.sections.contentHint")}
           >
-            <Field label={t("studentRepo.tasks.createTask.fields.requirements")}>
+            <Field
+              label={t("studentRepo.tasks.createTask.fields.requirements")}
+            >
               <TaskRequirementRows
                 rows={taskDraft.requirementRows}
                 onChange={(next) =>

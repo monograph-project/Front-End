@@ -21,10 +21,7 @@ import {
   DropdownSubContent,
 } from "../components/DropdownMenu";
 import AvatarDemo from "../components/Avatar";
-import {
-  resolveShellBasePath,
-  settingsPathForShell,
-} from "../lib/roles";
+import { resolveShellBasePath, settingsPathForShell } from "../lib/roles";
 import {
   resolveProfilePhotoUrl,
   buildPersonInitials,
@@ -136,10 +133,14 @@ function isPublicStoriesPath(pathname) {
 function NotificationButton({ unreadCount, active, onToggle, ariaLabel }) {
   return (
     <div className="relative">
-      <HeaderIconButton onClick={onToggle} active={active} ariaLabel={ariaLabel}>
+      <HeaderIconButton
+        onClick={onToggle}
+        active={active}
+        ariaLabel={ariaLabel}
+      >
         <Icon d={IC.bell} className="size-3.5 stroke-[1.5] sm:size-4" />
         {unreadCount > 0 && (
-          <span className="absolute top-0.5 right-0.5 min-w-[14px] h-3.5 px-0.5 flex items-center justify-center rounded-full bg-chart-error text-[8px] font-bold text-success-light leading-none">
+          <span className="absolute top-0.5 right-0.5 min-w-[14px] h-3.5 px-0.5 flex items-center justify-center rounded-full bg-chart-error text-white text-[8px] font-bold text-success-light leading-none">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
@@ -160,10 +161,13 @@ export default function AppHeader({
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const notificationUserId = resolveNotificationRecipientId(user);
-  const { data: unreadRaw } = useUserNotificationUnreadCount(notificationUserId, {
-    enabled: Boolean(notificationUserId),
-    notifyOnError: false,
-  });
+  const { data: unreadRaw } = useUserNotificationUnreadCount(
+    notificationUserId,
+    {
+      enabled: Boolean(notificationUserId),
+      notifyOnError: false,
+    },
+  );
   useNotificationWebSocket(notificationUserId, Boolean(notificationUserId));
   const showStoriesSearch = isPublicStoriesPath(pathname);
 
@@ -293,24 +297,29 @@ export default function AppHeader({
 
           <DropdownContent align="end" className="w-48">
             <DropdownItem>
-            <div onClick={navigateToProfile} className="flex items-center gap-4 ltr:flex-row rtl:flex-row-reverse">
-              <AvatarDemo
-                src={resolveProfilePhotoUrl(user)}
-                initials={buildPersonInitials(user)}
-              />
-              <div className="flex flex-col">
-                <span className="font-medium text-gray-900 ltr:text-left rtl:text-right">{user.username}</span>
-                <span
-                  className="text-gray-500 text-sm truncate max-w-[140px] ltr:text-left rtl:text-right"
-                  title={user.email}
-                >
-                  {user.email}
-                </span>
+              <div
+                onClick={navigateToProfile}
+                className="flex items-center gap-4 ltr:flex-row rtl:flex-row-reverse"
+              >
+                <AvatarDemo
+                  src={resolveProfilePhotoUrl(user)}
+                  initials={buildPersonInitials(user)}
+                />
+                <div className="flex flex-col">
+                  <span className="font-medium text-gray-900 ltr:text-left rtl:text-right">
+                    {user.username}
+                  </span>
+                  <span
+                    className="text-gray-500 text-sm truncate max-w-[140px] ltr:text-left rtl:text-right"
+                    title={user.email}
+                  >
+                    {user.email}
+                  </span>
+                </div>
               </div>
-            </div>
             </DropdownItem>
-            <DropdownSeparator /> 
-          
+            <DropdownSeparator />
+
             <DropdownItem onClick={navigateToAccountSettings}>
               {t("common.actions.settings")}
             </DropdownItem>
@@ -341,7 +350,7 @@ export default function AppHeader({
               {t("appHeader.notifications")}
             </DropdownItem>
             <DropdownSeparator />
-            
+
             <DropdownItem
               variant="danger"
               onClick={() => {

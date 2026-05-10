@@ -1,4 +1,4 @@
-import { createElement, useMemo, useState } from "react";
+import { createElement, useMemo, useState, useEffect } from "react";
 import {
   Link,
   Navigate,
@@ -40,6 +40,10 @@ import {
   useVcRepoMilestoneByNumber,
   useVcRepoTasks,
 } from "../../services/useApi";
+import {
+  subscribeCompleting,
+  getCompletingSet,
+} from "../../lib/completingTasksStore";
 
 function cx(...parts) {
   return parts.filter(Boolean).join(" ");
@@ -64,6 +68,29 @@ function progressValue(value) {
   const n = Number(value ?? 0);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(100, n));
+}
+
+function taskAssigneeUsername(task) {
+  const assigned = task?.assignedTo ?? task?.assigned_to ?? task?.assignee;
+  if (assigned && typeof assigned === "object") {
+    return String(
+      assigned.userName ??
+        assigned.username ??
+        assigned.user_name ??
+        assigned.login ??
+        "",
+    ).trim();
+  }
+  return String(
+    assigned ?? task?.assigneeUsername ?? task?.assignedToUsername ?? "",
+  ).trim();
+}
+
+function taskBelongsToUser(task, username) {
+  return (
+    usernamesLikelySame(taskAssigneeUsername(task), username) ||
+    usernamesLikelySame(task?.createdBy, username)
+  );
 }
 
 function formatDate(value, locale) {
@@ -114,6 +141,23 @@ function normalizeTaskStatus(value) {
   if (raw === "in_progress" || raw === "in-progress") return "progress";
   if (raw === "in_review" || raw === "in-review") return "review";
   return raw;
+}
+
+function countTasksByStatus(list) {
+  const counts = {
+    total: list.length,
+    open: 0,
+    progress: 0,
+    review: 0,
+    completed: 0,
+  };
+  list.forEach((task) => {
+    const status = normalizeTaskStatus(task?.status);
+    if (Object.prototype.hasOwnProperty.call(counts, status)) {
+      counts[status] += 1;
+    }
+  });
+  return counts;
 }
 
 function taskStatusTone(status) {
@@ -209,6 +253,27 @@ export default function StudentRepoMilestoneDetail() {
     { enabled: Boolean(owner && repo), notifyOnError: false },
   );
 
+  const [completingCounts, setCompletingCounts] = useState(() => new Map());
+
+  useEffect(() => {
+    function recompute(set) {
+      const map = new Map();
+      const s = set ?? getCompletingSet();
+      for (const task of repoTasks) {
+        if (!task) continue;
+        if (!task?.milestoneNumber) continue;
+        if (s.has(String(task.number))) {
+          const m = Number(task.milestoneNumber);
+          map.set(m, (map.get(m) || 0) + 1);
+        }
+      }
+      setCompletingCounts(map);
+    }
+    const unsub = subscribeCompleting((s) => recompute(s));
+    recompute();
+    return unsub;
+  }, [repoTasks]);
+
   const milestoneIdStr =
     milestone?.id != null ? String(milestone.id) : "";
 
@@ -218,6 +283,9 @@ export default function StudentRepoMilestoneDetail() {
     milestone?.createdBy,
   );
   const currentUsername = repoViewerUsername(user);
+  const canViewAllTasks =
+    (typeof isTeacher === "function" && isTeacher()) ||
+    (typeof isAdmin === "function" && isAdmin());
   const canManageMilestone =
     Boolean(milestone?.createdBy) &&
     usernamesLikelySame(currentUsername, milestone.createdBy);
@@ -226,6 +294,9 @@ export default function StudentRepoMilestoneDetail() {
     if (msKey == null) return [];
     const mNum = Number(msKey);
     return repoTasks.filter((task) => {
+      if (!canViewAllTasks && currentUsername) {
+        if (!taskBelongsToUser(task, currentUsername)) return false;
+      }
       if (Number.isFinite(mNum) && task?.milestoneNumber != null) {
         return Number(task.milestoneNumber) === mNum;
       }
@@ -234,7 +305,7 @@ export default function StudentRepoMilestoneDetail() {
       }
       return false;
     });
-  }, [repoTasks, milestoneIdStr, msKey]);
+  }, [canViewAllTasks, currentUsername, repoTasks, milestoneIdStr, msKey]);
 
   const invalidateScope = async () => {
     await Promise.all([
@@ -277,7 +348,24 @@ export default function StudentRepoMilestoneDetail() {
   });
 
   const status = String(milestone?.status ?? "open").toLowerCase();
-  const completion = progressValue(milestone?.completionPercentage);
+  const completingCountForThis = completingCounts.get(Number(msKey)) || 0;
+  let completion = 0;
+  const taskCounts = countTasksByStatus(tasks);
+  const totalTasks = taskCounts.total;
+  const completedTasks = taskCounts.completed;
+  const requiredTasks = asNumber(milestone?.requiredTasks);
+  const completionTarget =
+    requiredTasks != null && requiredTasks > 0 ? requiredTasks : totalTasks;
+  let effectiveCompleted = completedTasks;
+  if (completionTarget > 0) {
+    effectiveCompleted = Math.min(
+      completionTarget,
+      completedTasks + Number(completingCountForThis || 0),
+    );
+    completion = Math.round((effectiveCompleted / completionTarget) * 100);
+  } else {
+    completion = progressValue(milestone?.completionPercentage);
+  }
   const dueDate = formatDate(milestone?.dueDate, i18n.language);
   const mutatingLifecycle =
     closeMilestoneMut.isPending || reopenMilestoneMut.isPending;
@@ -460,25 +548,25 @@ export default function StudentRepoMilestoneDetail() {
               <RepoOverviewStatCard
                 icon={ListChecks}
                 label={t("studentRepo.tasks.milestoneDetail.stats.total")}
-                value={String(asNumber(milestone.totalTasks) ?? 0)}
+                value={String(totalTasks)}
                 palette={REPO_OVERVIEW_STAT_PALETTES[0]}
               />
               <RepoOverviewStatCard
                 icon={Flag}
                 label={t("studentRepo.tasks.milestoneDetail.stats.open")}
-                value={String(asNumber(milestone.openTasks) ?? 0)}
+                value={String(taskCounts.open)}
                 palette={REPO_OVERVIEW_STAT_PALETTES[1]}
               />
               <RepoOverviewStatCard
                 icon={Gauge}
                 label={t("studentRepo.tasks.milestoneDetail.stats.progress")}
-                value={String(asNumber(milestone.inProgressTasks) ?? 0)}
+                value={String(taskCounts.progress)}
                 palette={REPO_OVERVIEW_STAT_PALETTES[2]}
               />
               <RepoOverviewStatCard
                 icon={CheckCircle2}
                 label={t("studentRepo.tasks.milestoneDetail.stats.completed")}
-                value={String(asNumber(milestone.completedTasks) ?? 0)}
+                value={String(effectiveCompleted)}
                 palette={REPO_OVERVIEW_STAT_PALETTES[3]}
               />
             </div>
