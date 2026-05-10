@@ -2149,6 +2149,59 @@ export function useVcRepositoriesForViewer(ownerAccountId, queryOptions = {}) {
   return q;
 }
 
+/**
+ * Loads repositories the current user can access, including accepted collaborations.
+ * Keeps the older owner-only query separate for screens that require ownership-only semantics.
+ *
+ * @param {string | null | undefined} userAccountId
+ * @param {{ activityUsernameFallback?: string; notifyOnError?: boolean; enabled?: boolean } & Omit<import("@tanstack/react-query").UseQueryOptions, "queryKey"|"queryFn">} queryOptions
+ */
+export function useVcAccessibleRepositoriesForViewer(
+  userAccountId,
+  queryOptions = {},
+) {
+  const userKey =
+    typeof userAccountId === "string"
+      ? userAccountId.trim()
+      : `${userAccountId ?? ""}`.trim();
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    activityUsernameFallback,
+    ...rest
+  } = queryOptions;
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(userKey.length);
+
+  const q = useQuery({
+    queryKey: [
+      "vc",
+      "repos",
+      "accessible-by-account",
+      userKey,
+      activityUsernameFallback ?? "",
+    ],
+    queryFn: () =>
+      Api.vcListAccessibleRepositoriesWithFallback(userKey, {
+        activityUsernameFallback:
+          typeof activityUsernameFallback === "string"
+            ? activityUsernameFallback
+            : "",
+      }),
+    enabled,
+    staleTime: 30_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
+  return q;
+}
+
 export function useVcRepoPullRequests(owner, repo, queryOptions = {}) {
   const {
     notifyOnError = false,
@@ -2359,6 +2412,297 @@ export function useVcRepoTaskDashboard(owner, repo, queryOptions = {}) {
     queryFn: () => Api.vcGetRepoTaskDashboard(owner, repo),
     enabled,
     staleTime: 15_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
+  return q;
+}
+
+export function useVcCreateRepoTask(options = {}) {
+  return useApiMutation({
+    mutationFn: ({ owner, repo, username, ...body }) =>
+      Api.vcCreateRepoTask(owner, repo, username, body),
+    mutationKey: ["vc", "repos", "tasks", "create"],
+    toastSuccess: "Task created",
+    ...options,
+  });
+}
+
+export function useVcRepoTasks(owner, repo, params = {}, queryOptions = {}) {
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    ...rest
+  } = queryOptions;
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(owner && repo);
+
+  const q = useQuery({
+    queryKey: ["vc", "repos", "tasks", owner, repo, params],
+    queryFn: () => Api.vcGetRepoTasks(owner, repo, params),
+    enabled,
+    staleTime: 15_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
+  return q;
+}
+
+export function useVcCreateRepoMilestone(options = {}) {
+  return useApiMutation({
+    mutationFn: ({ owner, repo, ...body }) =>
+      Api.vcCreateRepoMilestone(owner, repo, body),
+    mutationKey: ["vc", "repos", "milestones", "create"],
+    toastSuccess: "Milestone created",
+    ...options,
+  });
+}
+
+export function useVcRepoMilestones(owner, repo, params = {}, queryOptions = {}) {
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    ...rest
+  } = queryOptions;
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(owner && repo);
+
+  const q = useQuery({
+    queryKey: ["vc", "repos", "milestones", owner, repo, params],
+    queryFn: () => Api.vcGetRepoMilestones(owner, repo, params),
+    enabled,
+    staleTime: 15_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
+  return q;
+}
+
+export function useVcRepoMilestoneByNumber(
+  owner,
+  repo,
+  milestoneNumber,
+  queryOptions = {},
+) {
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    ...rest
+  } = queryOptions;
+  const hasNumber =
+    milestoneNumber != null && String(milestoneNumber).trim() !== "";
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(owner && repo && hasNumber);
+
+  const q = useQuery({
+    queryKey: ["vc", "repos", "milestone", owner, repo, milestoneNumber],
+    queryFn: () =>
+      Api.vcGetRepoMilestoneByNumber(owner, repo, milestoneNumber),
+    enabled,
+    staleTime: 15_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
+  return q;
+}
+
+export function useVcPatchRepoMilestone(options = {}) {
+  return useApiMutation({
+    mutationFn: ({ owner, repo, milestoneNumber, ...body }) =>
+      Api.vcPatchRepoMilestone(owner, repo, milestoneNumber, body),
+    mutationKey: ["vc", "repos", "milestones", "patch"],
+    toastSuccess: "studentRepo.tasks.milestoneDetail.savedToast",
+    ...options,
+  });
+}
+
+export function useVcCloseRepoMilestone(options = {}) {
+  return useApiMutation({
+    mutationFn: ({ owner, repo, milestoneNumber }) =>
+      Api.vcCloseRepoMilestone(owner, repo, milestoneNumber),
+    mutationKey: ["vc", "repos", "milestones", "close"],
+    toastSuccess: "studentRepo.tasks.milestoneDetail.closedToast",
+    ...options,
+  });
+}
+
+export function useVcReopenRepoMilestone(options = {}) {
+  return useApiMutation({
+    mutationFn: ({ owner, repo, milestoneNumber }) =>
+      Api.vcReopenRepoMilestone(owner, repo, milestoneNumber),
+    mutationKey: ["vc", "repos", "milestones", "reopen"],
+    toastSuccess: "studentRepo.tasks.milestoneDetail.reopenedToast",
+    ...options,
+  });
+}
+
+export function useVcRepoTaskByNumber(owner, repo, taskNumber, queryOptions = {}) {
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    ...rest
+  } = queryOptions;
+  const hasNumber =
+    taskNumber != null && String(taskNumber).trim() !== "";
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(owner && repo && hasNumber);
+
+  const q = useQuery({
+    queryKey: ["vc", "repos", "task", owner, repo, taskNumber],
+    queryFn: () => Api.vcGetRepoTaskByNumber(owner, repo, taskNumber),
+    enabled,
+    staleTime: 15_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
+  return q;
+}
+
+export function useVcAssignRepoTask(options = {}) {
+  return useApiMutation({
+    mutationFn: ({
+      owner,
+      repo,
+      taskNumber,
+      actorUsername,
+      assigneeUsername,
+    }) =>
+      Api.vcAssignRepoTask(
+        owner,
+        repo,
+        taskNumber,
+        actorUsername,
+        assigneeUsername,
+      ),
+    mutationKey: ["vc", "repos", "tasks", "assign"],
+    toastSuccess: "studentRepo.tasks.taskDetail.assignSavedToast",
+    ...options,
+  });
+}
+
+export function useVcSubmitRepoTask(options = {}) {
+  return useApiMutation({
+    mutationFn: ({ owner, repo, taskNumber, ...body }) =>
+      Api.vcSubmitRepoTask(owner, repo, taskNumber, body),
+    mutationKey: ["vc", "repos", "tasks", "submit"],
+    toastSuccess: "studentRepo.tasks.taskDetail.submitSavedToast",
+    ...options,
+  });
+}
+
+export function useVcEligibleRepoTaskPullRequests(
+  owner,
+  repo,
+  taskNumber,
+  queryOptions = {},
+) {
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    ...rest
+  } = queryOptions;
+  const hasNumber =
+    taskNumber != null && String(taskNumber).trim() !== "";
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(owner && repo && hasNumber);
+
+  const q = useQuery({
+    queryKey: ["vc", "repos", "tasks", owner, repo, taskNumber, "eligible-pulls"],
+    queryFn: () => Api.vcGetEligibleRepoTaskPullRequests(owner, repo, taskNumber),
+    enabled,
+    staleTime: 15_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
+  return q;
+}
+
+export function useVcReviewRepoTask(options = {}) {
+  return useApiMutation({
+    mutationFn: ({ owner, repo, taskNumber, ...body }) =>
+      Api.vcReviewRepoTask(owner, repo, taskNumber, body),
+    mutationKey: ["vc", "repos", "tasks", "review"],
+    toastSuccess: "studentRepo.tasks.taskDetail.reviewSavedToast",
+    ...options,
+  });
+}
+
+export function useVcRepoStatistics(owner, repo, queryOptions = {}) {
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    ...rest
+  } = queryOptions;
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(owner && repo);
+
+  const q = useQuery({
+    queryKey: ["vc", "repos", "statistics", owner, repo],
+    queryFn: () => Api.vcGetRepoStatistics(owner, repo),
+    enabled,
+    staleTime: 30_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_repository",
+  );
+  return q;
+}
+
+export function useVcRepoContributors(owner, repo, queryOptions = {}) {
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    ...rest
+  } = queryOptions;
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(owner && repo);
+
+  const q = useQuery({
+    queryKey: ["vc", "repos", "contributors", owner, repo],
+    queryFn: () => Api.vcGetRepoContributors(owner, repo),
+    enabled,
+    staleTime: 60_000,
     ...rest,
   });
   useQueryErrorToast(

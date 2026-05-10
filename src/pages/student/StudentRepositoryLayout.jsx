@@ -1,5 +1,6 @@
-import { NavLink, Outlet, Navigate, useParams } from "react-router-dom";
+import { NavLink, Outlet, Navigate, useLocation, useParams } from "react-router-dom";
 import {
+  BarChart3,
   BookMarked,
   ChevronDown,
   Eye,
@@ -12,6 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { resolveShellBasePath } from "../../lib/roles";
 import { cn } from "../../lib/utils";
 import { useVcRepository } from "../../services/useApi";
 
@@ -41,9 +43,11 @@ function countOrZero(v) {
 
 export default function StudentRepositoryLayout() {
   const { t } = useTranslation();
+  const location = useLocation();
   const { owner, repo } = useParams();
   const decodedOwner = owner ? decodeURIComponent(owner) : "";
   const decodedRepo = repo ? decodeURIComponent(repo) : "";
+  const shellBase = resolveShellBasePath(location.pathname, undefined);
 
   const {
     data: meta,
@@ -54,7 +58,7 @@ export default function StudentRepositoryLayout() {
     enabled: Boolean(decodedOwner && decodedRepo),
   });
 
-  const repoBase = `/student/repository/${encodeURIComponent(decodedOwner)}/${encodeURIComponent(decodedRepo)}`;
+  const repoBase = `${shellBase}/repository/${encodeURIComponent(decodedOwner)}/${encodeURIComponent(decodedRepo)}`;
 
   const visibility =
     meta?.visibility ??
@@ -85,7 +89,7 @@ export default function StudentRepositoryLayout() {
         : t("studentRepo.shell.placeholderSubtitle"));
 
   if (!decodedOwner.trim() || !decodedRepo.trim()) {
-    return <Navigate to="/student/workspace" replace />;
+    return <Navigate to={`${shellBase}/workspace`} replace />;
   }
 
   return (
@@ -93,7 +97,7 @@ export default function StudentRepositoryLayout() {
       <div className="mx-auto px-4 py-5 md:px-6 lg:px-8">
         <div className="mb-3 text-xs text-muted dark:text-dark-muted">
           <NavLink
-            to="/student/workspace"
+            to={`${shellBase}/workspace`}
             className="transition-colors hover:text-(--color-chart-blue-primary) dark:hover:text-(--color-chart-blue-secondary)"
           >
             {t("studentRepo.shell.back")}
@@ -173,6 +177,13 @@ export default function StudentRepositoryLayout() {
           >
             <Users className="size-4 shrink-0" strokeWidth={1.8} aria-hidden />
             {t("studentRepo.tabs.contributors")}
+          </NavLink>
+          <NavLink
+            to={`${repoBase}/statistics`}
+            className={({ isActive }) => tabClass(isActive)}
+          >
+            <BarChart3 className="size-4 shrink-0" strokeWidth={1.8} aria-hidden />
+            {t("studentRepo.tabs.statistics")}
           </NavLink>
         </nav>
 

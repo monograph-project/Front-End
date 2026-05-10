@@ -467,6 +467,7 @@ const resources = {
       "studentRepo.tabs.pulls": "Pull requests",
       "studentRepo.tabs.tasks": "Tasks",
       "studentRepo.tabs.contributors": "Contributors",
+      "studentRepo.tabs.statistics": "Statistics",
 
       "studentRepo.code.title": "Repository tree",
       "studentRepo.code.subtitle": "Browse files and commits for this repository.",
@@ -551,9 +552,181 @@ const resources = {
       "studentRepo.pulls.subtitle": "Suggested changes reviewers can merge.",
       "studentRepo.pulls.loading": "Loading pull requests…",
       "studentRepo.pulls.empty": "No pull requests surfaced for this repo.",
+      "studentRepo.pulls.actions.cancel": "Cancel",
+      "studentRepo.pulls.actions.new": "New Pull Request",
+      "studentRepo.pulls.actions.create": "Create Pull Request",
+      "studentRepo.pulls.form.baseBranch": "Base branch",
+      "studentRepo.pulls.form.baseBranchPlaceholder": "Select base branch",
+      "studentRepo.pulls.form.compareBranch": "Compare branch",
+      "studentRepo.pulls.form.compareBranchPlaceholder":
+        "Select compare branch",
+      "studentRepo.pulls.form.compareFallback": "compare",
+      "studentRepo.pulls.form.baseFallback": "base",
+      "studentRepo.pulls.form.into": "into",
+      "studentRepo.pulls.form.summaryHint":
+        "Review the branch diff, confirm the summary, and open a pull request when the target branch is correct.",
+      "studentRepo.pulls.form.branchConflict":
+        "Base and compare branches must be different.",
+      "studentRepo.pulls.form.title": "Title",
+      "studentRepo.pulls.form.titlePlaceholder":
+        "Add a title for this pull request",
+      "studentRepo.pulls.form.description": "Description",
+      "studentRepo.pulls.form.descriptionPlaceholder":
+        "Describe what this pull request changes",
+      "studentRepo.pulls.form.changes": "Changes",
+      "studentRepo.pulls.form.filesCount_one": "{{count}} file",
+      "studentRepo.pulls.form.filesCount_other": "{{count}} files",
+      "studentRepo.pulls.form.loadingDiff": "Loading branch diff…",
+      "studentRepo.pulls.form.noDiff":
+        "No differences found between these branches.",
+      "studentRepo.pulls.form.hide": "Hide",
+      "studentRepo.pulls.form.show": "Show",
+      "studentRepo.pulls.form.old": "Old",
+      "studentRepo.pulls.form.new": "New",
+      "studentRepo.pulls.form.content": "Content",
+      "studentRepo.pulls.summary.filesChanged": "Files changed",
+      "studentRepo.pulls.summary.refreshing": "Refreshing branch comparison…",
+      "studentRepo.pulls.summary.filesHint":
+        "Files included in this pull request.",
+      "studentRepo.pulls.summary.additions": "Additions",
+      "studentRepo.pulls.summary.additionsHint":
+        "New lines introduced by the compare branch.",
+      "studentRepo.pulls.summary.deletions": "Deletions",
+      "studentRepo.pulls.summary.deletionsHint":
+        "Lines removed or replaced in the target branch.",
+      "studentRepo.pulls.cards.total": "Total",
+      "studentRepo.pulls.cards.totalHint":
+        "All pull requests for this repository.",
+      "studentRepo.pulls.cards.open": "Open",
+      "studentRepo.pulls.cards.openHint": "Ready to review or merge.",
+      "studentRepo.pulls.cards.conflicting": "Conflicting",
+      "studentRepo.pulls.cards.conflictingHint":
+        "Needs a merge resolution before merging.",
+      "studentRepo.pulls.cards.merged": "Merged",
+      "studentRepo.pulls.cards.mergedHint":
+        "Already applied to the base branch.",
+      "studentRepo.pulls.cards.closedDraft": "Closed / Draft",
+      "studentRepo.pulls.cards.closedDraftHint":
+        "Inactive or not yet ready for review.",
+      "studentRepo.pulls.filters.searchPlaceholder":
+        "Search by title, author, or branch",
+      "studentRepo.pulls.filters.status": "Status",
+      "studentRepo.pulls.filters.statusPlaceholder": "Filter by status",
+      "studentRepo.pulls.filters.allStatuses": "All statuses",
+      "studentRepo.pulls.filters.showing":
+        "Showing {{visible}} of {{total}} pull requests",
+      "studentRepo.pulls.filters.emptyTitle":
+        "No pull requests match the current filters.",
+      "studentRepo.pulls.filters.emptyHint":
+        "Try another status or clear the search term to see more results.",
+      "studentRepo.pulls.status.open": "Open",
+      "studentRepo.pulls.status.conflicting": "Conflicting",
+      "studentRepo.pulls.status.merged": "Merged",
+      "studentRepo.pulls.status.closed": "Closed",
+      "studentRepo.pulls.status.draft": "Draft",
+      "studentRepo.pulls.status.ready": "Ready for review",
+      "studentRepo.pulls.mergeState.merged":
+        "This pull request has already been merged into the base branch.",
+      "studentRepo.pulls.mergeState.closed":
+        "This pull request was closed without merging.",
+      "studentRepo.pulls.mergeState.draft":
+        "This pull request is still in draft and is not ready to merge yet.",
+      "studentRepo.pulls.mergeState.conflicting":
+        "This branch has conflicts that must be resolved before it can be merged.",
+      "studentRepo.pulls.mergeState.ready":
+        "This pull request is ready for review and can be merged when you approve it.",
+      "studentRepo.pulls.mergeState.mergeable":
+        "This branch has no conflicts with the base branch and is ready to merge.",
+      "studentRepo.pulls.card.sourceBranch": "Source branch",
+      "studentRepo.pulls.card.targetBranch": "Target branch",
+      "studentRepo.pulls.card.by": "by {{author}}",
+      "studentRepo.pulls.card.head": "Head {{sha}}",
+      "studentRepo.pulls.card.base": "Base {{sha}}",
+      "studentRepo.pulls.card.needsConflictResolution":
+        "Needs conflict resolution",
+      "studentRepo.pulls.card.checkingConflicts": "Checking conflicts…",
+      "studentRepo.pulls.card.merge": "Merge pull request",
+      "studentRepo.pulls.card.resolveConflicts": "Resolve conflicts",
+      "studentRepo.pulls.card.readyToMerge": "Ready to merge",
+      "studentRepo.pulls.card.hideDetails": "Hide details",
+      "studentRepo.pulls.card.showDetails": "Show details",
+      "studentRepo.pulls.card.compare": "Compare",
+      "studentRepo.pulls.card.status": "Status",
+      "studentRepo.pulls.card.sourceHash": "Source hash: {{sha}}",
+      "studentRepo.pulls.card.targetHash": "Target hash: {{sha}}",
+      "studentRepo.pulls.toast.created": "Pull request created",
+      "studentRepo.pulls.toast.createFailed": "Failed to create pull request.",
+      "studentRepo.pulls.conflicts.detected":
+        "Merge conflicts were detected for this pull request.",
+      "studentRepo.pulls.conflicts.loading": "Loading conflicts",
+      "studentRepo.pulls.conflicts.files": "Conflicted files",
+      "studentRepo.pulls.conflicts.item": "Conflict {{index}}",
+      "studentRepo.pulls.conflicts.binary": "Binary conflict",
+      "studentRepo.pulls.conflicts.text":
+        "Source and target both changed this file. The conflicting text is shown below.",
 
-      "studentRepo.tasks.title": "Task board",
-      "studentRepo.tasks.subtitle": "Assignments and checkpoints for this repo.",
+      "studentRepo.statistics.title": "Repository statistics",
+      "studentRepo.statistics.subtitle":
+        "Contributors, milestones, and issues—with clear charts alongside repository totals.",
+      "studentRepo.statistics.loading": "Loading repository statistics...",
+      "studentRepo.statistics.empty":
+        "No repository statistics are available yet for this repository.",
+      "studentRepo.statistics.cards.contributors": "Contributors",
+      "studentRepo.statistics.cards.commits": "Commits",
+      "studentRepo.statistics.cards.pullRequests": "Pull requests",
+      "studentRepo.statistics.cards.completedTasks": "Completed tasks",
+      "studentRepo.statistics.cards.totalMarks": "Milestone marks",
+      "studentRepo.statistics.cards.earnedMarks": "Awarded marks",
+      "studentRepo.statistics.cards.milestones": "Milestones",
+      "studentRepo.statistics.cards.issues": "Issues",
+      "studentRepo.statistics.cards.hint":
+        "Live totals from the repository statistics API.",
+      "studentRepo.statistics.cards.totalMarksHint":
+        "Total marks allocated across repository milestones.",
+      "studentRepo.statistics.cards.earnedMarksHint":
+        "Marks already awarded from reviewed task submissions.",
+      "studentRepo.statistics.cards.issuesHint": "Tracked issues fetched for this repo.",
+      "studentRepo.statistics.cards.milestonesHint": "Including open and closed milestones.",
+      "studentRepo.statistics.charts.taskStatusTitle": "Issue status overview",
+      "studentRepo.statistics.charts.taskStatusHint":
+        "Counts from repository issues (tasks). Hover a slice for detail.",
+      "studentRepo.statistics.charts.tasksTotalCenter": "issues",
+      "studentRepo.statistics.charts.milestonesTitle": "Milestone completion",
+      "studentRepo.statistics.charts.milestonesHint":
+        "Progress toward milestone completion (%). Showing up to twelve milestones.",
+      "studentRepo.statistics.charts.milestonePct": "Completion %",
+      "studentRepo.statistics.charts.noTasks": "No issues loaded for this repository yet.",
+      "studentRepo.statistics.charts.noMilestones": "No milestones for this repository yet.",
+      "studentRepo.statistics.charts.contributorSectionIntro":
+        "Activity by person (from repository statistics).",
+      "studentRepo.statistics.breakdown.title":
+        "Contributor activity breakdown",
+      "studentRepo.statistics.breakdown.hint":
+        "Commits and pushes currently use authored commit history because push events are not stored separately.",
+      "studentRepo.statistics.metrics.commits": "Commits",
+      "studentRepo.statistics.metrics.pushes": "Pushes",
+      "studentRepo.statistics.metrics.pullRequests": "Pull requests",
+      "studentRepo.statistics.metrics.completedTasks": "Completed tasks",
+      "studentRepo.statistics.share.title": "Contribution share",
+      "studentRepo.statistics.share.hint":
+        "Weighted by commits, pull requests, merged pull requests, and completed tasks.",
+      "studentRepo.statistics.summary.title": "Contributor summary",
+      "studentRepo.statistics.summary.hint":
+        "A compact table view of each contributor's tracked repository activity.",
+      "studentRepo.statistics.table.contributor": "Contributor",
+      "studentRepo.statistics.table.commits": "Commits",
+      "studentRepo.statistics.table.pushes": "Pushes",
+      "studentRepo.statistics.table.pulls": "Pulls",
+      "studentRepo.statistics.table.merged": "Merged",
+      "studentRepo.statistics.table.tasksDone": "Tasks done",
+      "studentRepo.statistics.table.marks": "Marks",
+      "studentRepo.statistics.table.scorePct": "Score %",
+      "studentRepo.statistics.table.activity": "Activity",
+      "studentRepo.statistics.table.rank": "#",
+
+      "studentRepo.tasks.title": "Tasks",
+      "studentRepo.tasks.subtitle":
+        "Milestones, issue-style tasks, and contributor progress for this repository.",
       "studentRepo.tasks.loading": "Fetching task payloads…",
       "studentRepo.tasks.empty":
         "There's nothing to display here yet — check back once your instructor publishes coursework.",
@@ -564,10 +737,277 @@ const resources = {
       "studentRepo.tasks.statInReview": "In review",
       "studentRepo.tasks.listHeading": "Items",
       "studentRepo.tasks.unnamed": "Item {{index}}",
+      "studentRepo.tasks.summary.totalHint": "All tracked issues for this repository.",
+      "studentRepo.tasks.summary.openHint":
+        "Open work that has not been completed yet.",
+      "studentRepo.tasks.summary.progressHint":
+        "Assigned work currently in active progress.",
+      "studentRepo.tasks.summary.reviewHint":
+        "Submissions waiting for review or grading.",
+      "studentRepo.tasks.summary.completedHint":
+        "Tasks already reviewed and completed.",
+      "studentRepo.tasks.actions.newMilestone": "New milestone",
+      "studentRepo.tasks.actions.newTask": "New issue",
+      "studentRepo.tasks.milestones.title": "Milestones",
+      "studentRepo.tasks.milestones.subtitle":
+        "Collections of related repository tasks with progress and due dates.",
+      "studentRepo.tasks.milestones.open": "Open",
+      "studentRepo.tasks.milestones.closed": "Closed",
+      "studentRepo.tasks.milestones.empty":
+        "No milestones match the selected state.",
+      "studentRepo.tasks.milestones.progress": "Progress",
+      "studentRepo.tasks.milestones.openTasks": "{{count}} open tasks",
+      "studentRepo.tasks.milestones.completedTasks":
+        "{{count}} of {{total}} tasks complete",
+      "studentRepo.tasks.milestones.untitled": "Untitled milestone",
+      "studentRepo.tasks.issues.title": "Issues",
+      "studentRepo.tasks.issues.subtitle":
+        "Track repository work as issue-style tasks with assignees, milestones, and review context.",
+      "studentRepo.tasks.filters.searchPlaceholder":
+        "Search by title, assignee, branch, label, or reviewer",
+      "studentRepo.tasks.filters.searchLabel": "Search",
+      "studentRepo.tasks.filters.statusLabel": "Task status",
+      "studentRepo.tasks.filters.statusPlaceholder": "Select status",
+      "studentRepo.tasks.filters.milestoneLabel": "Milestone filter",
+      "studentRepo.tasks.filters.milestonePlaceholder": "Choose milestone",
+      "studentRepo.tasks.filters.milestoneSearch": "Search milestones…",
+      "studentRepo.tasks.filters.scopeLabel": "Assignment scope",
+      "studentRepo.tasks.filters.scopePlaceholder": "Select scope",
+      "studentRepo.tasks.filters.statusAll": "All statuses",
+      "studentRepo.tasks.filters.milestoneAll": "All milestones",
+      "studentRepo.tasks.filters.scopeAll": "Everyone",
+      "studentRepo.tasks.filters.scopeMine": "Assigned to me",
+      "studentRepo.tasks.filters.showing": "Showing {{count}} tasks",
+      "studentRepo.tasks.createMilestone.title": "Create milestone",
+      "studentRepo.tasks.createMilestone.subtitle":
+        "A milestone groups tasks under one schedule and one grading profile (scores, minimum completed tasks, rubric text).",
+      "studentRepo.tasks.authRequiredUsername":
+        "You need an account username to create milestones or tasks (the API uses it in the path).",
+      "studentRepo.tasks.createMilestone.submit": "Create milestone",
+      "studentRepo.tasks.createMilestone.fields.title": "Title",
+      "studentRepo.tasks.createMilestone.fields.dueDate": "Due date",
+      "studentRepo.tasks.createMilestone.fields.maxScore": "Maximum score",
+      "studentRepo.tasks.createMilestone.fields.passingScore": "Passing score",
+      "studentRepo.tasks.createMilestone.fields.requiredTasks": "Required tasks",
+      "studentRepo.tasks.createMilestone.fields.description": "Description",
+      "studentRepo.tasks.createMilestone.fields.rubric": "Rubric",
+      "studentRepo.tasks.createMilestone.sections.identity": "Name, details, and due date",
+      "studentRepo.tasks.createMilestone.sections.identityHint":
+        "Matches title, description, and dueDate on the server—set what this phase covers and when it ends.",
+      "studentRepo.tasks.createMilestone.sections.grading": "Scores and completion rules",
+      "studentRepo.tasks.createMilestone.sections.gradingHint":
+        "Maximum points, passing threshold, and how many finished tasks count toward completing the milestone.",
+      "studentRepo.tasks.createMilestone.sections.content": "Rubric for reviewers",
+      "studentRepo.tasks.createMilestone.sections.contentHint":
+        "Optional free-text rubric (same field the API stores as rubric).",
+      "studentRepo.tasks.createMilestone.placeholders.title":
+        "Sprint planning and review",
+      "studentRepo.tasks.createMilestone.placeholders.description":
+        "Describe the milestone scope, expected work, and evaluation rules.",
+      "studentRepo.tasks.createMilestone.placeholders.rubric":
+        "Explain how this milestone will be reviewed or graded.",
+      "studentRepo.tasks.createTask.title": "Create issue",
+      "studentRepo.tasks.createTask.subtitle":
+        "Creates a task under your username: title, optional milestone link, priority, labels, schedule, scores, and a checklist sent as the requirements list.",
+      "studentRepo.tasks.createTask.submit": "Create issue",
+      "studentRepo.tasks.createTask.fields.title": "Title",
+      "studentRepo.tasks.createTask.fields.priority": "Priority",
+      "studentRepo.tasks.createTask.fields.milestone": "Milestone",
+      "studentRepo.tasks.createTask.fields.dueDate": "Due date",
+      "studentRepo.tasks.createTask.fields.estimatedHours": "Estimated hours",
+      "studentRepo.tasks.createTask.fields.maxScore": "Maximum score",
+      "studentRepo.tasks.createTask.fields.labels": "Labels",
+      "studentRepo.tasks.createTask.fields.description": "Description",
+      "studentRepo.tasks.createTask.fields.requirements": "Requirements checklist",
+      "studentRepo.tasks.createTask.sections.identity": "Title and description",
+      "studentRepo.tasks.createTask.sections.identityHint":
+        "The server stores these as title and description; keep the title short and put detail here.",
+      "studentRepo.tasks.createTask.sections.planning": "Milestone, priority, and schedule",
+      "studentRepo.tasks.createTask.sections.planningHint":
+        "milestoneNumber is optional. Priority is sent in UPPERCASE. dueDate, estimatedHours, and maxScore are optional.",
+      "studentRepo.tasks.createTask.sections.metadata": "Labels",
+      "studentRepo.tasks.createTask.sections.metadataHint":
+        "Each label is stored in uppercase on the server (same list as Git-style issue labels).",
+      "studentRepo.tasks.createTask.sections.content": "Acceptance checklist",
+      "studentRepo.tasks.createTask.sections.contentHint":
+        "Each item is one string in the requirements array reviewers can approve individually.",
+      "studentRepo.tasks.createTask.placeholders.title":
+        "Draft the initial research problem statement",
+      "studentRepo.tasks.createTask.placeholders.labels": "Choose labels",
+      "studentRepo.tasks.createTask.placeholders.searchLabels": "Search labels…",
+      "studentRepo.tasks.createTask.placeholders.description":
+        "Describe the task, expected output, and acceptance notes.",
+      "studentRepo.tasks.createTask.placeholders.requirements":
+        "One requirement per line",
+      "studentRepo.tasks.createTask.requirements.addRow": "Add requirement",
+      "studentRepo.tasks.createTask.requirements.itemPlaceholder":
+        "e.g. Unit tests pass in CI",
+      "studentRepo.tasks.createTask.requirements.removeAria": "Remove this requirement",
+      "studentRepo.tasks.createTask.requirements.arrayHint":
+        "Empty rows are ignored when you submit.",
+      "studentRepo.tasks.status.open": "Open",
+      "studentRepo.tasks.status.progress": "In progress",
+      "studentRepo.tasks.status.review": "In review",
+      "studentRepo.tasks.status.completed": "Completed",
+      "studentRepo.tasks.status.cancelled": "Cancelled",
+      "studentRepo.tasks.priority.low": "Low priority",
+      "studentRepo.tasks.priority.medium": "Medium priority",
+      "studentRepo.tasks.priority.high": "High priority",
+      "studentRepo.tasks.priority.critical": "Critical priority",
+      "studentRepo.tasks.detail.empty":
+        "Select an issue to inspect its description, assignee, checklist, and review details.",
+      "studentRepo.tasks.detail.none": "None",
+      "studentRepo.tasks.detail.createdBy": "Opened by {{user}}",
+      "studentRepo.tasks.detail.assignee": "Assigned to {{user}}",
+      "studentRepo.tasks.detail.unassigned": "Unassigned",
+      "studentRepo.tasks.detail.due": "Due {{date}}",
+      "studentRepo.tasks.detail.comments": "{{count}} comments",
+      "studentRepo.tasks.detail.assigneeLabel": "Assignee",
+      "studentRepo.tasks.detail.milestoneLabel": "Milestone",
+      "studentRepo.tasks.detail.dueLabel": "Due date",
+      "studentRepo.tasks.detail.priorityLabel": "Priority",
+      "studentRepo.tasks.detail.scoreLabel": "Score",
+      "studentRepo.tasks.detail.scoreValue": "{{earned}} / {{total}}",
+      "studentRepo.tasks.detail.createdByLabel": "Opened by",
+      "studentRepo.tasks.detail.labelsLabel": "Labels",
+      "studentRepo.tasks.detail.checklistLabel": "Requirements checklist",
+      "studentRepo.tasks.detail.requirementFallback": "Requirement {{index}}",
+      "studentRepo.tasks.detail.reviewPanel": "Review and submission",
+      "studentRepo.tasks.detail.reviewedByLabel": "Reviewed by",
+      "studentRepo.tasks.detail.reviewCommentsLabel": "Review comments",
+      "studentRepo.tasks.detail.submissionBranchLabel": "Submission branch",
+      "studentRepo.tasks.detail.submissionUrlLabel": "Submission URL",
+      "studentRepo.tasks.detail.submissionPullIdLabel": "Submitted pull request id",
+      "studentRepo.tasks.detail.completedAtLabel": "Completed at",
+
+      "studentRepo.tasks.milestoneDetail.back": "Back to tasks",
+      "studentRepo.tasks.milestoneDetail.loading": "Loading milestone…",
+      "studentRepo.tasks.milestoneDetail.loadError":
+        "This milestone could not be loaded. Try again or return to the task list.",
+      "studentRepo.tasks.milestoneDetail.editTitle": "Edit milestone",
+      "studentRepo.tasks.milestoneDetail.tasksInMilestone": "Issues in this milestone",
+      "studentRepo.tasks.milestoneDetail.savedToast": "Milestone updated",
+      "studentRepo.tasks.milestoneDetail.saveButton": "Save changes",
+      "studentRepo.tasks.milestoneDetail.closedToast": "Milestone closed",
+      "studentRepo.tasks.milestoneDetail.reopenedToast": "Milestone reopened",
+      "studentRepo.tasks.milestoneDetail.closeAction": "Close milestone",
+      "studentRepo.tasks.milestoneDetail.reopenAction": "Reopen milestone",
+      "studentRepo.tasks.milestoneDetail.closeConfirmTitle": "Close this milestone?",
+      "studentRepo.tasks.milestoneDetail.closeConfirmSubtitle":
+        "You can reopen it later. Open issues linked to this milestone stay as they are.",
+      "studentRepo.tasks.milestoneDetail.statusNote":
+        "Opening and closing uses dedicated server endpoints (not this form).",
+      "studentRepo.tasks.milestoneDetail.stats.total": "Issues tracked",
+      "studentRepo.tasks.milestoneDetail.stats.open": "Open issues",
+      "studentRepo.tasks.milestoneDetail.stats.progress": "In progress",
+      "studentRepo.tasks.milestoneDetail.stats.completed": "Completed",
+
+      "studentRepo.tasks.taskDetail.back": "Back to tasks",
+      "studentRepo.tasks.taskDetail.loading": "Loading issue…",
+      "studentRepo.tasks.taskDetail.loadError":
+        "This issue could not be loaded.",
+      "studentRepo.tasks.taskDetail.retry": "Retry",
+      "studentRepo.tasks.taskDetail.issueTitle": "Issue #{{number}}",
+      "studentRepo.tasks.taskDetail.operations": "Actions",
+      "studentRepo.tasks.taskDetail.assignHeading": "Assign someone",
+      "studentRepo.tasks.taskDetail.assignPlaceholder": "Assignee username",
+      "studentRepo.tasks.taskDetail.assignSelectLabel": "Collaborator",
+      "studentRepo.tasks.taskDetail.assignSelectPlaceholder":
+        "Choose a repository collaborator",
+      "studentRepo.tasks.taskDetail.assignSearchPlaceholder":
+        "Search by name, username, or email…",
+      "studentRepo.tasks.taskDetail.assignContributorsEmpty":
+        "No contributors were returned for this repository. Add collaborators first.",
+      "studentRepo.tasks.taskDetail.assignContributorsHint":
+        "Only users listed as contributors on this repo can be assigned.",
+      "studentRepo.tasks.taskDetail.assignSubmit": "Assign",
+      "studentRepo.tasks.taskDetail.assignNeedsAuth":
+        "Your account needs a username before you can assign tasks.",
+      "studentRepo.tasks.taskDetail.assignSavedToast": "Assignment updated",
+      "studentRepo.tasks.taskDetail.submitAction": "Submit work",
+      "studentRepo.tasks.taskDetail.submitHint":
+        "Create a pull request in this repository, then submit its numeric id so reviewers can load commits and diffs from that PR.",
+      "studentRepo.tasks.taskDetail.submitModalTitle": "Submit for review",
+      "studentRepo.tasks.taskDetail.submitModalSubtitle":
+        "The pull request id is the preferred reference; optional fields are only backups.",
+      "studentRepo.tasks.taskDetail.submitSavedToast": "Submission recorded",
+      "studentRepo.tasks.taskDetail.submitConfirm": "Submit",
+      "studentRepo.tasks.taskDetail.reviewAction": "Review",
+      "studentRepo.tasks.taskDetail.reviewHint":
+        "Use the submission’s pull request to inspect changes, then record feedback and scores here.",
+      "studentRepo.tasks.taskDetail.reviewModalTitle": "Review submission",
+      "studentRepo.tasks.taskDetail.reviewSavedToast": "Review saved",
+      "studentRepo.tasks.taskDetail.reviewConfirm": "Save review",
+      "studentRepo.tasks.taskDetail.fieldDescription": "Description",
+      "studentRepo.tasks.taskDetail.fieldPullRequestId": "Pull request id",
+      "studentRepo.tasks.taskDetail.fieldPullRequestIdPlaceholder": "For example 12",
+      "studentRepo.tasks.taskDetail.submitPrIdExplainer":
+        "Use the number shown on the repository pull request you opened for this task (not the issue number).",
+      "studentRepo.tasks.taskDetail.openPullRequestsLink": "Open pull requests for this repo",
+      "studentRepo.tasks.taskDetail.submitOptionalSection":
+        "Optional extras (branch, commits, …)",
+      "studentRepo.tasks.taskDetail.contributorsLoadFailed":
+        "Contributors could not be loaded from the server.",
+      "studentRepo.tasks.taskDetail.contributorsRetry": "Reload contributors",
+      "studentRepo.tasks.taskDetail.submitBlockedNeedsAssignment":
+        "Someone must be assigned before work can be submitted.",
+      "studentRepo.tasks.taskDetail.submitBlockedWrongUser":
+        "Only the assignee can submit work for this task.",
+      "studentRepo.tasks.taskDetail.submitBlockedCreator":
+        "Authors who opened this task cannot submit their own graded work here.",
+      "studentRepo.tasks.taskDetail.submitBlockedCreatorAssigned":
+        "You created this issue and remain assignee—the author cannot submit for review from this workflow.",
+      "studentRepo.tasks.taskDetail.reviewBlockedAssignee":
+        "Implementers submit work; reviewers use this after a pull request has been filed.",
+      "studentRepo.tasks.taskDetail.reviewBlockedNeedsSubmission":
+        "Wait until the assignee submits a pull request (or submission link).",
+      "studentRepo.tasks.taskDetail.reviewModalSubtitlePr":
+        "Linked pull request id: {{id}} — review commits and changes on that PR first.",
+      "studentRepo.tasks.taskDetail.reviewModalSubtitleNoPr":
+        "Inspect the submission link or attachments on the issue, then record your review.",
+      "studentRepo.tasks.taskDetail.fieldBranch": "Branch name",
+      "studentRepo.tasks.taskDetail.fieldCommit": "Commit hash",
+      "studentRepo.tasks.taskDetail.fieldPrUrl": "Pull request URL",
+      "studentRepo.tasks.taskDetail.fieldFiles": "Files",
+      "studentRepo.tasks.taskDetail.filesCommaHint":
+        "Separate file paths with commas (for example src/App.jsx, README.md).",
+      "studentRepo.tasks.taskDetail.fieldFeedback": "Feedback",
+      "studentRepo.tasks.taskDetail.fieldScore": "Score",
+      "studentRepo.tasks.taskDetail.fieldApproved": "Approved",
+      "studentRepo.tasks.taskDetail.fieldCheckedReq": "Checked requirements",
+      "studentRepo.tasks.taskDetail.checkedReqHint":
+        "List requirement text exactly as shown in the checklist, separated by commas.",
 
       "studentRepo.contributors.title": "Contributors",
       "studentRepo.contributors.subtitle": "People collaborating on this repository.",
       "studentRepo.contributors.empty": "No collaborators are listed yet for this repo.",
+      "studentRepo.contributors.stats.collaborators": "Collaborators",
+      "studentRepo.contributors.stats.pendingInvites": "Pending invites",
+      "studentRepo.contributors.stats.accessLabel": "Access",
+      "studentRepo.contributors.stats.accessManage": "Can manage invitations",
+      "studentRepo.contributors.stats.accessView": "View only",
+      "studentRepo.contributors.invitations.sectionTitle": "Invitations",
+      "studentRepo.contributors.invitations.pendingTitle": "Awaiting response",
+      "studentRepo.contributors.invitations.respondedTitle": "Accepted & declined",
+      "studentRepo.contributors.invitations.sentAt": "Sent {{time}}",
+      "studentRepo.contributors.invitations.justNow": "Just now",
+      "studentRepo.contributors.invite.button": "Invite collaborator",
+      "studentRepo.contributors.invite.modalTitle": "Invite collaborator",
+      "studentRepo.contributors.invite.modalSubtitle":
+        "Find a teammate, preview the invitation, then send.",
+      "studentRepo.contributors.invite.findUser": "Find user",
+      "studentRepo.contributors.invite.placeholder": "Search by name, username, or email",
+      "studentRepo.contributors.invite.searchPlaceholder": "Type to search users",
+      "studentRepo.contributors.invite.hint":
+        "One search term matches name, username, and email. Existing collaborators are hidden.",
+      "studentRepo.contributors.invite.previewLabel": "Invitation preview",
+      "studentRepo.contributors.invite.previewEmpty":
+        "Pick someone from search to preview the invitation.",
+      "studentRepo.contributors.invite.cancel": "Cancel",
+      "studentRepo.contributors.invite.send": "Send invitation",
+      "studentRepo.contributors.cards.activeMember": "Active on this repository",
+      "studentRepo.contributors.invitations.sectionHint":
+        "Follow outstanding invites and completed responses at a glance.",
 
       "sidebar.staff.dashboard": "Dashboard",
       "sidebar.staff.notifications": "Notifications",
@@ -3450,9 +3890,10 @@ const resources = {
       "studentRepo.actions.star": "سټار",
 
       "studentRepo.tabs.code": "بڼې",
-      "studentRepo.tabs.pulls": "د غونډ د غوچه",
-      "studentRepo.tabs.tasks": "ندی",
+      "studentRepo.tabs.pulls": "ادغام غوښتنې",
+      "studentRepo.tabs.tasks": "دندې",
       "studentRepo.tabs.contributors": "برخمني",
+      "studentRepo.tabs.statistics": "احصایې",
       "studentRepo.code.title": "وو",
       "studentRepo.code.subtitle": "د دې مخزن فایلونه وګورئ.",
       "studentRepo.code.loading": "لومړی…",
@@ -3529,12 +3970,125 @@ const resources = {
       "studentRepo.about.viewContributors": "شراکت کوونکی",
       "studentRepo.sidebar.aria": "لنډیز",
 
-      "studentRepo.pulls.title": "د غغونډ هلې",
-      "studentRepo.pulls.subtitle": "مفکورې بدلونونه چې بیا یو ځای کېدی شي.",
+      "studentRepo.pulls.title": "د ادغام غوښتنې",
+      "studentRepo.pulls.subtitle": "هغه بدلونونه چې د بیاکتنې وروسته له څانګو سره یوځای کېږي.",
       "studentRepo.pulls.loading": "لومړئ…",
       "studentRepo.pulls.empty": "نه شته.",
-      "studentRepo.tasks.title": "ندی",
-      "studentRepo.tasks.subtitle": "په همدې مخزن کې ټاپې او کار.",
+      "studentRepo.pulls.actions.cancel": "لغوه",
+      "studentRepo.pulls.actions.new": "نوې ادغام غوښتنه",
+      "studentRepo.pulls.actions.create": "ادغام غوښتنه جوړه کړئ",
+      "studentRepo.pulls.form.baseBranch": "اصلي څانګه",
+      "studentRepo.pulls.form.baseBranchPlaceholder": "اصلي څانګه وټاکئ",
+      "studentRepo.pulls.form.compareBranch": "د پرتله کولو څانګه",
+      "studentRepo.pulls.form.compareBranchPlaceholder":
+        "د پرتله کولو څانګه وټاکئ",
+      "studentRepo.pulls.form.compareFallback": "پرتله",
+      "studentRepo.pulls.form.baseFallback": "اصلي",
+      "studentRepo.pulls.form.into": "په",
+      "studentRepo.pulls.form.summaryHint":
+        "د څانګو توپیر وګورئ، لنډیز تایید کړئ، او کله چې موخه سمه وي د ادغام غوښتنه پرانیزئ.",
+      "studentRepo.pulls.form.branchConflict":
+        "اصلي او د پرتله کولو څانګې باید بېلې وي.",
+      "studentRepo.pulls.form.title": "سرلیک",
+      "studentRepo.pulls.form.titlePlaceholder":
+        "د دې ادغام غوښتنې لپاره سرلیک ولیکئ",
+      "studentRepo.pulls.form.description": "تشریح",
+      "studentRepo.pulls.form.descriptionPlaceholder":
+        "تشریح کړئ چې دا ادغام غوښتنه څه بدلوي",
+      "studentRepo.pulls.form.changes": "بدلونونه",
+      "studentRepo.pulls.form.filesCount_one": "{{count}} فایل",
+      "studentRepo.pulls.form.filesCount_other": "{{count}} فایلونه",
+      "studentRepo.pulls.form.loadingDiff": "د څانګې توپیر رااخلي…",
+      "studentRepo.pulls.form.noDiff":
+        "د دې څانګو ترمنځ کوم توپیر ونه موندل شو.",
+      "studentRepo.pulls.form.hide": "پټول",
+      "studentRepo.pulls.form.show": "ښودل",
+      "studentRepo.pulls.form.old": "پخوانی",
+      "studentRepo.pulls.form.new": "نوی",
+      "studentRepo.pulls.form.content": "منځپانګه",
+      "studentRepo.pulls.summary.filesChanged": "بدل شوي فایلونه",
+      "studentRepo.pulls.summary.refreshing": "د څانګو پرتله تازه کېږي…",
+      "studentRepo.pulls.summary.filesHint":
+        "هغه فایلونه چې په دې ادغام غوښتنه کې شامل دي.",
+      "studentRepo.pulls.summary.additions": "زیاتونې",
+      "studentRepo.pulls.summary.additionsHint":
+        "هغه نوې کرښې چې د پرتله کولو څانګې زیاتې کړې دي.",
+      "studentRepo.pulls.summary.deletions": "لرې کېدنې",
+      "studentRepo.pulls.summary.deletionsHint":
+        "هغه کرښې چې په موخې څانګه کې لرې یا بدلې شوې دي.",
+      "studentRepo.pulls.cards.total": "ټول",
+      "studentRepo.pulls.cards.totalHint":
+        "د دې زېرمتون ټولې ادغام غوښتنې.",
+      "studentRepo.pulls.cards.open": "خلاصې",
+      "studentRepo.pulls.cards.openHint": "د بیاکتنې یا ادغام لپاره چمتو دي.",
+      "studentRepo.pulls.cards.conflicting": "له ټکر سره",
+      "studentRepo.pulls.cards.conflictingHint":
+        "تر ادغام مخکې د ټکر د حل اړتیا لري.",
+      "studentRepo.pulls.cards.merged": "ادغام شوې",
+      "studentRepo.pulls.cards.mergedHint":
+        "له مخکې اصلي څانګې ته لېږدول شوې دي.",
+      "studentRepo.pulls.cards.closedDraft": "تړلې / مسوده",
+      "studentRepo.pulls.cards.closedDraftHint":
+        "غیر فعاله دي یا لا هم د بیاکتنې لپاره چمتو نه دي.",
+      "studentRepo.pulls.filters.searchPlaceholder":
+        "د سرلیک، لیکوال، یا څانګې له مخې لټون",
+      "studentRepo.pulls.filters.status": "حالت",
+      "studentRepo.pulls.filters.statusPlaceholder": "د حالت له مخې فلټر",
+      "studentRepo.pulls.filters.allStatuses": "ټول حالتونه",
+      "studentRepo.pulls.filters.showing":
+        "له {{total}} څخه {{visible}} ادغام غوښتنې ښودل کېږي",
+      "studentRepo.pulls.filters.emptyTitle":
+        "هیڅ ادغام غوښتنه له اوسنيو فلټرونو سره برابره نه ده.",
+      "studentRepo.pulls.filters.emptyHint":
+        "بل حالت وازمویئ یا د لټون ټکی پاک کړئ څو نورې پایلې ووینئ.",
+      "studentRepo.pulls.status.open": "خلاص",
+      "studentRepo.pulls.status.conflicting": "له ټکر سره",
+      "studentRepo.pulls.status.merged": "ادغام شوی",
+      "studentRepo.pulls.status.closed": "تړلی",
+      "studentRepo.pulls.status.draft": "مسوده",
+      "studentRepo.pulls.status.ready": "د بیاکتنې لپاره چمتو",
+      "studentRepo.pulls.mergeState.merged":
+        "دا ادغام غوښتنه له مخکې اصلي څانګې ته ادغام شوې ده.",
+      "studentRepo.pulls.mergeState.closed":
+        "دا ادغام غوښتنه بې له ادغامه تړل شوې ده.",
+      "studentRepo.pulls.mergeState.draft":
+        "دا ادغام غوښتنه لا هم مسوده ده او تر اوسه د ادغام لپاره چمتو نه ده.",
+      "studentRepo.pulls.mergeState.conflicting":
+        "په دې څانګه کې ټکرونه شته چې تر ادغام مخکې باید حل شي.",
+      "studentRepo.pulls.mergeState.ready":
+        "دا ادغام غوښتنه د بیاکتنې لپاره چمتو ده او ستاسو له تایید وروسته ادغامېدای شي.",
+      "studentRepo.pulls.mergeState.mergeable":
+        "دا څانګه له اصلي څانګې سره ټکر نه لري او د ادغام لپاره چمتو ده.",
+      "studentRepo.pulls.card.sourceBranch": "سرچینه څانګه",
+      "studentRepo.pulls.card.targetBranch": "موخه څانګه",
+      "studentRepo.pulls.card.by": "د {{author}} له خوا",
+      "studentRepo.pulls.card.head": "Head {{sha}}",
+      "studentRepo.pulls.card.base": "Base {{sha}}",
+      "studentRepo.pulls.card.needsConflictResolution":
+        "د ټکر حل ته اړتیا لري",
+      "studentRepo.pulls.card.checkingConflicts": "ټکرونه کتل کېږي…",
+      "studentRepo.pulls.card.merge": "ادغام غوښتنه یوځای کړئ",
+      "studentRepo.pulls.card.resolveConflicts": "ټکرونه حل کړئ",
+      "studentRepo.pulls.card.readyToMerge": "د ادغام لپاره چمتو",
+      "studentRepo.pulls.card.hideDetails": "جزئیات پټ کړئ",
+      "studentRepo.pulls.card.showDetails": "جزئیات وښایئ",
+      "studentRepo.pulls.card.compare": "پرتله",
+      "studentRepo.pulls.card.status": "حالت",
+      "studentRepo.pulls.card.sourceHash": "د سرچینې هش: {{sha}}",
+      "studentRepo.pulls.card.targetHash": "د موخې هش: {{sha}}",
+      "studentRepo.pulls.toast.created": "ادغام غوښتنه جوړه شوه",
+      "studentRepo.pulls.toast.createFailed": "د ادغام غوښتنې جوړول ناکام شول.",
+      "studentRepo.pulls.conflicts.detected":
+        "د دې ادغام غوښتنې لپاره د ادغام ټکرونه وموندل شول.",
+      "studentRepo.pulls.conflicts.loading": "ټکرونه رااخلي",
+      "studentRepo.pulls.conflicts.files": "له ټکر سره فایلونه",
+      "studentRepo.pulls.conflicts.item": "ټکر {{index}}",
+      "studentRepo.pulls.conflicts.binary": "د باینري فایل ټکر",
+      "studentRepo.pulls.conflicts.text":
+        "سرچینې او موخې دواړو دا فایل بدل کړی دی. متضاد متن لاندې ښودل شوی.",
+      "studentRepo.tasks.title": "دندې",
+      "studentRepo.tasks.subtitle":
+        "د دې زېرمتون لپاره مرحلې، د مسئلې بڼې دندې، او د ګډونوالو پرمختګ.",
       "studentRepo.tasks.loading": "لومړئ…",
       "studentRepo.tasks.empty":
         "اوس مهال دلته نشته — کله چې ستاسو درس کې کار خپروي وګورئ.",
@@ -3545,9 +4099,338 @@ const resources = {
       "studentRepo.tasks.statInReview": "د کتلو په حال کې",
       "studentRepo.tasks.listHeading": "نوم‌لړ",
       "studentRepo.tasks.unnamed": "کار {{index}}",
+      "studentRepo.tasks.summary.totalHint": "د دې زېرمتون ټولې ثبت شوې دندې.",
+      "studentRepo.tasks.summary.openHint":
+        "هغه کارونه چې لا تر اوسه نه دي بشپړ شوي.",
+      "studentRepo.tasks.summary.progressHint":
+        "سپارل شوی کار چې اوس پرې کار روان دی.",
+      "studentRepo.tasks.summary.reviewHint":
+        "هغه سپارښتنې چې د بیاکتنې یا نمرې په تمه دي.",
+      "studentRepo.tasks.summary.completedHint":
+        "هغه دندې چې بیاکتل شوې او بشپړې شوې دي.",
+      "studentRepo.tasks.actions.newMilestone": "نوی پړاو",
+      "studentRepo.tasks.actions.newTask": "نوې دنده",
+      "studentRepo.tasks.milestones.title": "پړاوونه",
+      "studentRepo.tasks.milestones.subtitle":
+        "اړوند دندې د پرمختګ او نېټې له مخې په پړاوونو کې تنظیم کړئ.",
+      "studentRepo.tasks.milestones.open": "خلاص",
+      "studentRepo.tasks.milestones.closed": "تړلي",
+      "studentRepo.tasks.milestones.empty":
+        "له ټاکلي حالت سره برابر کوم پړاو ونه موندل شو.",
+      "studentRepo.tasks.milestones.progress": "پرمختګ",
+      "studentRepo.tasks.milestones.openTasks": "{{count}} خلاصې دندې",
+      "studentRepo.tasks.milestones.completedTasks":
+        "{{count}} له {{total}} دندو بشپړې شوې",
+      "studentRepo.tasks.milestones.untitled": "بې سرلیکه پړاو",
+      "studentRepo.tasks.issues.title": "مسئلې",
+      "studentRepo.tasks.issues.subtitle":
+        "د زېرمتون کار د دندو په بڼه، له سپارل شوو کسانو، پړاوونو، او بیاکتنې سره تعقیب کړئ.",
+      "studentRepo.tasks.filters.searchPlaceholder":
+        "د سرلیک، سپارل شوي کس، څانګې، لېبل، یا بیاکتونکي له مخې لټون",
+      "studentRepo.tasks.filters.searchLabel": "لټون",
+      "studentRepo.tasks.filters.statusLabel": "د دندې حالت",
+      "studentRepo.tasks.filters.statusPlaceholder": "حالت وټاکئ",
+      "studentRepo.tasks.filters.milestoneLabel": "د پړاو فلټر",
+      "studentRepo.tasks.filters.milestonePlaceholder": "پړاو وټاکئ",
+      "studentRepo.tasks.filters.milestoneSearch": "پړاوونه ولټوئ…",
+      "studentRepo.tasks.filters.scopeLabel": "د سپارښتنې کچه",
+      "studentRepo.tasks.filters.scopePlaceholder": "کچه وټاکئ",
+      "studentRepo.tasks.filters.statusAll": "ټول حالتونه",
+      "studentRepo.tasks.filters.milestoneAll": "ټول پړاوونه",
+      "studentRepo.tasks.filters.scopeAll": "ټول کسان",
+      "studentRepo.tasks.filters.scopeMine": "ما ته سپارل شوې",
+      "studentRepo.tasks.filters.showing": "{{count}} دندې ښودل کېږي",
+      "studentRepo.tasks.createMilestone.title": "پړاو جوړ کړئ",
+      "studentRepo.tasks.createMilestone.subtitle":
+        "پړاو اړوندې دندې لاندې یو مهال‌ويش او یو ارزونې پروفایل راټوکي (نمرې، تر ټلو اړینو دンドو ، د ارزونې متن).",
+      "studentRepo.tasks.authRequiredUsername":
+        "د پړاو یا دنده جوړولو لپاره د حساب کارن نوم ته اړتیا ده (API له لارې کې کارول کیږي).",
+      "studentRepo.tasks.createMilestone.submit": "پړاو جوړ کړئ",
+      "studentRepo.tasks.createMilestone.fields.title": "سرلیک",
+      "studentRepo.tasks.createMilestone.fields.dueDate": "وروستۍ نېټه",
+      "studentRepo.tasks.createMilestone.fields.maxScore": "اعظمي نمره",
+      "studentRepo.tasks.createMilestone.fields.passingScore": "د بریا نمره",
+      "studentRepo.tasks.createMilestone.fields.requiredTasks": "اړینې دندې",
+      "studentRepo.tasks.createMilestone.fields.description": "تشریح",
+      "studentRepo.tasks.createMilestone.fields.rubric": "د ارزونې معیار",
+      "studentRepo.tasks.createMilestone.sections.identity": "نوم، جزئیات، او وروستۍ نېټه",
+      "studentRepo.tasks.createMilestone.sections.identityHint":
+        "دا د سرور title، description، او dueDate سره سمون لري—دا فاز څه پوښي او کله پای ته رسیږي.",
+      "studentRepo.tasks.createMilestone.sections.grading": "نمرې او د بشپړېدو قواعد",
+      "studentRepo.tasks.createMilestone.sections.gradingHint":
+        "اعظمي نمرې، د بریا کچه، او څومره بشپړې دندې د پړاو بشپړولو لپاره شمیرل کیږي.",
+      "studentRepo.tasks.createMilestone.sections.content": "د بیاکتونکو لپاره معیار",
+      "studentRepo.tasks.createMilestone.sections.contentHint":
+        "اختیاري متن (هغه rubric چې API یې ساتي).",
+      "studentRepo.tasks.createMilestone.placeholders.title": "د سپرېنټ پلان او بیاکتنه",
+      "studentRepo.tasks.createMilestone.placeholders.description":
+        "د پړاو ساحه، تمه کېدونکی کار، او ارزونه تشریح کړئ.",
+      "studentRepo.tasks.createMilestone.placeholders.rubric":
+        "تشریح کړئ چې دا پړاو څنګه ارزول کېږي.",
+      "studentRepo.tasks.createTask.title": "دنده جوړه کړئ",
+      "studentRepo.tasks.createTask.subtitle":
+        "ستاسو د کارن نوم لاندې دنده جوړیږي: سرلیک، اختیاري پړاو، لومړیتوب، لېبلونه، مهال‌ويش، نمرې، او د اړتیاوو لړۍ.",
+      "studentRepo.tasks.createTask.submit": "دنده جوړه کړئ",
+      "studentRepo.tasks.createTask.fields.title": "سرلیک",
+      "studentRepo.tasks.createTask.fields.priority": "لومړیتوب",
+      "studentRepo.tasks.createTask.fields.milestone": "پړاو",
+      "studentRepo.tasks.createTask.fields.dueDate": "وروستۍ نېټه",
+      "studentRepo.tasks.createTask.fields.estimatedHours": "اټکلي ساعتونه",
+      "studentRepo.tasks.createTask.fields.maxScore": "اعظمي نمره",
+      "studentRepo.tasks.createTask.fields.labels": "لېبلونه",
+      "studentRepo.tasks.createTask.fields.description": "تشریح",
+      "studentRepo.tasks.createTask.fields.requirements": "د اړتیاوو چک لست",
+      "studentRepo.tasks.createTask.sections.identity": "سرلیک او تشریح",
+      "studentRepo.tasks.createTask.sections.identityHint":
+        "سرور دا د title او description په توګه ساتي؛ لنډ سرلیک او جزئیات دلته.",
+      "studentRepo.tasks.createTask.sections.planning": "پړاو، لومړیتوب، او مهال‌ويش",
+      "studentRepo.tasks.createTask.sections.planningHint":
+        "milestoneNumber اختیاري دی. لومړیتوب په لوړو تورو لیټرونو لیږل کیږي. dueDate، estimatedHours، او maxScore اختیاري دي.",
+      "studentRepo.tasks.createTask.sections.metadata": "لېبلونه",
+      "studentRepo.tasks.createTask.sections.metadataHint":
+        "هر لېبل په سرور کې په لوړو تورو لیټرونو (د Git-ستایل لېبلونو لړۍ).",
+      "studentRepo.tasks.createTask.sections.content": "د منلو چک لست",
+      "studentRepo.tasks.createTask.sections.contentHint":
+        "هر توکی د requirements په توګه یو تار دی چې بیاکتونکي یې جلا تایید کولی شي.",
+      "studentRepo.tasks.createTask.placeholders.title": "د څېړنې د ستونزې لومړنی بیان ولیکئ",
+      "studentRepo.tasks.createTask.placeholders.labels": "لېبلونه وټاکئ",
+      "studentRepo.tasks.createTask.placeholders.searchLabels": "لېبلونه ولټوئ…",
+      "studentRepo.tasks.createTask.placeholders.description":
+        "دنده، تمه کېدونکی محصول، او د منلو یادښتونه تشریح کړئ.",
+      "studentRepo.tasks.createTask.placeholders.requirements":
+        "په هره کرښه کې یوه اړتیا",
+      "studentRepo.tasks.createTask.requirements.addRow": "اړتیا زیاته کړئ",
+      "studentRepo.tasks.createTask.requirements.itemPlaceholder":
+        "د بېلګې په توګه: CI کې واحد ازموینې بریالۍ",
+      "studentRepo.tasks.createTask.requirements.removeAria": "دا اړتیا لرې کړئ",
+      "studentRepo.tasks.createTask.requirements.arrayHint":
+        "تش خالي کرښې د سپارلو پر مهال پام کې نه نیول کیږي.",
+      "studentRepo.tasks.status.open": "خلاص",
+      "studentRepo.tasks.status.progress": "په پرمختګ کې",
+      "studentRepo.tasks.status.review": "د بیاکتنې په حال کې",
+      "studentRepo.tasks.status.completed": "بشپړ",
+      "studentRepo.tasks.status.cancelled": "لغوه",
+      "studentRepo.tasks.priority.low": "ټیټ لومړیتوب",
+      "studentRepo.tasks.priority.medium": "منځنی لومړیتوب",
+      "studentRepo.tasks.priority.high": "لوړ لومړیتوب",
+      "studentRepo.tasks.priority.critical": "بحراني لومړیتوب",
+      "studentRepo.tasks.detail.empty":
+        "یوه دنده وټاکئ څو تشریح، سپارل شوی کس، چک لست، او د بیاکتنې جزئیات یې ووینئ.",
+      "studentRepo.tasks.detail.none": "هیڅ",
+      "studentRepo.tasks.detail.createdBy": "د {{user}} له خوا پرانیستل شوې",
+      "studentRepo.tasks.detail.assignee": "{{user}} ته سپارل شوې",
+      "studentRepo.tasks.detail.unassigned": "نه ده سپارل شوې",
+      "studentRepo.tasks.detail.due": "تر {{date}} پورې",
+      "studentRepo.tasks.detail.comments": "{{count}} څرګندونې",
+      "studentRepo.tasks.detail.assigneeLabel": "سپارل شوی کس",
+      "studentRepo.tasks.detail.milestoneLabel": "پړاو",
+      "studentRepo.tasks.detail.dueLabel": "وروستۍ نېټه",
+      "studentRepo.tasks.detail.priorityLabel": "لومړیتوب",
+      "studentRepo.tasks.detail.scoreLabel": "نمره",
+      "studentRepo.tasks.detail.scoreValue": "{{earned}} / {{total}}",
+      "studentRepo.tasks.detail.createdByLabel": "پرانیستونکی",
+      "studentRepo.tasks.detail.labelsLabel": "لېبلونه",
+      "studentRepo.tasks.detail.checklistLabel": "د اړتیاوو چک لست",
+      "studentRepo.tasks.detail.requirementFallback": "اړتیا {{index}}",
+      "studentRepo.tasks.detail.reviewPanel": "بیاکتنه او سپارنه",
+      "studentRepo.tasks.detail.reviewedByLabel": "بیاکتنه د",
+      "studentRepo.tasks.detail.reviewCommentsLabel": "د بیاکتنې څرګندونې",
+      "studentRepo.tasks.detail.submissionBranchLabel": "د سپارنې څانګه",
+      "studentRepo.tasks.detail.submissionUrlLabel": "د سپارنې URL",
+      "studentRepo.tasks.detail.submissionPullIdLabel": "د وسپارل شوي PR پېژند",
+      "studentRepo.tasks.detail.completedAtLabel": "د بشپړېدو نېټه",
+
+      "studentRepo.tasks.milestoneDetail.back": "بیرته دندو ته",
+      "studentRepo.tasks.milestoneDetail.loading": "پړاو بار کېږي…",
+      "studentRepo.tasks.milestoneDetail.loadError":
+        "پړاو نه شو بار شو. بیا هڅه وکړئ یا لیست ته لاړ شئ.",
+      "studentRepo.tasks.milestoneDetail.editTitle": "پړاو سمون",
+      "studentRepo.tasks.milestoneDetail.tasksInMilestone": "په دې پړاو کې دندې",
+      "studentRepo.tasks.milestoneDetail.savedToast": "پړاو تازه شو",
+      "studentRepo.tasks.milestoneDetail.saveButton": "بدلونونه خوندي کړئ",
+      "studentRepo.tasks.milestoneDetail.closedToast": "پړاو وتړل شو",
+      "studentRepo.tasks.milestoneDetail.reopenedToast": "پړاو بېرته پرانیستل شو",
+      "studentRepo.tasks.milestoneDetail.closeAction": "پړاو وتړئ",
+      "studentRepo.tasks.milestoneDetail.reopenAction": "پړاو بېرته پرانیزئ",
+      "studentRepo.tasks.milestoneDetail.closeConfirmTitle":
+        "آیا واقعیا دا پړاو وتړئ؟",
+      "studentRepo.tasks.milestoneDetail.closeConfirmSubtitle":
+        "تاسو وروسته بېرته خلاصلی شئ. له دې پړاو سره لینک خلاصې دندې خو یوازې پاتې کېږي.",
+      "studentRepo.tasks.milestoneDetail.statusNote":
+        "خلاص یا تړلو لپاره د سرور ځانګړي نقاط کارول کیږي (دا فورمه نده).",
+      "studentRepo.tasks.milestoneDetail.stats.total": "ثبت شوې دندې",
+      "studentRepo.tasks.milestoneDetail.stats.open": "خلاصې دندې",
+      "studentRepo.tasks.milestoneDetail.stats.progress": "په پرمختګ کې",
+      "studentRepo.tasks.milestoneDetail.stats.completed": "بشپړې",
+
+      "studentRepo.tasks.taskDetail.back": "بیرته دندو ته",
+      "studentRepo.tasks.taskDetail.loading": "دنده بار کېږي…",
+      "studentRepo.tasks.taskDetail.loadError": "دنده نه شوه باره شوه.",
+      "studentRepo.tasks.taskDetail.retry": "بیا هڅه",
+      "studentRepo.tasks.taskDetail.issueTitle": "دنده #{{number}}",
+      "studentRepo.tasks.taskDetail.operations": "کړنې",
+      "studentRepo.tasks.taskDetail.assignHeading": "چا ته سپارل",
+      "studentRepo.tasks.taskDetail.assignPlaceholder": "د سپارل شوي کارن نوم",
+      "studentRepo.tasks.taskDetail.assignSelectLabel": "همکار",
+      "studentRepo.tasks.taskDetail.assignSelectPlaceholder":
+        "د مخزن همکار وټاکئ",
+      "studentRepo.tasks.taskDetail.assignSearchPlaceholder":
+        "په نوم، کارن نوم، یا بریښنالیک ولټوئ…",
+      "studentRepo.tasks.taskDetail.assignContributorsEmpty":
+        "د دې مخزن لپاره هیڅ همکار نه دی راغلی. لومړی همکاران زیات کړئ.",
+      "studentRepo.tasks.taskDetail.assignContributorsHint":
+        "یوازې د مخزن په لیک کې کاروونکي سپارلی کیدی شي.",
+      "studentRepo.tasks.taskDetail.assignSubmit": "سپارل",
+      "studentRepo.tasks.taskDetail.assignNeedsAuth":
+        "د دندو د سپارلو لپاره ستاسو حساب باید کارن نوم ولري.",
+      "studentRepo.tasks.taskDetail.assignSavedToast": "سپارنه تازه شوه",
+      "studentRepo.tasks.taskDetail.submitAction": "کار سپارل",
+      "studentRepo.tasks.taskDetail.submitHint":
+        "په مخزن کې یو PR خلاص کړئ، بیا عددي PR پېړند سپاره واستوئ؛ بیاکتونکي د هغه له لارې بدلونونه ګوري.",
+      "studentRepo.tasks.taskDetail.submitModalTitle": "د بیاکتنې لپاره سپارل",
+      "studentRepo.tasks.taskDetail.submitModalSubtitle":
+        "د PR عددي پېژند مخکښ دی؛ بل اختیارات یوازې له پلوه د احتیاط په توګه.",
+      "studentRepo.tasks.taskDetail.submitSavedToast": "سپارنه ثبت شوه",
+      "studentRepo.tasks.taskDetail.submitConfirm": "سپارل",
+      "studentRepo.tasks.taskDetail.reviewAction": "بیاکتنه",
+      "studentRepo.tasks.taskDetail.reviewHint":
+        "لومړی د سپارل شوي PR د بدلونونو مخکتنه کوئ، بیا دلته نظر او نمره ثبت کوئ.",
+      "studentRepo.tasks.taskDetail.reviewModalTitle": "سپارنه بیاکتنه",
+      "studentRepo.tasks.taskDetail.reviewSavedToast": "بیاکتنه خوندي شوه",
+      "studentRepo.tasks.taskDetail.reviewConfirm": "بیاکتنه خوندي کړئ",
+      "studentRepo.tasks.taskDetail.fieldDescription": "تشریح",
+      "studentRepo.tasks.taskDetail.fieldPullRequestId": "د PR عددي پېژند",
+      "studentRepo.tasks.taskDetail.fieldPullRequestIdPlaceholder": "د بېلګې په توګه 12",
+      "studentRepo.tasks.taskDetail.submitPrIdExplainer":
+        "هماغه عدد په کار واخلئ څوک چې ستاسو له مخزن د دې کار لپاره د PR مخ ته ښکاري (د دندې شمېر نه دی).",
+      "studentRepo.tasks.taskDetail.openPullRequestsLink":
+        "د دې مخزن د PR لیستونه پرانیزئ",
+      "studentRepo.tasks.taskDetail.submitOptionalSection":
+        "اختیاري اضافې (څانګه، commit، …)",
+      "studentRepo.tasks.taskDetail.contributorsLoadFailed":
+        "سرور ته د همکارونو رسېد کې ستونزه وه.",
+      "studentRepo.tasks.taskDetail.contributorsRetry": "همکاران بیا پورته کړئ",
+      "studentRepo.tasks.taskDetail.submitBlockedNeedsAssignment":
+        "مخکې له سپارنې په دنده یو تن ټاکل کېږي.",
+      "studentRepo.tasks.taskDetail.submitBlockedWrongUser":
+        "یوازې مسئول کس دلته کار سپارلی شي.",
+      "studentRepo.tasks.taskDetail.submitBlockedCreator":
+        "هغه څوک چې دنده یې پرانيستله، دلته نشي خپل ارزونهلیک کار وسپاري.",
+      "studentRepo.tasks.taskDetail.submitBlockedCreatorAssigned":
+        "تاسو دنده پرانيستله او لا هم مسئول یاست؛ د لیکوال لپاره دا لاره سپارنه نمني.",
+      "studentRepo.tasks.taskDetail.reviewBlockedAssignee":
+        "پلي کوونکی کار سپاري؛ ارزونه د PR ثبت وروسته کېږي.",
+      "studentRepo.tasks.taskDetail.reviewBlockedNeedsSubmission":
+        "د مسئول کس له خوا مخکې له PR یا لینک سپارنه تمه وکړئ.",
+      "studentRepo.tasks.taskDetail.reviewModalSubtitlePr":
+        "تړلي PR عدد: {{id}} — مخکې د هغې پر بنسٍ بدلونونه وګورئ.",
+      "studentRepo.tasks.taskDetail.reviewModalSubtitleNoPr":
+        "د سپارنې لینک یا ضمیمې وګورئ، بیا ارزونه ثبت کړئ.",
+      "studentRepo.tasks.taskDetail.fieldBranch": "د څانګې نوم",
+      "studentRepo.tasks.taskDetail.fieldCommit": "د commit هش",
+      "studentRepo.tasks.taskDetail.fieldPrUrl": "د PR URL",
+      "studentRepo.tasks.taskDetail.fieldFiles": "فایلونه",
+      "studentRepo.tasks.taskDetail.filesCommaHint":
+        "د فایل لارې د کاما سره جلا کړئ.",
+      "studentRepo.tasks.taskDetail.fieldFeedback": "نظر",
+      "studentRepo.tasks.taskDetail.fieldScore": "نمره",
+      "studentRepo.tasks.taskDetail.fieldApproved": "تصویب شوی",
+      "studentRepo.tasks.taskDetail.fieldCheckedReq": "تایید شوې اړتیاوې",
+      "studentRepo.tasks.taskDetail.checkedReqHint":
+        "د چک لست پر څنګ د اړتیاوو متن په کاما سره ولیکئ.",
+
       "studentRepo.contributors.title": "برخمني",
       "studentRepo.contributors.subtitle": "په مخزن کې ګډونوال.",
       "studentRepo.contributors.empty": "د ګډونوالو لیست نشته.",
+      "studentRepo.contributors.stats.collaborators": "ګډونوال",
+      "studentRepo.contributors.stats.pendingInvites": "پاتې بلنې",
+      "studentRepo.contributors.stats.accessLabel": "لاسرسی",
+      "studentRepo.contributors.stats.accessManage": "بلنې اداره کېدای شي",
+      "studentRepo.contributors.stats.accessView": "یوازې کتنه",
+      "studentRepo.contributors.invitations.sectionTitle": "بلنې",
+      "studentRepo.contributors.invitations.pendingTitle": "په تمه ځواب",
+      "studentRepo.contributors.invitations.respondedTitle": "منل شوي او رد شوي",
+      "studentRepo.contributors.invitations.sentAt": "لیږل شوی {{time}}",
+      "studentRepo.contributors.invitations.justNow": "هم اوس",
+      "studentRepo.contributors.invite.button": "ګډونوال بلنه کړئ",
+      "studentRepo.contributors.invite.modalTitle": "ګډونوال بلنه کړئ",
+      "studentRepo.contributors.invite.modalSubtitle":
+        "کارن ومومئ، مخکتنه وکړئ، او بلنه واستوئ.",
+      "studentRepo.contributors.invite.findUser": "کارن موندل",
+      "studentRepo.contributors.invite.placeholder":
+        "د نوم، کارن‌نوم، یا بريښناليک له مخې ولټوئ",
+      "studentRepo.contributors.invite.searchPlaceholder": "د لټون لیکل پیل کړئ",
+      "studentRepo.contributors.invite.hint":
+        "یو اصطلاح نوم، کارن‌نوم، او بريښناليک پوشه ولټوي. موجود ګډونوال نشي ښودل کېږي.",
+      "studentRepo.contributors.invite.previewLabel": "د بلنې مخکتنه",
+      "studentRepo.contributors.invite.previewEmpty":
+        "د مخکتنې لپاره له لټون څخه غوره وکړئ.",
+      "studentRepo.contributors.invite.cancel": "لغوه",
+      "studentRepo.contributors.invite.send": "بلنه ولېږئ",
+      "studentRepo.contributors.cards.activeMember": "په دې مخزن کې فعال",
+      "studentRepo.contributors.invitations.sectionHint":
+        "پاتې بلنې او ځوابونه په یو ځای کې وګورئ.",
+      "studentRepo.statistics.title": "د زېرمتون احصایې",
+      "studentRepo.statistics.subtitle":
+        "ګډونوال، پړاوونه، او دندې — د زېرمتون ټولیزو شمېرو سره روښانه چارټونه.",
+      "studentRepo.statistics.loading": "د زېرمتون احصایې رااخلي...",
+      "studentRepo.statistics.empty":
+        "د دې زېرمتون لپاره تر اوسه کومې احصایې نشته.",
+      "studentRepo.statistics.cards.contributors": "ګډونوال",
+      "studentRepo.statistics.cards.commits": "کمېټونه",
+      "studentRepo.statistics.cards.pullRequests": "ادغام غوښتنې",
+      "studentRepo.statistics.cards.completedTasks": "بشپړ شوي کارونه",
+      "studentRepo.statistics.cards.totalMarks": "د پړاو نمرې",
+      "studentRepo.statistics.cards.earnedMarks": "ترلاسه شوې نمرې",
+      "studentRepo.statistics.cards.milestones": "پړاوونه",
+      "studentRepo.statistics.cards.issues": "دندې",
+      "studentRepo.statistics.cards.hint":
+        "د زېرمتون د احصایو API څخه ژوندي شمېر.",
+      "studentRepo.statistics.cards.totalMarksHint":
+        "په ټولو پړاوونو کې ټولې ځانګړې شوې نمرې.",
+      "studentRepo.statistics.cards.earnedMarksHint":
+        "له ارزول شوو سپارنو څخه ورکړل شوې نمرې.",
+      "studentRepo.statistics.cards.issuesHint":
+        "په دې مخزن کې راوړل شوي دندې.",
+      "studentRepo.statistics.cards.milestonesHint":
+        "خلاص او تړلي پړاوونه پکې دي.",
+      "studentRepo.statistics.charts.taskStatusTitle": "د دندو د حالت لنډیز",
+      "studentRepo.statistics.charts.taskStatusHint":
+        "د مخزن د دندو له شمېرونو. د برخې لپاره هاور وکړئ.",
+      "studentRepo.statistics.charts.tasksTotalCenter": "دندې",
+      "studentRepo.statistics.charts.milestonesTitle": "د پړاو بشپړتیا",
+      "studentRepo.statistics.charts.milestonesHint":
+        "د پړاو بشپړتیا (%). تر ۱۲ پړاوونه.",
+      "studentRepo.statistics.charts.milestonePct": "بشپړتیا %",
+      "studentRepo.statistics.charts.noTasks": "لا دې مخزن کې دندې نشته.",
+      "studentRepo.statistics.charts.noMilestones":
+        "لا دې مخزن کې پړاوونه نشته.",
+      "studentRepo.statistics.charts.contributorSectionIntro":
+        "د کسانو فعالیت (د مخزن له احصایو).",
+      "studentRepo.statistics.breakdown.title":
+        "د ګډونوالو د فعالیت وېش",
+      "studentRepo.statistics.breakdown.hint":
+        "کمېټونه او pushونه اوس مهال د لیکل شوي کمېټ تاریخ پر بنسټ دي، ځکه جلا push پېښې نه ساتل کېږي.",
+      "studentRepo.statistics.metrics.commits": "کمېټونه",
+      "studentRepo.statistics.metrics.pushes": "Pushونه",
+      "studentRepo.statistics.metrics.pullRequests": "ادغام غوښتنې",
+      "studentRepo.statistics.metrics.completedTasks": "بشپړ شوي کارونه",
+      "studentRepo.statistics.share.title": "د ونډې برخه",
+      "studentRepo.statistics.share.hint":
+        "د کمېټونو، ادغام غوښتنو، ادغام شوو غوښتنو، او بشپړ شوو کارونو پر بنسټ وزن ورکول کېږي.",
+      "studentRepo.statistics.summary.title": "د ګډونوالو لنډیز",
+      "studentRepo.statistics.summary.hint":
+        "د هر ګډونوال د ثبت شوي فعالیت لنډ جدولي لید.",
+      "studentRepo.statistics.table.contributor": "ګډونوال",
+      "studentRepo.statistics.table.commits": "کمېټونه",
+      "studentRepo.statistics.table.pushes": "Pushونه",
+      "studentRepo.statistics.table.pulls": "غوښتنې",
+      "studentRepo.statistics.table.merged": "ادغام شوي",
+      "studentRepo.statistics.table.tasksDone": "بشپړ کارونه",
+      "studentRepo.statistics.table.marks": "نمرې",
+      "studentRepo.statistics.table.scorePct": "سلنه",
+      "studentRepo.statistics.table.activity": "فعالیت",
+      "studentRepo.statistics.table.rank": "#",
 
       "sidebar.staff.dashboard": "ډاشبورد",
       "sidebar.staff.notifications": "خبرتیاوې",
@@ -6381,9 +7264,10 @@ const resources = {
       "studentRepo.actions.star": "ستاره",
 
       "studentRepo.tabs.code": "فایل‌ها",
-      "studentRepo.tabs.pulls": "Pull request",
+      "studentRepo.tabs.pulls": "درخواست‌های ادغام",
       "studentRepo.tabs.tasks": "کارها",
       "studentRepo.tabs.contributors": "مشارکت‌کنندگان",
+      "studentRepo.tabs.statistics": "آمار",
       "studentRepo.code.title": "درخت مخزن",
       "studentRepo.code.subtitle": "پرونده‌های این مخزن را ورق بزنید.",
       "studentRepo.code.loading": "دریافت درخت…",
@@ -6461,12 +7345,125 @@ const resources = {
       "studentRepo.about.viewContributors": "مشارکت‌کنندگان",
       "studentRepo.sidebar.aria": "خلاصهٔ کناری",
 
-      "studentRepo.pulls.title": "Pull requestها",
-      "studentRepo.pulls.subtitle": "درخواست‌های ادغام و بازبینی روی مخزن.",
+      "studentRepo.pulls.title": "درخواست‌های ادغام",
+      "studentRepo.pulls.subtitle": "تغییراتی که بعد از بازبینی در شاخه‌ها ادغام می‌شوند.",
       "studentRepo.pulls.loading": "دریافت…",
       "studentRepo.pulls.empty": "موردی نیست.",
+      "studentRepo.pulls.actions.cancel": "لغو",
+      "studentRepo.pulls.actions.new": "درخواست ادغام جدید",
+      "studentRepo.pulls.actions.create": "ایجاد درخواست ادغام",
+      "studentRepo.pulls.form.baseBranch": "شاخهٔ مبنا",
+      "studentRepo.pulls.form.baseBranchPlaceholder": "شاخهٔ مبنا را انتخاب کنید",
+      "studentRepo.pulls.form.compareBranch": "شاخهٔ مقایسه",
+      "studentRepo.pulls.form.compareBranchPlaceholder":
+        "شاخهٔ مقایسه را انتخاب کنید",
+      "studentRepo.pulls.form.compareFallback": "مقایسه",
+      "studentRepo.pulls.form.baseFallback": "مبنا",
+      "studentRepo.pulls.form.into": "به",
+      "studentRepo.pulls.form.summaryHint":
+        "تفاوت شاخه‌ها را بررسی کنید، خلاصه را تأیید کنید، و وقتی شاخهٔ هدف درست بود درخواست ادغام را باز کنید.",
+      "studentRepo.pulls.form.branchConflict":
+        "شاخهٔ مبنا و شاخهٔ مقایسه باید متفاوت باشند.",
+      "studentRepo.pulls.form.title": "عنوان",
+      "studentRepo.pulls.form.titlePlaceholder":
+        "برای این درخواست ادغام یک عنوان بنویسید",
+      "studentRepo.pulls.form.description": "توضیح",
+      "studentRepo.pulls.form.descriptionPlaceholder":
+        "توضیح دهید این درخواست ادغام چه تغییراتی دارد",
+      "studentRepo.pulls.form.changes": "تغییرات",
+      "studentRepo.pulls.form.filesCount_one": "{{count}} فایل",
+      "studentRepo.pulls.form.filesCount_other": "{{count}} فایل",
+      "studentRepo.pulls.form.loadingDiff": "تفاوت شاخه‌ها در حال بارگیری است…",
+      "studentRepo.pulls.form.noDiff":
+        "هیچ تفاوتی میان این شاخه‌ها پیدا نشد.",
+      "studentRepo.pulls.form.hide": "پنهان کردن",
+      "studentRepo.pulls.form.show": "نمایش",
+      "studentRepo.pulls.form.old": "قدیم",
+      "studentRepo.pulls.form.new": "جدید",
+      "studentRepo.pulls.form.content": "محتوا",
+      "studentRepo.pulls.summary.filesChanged": "فایل‌های تغییر یافته",
+      "studentRepo.pulls.summary.refreshing": "مقایسهٔ شاخه‌ها تازه می‌شود…",
+      "studentRepo.pulls.summary.filesHint":
+        "فایل‌هایی که در این درخواست ادغام شامل هستند.",
+      "studentRepo.pulls.summary.additions": "افزوده‌ها",
+      "studentRepo.pulls.summary.additionsHint":
+        "خطوط جدیدی که توسط شاخهٔ مقایسه اضافه شده‌اند.",
+      "studentRepo.pulls.summary.deletions": "حذف‌ها",
+      "studentRepo.pulls.summary.deletionsHint":
+        "خطوطی که در شاخهٔ هدف حذف یا جایگزین شده‌اند.",
+      "studentRepo.pulls.cards.total": "مجموع",
+      "studentRepo.pulls.cards.totalHint":
+        "همهٔ درخواست‌های ادغام این مخزن.",
+      "studentRepo.pulls.cards.open": "باز",
+      "studentRepo.pulls.cards.openHint": "برای بازبینی یا ادغام آماده است.",
+      "studentRepo.pulls.cards.conflicting": "دارای تداخل",
+      "studentRepo.pulls.cards.conflictingHint":
+        "پیش از ادغام باید تداخل‌ها حل شوند.",
+      "studentRepo.pulls.cards.merged": "ادغام‌شده",
+      "studentRepo.pulls.cards.mergedHint":
+        "قبلاً در شاخهٔ مبنا اعمال شده است.",
+      "studentRepo.pulls.cards.closedDraft": "بسته / پیش‌نویس",
+      "studentRepo.pulls.cards.closedDraftHint":
+        "غیرفعال است یا هنوز برای بازبینی آماده نشده.",
+      "studentRepo.pulls.filters.searchPlaceholder":
+        "بر اساس عنوان، نویسنده، یا شاخه جستجو کنید",
+      "studentRepo.pulls.filters.status": "وضعیت",
+      "studentRepo.pulls.filters.statusPlaceholder": "فیلتر بر اساس وضعیت",
+      "studentRepo.pulls.filters.allStatuses": "همهٔ وضعیت‌ها",
+      "studentRepo.pulls.filters.showing":
+        "نمایش {{visible}} از {{total}} درخواست ادغام",
+      "studentRepo.pulls.filters.emptyTitle":
+        "هیچ درخواست ادغامی با فیلترهای فعلی سازگار نیست.",
+      "studentRepo.pulls.filters.emptyHint":
+        "وضعیت دیگری را امتحان کنید یا عبارت جستجو را پاک کنید تا نتایج بیشتری ببینید.",
+      "studentRepo.pulls.status.open": "باز",
+      "studentRepo.pulls.status.conflicting": "دارای تداخل",
+      "studentRepo.pulls.status.merged": "ادغام‌شده",
+      "studentRepo.pulls.status.closed": "بسته",
+      "studentRepo.pulls.status.draft": "پیش‌نویس",
+      "studentRepo.pulls.status.ready": "آمادهٔ بازبینی",
+      "studentRepo.pulls.mergeState.merged":
+        "این درخواست ادغام قبلاً در شاخهٔ مبنا ادغام شده است.",
+      "studentRepo.pulls.mergeState.closed":
+        "این درخواست ادغام بدون ادغام بسته شده است.",
+      "studentRepo.pulls.mergeState.draft":
+        "این درخواست ادغام هنوز پیش‌نویس است و فعلاً برای ادغام آماده نیست.",
+      "studentRepo.pulls.mergeState.conflicting":
+        "این شاخه تداخل دارد و پیش از ادغام باید حل شود.",
+      "studentRepo.pulls.mergeState.ready":
+        "این درخواست ادغام برای بازبینی آماده است و پس از تأیید شما می‌تواند ادغام شود.",
+      "studentRepo.pulls.mergeState.mergeable":
+        "این شاخه با شاخهٔ مبنا تداخلی ندارد و برای ادغام آماده است.",
+      "studentRepo.pulls.card.sourceBranch": "شاخهٔ مبدأ",
+      "studentRepo.pulls.card.targetBranch": "شاخهٔ مقصد",
+      "studentRepo.pulls.card.by": "توسط {{author}}",
+      "studentRepo.pulls.card.head": "Head {{sha}}",
+      "studentRepo.pulls.card.base": "Base {{sha}}",
+      "studentRepo.pulls.card.needsConflictResolution":
+        "نیازمند حل تداخل",
+      "studentRepo.pulls.card.checkingConflicts": "در حال بررسی تداخل‌ها…",
+      "studentRepo.pulls.card.merge": "ادغام درخواست",
+      "studentRepo.pulls.card.resolveConflicts": "حل تداخل‌ها",
+      "studentRepo.pulls.card.readyToMerge": "آمادهٔ ادغام",
+      "studentRepo.pulls.card.hideDetails": "پنهان کردن جزئیات",
+      "studentRepo.pulls.card.showDetails": "نمایش جزئیات",
+      "studentRepo.pulls.card.compare": "مقایسه",
+      "studentRepo.pulls.card.status": "وضعیت",
+      "studentRepo.pulls.card.sourceHash": "هش مبدأ: {{sha}}",
+      "studentRepo.pulls.card.targetHash": "هش مقصد: {{sha}}",
+      "studentRepo.pulls.toast.created": "درخواست ادغام ایجاد شد",
+      "studentRepo.pulls.toast.createFailed": "ایجاد درخواست ادغام ناموفق بود.",
+      "studentRepo.pulls.conflicts.detected":
+        "برای این درخواست ادغام، تداخل تشخیص شد.",
+      "studentRepo.pulls.conflicts.loading": "تداخل‌ها در حال بارگیری است",
+      "studentRepo.pulls.conflicts.files": "فایل‌های دارای تداخل",
+      "studentRepo.pulls.conflicts.item": "تداخل {{index}}",
+      "studentRepo.pulls.conflicts.binary": "تداخل فایل باینری",
+      "studentRepo.pulls.conflicts.text":
+        "هم شاخهٔ مبدأ و هم شاخهٔ مقصد این فایل را تغییر داده‌اند. متن دارای تداخل در پایین نشان داده می‌شود.",
       "studentRepo.tasks.title": "کارها",
-      "studentRepo.tasks.subtitle": "قطعه‌کارها و وظایف این مخزن.",
+      "studentRepo.tasks.subtitle":
+        "مایلستون‌ها، کارهای شبیه Issue، و پیشرفت مشارکت‌کنندگان این مخزن.",
       "studentRepo.tasks.loading": "بارگذاری…",
       "studentRepo.tasks.empty":
         "هنوز کار قابل‌نمایش نیست — وقتی مدرس چیزی منتشر کرد دوباره نگاه کنید.",
@@ -6477,9 +7474,340 @@ const resources = {
       "studentRepo.tasks.statInReview": "در بازبینی",
       "studentRepo.tasks.listHeading": "فهرست",
       "studentRepo.tasks.unnamed": "کار {{index}}",
+      "studentRepo.tasks.summary.totalHint": "همهٔ کارهای ثبت‌شدهٔ این مخزن.",
+      "studentRepo.tasks.summary.openHint":
+        "کارهای باز که هنوز تکمیل نشده‌اند.",
+      "studentRepo.tasks.summary.progressHint":
+        "کارهای سپرده‌شده که فعلاً در حال اجرا هستند.",
+      "studentRepo.tasks.summary.reviewHint":
+        "ارسال‌هایی که منتظر بازبینی یا نمره هستند.",
+      "studentRepo.tasks.summary.completedHint":
+        "کارهایی که بازبینی و تکمیل شده‌اند.",
+      "studentRepo.tasks.actions.newMilestone": "مایلستون جدید",
+      "studentRepo.tasks.actions.newTask": "Issue جدید",
+      "studentRepo.tasks.milestones.title": "مایلستون‌ها",
+      "studentRepo.tasks.milestones.subtitle":
+        "کارهای مرتبط را با پیشرفت و تاریخ سررسید در مایلستون‌ها دنبال کنید.",
+      "studentRepo.tasks.milestones.open": "باز",
+      "studentRepo.tasks.milestones.closed": "بسته",
+      "studentRepo.tasks.milestones.empty":
+        "هیچ مایلستونی با وضعیت انتخاب‌شده پیدا نشد.",
+      "studentRepo.tasks.milestones.progress": "پیشرفت",
+      "studentRepo.tasks.milestones.openTasks": "{{count}} کار باز",
+      "studentRepo.tasks.milestones.completedTasks":
+        "{{count}} از {{total}} کار تکمیل شده",
+      "studentRepo.tasks.milestones.untitled": "مایلستون بدون عنوان",
+      "studentRepo.tasks.issues.title": "Issueها",
+      "studentRepo.tasks.issues.subtitle":
+        "کار مخزن را با وظایف شبیه Issue، همراه با مسئول، مایلستون، و وضعیت بازبینی دنبال کنید.",
+      "studentRepo.tasks.filters.searchPlaceholder":
+        "بر اساس عنوان، مسئول، شاخه، لیبل، یا بازبین جستجو کنید",
+      "studentRepo.tasks.filters.searchLabel": "جستجو",
+      "studentRepo.tasks.filters.statusLabel": "وضعیت کار",
+      "studentRepo.tasks.filters.statusPlaceholder": "وضعیت را انتخاب کنید",
+      "studentRepo.tasks.filters.milestoneLabel": "فیلتر مایلستون",
+      "studentRepo.tasks.filters.milestonePlaceholder": "مایلستون را انتخاب کنید",
+      "studentRepo.tasks.filters.milestoneSearch": "مایلستون‌ها را جستجو کنید…",
+      "studentRepo.tasks.filters.scopeLabel": "دامنهٔ سپردن",
+      "studentRepo.tasks.filters.scopePlaceholder": "دامنه را انتخاب کنید",
+      "studentRepo.tasks.filters.statusAll": "همهٔ وضعیت‌ها",
+      "studentRepo.tasks.filters.milestoneAll": "همهٔ مایلستون‌ها",
+      "studentRepo.tasks.filters.scopeAll": "همه",
+      "studentRepo.tasks.filters.scopeMine": "سپرده‌شده به من",
+      "studentRepo.tasks.filters.showing": "نمایش {{count}} کار",
+      "studentRepo.tasks.createMilestone.title": "ایجاد مایلستون",
+      "studentRepo.tasks.createMilestone.subtitle":
+        "هر مایلستون کارها را تحت یک زمان‌بندی و یک پروفایل نمره‌دهی (امتیاز، حداقل کارهای تکمیل‌شده، متن معیار) گروه‌بندی می‌کند.",
+      "studentRepo.tasks.authRequiredUsername":
+        "برای ایجاد مایلستون یا کار نیاز به نام کاربری حساب دارید (در مسیر API استفاده می‌شود).",
+      "studentRepo.tasks.createMilestone.submit": "ایجاد مایلستون",
+      "studentRepo.tasks.createMilestone.fields.title": "عنوان",
+      "studentRepo.tasks.createMilestone.fields.dueDate": "تاریخ سررسید",
+      "studentRepo.tasks.createMilestone.fields.maxScore": "حداکثر نمره",
+      "studentRepo.tasks.createMilestone.fields.passingScore": "نمرهٔ قبولی",
+      "studentRepo.tasks.createMilestone.fields.requiredTasks": "کارهای ضروری",
+      "studentRepo.tasks.createMilestone.fields.description": "توضیح",
+      "studentRepo.tasks.createMilestone.fields.rubric": "معیار ارزیابی",
+      "studentRepo.tasks.createMilestone.sections.identity": "نام، جزئیات، و تاریخ سررسید",
+      "studentRepo.tasks.createMilestone.sections.identityHint":
+        "با title، description، و dueDate روی سرور هم‌راستاست—مشخص کنید این فاز چه می‌پوشاند و چه وقت تمام می‌شود.",
+      "studentRepo.tasks.createMilestone.sections.grading": "امتیاز و قوانین تکمیل",
+      "studentRepo.tasks.createMilestone.sections.gradingHint":
+        "حداکثر نمره، آستانهٔ قبولی، و چند کار تکمیل‌شده برای اتمام مایلستون لازم است.",
+      "studentRepo.tasks.createMilestone.sections.content": "معیار برای بازبین‌ها",
+      "studentRepo.tasks.createMilestone.sections.contentHint":
+        "متن اختیاری (همان روبریک که API ذخیره می‌کند).",
+      "studentRepo.tasks.createMilestone.placeholders.title":
+        "برنامه‌ریزی و بازبینی اسپرینت",
+      "studentRepo.tasks.createMilestone.placeholders.description":
+        "دامنهٔ مایلستون، کار مورد انتظار، و قواعد ارزیابی را توضیح دهید.",
+      "studentRepo.tasks.createMilestone.placeholders.rubric":
+        "توضیح دهید این مایلستون چگونه ارزیابی می‌شود.",
+      "studentRepo.tasks.createTask.title": "ایجاد Issue",
+      "studentRepo.tasks.createTask.subtitle":
+        "زیر نام کاربری شما یک کار ایجاد می‌شود: عنوان، مایلستون اختیاری، اولویت، لیبل‌ها، زمان‌بندی، نمره، و چک‌لیست ارسالی به عنوان آرایهٔ requirements.",
+      "studentRepo.tasks.createTask.submit": "ایجاد Issue",
+      "studentRepo.tasks.createTask.fields.title": "عنوان",
+      "studentRepo.tasks.createTask.fields.priority": "اولویت",
+      "studentRepo.tasks.createTask.fields.milestone": "مایلستون",
+      "studentRepo.tasks.createTask.fields.dueDate": "تاریخ سررسید",
+      "studentRepo.tasks.createTask.fields.estimatedHours": "ساعت تخمینی",
+      "studentRepo.tasks.createTask.fields.maxScore": "حداکثر نمره",
+      "studentRepo.tasks.createTask.fields.labels": "لیبل‌ها",
+      "studentRepo.tasks.createTask.fields.description": "توضیح",
+      "studentRepo.tasks.createTask.fields.requirements": "چک‌لیست نیازمندی‌ها",
+      "studentRepo.tasks.createTask.sections.identity": "عنوان و توضیح",
+      "studentRepo.tasks.createTask.sections.identityHint":
+        "سرور این‌ها را title و description ذخیره می‌کند؛ عنوان را کوتاه و جزئیات را اینجا بگذارید.",
+      "studentRepo.tasks.createTask.sections.planning": "مایلستون، اولویت، و زمان‌بندی",
+      "studentRepo.tasks.createTask.sections.planningHint":
+        "شمارهٔ مایلستون اختیاری است. اولویت با حروف بزرگ ارسال می‌شود. dueDate، estimatedHours، و maxScore اختیاری‌اند.",
+      "studentRepo.tasks.createTask.sections.metadata": "لیبل‌ها",
+      "studentRepo.tasks.createTask.sections.metadataHint":
+        "هر لیبل روی سرور با حروف بزرگ ذخیره می‌شود (همان مجموعهٔ لیبل شبیه Issue).",
+      "studentRepo.tasks.createTask.sections.content": "چک‌لیست پذیرش",
+      "studentRepo.tasks.createTask.sections.contentHint":
+        "هر مورد یک رشته در آرایهٔ requirements است که بازبین می‌تواند جداگانه تأیید کند.",
+      "studentRepo.tasks.createTask.placeholders.title":
+        "بیان اولیهٔ مسئلهٔ پژوهش را آماده کنید",
+      "studentRepo.tasks.createTask.placeholders.labels": "لیبل‌ها را انتخاب کنید",
+      "studentRepo.tasks.createTask.placeholders.searchLabels":
+        "لیبل‌ها را جستجو کنید…",
+      "studentRepo.tasks.createTask.placeholders.description":
+        "کار، خروجی مورد انتظار، و نکات پذیرش را توضیح دهید.",
+      "studentRepo.tasks.createTask.placeholders.requirements":
+        "در هر خط یک نیازمندی",
+      "studentRepo.tasks.createTask.requirements.addRow": "افزودن نیازمندی",
+      "studentRepo.tasks.createTask.requirements.itemPlaceholder":
+        "مثلاً آزمایش واحدها در CI می‌گذرد",
+      "studentRepo.tasks.createTask.requirements.removeAria": "حذف این نیازمندی",
+      "studentRepo.tasks.createTask.requirements.arrayHint":
+        "خطوط خالی هنگام ارسال نادیده گرفته می‌شوند.",
+      "studentRepo.tasks.status.open": "باز",
+      "studentRepo.tasks.status.progress": "در حال انجام",
+      "studentRepo.tasks.status.review": "در بازبینی",
+      "studentRepo.tasks.status.completed": "تکمیل‌شده",
+      "studentRepo.tasks.status.cancelled": "لغوشده",
+      "studentRepo.tasks.priority.low": "اولویت پایین",
+      "studentRepo.tasks.priority.medium": "اولویت متوسط",
+      "studentRepo.tasks.priority.high": "اولویت بالا",
+      "studentRepo.tasks.priority.critical": "اولویت بحرانی",
+      "studentRepo.tasks.detail.empty":
+        "یک کار را انتخاب کنید تا توضیح، مسئول، چک‌لیست، و جزئیات بازبینی آن را ببینید.",
+      "studentRepo.tasks.detail.none": "هیچ",
+      "studentRepo.tasks.detail.createdBy": "توسط {{user}} باز شده",
+      "studentRepo.tasks.detail.assignee": "سپرده‌شده به {{user}}",
+      "studentRepo.tasks.detail.unassigned": "بدون مسئول",
+      "studentRepo.tasks.detail.due": "مهلت {{date}}",
+      "studentRepo.tasks.detail.comments": "{{count}} دیدگاه",
+      "studentRepo.tasks.detail.assigneeLabel": "مسئول",
+      "studentRepo.tasks.detail.milestoneLabel": "مایلستون",
+      "studentRepo.tasks.detail.dueLabel": "تاریخ سررسید",
+      "studentRepo.tasks.detail.priorityLabel": "اولویت",
+      "studentRepo.tasks.detail.scoreLabel": "نمره",
+      "studentRepo.tasks.detail.scoreValue": "{{earned}} / {{total}}",
+      "studentRepo.tasks.detail.createdByLabel": "باز شده توسط",
+      "studentRepo.tasks.detail.labelsLabel": "لیبل‌ها",
+      "studentRepo.tasks.detail.checklistLabel": "چک‌لیست نیازمندی‌ها",
+      "studentRepo.tasks.detail.requirementFallback": "نیازمندی {{index}}",
+      "studentRepo.tasks.detail.reviewPanel": "بازبینی و ارسال",
+      "studentRepo.tasks.detail.reviewedByLabel": "بازبینی توسط",
+      "studentRepo.tasks.detail.reviewCommentsLabel": "نظرهای بازبینی",
+      "studentRepo.tasks.detail.submissionBranchLabel": "شاخهٔ ارسال",
+      "studentRepo.tasks.detail.submissionUrlLabel": "آدرس ارسال",
+      "studentRepo.tasks.detail.submissionPullIdLabel": "شناسهٔ درخواست ادغام ارسالی",
+      "studentRepo.tasks.detail.completedAtLabel": "تاریخ تکمیل",
+
+      "studentRepo.tasks.milestoneDetail.back": "بازگشت به کارها",
+      "studentRepo.tasks.milestoneDetail.loading": "در حال بارگیری مایلستون…",
+      "studentRepo.tasks.milestoneDetail.loadError":
+        "بارگیری مایلستون ناموفق بود. دوباره تلاش کنید یا به فهرست برگردید.",
+      "studentRepo.tasks.milestoneDetail.editTitle": "ویرایش مایلستون",
+      "studentRepo.tasks.milestoneDetail.tasksInMilestone": "مسائل این مایلستون",
+      "studentRepo.tasks.milestoneDetail.savedToast": "مایلستون به‌روز شد",
+      "studentRepo.tasks.milestoneDetail.saveButton": "ذخیرهٔ تغییرات",
+      "studentRepo.tasks.milestoneDetail.closedToast": "مایلستون بسته شد",
+      "studentRepo.tasks.milestoneDetail.reopenedToast": "مایلستون دوباره باز شد",
+      "studentRepo.tasks.milestoneDetail.closeAction": "بستن مایلستون",
+      "studentRepo.tasks.milestoneDetail.reopenAction": "باز کردن مجدد",
+      "studentRepo.tasks.milestoneDetail.closeConfirmTitle": "مایلستون بسته شود؟",
+      "studentRepo.tasks.milestoneDetail.closeConfirmSubtitle":
+        "بعداً می‌توانید دوباره بازش کنید. مسائل باز مرتبط معمولاً همان می‌مانند.",
+      "studentRepo.tasks.milestoneDetail.statusNote":
+        "باز و بسته کردن با مسیرهای اختصاصی سرور انجام می‌شود نه این فرم.",
+      "studentRepo.tasks.milestoneDetail.stats.total": "مسائل ثبت‌شده",
+      "studentRepo.tasks.milestoneDetail.stats.open": "مسائل باز",
+      "studentRepo.tasks.milestoneDetail.stats.progress": "در حال انجام",
+      "studentRepo.tasks.milestoneDetail.stats.completed": "تکمیل‌شده",
+
+      "studentRepo.tasks.taskDetail.back": "بازگشت به کارها",
+      "studentRepo.tasks.taskDetail.loading": "در حال بارگیری مسئله…",
+      "studentRepo.tasks.taskDetail.loadError": "بارگیری مسئله ناموفق بود.",
+      "studentRepo.tasks.taskDetail.retry": "تلاش دوباره",
+      "studentRepo.tasks.taskDetail.issueTitle": "مسئله #{{number}}",
+      "studentRepo.tasks.taskDetail.operations": "اقدامات",
+      "studentRepo.tasks.taskDetail.assignHeading": "واگذاری",
+      "studentRepo.tasks.taskDetail.assignPlaceholder": "نام کاربری مسئول",
+      "studentRepo.tasks.taskDetail.assignSelectLabel": "همکار مخزن",
+      "studentRepo.tasks.taskDetail.assignSelectPlaceholder":
+        "یکی از همکاران این مخزن را انتخاب کنید",
+      "studentRepo.tasks.taskDetail.assignSearchPlaceholder":
+        "جستجو با نام، نام کاربری یا ایمیل…",
+      "studentRepo.tasks.taskDetail.assignContributorsEmpty":
+        "همکاری برای این مخزن یافت نشد. ابتدا همکار اضافه کنید.",
+      "studentRepo.tasks.taskDetail.assignContributorsHint":
+        "فقط کاربران ثبت‌شده به‌عنوان همکار این مخزن قابل واگذاری‌اند.",
+      "studentRepo.tasks.taskDetail.assignSubmit": "واگذار کردن",
+      "studentRepo.tasks.taskDetail.assignNeedsAuth":
+        "برای واگذاری کارها به نام کاربری در حساب نیاز است.",
+      "studentRepo.tasks.taskDetail.assignSavedToast": "واگذاری به‌روز شد",
+      "studentRepo.tasks.taskDetail.submitAction": "ارسال کار",
+      "studentRepo.tasks.taskDetail.submitHint":
+        "در این مخزن یک درخواست ادغام بسازید، سپس شناسهٔ عددی همان PR را ارسال کنید تا بازبین از همان مسیر کامیت‌ها و تفاوت‌ها را ببیند.",
+      "studentRepo.tasks.taskDetail.submitModalTitle": "ارسال برای بازبینی",
+      "studentRepo.tasks.taskDetail.submitModalSubtitle":
+        "شناسهٔ PR ترجیح است؛ سایر فیلدها فقط پشتیبان‌اند.",
+      "studentRepo.tasks.taskDetail.submitSavedToast": "ارسال ثبت شد",
+      "studentRepo.tasks.taskDetail.submitConfirm": "ارسال",
+      "studentRepo.tasks.taskDetail.reviewAction": "بازبینی",
+      "studentRepo.tasks.taskDetail.reviewHint":
+        "ابتدا از روی درخواست ادغام ارسال‌شده تغییرات را ببینید، سپس بازخورد و نمره را اینجا ثبت کنید.",
+      "studentRepo.tasks.taskDetail.reviewModalTitle": "بازبینی ارسال",
+      "studentRepo.tasks.taskDetail.reviewSavedToast": "بازبینی ذخیره شد",
+      "studentRepo.tasks.taskDetail.reviewConfirm": "ذخیرهٔ بازبینی",
+      "studentRepo.tasks.taskDetail.fieldDescription": "توضیح",
+      "studentRepo.tasks.taskDetail.fieldPullRequestId": "شناسهٔ درخواست ادغام",
+      "studentRepo.tasks.taskDetail.fieldPullRequestIdPlaceholder": "مثلاً 12",
+      "studentRepo.tasks.taskDetail.submitPrIdExplainer":
+        "عددی که در صفحهٔ همان PR در این مخزن نمایش داده می‌شود (نه شمارهٔ مسئله).",
+      "studentRepo.tasks.taskDetail.openPullRequestsLink":
+        "باز کردن فهرست درخواست‌های ادغام این مخزن",
+      "studentRepo.tasks.taskDetail.submitOptionalSection":
+        "فیلدهای اختیاری (شاخه، کامیت، …)",
+      "studentRepo.tasks.taskDetail.contributorsLoadFailed":
+        "فهرست مشارکت‌کنندگان از سرور بارگذاری نشد.",
+      "studentRepo.tasks.taskDetail.contributorsRetry": "بارگذاری دوباره",
+      "studentRepo.tasks.taskDetail.submitBlockedNeedsAssignment":
+        "اول باید این مسئول به کسی واگذار شود.",
+      "studentRepo.tasks.taskDetail.submitBlockedWrongUser":
+        "فقط مسئول واگذارشده می‌تواند ارسال کند.",
+      "studentRepo.tasks.taskDetail.submitBlockedCreator":
+        "کسی که مسئله را ایجاد کرده نمی‌تواند اینجا ارزیابی همان کار را ارسال کند.",
+      "studentRepo.tasks.taskDetail.submitBlockedCreatorAssigned":
+        "شما مسئله را ساختید و هنوز مسئولید — این مسیر برای ارسال نمره توسط ایجادکننده باز نیست.",
+      "studentRepo.tasks.taskDetail.reviewBlockedAssignee":
+        "اجرا کننده ارسال می‌کند؛ بازبینی پس از ثبت PR متصل انجام شود.",
+      "studentRepo.tasks.taskDetail.reviewBlockedNeedsSubmission":
+        "منتظر ثبت PR یا پیوند ارسال از طرف مسئول بمانید.",
+      "studentRepo.tasks.taskDetail.reviewModalSubtitlePr":
+        "درخواست ادغام مرتبط: {{id}} — ابتدا تغییرات همان PR را بازبینی کنید.",
+      "studentRepo.tasks.taskDetail.reviewModalSubtitleNoPr":
+        "پیوند یا ضمائم روی مسئله را ببینید، سپس بازبینی را ثبت کنید.",
+      "studentRepo.tasks.taskDetail.fieldBranch": "نام شاخه",
+      "studentRepo.tasks.taskDetail.fieldCommit": "هش کامیت",
+      "studentRepo.tasks.taskDetail.fieldPrUrl": "آدرس درخواست ادغام",
+      "studentRepo.tasks.taskDetail.fieldFiles": "فایل‌ها",
+      "studentRepo.tasks.taskDetail.filesCommaHint":
+        "مسیر فایل‌ها را با ویرگول جدا کنید.",
+      "studentRepo.tasks.taskDetail.fieldFeedback": "بازخورد",
+      "studentRepo.tasks.taskDetail.fieldScore": "نمره",
+      "studentRepo.tasks.taskDetail.fieldApproved": "تأییدشده",
+      "studentRepo.tasks.taskDetail.fieldCheckedReq": "نیازمندی‌های تأییدشده",
+      "studentRepo.tasks.taskDetail.checkedReqHint":
+        "متن نیازمندی‌ها را دقیقاً مانند چک‌لیست، با ویرگول جدا کنید.",
+
       "studentRepo.contributors.title": "مشارکت‌کنندگان",
       "studentRepo.contributors.subtitle": "افرادی که روی مخزن با شما هم‌نام هستند.",
       "studentRepo.contributors.empty": "نام مشارکت‌کننده‌ای بازنگردید.",
+      "studentRepo.contributors.stats.collaborators": "مشارکت‌کنندگان",
+      "studentRepo.contributors.stats.pendingInvites": "دعوت‌های در انتظار",
+      "studentRepo.contributors.stats.accessLabel": "دسترسی",
+      "studentRepo.contributors.stats.accessManage": "مدیریت دعوت‌ها",
+      "studentRepo.contributors.stats.accessView": "فقط مشاهده",
+      "studentRepo.contributors.invitations.sectionTitle": "دعوت‌ها",
+      "studentRepo.contributors.invitations.pendingTitle": "در انتظار پاسخ",
+      "studentRepo.contributors.invitations.respondedTitle": "پذیرفته‌شده و ردشده",
+      "studentRepo.contributors.invitations.sentAt": "ارسال {{time}}",
+      "studentRepo.contributors.invitations.justNow": "همین الان",
+      "studentRepo.contributors.invite.button": "دعوت مشارکت‌کننده",
+      "studentRepo.contributors.invite.modalTitle": "دعوت مشارکت‌کننده",
+      "studentRepo.contributors.invite.modalSubtitle":
+        "کاربر را پیدا کنید، پیش‌نمایش ببینید و دعوت بفرستید.",
+      "studentRepo.contributors.invite.findUser": "یافتن کاربر",
+      "studentRepo.contributors.invite.placeholder":
+        "جستجو با نام، نام کاربری، یا ایمیل",
+      "studentRepo.contributors.invite.searchPlaceholder": "برای جستجو تایپ کنید",
+      "studentRepo.contributors.invite.hint":
+        "یک عبارت روی نام، نام کاربری، و ایمیل جستجو می‌کند. مشارکت‌کنندگان کنونی مخفی می‌مانند.",
+      "studentRepo.contributors.invite.previewLabel": "پیش‌نمایش دعوت",
+      "studentRepo.contributors.invite.previewEmpty":
+        "برای پیش‌نمایش، شخصی را انتخاب کنید.",
+      "studentRepo.contributors.invite.cancel": "انصراف",
+      "studentRepo.contributors.invite.send": "ارسال دعوت",
+      "studentRepo.contributors.cards.activeMember": "فعال روی این مخزن",
+      "studentRepo.contributors.invitations.sectionHint":
+        "دعوت‌های باز و پاسخ‌های گذشته را یکجا ببینید.",
+      "studentRepo.statistics.title": "آمار مخزن",
+      "studentRepo.statistics.subtitle":
+        "مشارکت‌کنندگان، مایلستون‌ها، و مسائل — همراه با نمودارهای خوانا و جمع کل مخزن.",
+      "studentRepo.statistics.loading": "آمار مخزن در حال بارگیری است...",
+      "studentRepo.statistics.empty":
+        "هنوز آماری برای این مخزن موجود نیست.",
+      "studentRepo.statistics.cards.contributors": "مشارکت‌کنندگان",
+      "studentRepo.statistics.cards.commits": "کمیت‌ها",
+      "studentRepo.statistics.cards.pullRequests": "درخواست‌های ادغام",
+      "studentRepo.statistics.cards.completedTasks": "کارهای تکمیل‌شده",
+      "studentRepo.statistics.cards.totalMarks": "نمره‌های مایلستون",
+      "studentRepo.statistics.cards.earnedMarks": "نمره‌های ثبت‌شده",
+      "studentRepo.statistics.cards.milestones": "مایلستون‌ها",
+      "studentRepo.statistics.cards.issues": "مسائل",
+      "studentRepo.statistics.cards.hint":
+        "مجموع‌های زنده از API آمار مخزن.",
+      "studentRepo.statistics.cards.totalMarksHint":
+        "مجموع نمره‌های اختصاص‌یافته در تمام مایلستون‌های مخزن.",
+      "studentRepo.statistics.cards.earnedMarksHint":
+        "نمره‌هایی که از کارهای بازبینی‌شده ثبت شده‌اند.",
+      "studentRepo.statistics.cards.issuesHint":
+        "مسائل این مخزن بارگذاری شده.",
+      "studentRepo.statistics.cards.milestonesHint":
+        "مایلستون‌های باز و بسته.",
+      "studentRepo.statistics.charts.taskStatusTitle": "نمای مسائل بر پایهٔ وضعیت",
+      "studentRepo.statistics.charts.taskStatusHint":
+        "شمارش از مسائل مخزن. برای جزئیات روی بخش بمانید.",
+      "studentRepo.statistics.charts.tasksTotalCenter": "مسئله",
+      "studentRepo.statistics.charts.milestonesTitle": "پیشرفت مایلستون",
+      "studentRepo.statistics.charts.milestonesHint":
+        "درصد تکمیل مایلستون؛ حداکثر ۱۲ مایلستون.",
+      "studentRepo.statistics.charts.milestonePct": "درصد تکمیل",
+      "studentRepo.statistics.charts.noTasks": "مسئله‌ای برای این مخزن بار نشد.",
+      "studentRepo.statistics.charts.noMilestones":
+        "مایلستونی برای این مخزن نیست.",
+      "studentRepo.statistics.charts.contributorSectionIntro":
+        "فعالیت به‌تفکیک فرد (از آمار مخزن).",
+      "studentRepo.statistics.breakdown.title":
+        "تفکیک فعالیت مشارکت‌کنندگان",
+      "studentRepo.statistics.breakdown.hint":
+        "کمیت‌ها و pushها فعلاً بر پایهٔ تاریخچهٔ کمیت‌های ثبت‌شده هستند، چون رویدادهای push جداگانه ذخیره نمی‌شوند.",
+      "studentRepo.statistics.metrics.commits": "کمیت‌ها",
+      "studentRepo.statistics.metrics.pushes": "Pushها",
+      "studentRepo.statistics.metrics.pullRequests": "درخواست‌های ادغام",
+      "studentRepo.statistics.metrics.completedTasks": "کارهای تکمیل‌شده",
+      "studentRepo.statistics.share.title": "سهم مشارکت",
+      "studentRepo.statistics.share.hint":
+        "بر اساس کمیت‌ها، درخواست‌های ادغام، درخواست‌های ادغام‌شده، و کارهای تکمیل‌شده وزن‌دهی می‌شود.",
+      "studentRepo.statistics.summary.title": "خلاصهٔ مشارکت‌کنندگان",
+      "studentRepo.statistics.summary.hint":
+        "نمای جدولی فشرده از فعالیت ثبت‌شدهٔ هر مشارکت‌کننده در مخزن.",
+      "studentRepo.statistics.table.contributor": "مشارکت‌کننده",
+      "studentRepo.statistics.table.commits": "کمیت‌ها",
+      "studentRepo.statistics.table.pushes": "Pushها",
+      "studentRepo.statistics.table.pulls": "درخواست‌ها",
+      "studentRepo.statistics.table.merged": "ادغام‌شده",
+      "studentRepo.statistics.table.tasksDone": "کارهای انجام‌شده",
+      "studentRepo.statistics.table.marks": "نمره‌ها",
+      "studentRepo.statistics.table.scorePct": "درصد نمره",
+      "studentRepo.statistics.table.activity": "فعالیت",
+      "studentRepo.statistics.table.rank": "#",
 
       "sidebar.staff.dashboard": "داشبورد",
       "sidebar.staff.notifications": "اطلاعیه‌ها",

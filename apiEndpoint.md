@@ -2104,9 +2104,9 @@ Response body: `MergeResponse`
 
 ### 5.4 Milestone Endpoints
 
-#### POST `{main-url}/api/v1/milestone/repos/{owner}/{repo}/milestones/{writer}`
+#### POST `{main-url}/api/v1/milestone/repos/{owner}/{repo}/milestones`
 
-Request body:
+Request body (`Milestone` / request DTO; field names camelCase unless your gateway maps otherwise):
 
 ```json
 {
@@ -2116,9 +2116,12 @@ Request body:
   "maxScore": 100,
   "passingScore": 60,
   "rubric": "Rubric text",
-  "requiredTasks": 3
+  "requiredTasks": 3,
+  "createdBy": "john.doe"
 }
 ```
+
+Optional `createdBy` — may be inferred from JWT by the VC service instead of being supplied by clients.
 
 Response body:
 
@@ -2171,15 +2174,23 @@ Request body:
 {
   "title": "Implement login",
   "description": "Task description",
+  "milestoneId": "milestone-document-id",
   "milestoneNumber": 1,
   "priority": "HIGH",
   "labels": [],
   "dueDate": "2026-05-10T00:00:00Z",
   "estimatedHours": 8,
   "maxScore": 20,
-  "requirements": ["Requirement 1", "Requirement 2"]
+  "requirements": ["Requirement 1", "Requirement 2"],
+  "requirementsChecklist": [
+    { "requirement": "Requirement 1", "completed": false },
+    { "requirement": "Requirement 2", "completed": false }
+  ]
 }
 ```
+
+`milestoneId` is optional when `milestoneNumber` is sufficient for the server to resolve the milestone.
+Acceptance criteria may arrive as plain `requirements` strings, as `requirementsChecklist` objects (matching the persisted `RequirementCheck` shape), or both—depending on the controller DTO.
 
 Response body: `TaskResponse`
 

@@ -352,7 +352,8 @@ export default function SearchableSelect({
             if (e.target === searchRef.current) e.preventDefault();
           }}
           className={cn(
-            "z-50 overflow-hidden rounded-xl border p-1 shadow-md",
+            /* Above GlobalModal backdrop (`z-[999]`) — must stay in sync with `Select.jsx` */
+            "z-[1100] overflow-hidden rounded-xl border p-1 shadow-md",
             "bg-(--color-light-card-bg) text-(--color-light-text-primary) border-(--color-light-card-border)",
             "dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-text-primary) dark:border-(--color-dark-card-border)",
 

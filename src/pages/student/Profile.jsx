@@ -10,7 +10,7 @@ import { useTheme } from "../../context/themContext";
 import {
   useFacultyProjectsByStudent,
   useLinkedStudentRecord,
-  useVcRepositoriesForViewer,
+  useVcAccessibleRepositoriesForViewer,
   useVcUserActivity,
 } from "../../services/useApi";
 import {
@@ -192,7 +192,7 @@ export default function Profile() {
     .filter(Boolean)
     .join(" • ");
 
-  const { data: repos = [] } = useVcRepositoriesForViewer(ownerKey, {
+  const { data: repos = [] } = useVcAccessibleRepositoriesForViewer(ownerKey, {
     enabled: Boolean(ownerKey || vcUsername),
     notifyOnError: false,
     activityUsernameFallback: vcUsername || undefined,

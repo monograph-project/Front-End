@@ -93,7 +93,7 @@ export const DropdownContent = React.forwardRef(
         sideOffset={sideOffset}
         align={align}
         className={cn(
-          "z-50 min-w-56 overflow-hidden rounded-xl p-1.5",
+          "z-[1100] min-w-56 overflow-hidden rounded-xl p-1.5",
           "border shadow-md",
           "bg-(--color-light-card-bg) text-(--color-light-text-primary) border-(--color-light-card-border)",
           "dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-text-primary) dark:border-(--color-dark-card-border)",
@@ -241,7 +241,7 @@ export const DropdownSubContent = React.forwardRef(
       <DropdownMenu.SubContent
         ref={ref}
         className={cn(
-          "z-50 min-w-48 rounded-xl border p-1.5",
+          "z-[1100] min-w-48 rounded-xl border p-1.5",
           "shadow-md",
           "bg-(--color-light-card-bg) text-(--color-light-text-primary) border-(--color-light-card-border)",
           "dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-text-primary) dark:border-(--color-dark-card-border)",

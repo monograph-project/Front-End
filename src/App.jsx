@@ -47,8 +47,12 @@ import StudentRepositoryLayout from "./pages/student/StudentRepositoryLayout";
 import StudentRepoCode from "./pages/student/StudentRepoCode";
 import StudentRepoFileHistory from "./pages/student/StudentRepoFileHistory";
 import StudentRepoPullRequests from "./pages/student/StudentRepoPullRequests";
+import StudentRepoTasksOutlet from "./pages/student/StudentRepoTasksOutlet";
 import StudentRepoTasks from "./pages/student/StudentRepoTasks";
+import StudentRepoMilestoneDetail from "./pages/student/StudentRepoMilestoneDetail";
+import StudentRepoTaskDetail from "./pages/student/StudentRepoTaskDetail";
 import StudentRepoContributors from "./pages/student/StudentRepoContributors";
+import StudentRepoStatistics from "./pages/student/StudentRepoStatistics";
 import Home from "./pages/blog/Home";
 import UserProfile from "./pages/admin/Profile";
 import NotificationDetail from "./pages/admin/NotificationDetail";
@@ -71,6 +75,7 @@ import Download from "./pages/public/Download";
 import Documentation from "./pages/public/Documentation";
 import AuthorDashboard from "./pages/author/AuthorDashboard";
 import AuthorPublished from "./pages/author/AuthorPublished";
+import AuthorUnpublished from "./pages/author/AuthorUnpublished";
 import AuthorNotifications from "./pages/author/AuthorNotifications";
 import AuthorNotificationDetail from "./pages/author/AuthorNotificationDetail";
 import TeacherNotifications from "./pages/teacher/TeacherNotifications";
@@ -205,13 +210,47 @@ export default function App() {
               }
             >
               <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="dashboard" element={<StudentDashboard />} />
+              <Route path="projects" element={<Navigate to="workspace" replace />} />
+              <Route path="repositories" element={<Navigate to="workspace" replace />} />
+              <Route path="workspace" element={<StudentWorkspace />} />
+              <Route
+                path="workspace/repositories/new"
+                element={<StudentNewRepository />}
+              />
+              <Route
+                path="repository/:owner/:repo"
+                element={<StudentRepositoryLayout />}
+              >
+                <Route index element={<StudentRepoCode />} />
+                <Route path="history" element={<StudentRepoFileHistory />} />
+                <Route
+                  path="pull-requests"
+                  element={<StudentRepoPullRequests />}
+                />
+                <Route path="tasks" element={<StudentRepoTasksOutlet />}>
+                  <Route index element={<StudentRepoTasks />} />
+                  <Route
+                    path="milestone/:milestoneNumber"
+                    element={<StudentRepoMilestoneDetail />}
+                  />
+                  <Route
+                    path="issue/:taskNumber"
+                    element={<StudentRepoTaskDetail />}
+                  />
+                </Route>
+                <Route
+                  path="contributors"
+                  element={<StudentRepoContributors />}
+                />
+                <Route path="statistics" element={<StudentRepoStatistics />} />
+              </Route>
               <Route path="notifications" element={<TeacherNotifications />} />
               <Route
                 path="notifications/:id"
                 element={<TeacherNotificationDetail />}
               />
-              <Route path="settings" element={<Setting />} />
+              <Route path="settings" element={<StudentSettings />} />
             </Route>
 
             <Route
@@ -266,11 +305,22 @@ export default function App() {
                   path="pull-requests"
                   element={<StudentRepoPullRequests />}
                 />
-                <Route path="tasks" element={<StudentRepoTasks />} />
+                <Route path="tasks" element={<StudentRepoTasksOutlet />}>
+                  <Route index element={<StudentRepoTasks />} />
+                  <Route
+                    path="milestone/:milestoneNumber"
+                    element={<StudentRepoMilestoneDetail />}
+                  />
+                  <Route
+                    path="issue/:taskNumber"
+                    element={<StudentRepoTaskDetail />}
+                  />
+                </Route>
                 <Route
                   path="contributors"
                   element={<StudentRepoContributors />}
                 />
+                <Route path="statistics" element={<StudentRepoStatistics />} />
               </Route>
             </Route>
 
@@ -327,6 +377,7 @@ export default function App() {
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<AuthorDashboard />} />
               <Route path="writing" element={<WriteStory />} />
+              <Route path="unpublished" element={<AuthorUnpublished />} />
               <Route path="published" element={<AuthorPublished />} />
               <Route path="notifications" element={<AuthorNotifications />} />
               <Route

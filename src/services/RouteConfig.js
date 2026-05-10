@@ -319,6 +319,8 @@ export const VC = {
   REPOS_BY_ID: (repoId) => gw(`/api/v1/repos/${encodeURIComponent(repoId)}`),
   REPOS_OWNED_BY: (ownerId) =>
     gw(`/api/v1/repos/owner/${encodeURIComponent(ownerId)}`),
+  REPOS_ACCESSIBLE_BY: (userId) =>
+    gw(`/api/v1/repos/accessible/${encodeURIComponent(userId)}`),
   /** Activity feed parsing can recover `owner/repo` slugs when no list endpoint exists. */
   USER_ACTIVITY: (username, params = {}) =>
     gw(
@@ -338,6 +340,68 @@ export const VC = {
   REPO_TASK_DASHBOARD: (owner, repo) =>
     gw(
       `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/dashboard`,
+    ),
+  REPO_TASK_CREATE: (owner, repo, username) =>
+    gw(
+      `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks/${encodeURIComponent(username)}`,
+    ),
+  REPO_TASKS: (owner, repo, params = {}) =>
+    gw(
+      withQuery(
+        `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks`,
+        params,
+      ),
+    ),
+  REPO_TASK_SUBMIT: (owner, repo, taskNumber) =>
+    gw(
+      `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks/${encodeURIComponent(taskNumber)}/submit`,
+    ),
+  REPO_TASK_ELIGIBLE_PULLS: (owner, repo, taskNumber) =>
+    gw(
+      `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks/${encodeURIComponent(taskNumber)}/eligible-pulls`,
+    ),
+  REPO_TASK_REVIEW: (owner, repo, taskNumber) =>
+    gw(
+      `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks/${encodeURIComponent(taskNumber)}/review`,
+    ),
+  REPO_TASK_ASSIGN: (owner, repo, taskNumber, user, assignee) =>
+    gw(
+      `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks/${encodeURIComponent(taskNumber)}/assign/${encodeURIComponent(user)}/${encodeURIComponent(assignee)}`,
+    ),
+  /** Aligns with VC service controllers that POST the body to `/milestones` (no `{writer}` segment). */
+  REPO_MILESTONE_CREATE: (owner, repo) =>
+    gw(
+      `/api/v1/milestone/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/milestones`,
+    ),
+  REPO_MILESTONES: (owner, repo, params = {}) =>
+    gw(
+      withQuery(
+        `/api/v1/milestone/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/milestones`,
+        params,
+      ),
+    ),
+  REPO_MILESTONE_BY_NUMBER: (owner, repo, milestoneNumber) =>
+    gw(
+      `/api/v1/milestone/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/milestones/${encodeURIComponent(milestoneNumber)}`,
+    ),
+  /** VC `MilestoneController`: PATCH marks milestone closed (`closeMilestone` — path suffix `/open` on server). */
+  REPO_MILESTONE_MARK_CLOSED: (owner, repo, milestoneNumber) =>
+    gw(
+      `/api/v1/milestone/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/milestones/${encodeURIComponent(milestoneNumber)}/open`,
+    ),
+  /** VC `MilestoneController`: PATCH reopens milestone. */
+  REPO_MILESTONE_REOPEN: (owner, repo, milestoneNumber) =>
+    gw(
+      `/api/v1/milestone/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/milestones/${encodeURIComponent(milestoneNumber)}/re-open`,
+    ),
+  REPO_STATISTICS: (owner, repo) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/statistics`,
+    ),
+  /** `GET /api/v1/repos/{owner}/{repo}/contributors` — `ContributorUser` list for this repository. */
+  REPO_CONTRIBUTORS: (owner, repo) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contributors`,
     ),
   /** Matches `FileViewController` `@RequestMapping("api/v1/repos/{owner}/{repo}")`. */
   REPO_TREE: (owner, repo, params = {}) =>

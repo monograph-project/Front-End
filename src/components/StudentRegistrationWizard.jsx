@@ -296,7 +296,7 @@ export default function StudentRegistrationWizard({
   );
 
   const roleOptions = useMemo(
-    () => [{ value: "STUDENT", label: t("studentForm.options.roleStudent") }],
+    () => [{ value: "STUDENT_USER", label: t("studentForm.options.roleStudent") }],
     [t],
   );
 
@@ -376,7 +376,7 @@ export default function StudentRegistrationWizard({
     defaultValues: {
       username: "",
       password: "",
-      role: "STUDENT",
+      role: "STUDENT_USER",
       firstName: "",
       lastName: "",
       fatherName: "",
@@ -415,7 +415,7 @@ export default function StudentRegistrationWizard({
     reset({
       username: existingStudent.username ?? "",
       password: "",
-      role: existingStudent.role ?? "STUDENT",
+      role: existingStudent.role ?? "STUDENT_USER",
       firstName: existingStudent.firstName ?? "",
       lastName: existingStudent.lastName ?? "",
       fatherName: existingStudent.fatherName ?? "",
@@ -526,7 +526,7 @@ export default function StudentRegistrationWizard({
       const ayId = String(values.academicYearId ?? "").trim();
       const batchIdTrim = String(values.batchId ?? "").trim();
       const body = {
-        role: (values.role && values.role.trim()) || "STUDENT",
+        role: (values.role && values.role.trim()) || "STUDENT_USER",
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
         fatherName: values.fatherName.trim(),

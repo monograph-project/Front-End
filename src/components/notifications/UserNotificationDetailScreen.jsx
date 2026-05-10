@@ -55,12 +55,43 @@ function parseNotificationMetadata(raw) {
   }
 }
 
-function resolveActionTarget(metadata) {
+function resolveShellPrefix(basePath) {
+  const raw = typeof basePath === "string" ? basePath.trim() : "";
+  if (!raw) return "";
+  const normalized = raw.replace(/\/+$/, "");
+  const idx = normalized.lastIndexOf("/notifications");
+  if (idx <= 0) return "";
+  return normalized.slice(0, idx);
+}
+
+function resolveActionTarget(metadata, basePath) {
   const uiPath =
     typeof metadata?.uiPath === "string" && metadata.uiPath.trim()
       ? metadata.uiPath.trim()
       : "";
-  if (uiPath) return { kind: "ui", value: uiPath };
+  if (uiPath) {
+    if (uiPath.startsWith("/repository/")) {
+      const prefix = resolveShellPrefix(basePath);
+      return { kind: "ui", value: `${prefix}${uiPath}` };
+    }
+    return { kind: "ui", value: uiPath };
+  }
+
+  const owner =
+    typeof metadata?.repositoryOwner === "string" ? metadata.repositoryOwner.trim() : "";
+  const repo =
+    typeof metadata?.repositoryName === "string" ? metadata.repositoryName.trim() : "";
+  const taskNumber =
+    metadata?.taskNumber != null && String(metadata.taskNumber).trim()
+      ? String(metadata.taskNumber).trim()
+      : "";
+  if (owner && repo && taskNumber) {
+    const prefix = resolveShellPrefix(basePath);
+    return {
+      kind: "ui",
+      value: `${prefix}/repository/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks/issue/${encodeURIComponent(taskNumber)}`,
+    };
+  }
 
   const absolute =
     typeof metadata?.actionUrl === "string" && metadata.actionUrl.trim()
@@ -192,8 +223,8 @@ export default function UserNotificationDetailScreen({ basePath }) {
     [data?.metadata],
   );
   const actionTarget = useMemo(
-    () => resolveActionTarget(metadata),
-    [metadata],
+    () => resolveActionTarget(metadata, basePath),
+    [basePath, metadata],
   );
   const invitationId =
     typeof metadata?.invitationId === "string" ? metadata.invitationId : "";
@@ -207,8 +238,9 @@ export default function UserNotificationDetailScreen({ basePath }) {
   const sentDisplay = formatDetailDate(
     data?.createdAt ?? data?.sentAt ?? data?.created_at,
   );
-  const senderName = metadata?.senderName ?? "";
-  const receiverName = metadata?.receiverName ?? "";
+  const senderName = metadata?.senderName ?? metadata?.actorName ?? "";
+  const receiverName =
+    metadata?.receiverName ?? metadata?.recipientName ?? "";
 
   const inboxPath = basePath.replace(/\/$/, "");
 

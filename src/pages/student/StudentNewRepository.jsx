@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { BookMarked, Globe2, Lock, Slash } from "lucide-react";
 import { gooeyToast } from "goey-toast";
 import { useTranslation } from "react-i18next";
@@ -12,6 +12,7 @@ import {
   useRepositorySearch,
   useVcRepositoriesForViewer,
 } from "../../services/useApi";
+import { resolveShellBasePath } from "../../lib/roles";
 import { cn } from "../../lib/utils";
 
 const DESC_MAX = 350;
@@ -173,8 +174,10 @@ function ConfigRow({ title, help, aboutLabel, onAbout, trailing }) {
 
 export default function StudentNewRepository() {
   const { t } = useTranslation();
+  const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const shellBase = resolveShellBasePath(location.pathname, user?.role);
 
   /** Auto-injected from the signed-in gateway user — never selectable */
   const owner =
@@ -220,7 +223,7 @@ export default function StudentNewRepository() {
       gooeyToast.success(t("studentNewRepo.success"));
       const own = encodeURIComponent(owner);
       navigate(
-        `/student/repository/${own}/${encodeURIComponent(String(rn ?? "").trim())}`,
+        `${shellBase}/repository/${own}/${encodeURIComponent(String(rn ?? "").trim())}`,
         { replace: true },
       );
     },
@@ -399,7 +402,7 @@ export default function StudentNewRepository() {
       <div className="mx-auto w-full border border-default rounded-md dark:bg-dark-app-secondary dark:border-dark-default max-w-5xl px-4 py-6 md:px-6 md:py-10">
         <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-light-divider pb-6 dark:border-dark-divider">
           <Link
-            to="/student/workspace"
+            to={`${shellBase}/workspace`}
             className="text-xs font-semibold text-primary underline-offset-4 hover:underline dark:text-dark-primary"
           >
             ← {t("studentNewRepo.back")}
@@ -608,7 +611,7 @@ export default function StudentNewRepository() {
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => navigate("/student/workspace")}
+                  onClick={() => navigate(`${shellBase}/workspace`)}
                 >
                   {t("common.cancel")}
                 </Button>

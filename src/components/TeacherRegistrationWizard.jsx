@@ -178,7 +178,7 @@ export default function TeacherRegistrationWizard({
   );
 
   const roleOptions = useMemo(
-    () => [{ value: "TEACHER", label: t("teacherForm.roles.TEACHER") }],
+    () => [{ value: "TEACHER_USER", label: t("teacherForm.roles.TEACHER") }],
     [t],
   );
 
@@ -225,7 +225,7 @@ export default function TeacherRegistrationWizard({
     defaultValues: {
       username: "",
       password: "",
-      role: "TEACHER",
+      role: "TEACHER_USER",
       firstName: "",
       lastName: "",
       fatherName: "",
@@ -257,7 +257,7 @@ export default function TeacherRegistrationWizard({
     reset({
       username: existingTeacher.username ?? "",
       password: "",
-      role: existingTeacher.role ?? "TEACHER",
+      role: existingTeacher.role ?? "TEACHER_USER",
       firstName: existingTeacher.firstName ?? "",
       lastName: existingTeacher.lastName ?? "",
       fatherName: existingTeacher.fatherName ?? "",
@@ -295,7 +295,7 @@ export default function TeacherRegistrationWizard({
     (values) => {
       const body = {
         userName: values.username.trim(),
-        role: (values.role && values.role.trim()) || "TEACHER",
+        role: (values.role && values.role.trim()) || "TEACHER_USER",
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
         fatherName: values.fatherName.trim(),

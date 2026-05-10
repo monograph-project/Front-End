@@ -33,6 +33,14 @@ import {
   VC_AUTH,
   VC,
 } from "./RouteConfig";
+import {
+  assertVcAssignUsernames,
+  normalizeVcMilestoneBodyForCreate,
+  normalizeVcMilestoneBodyForPatch,
+  normalizeVcReviewBody,
+  normalizeVcSubmissionBody,
+  normalizeVcTaskCreateBody,
+} from "./vcMilestoneTaskClientValidation";
 function normalizeEmail(email) {
   return String(email ?? "")
     .trim()
@@ -681,6 +689,8 @@ function unwrapListPayload(payload) {
     payload.content ??
     payload.data ??
     payload.items ??
+    payload.milestones ??
+    payload.tasks ??
     payload.repositories ??
     payload.repos ??
     [];
@@ -754,6 +764,36 @@ export async function vcListRepositoriesWithFallback(
     }
   }
   return [];
+}
+
+/**
+ * Lists repositories the user can access, including owned repositories and accepted collaborations.
+ * Falls back to the owner-only listing if the newer backend route is unavailable.
+ *
+ * @param {string} userAccountId
+ * @param {{ activityUsernameFallback?: string; activityLimit?: number }} options
+ */
+export async function vcListAccessibleRepositoriesWithFallback(
+  userAccountId,
+  options = {},
+) {
+  const userKey = String(userAccountId ?? "").trim();
+  if (!userKey) return [];
+  try {
+    const { data } = await axiosInstance.get(VC.REPOS_ACCESSIBLE_BY(userKey));
+    const list = unwrapListPayload(data);
+    const normalized = list.map(normalizeVcRepoListItem).filter(Boolean);
+    if (normalized.length) return normalized;
+  } catch (err) {
+    if (err?.response?.status === 404) {
+      return vcListRepositoriesWithFallback(userKey, options);
+    }
+    if (![400, 404, 422].includes(err?.response?.status)) {
+      console.warn("[vcAccessibleRepositories]", err?.message ?? err);
+    }
+  }
+
+  return vcListRepositoriesWithFallback(userKey, options);
 }
 
 /** @param raw {object} VC list row (e.g. `RepositoryResponse`) */
@@ -935,6 +975,354 @@ export async function vcGetRepoTaskDashboard(owner, repo) {
   } catch (err) {
     if (err?.response?.status === 404) return {};
     throwApiError(err, "Failed to load task dashboard.");
+  }
+}
+
+export async function vcCreateRepoTask(owner, repo, username, body) {
+  if (!owner || !repo || !username) {
+    throwClientApiError("Owner, repository, and username are required.");
+  }
+  const payload = normalizeVcTaskCreateBody(body ?? {});
+  try {
+    const { data } = await axiosInstance.post(
+      VC.REPO_TASK_CREATE(owner, repo, username),
+      payload,
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to create repository task.");
+  }
+}
+
+export async function vcGetRepoTasks(owner, repo, params = {}) {
+  if (!owner || !repo)
+    throwClientApiError("Owner and repository are required.");
+  try {
+    const { data } = await axiosInstance.get(VC.REPO_TASKS(owner, repo, params));
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(err, "Failed to load repository tasks.");
+  }
+}
+
+export async function vcCreateRepoMilestone(owner, repo, body) {
+  if (!owner || !repo) {
+    throwClientApiError("Owner and repository are required.");
+  }
+  const payload = normalizeVcMilestoneBodyForCreate(body ?? {});
+  try {
+    const { data } = await axiosInstance.post(
+      VC.REPO_MILESTONE_CREATE(owner, repo),
+      payload,
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to create repository milestone.");
+  }
+}
+
+function coerceVcRepoMilestoneList(payload) {
+  if (payload == null) return [];
+  if (Array.isArray(payload)) return payload;
+
+  const milestoneKeys = [
+    "milestones",
+    "milestoneList",
+    "milestoneResponses",
+    "data",
+    "results",
+    "records",
+    "items",
+    "content",
+  ];
+
+  let list = namedListFromPayload(payload, milestoneKeys);
+  if (!list.length && payload && typeof payload === "object") {
+    const inner =
+      payload.data ?? payload.result ?? payload.payload ?? null;
+    if (inner != null && typeof inner === "object" && !Array.isArray(inner)) {
+      list = namedListFromPayload(inner, milestoneKeys);
+      if (!list.length) list = facultyListItems(inner);
+      if (!list.length) list = unwrapListPayload(inner);
+    }
+  }
+  if (!list.length) list = facultyListItems(payload);
+  if (!list.length) list = unwrapListPayload(payload);
+  return Array.isArray(list) ? list : [];
+}
+
+export async function vcGetRepoMilestones(owner, repo, params = {}) {
+  if (!owner || !repo)
+    throwClientApiError("Owner and repository are required.");
+  try {
+    const { data } = await axiosInstance.get(
+      VC.REPO_MILESTONES(owner, repo, params),
+    );
+    return coerceVcRepoMilestoneList(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(err, "Failed to load repository milestones.");
+  }
+}
+
+export async function vcGetRepoMilestoneByNumber(owner, repo, milestoneNumber) {
+  if (!owner || !repo || milestoneNumber == null || milestoneNumber === "") {
+    throwClientApiError("Owner, repository, and milestone number are required.");
+  }
+  const numKey = String(milestoneNumber);
+  try {
+    const { data } = await axiosInstance.get(
+      VC.REPO_MILESTONE_BY_NUMBER(owner, repo, numKey),
+    );
+    return data ?? null;
+  } catch (err) {
+    if (err?.response?.status === 404) return null;
+    throwApiError(err, "Failed to load repository milestone.");
+  }
+}
+
+export async function vcPatchRepoMilestone(owner, repo, milestoneNumber, body) {
+  if (!owner || !repo || milestoneNumber == null || milestoneNumber === "") {
+    throwClientApiError("Owner, repository, and milestone number are required.");
+  }
+  const numKey = String(milestoneNumber);
+  const payload = normalizeVcMilestoneBodyForPatch(body ?? {});
+  try {
+    const { data } = await axiosInstance.patch(
+      VC.REPO_MILESTONE_BY_NUMBER(owner, repo, numKey),
+      payload,
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to update repository milestone.");
+  }
+}
+
+export async function vcCloseRepoMilestone(owner, repo, milestoneNumber) {
+  if (!owner || !repo || milestoneNumber == null || milestoneNumber === "") {
+    throwClientApiError("Owner, repository, and milestone number are required.");
+  }
+  const numKey = String(milestoneNumber);
+  try {
+    const { data } = await axiosInstance.patch(
+      VC.REPO_MILESTONE_MARK_CLOSED(owner, repo, numKey),
+      {},
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to close repository milestone.");
+  }
+}
+
+export async function vcReopenRepoMilestone(owner, repo, milestoneNumber) {
+  if (!owner || !repo || milestoneNumber == null || milestoneNumber === "") {
+    throwClientApiError("Owner, repository, and milestone number are required.");
+  }
+  const numKey = String(milestoneNumber);
+  try {
+    const { data } = await axiosInstance.patch(
+      VC.REPO_MILESTONE_REOPEN(owner, repo, numKey),
+      {},
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to reopen repository milestone.");
+  }
+}
+
+function normalizeTasksListPayload(data) {
+  if (data == null) return [];
+  if (Array.isArray(data)) return data;
+  const inner =
+    data?.content ?? data?.data ?? data?.items ?? data?.tasks ?? null;
+  return Array.isArray(inner) ? inner : [];
+}
+
+/**
+ * VC `TaskController` exposes list, not GET-by-number — resolve from `listTasks` result.
+ */
+export async function vcGetRepoTaskByNumber(owner, repo, taskNumber) {
+  if (!owner || !repo || taskNumber == null || taskNumber === "") {
+    throwClientApiError("Owner, repository, and task number are required.");
+  }
+  try {
+    const { data } = await axiosInstance.get(VC.REPO_TASKS(owner, repo, {}));
+    const list = normalizeTasksListPayload(data);
+    return (
+      list.find(
+        (row) =>
+          String(row?.number ?? "") === String(taskNumber) ||
+          String(row?.id ?? "") === String(taskNumber),
+      ) ?? null
+    );
+  } catch (err) {
+    throwApiError(err, "Failed to load repository task.");
+  }
+}
+
+export async function vcAssignRepoTask(
+  owner,
+  repo,
+  taskNumber,
+  actorUsername,
+  assigneeUsername,
+) {
+  if (!owner || !repo || taskNumber == null || taskNumber === "") {
+    throwClientApiError("Owner, repository, and task number are required.");
+  }
+  if (!actorUsername || !assigneeUsername) {
+    throwClientApiError("Actor and assignee usernames are required.");
+  }
+  assertVcAssignUsernames(actorUsername, assigneeUsername);
+  try {
+    const { data } = await axiosInstance.post(
+      VC.REPO_TASK_ASSIGN(owner, repo, taskNumber, actorUsername, assigneeUsername),
+      {},
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to assign repository task.");
+  }
+}
+
+export async function vcSubmitRepoTask(owner, repo, taskNumber, body) {
+  if (!owner || !repo || taskNumber == null || taskNumber === "") {
+    throwClientApiError("Owner, repository, and task number are required.");
+  }
+  const payload = normalizeVcSubmissionBody(body ?? {});
+  try {
+    const { data } = await axiosInstance.post(
+      VC.REPO_TASK_SUBMIT(owner, repo, taskNumber),
+      payload,
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to submit repository task.");
+  }
+}
+
+export async function vcGetEligibleRepoTaskPullRequests(owner, repo, taskNumber) {
+  if (!owner || !repo || taskNumber == null || taskNumber === "") {
+    throwClientApiError("Owner, repository, and task number are required.");
+  }
+  try {
+    const { data } = await axiosInstance.get(
+      VC.REPO_TASK_ELIGIBLE_PULLS(owner, repo, taskNumber),
+    );
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(err, "Failed to load eligible pull requests.");
+  }
+}
+
+export async function vcReviewRepoTask(owner, repo, taskNumber, body) {
+  if (!owner || !repo || taskNumber == null || taskNumber === "") {
+    throwClientApiError("Owner, repository, and task number are required.");
+  }
+  const payload = normalizeVcReviewBody(body ?? {});
+  try {
+    const { data } = await axiosInstance.post(
+      VC.REPO_TASK_REVIEW(owner, repo, taskNumber),
+      payload,
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to review repository task.");
+  }
+}
+
+export async function vcGetRepoStatistics(owner, repo) {
+  if (!owner || !repo)
+    throwClientApiError("Owner and repository are required.");
+  try {
+    const { data } = await axiosInstance.get(VC.REPO_STATISTICS(owner, repo));
+    return data ?? {};
+  } catch (err) {
+    if (err?.response?.status === 404) return {};
+    throwApiError(err, "Failed to load repository statistics.");
+  }
+}
+
+function normalizeVcContributorRow(row) {
+  if (row == null || row === "") return null;
+  if (typeof row === "string") {
+    const u = row.trim();
+    return u
+      ? { id: "", username: u, email: "", firstName: "", lastName: "" }
+      : null;
+  }
+  if (typeof row !== "object") return null;
+  /** Some backends nest `ContributorUser` under `user` / `account`. */
+  const flat =
+    row.user && typeof row.user === "object" ? { ...row, ...row.user } : row;
+  const nested =
+    flat.account && typeof flat.account === "object"
+      ? { ...flat, ...flat.account }
+      : flat;
+  const username = String(
+    nested.user_name ??
+      nested.username ??
+      nested.userName ??
+      nested.login ??
+      nested.loginName ??
+      "",
+  ).trim();
+  if (!username) return null;
+  return {
+    id: nested.id != null ? String(nested.id) : "",
+    username,
+    email: String(nested.email ?? "").trim(),
+    firstName: String(
+      nested.first_name ?? nested.firstName ?? nested.givenName ?? "",
+    ).trim(),
+    lastName: String(
+      nested.last_name ?? nested.lastName ?? nested.familyName ?? "",
+    ).trim(),
+  };
+}
+
+function coerceVcContributorsList(payload) {
+  if (payload == null) return [];
+  const fromArray = (arr) =>
+    Array.isArray(arr)
+      ? arr.map(normalizeVcContributorRow).filter(Boolean)
+      : [];
+  if (Array.isArray(payload)) return fromArray(payload);
+  /** Spring-style list wrapper or camelCase/snake aliases */
+  const candidates = [
+    payload.contributors,
+    payload.collaborators,
+    payload.contributorUsers,
+    payload.contributor_users,
+    payload.users,
+    payload.values,
+    payload.results,
+    payload.list,
+    payload.body,
+    payload.content,
+    payload.data,
+    payload.items,
+    payload.elements,
+  ];
+  for (const chunk of candidates) {
+    const list = fromArray(chunk);
+    if (list.length) return list;
+  }
+  return [];
+}
+
+/** GET VC repository contributors (`ContributorUser` — assignee candidates). */
+export async function vcGetRepoContributors(owner, repo) {
+  if (!owner || !repo)
+    throwClientApiError("Owner and repository are required.");
+  try {
+    const { data } = await axiosInstance.get(VC.REPO_CONTRIBUTORS(owner, repo));
+    return coerceVcContributorsList(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(err, "Failed to load repository contributors.");
   }
 }
 

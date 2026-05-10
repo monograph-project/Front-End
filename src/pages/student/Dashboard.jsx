@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   Area,
   AreaChart,
@@ -30,6 +30,7 @@ import Button from "../../components/Button";
 import { useAuth } from "../../context/AuthContext";
 import { useStudentActivityEpoch } from "../../context/StudentActivityContext";
 import { useTheme } from "../../context/themContext";
+import { resolveShellBasePath } from "../../lib/roles";
 import { readEngagementDailyMs } from "../../lib/studentEngagementStorage";
 import { useLinkedStudentRecord } from "../../services/useApi";
 import Avatar from "../../components/Avatar";
@@ -124,7 +125,11 @@ export default function StudentDashboard() {
   const { theme } = useTheme();
   useStudentActivityEpoch();
   const chartFillId = useId().replace(/:/g, "");
+  const location = useLocation();
   const { user } = useAuth();
+  const shellBase = resolveShellBasePath(location.pathname, user?.role);
+  const profilePath =
+    shellBase === "/student" ? `${shellBase}/profile` : `${shellBase}/settings`;
   const { data: student, isFetching } = useLinkedStudentRecord(user ?? null, {
     notifyOnError: false,
     enabled: Boolean(user),
@@ -172,21 +177,21 @@ export default function StudentDashboard() {
     theme === "dark" ? "rgba(77, 153, 255, 0.16)" : "rgba(51, 133, 255, 0.12)";
 
   const priorities = [
-    {
-      title: t("studentDashboard.priorities.items.repositoryTitle"),
-      body: t("studentDashboard.priorities.items.repositoryBody"),
-      to: "/student/workspace",
-    },
-    {
-      title: t("studentDashboard.priorities.items.reviewTitle"),
-      body: t("studentDashboard.priorities.items.reviewBody"),
-      to: "/student/notifications",
-    },
-    {
-      title: t("studentDashboard.priorities.items.settingsTitle"),
-      body: t("studentDashboard.priorities.items.settingsBody"),
-      to: "/student/settings",
-    },
+      {
+        title: t("studentDashboard.priorities.items.repositoryTitle"),
+        body: t("studentDashboard.priorities.items.repositoryBody"),
+        to: `${shellBase}/workspace`,
+      },
+      {
+        title: t("studentDashboard.priorities.items.reviewTitle"),
+        body: t("studentDashboard.priorities.items.reviewBody"),
+        to: `${shellBase}/notifications`,
+      },
+      {
+        title: t("studentDashboard.priorities.items.settingsTitle"),
+        body: t("studentDashboard.priorities.items.settingsBody"),
+        to: `${shellBase}/settings`,
+      },
   ];
 
   const recentActivities = useMemo(
@@ -224,7 +229,7 @@ export default function StudentDashboard() {
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_15rem]">
                 <div className="min-w-0">
                   <p className="inline-flex items-center gap-2 rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-muted">
-                    <Link to="/student/profile" className="inline-block">
+                    <Link to={profilePath} className="inline-block">
                       <Avatar src={user.photoUrl} />
                     </Link>
                     {t("studentDashboard.header.eyebrow")}
@@ -236,7 +241,7 @@ export default function StudentDashboard() {
                     {t("studentDashboard.header.description")}
                   </p>
                   <div className="mt-5 flex flex-wrap gap-3">
-                    <Link to="/student/workspace">
+                    <Link to={`${shellBase}/workspace`}>
                       <Button
                         type="button"
                         variant="primary"
@@ -412,7 +417,7 @@ export default function StudentDashboard() {
               <div className="space-y-4 p-4">
                 <div className={`${SOFT_PANEL} p-4`}>
                   <div className="flex items-center gap-3">
-                    <Link to="/student/profile" className="block">
+                    <Link to={profilePath} className="block">
                       <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg) overflow-hidden">
                         <Avatar src={user.photoUrl} />
                       </span>
@@ -529,7 +534,7 @@ export default function StudentDashboard() {
                   </div>
                 </div>
                 <Link
-                  to="/student/notifications"
+                  to={`${shellBase}/notifications`}
                   className="mt-5 inline-flex text-xs font-medium text-(--color-chart-blue-primary) transition-colors hover:underline dark:text-(--color-chart-blue-secondary)"
                 >
                   {t("studentDashboard.changelog.view")}

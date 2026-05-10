@@ -1,17 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  CheckCircle2,
+  Clock,
   Mail,
   Send,
   ShieldCheck,
   UserPlus,
   Users,
+  XCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useOutletContext } from "react-router-dom";
 import Avatar from "../../components/Avatar";
 import Button from "../../components/Button";
 import GlobalModal from "../../components/GlobalModal";
+import RepoOverviewStatCard from "../../components/repo/RepoOverviewStatCard";
+import { REPO_OVERVIEW_STAT_PALETTES } from "../../components/repo/repoOverviewStatPalettes";
 import SearchableSelect from "../../components/SearchableSelect";
 import SettingsSectionCard from "../../components/SettingsSectionCard";
 import { buildPersonInitials, resolveProfilePhotoUrl } from "../../lib/profileMedia";
@@ -88,18 +93,47 @@ function roleLabel(entry) {
   return entry.contributorRole ?? entry.role ?? entry.status ?? "Collaborator";
 }
 
-function formatInviteTime(raw, locale) {
-  if (!raw) return "Just now";
+function formatInviteTime(raw, locale, t) {
+  if (!raw) return t("studentRepo.contributors.invitations.justNow");
   const value = new Date(raw);
-  if (Number.isNaN(value.getTime())) return "Just now";
+  if (Number.isNaN(value.getTime())) {
+    return t("studentRepo.contributors.invitations.justNow");
+  }
   try {
-    return new Intl.DateTimeFormat(locale, {
+    const time = new Intl.DateTimeFormat(locale, {
       dateStyle: "medium",
       timeStyle: "short",
     }).format(value);
+    return t("studentRepo.contributors.invitations.sentAt", { time });
   } catch {
-    return value.toISOString();
+    return t("studentRepo.contributors.invitations.sentAt", {
+      time: value.toISOString(),
+    });
   }
+}
+
+/** Two-letter initials for invitation labels or emails. */
+function inviteDisplayInitials(label) {
+  const s = String(label ?? "").trim();
+  if (!s) return "?";
+  const at = s.indexOf("@");
+  const head = at > 0 ? s.slice(0, at) : s;
+  const parts = head.split(/[\s._-]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const a = parts[0][0];
+    const b = parts[parts.length - 1][0];
+    if (a && b) return `${a}${b}`.toUpperCase();
+  }
+  return head.slice(0, 2).toUpperCase() || "?";
+}
+
+function inviteStatusAccent(status) {
+  const s = String(status ?? "").toUpperCase();
+  if (s === "ACCEPTED")
+    return "from-(--color-chart-success)/85 to-teal-600/55 dark:to-teal-500/45";
+  if (s === "REJECTED")
+    return "from-(--color-chart-error)/80 to-rose-600/55 dark:to-rose-500/45";
+  return "from-(--color-chart-warning)/90 to-amber-600/50 dark:to-amber-500/45";
 }
 
 function invitationRow(raw) {
@@ -244,15 +278,23 @@ export default function StudentRepoContributors() {
     [invitationsQ.data],
   );
 
-  const totalInvites = invitationRows.filter(
-    (row) => row.status.toUpperCase() === "PENDING",
-  ).length;
+  const invitationPending = useMemo(
+    () =>
+      invitationRows.filter(
+        (row) => String(row.status).toUpperCase() === "PENDING",
+      ),
+    [invitationRows],
+  );
 
-  useEffect(() => {
-    if (!inviteOpen) {
-      setInviteSearchOpen(false);
-    }
-  }, [inviteOpen]);
+  const invitationResponded = useMemo(
+    () =>
+      invitationRows.filter(
+        (row) => String(row.status).toUpperCase() !== "PENDING",
+      ),
+    [invitationRows],
+  );
+
+  const totalInvites = invitationPending.length;
 
   async function submitInvite() {
     if (!selectedInvitee || !owner || !repo) return;
@@ -285,31 +327,32 @@ export default function StudentRepoContributors() {
         }
       >
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-              Collaborators
-            </p>
-            <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
-              {collaboratorCards.length}
-            </p>
-          </div>
-          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-              Pending invites
-            </p>
-            <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
-              {totalInvites}
-            </p>
-          </div>
-          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-              Access
-            </p>
-            <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-(--color-light-card-border) bg-(--color-light-card-bg) px-2.5 py-1 text-xs font-medium text-secondary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-secondary">
-              <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.8} />
-              {canManage ? "Can manage invitations" : "View only"}
+          <RepoOverviewStatCard
+            icon={Users}
+            label={t("studentRepo.contributors.stats.collaborators")}
+            value={collaboratorCards.length}
+            palette={REPO_OVERVIEW_STAT_PALETTES[0]}
+          />
+          <RepoOverviewStatCard
+            icon={Clock}
+            label={t("studentRepo.contributors.stats.pendingInvites")}
+            value={totalInvites}
+            palette={REPO_OVERVIEW_STAT_PALETTES[1]}
+          />
+          <RepoOverviewStatCard
+            icon={ShieldCheck}
+            label={t("studentRepo.contributors.stats.accessLabel")}
+            palette={REPO_OVERVIEW_STAT_PALETTES[2]}
+          >
+            <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-(--color-light-input-border) bg-light-app-tertiary px-2.5 py-1.5 text-xs font-medium text-secondary dark:border-dark-input-border dark:bg-dark-app-tertiary dark:text-dark-secondary">
+              <ShieldCheck className="size-3.5 shrink-0" strokeWidth={1.8} />
+              <span className="min-w-0 truncate">
+                {canManage
+                  ? t("studentRepo.contributors.stats.accessManage")
+                  : t("studentRepo.contributors.stats.accessView")}
+              </span>
             </div>
-          </div>
+          </RepoOverviewStatCard>
         </div>
 
         <div className="mt-5 space-y-4">
@@ -318,40 +361,66 @@ export default function StudentRepoContributors() {
               {t("studentRepo.contributors.empty")}
             </p>
           ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
-              {collaboratorCards.map((person) => (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {collaboratorCards.map((person, idx) => (
                 <article
                   key={person.key}
-                  className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"
+                  className="group relative overflow-hidden rounded-3xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-xs transition-all duration-200 hover:border-(--color-light-input-border-focus) hover:shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:border-(--color-dark-input-border-focus)"
+                  style={{
+                    animationDelay: `${Math.min(idx, 8) * 40}ms`,
+                  }}
                 >
-                  <div className="flex items-start gap-3">
-                    <Avatar
-                      src={person.avatarUrl}
-                      alt={person.name}
-                      initials={person.initials}
-                      className="rounded-full border border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
-                      sizeClass="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
-                          {person.name}
-                        </p>
-                        <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 text-[10px] font-semibold uppercase text-secondary dark:border-(--color-dark-card-border) dark:text-dark-secondary">
-                          {person.role}
-                        </span>
-                      </div>
-                      {person.username ? (
-                        <p className="mt-1 text-xs font-mono text-muted dark:text-dark-muted">
-                          @{person.username}
-                        </p>
-                      ) : null}
-                      {person.email ? (
-                        <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-secondary dark:text-dark-secondary">
-                          <Mail className="h-3.5 w-3.5 text-muted dark:text-dark-muted" strokeWidth={1.8} />
-                          <span className="truncate">{person.email}</span>
+                  <div
+                    className={`pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-linear-to-r opacity-95 ${
+                      idx % 3 === 0
+                        ? "from-(--color-chart-blue-primary) to-(--color-chart-blue-secondary)"
+                        : idx % 3 === 1
+                          ? "from-chart-success/90 to-teal-600/70 dark:to-teal-500/55"
+                          : "from-(--color-chart-blue-secondary)/85 to-(--color-chart-blue-primary)/70"
+                    }`}
+                  />
+                  <div className="relative bg-linear-to-br from-(--color-light-card-bg) via-white to-light-app-tertiary p-px dark:via-(--color-dark-card-bg) dark:to-dark-app-tertiary">
+                    <div className="rounded-[calc(1.5rem-1px)] bg-(--color-light-card-bg) p-4 dark:bg-(--color-dark-card-bg)">
+                      <div className="flex items-start gap-4">
+                        <div className="relative shrink-0">
+                          <div className="absolute -inset-0.5 rounded-full bg-linear-to-br from-(--color-chart-blue-primary)/25 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:from-(--color-chart-blue-secondary)/20" />
+                          <Avatar
+                            src={person.avatarUrl}
+                            alt={person.name}
+                            initials={person.initials}
+                            className="relative rounded-full ring-2 ring-(--color-light-card-border) ring-offset-2 ring-offset-(--color-light-card-bg) dark:ring-(--color-dark-card-border) dark:ring-offset-dark-card-bg"
+                            sizeClass="inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
+                          />
                         </div>
-                      ) : null}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-[15px] font-semibold tracking-tight text-primary dark:text-dark-primary">
+                              {person.name}
+                            </p>
+                            <span className="rounded-full border border-(--color-light-input-border) bg-light-app-tertiary px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary dark:border-dark-input-border dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                              {person.role}
+                            </span>
+                          </div>
+                          {person.username ? (
+                            <p className="mt-1.5 text-xs font-mono text-(--color-chart-blue-primary) dark:text-(--color-chart-blue-secondary)">
+                              @{person.username}
+                            </p>
+                          ) : null}
+                          {person.email ? (
+                            <div className="mt-2 flex items-center gap-2 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-2.5 py-2 text-xs text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                              <Mail
+                                className="h-3.5 w-3.5 shrink-0 text-muted dark:text-dark-muted"
+                                strokeWidth={1.8}
+                              />
+                              <span className="min-w-0 truncate">{person.email}</span>
+                            </div>
+                          ) : null}
+                          <div className="mt-3 h-px w-full bg-linear-to-r from-transparent via-light-divider to-transparent dark:via-dark-divider" />
+                          <p className="mt-3 text-[11px] font-medium text-muted dark:text-dark-muted">
+                            {t("studentRepo.contributors.cards.activeMember")}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -360,37 +429,120 @@ export default function StudentRepoContributors() {
           )}
 
           {invitationRows.length ? (
-            <section className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-              <div className="border-b border-(--color-light-card-border) px-4 py-3 dark:border-(--color-dark-card-border)">
+            <section className="overflow-hidden rounded-3xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+              <div className="border-b border-light-divider bg-linear-to-r from-light-app-tertiary to-(--color-light-card-bg) px-5 py-4 dark:border-dark-divider dark:from-dark-app-tertiary dark:to-(--color-dark-card-bg)">
                 <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                  Recent invitations
+                  {t("studentRepo.contributors.invitations.sectionTitle")}
+                </p>
+                <p className="mt-1 text-xs text-secondary dark:text-dark-secondary">
+                  {t("studentRepo.contributors.invitations.sectionHint")}
                 </p>
               </div>
-              <div className="space-y-2 p-4">
-                {invitationRows.map((invite) => (
-                  <div
-                    key={invite.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                        {invite.invitedUser}
+              <div className="space-y-6 p-5">
+                {invitationPending.length ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-chart-warning" strokeWidth={1.85} />
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted dark:text-dark-muted">
+                        {t("studentRepo.contributors.invitations.pendingTitle")}
                       </p>
-                      <p className="mt-1 text-xs text-muted dark:text-dark-muted">
-                        Sent {formatInviteTime(invite.createdAt, locale)}
-                      </p>
+                      <span className="rounded-full bg-light-app-tertiary px-2 py-0.5 text-[10px] font-bold text-secondary dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                        {invitationPending.length}
+                      </span>
                     </div>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                      invite.status === "ACCEPTED"
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/12 dark:text-emerald-300"
-                        : invite.status === "REJECTED"
-                          ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/12 dark:text-rose-300"
-                          : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/12 dark:text-amber-300"
-                    }`}>
-                      {invite.status}
-                    </span>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {invitationPending.map((invite) => (
+                        <div
+                          key={invite.id}
+                          className="relative overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-linear-to-br from-(--color-light-card-bg) to-light-app-tertiary shadow-xs transition-all hover:border-(--color-light-input-border) hover:shadow-sm dark:border-(--color-dark-card-border) dark:from-(--color-dark-card-bg) dark:to-dark-app-tertiary dark:hover:border-(--color-dark-input-border-focus)"
+                        >
+                          <div
+                            className={`absolute inset-x-0 top-0 h-1 bg-linear-to-r ${inviteStatusAccent(invite.status)}`}
+                          />
+                          <div className="flex gap-4 p-4">
+                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) text-sm font-semibold text-(--color-chart-blue-primary) shadow-inner dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-hover) dark:text-(--color-chart-blue-secondary)">
+                              {inviteDisplayInitials(invite.invitedUser)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
+                                {invite.invitedUser}
+                              </p>
+                              <p className="mt-1 text-[11px] text-muted dark:text-dark-muted">
+                                {formatInviteTime(invite.createdAt, locale, t)}
+                              </p>
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-chart-warning/35 bg-light-app-tertiary px-2 py-0.5 text-[10px] font-semibold uppercase text-chart-warning dark:bg-dark-app-tertiary">
+                                  <Clock className="h-3 w-3" strokeWidth={2} />
+                                  {invite.status}
+                                </span>
+                                <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 text-[10px] font-semibold uppercase text-secondary dark:border-(--color-dark-card-border) dark:text-dark-secondary">
+                                  {invite.role}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                ) : null}
+
+                {invitationResponded.length ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2
+                        className="h-4 w-4 text-chart-success"
+                        strokeWidth={1.85}
+                      />
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted dark:text-dark-muted">
+                        {t("studentRepo.contributors.invitations.respondedTitle")}
+                      </p>
+                      <span className="rounded-full bg-light-app-tertiary px-2 py-0.5 text-[10px] font-bold text-secondary dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                        {invitationResponded.length}
+                      </span>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {invitationResponded.map((invite) => {
+                        const accepted =
+                          String(invite.status).toUpperCase() === "ACCEPTED";
+                        const StatusIcon = accepted ? CheckCircle2 : XCircle;
+                        return (
+                          <div
+                            key={invite.id}
+                            className="relative overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-xs transition-all hover:border-(--color-light-input-border-focus) hover:shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+                          >
+                            <div
+                              className={`absolute inset-x-0 top-0 h-1 bg-linear-to-r ${inviteStatusAccent(invite.status)}`}
+                            />
+                            <div className="flex gap-4 p-4">
+                              <div
+                                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${
+                                  accepted
+                                    ? "border-chart-success/30 bg-linear-to-br from-emerald-500/15 to-transparent text-chart-success"
+                                    : "border-chart-error/30 bg-linear-to-br from-rose-500/12 to-transparent text-chart-error"
+                                }`}
+                              >
+                                <StatusIcon className="h-7 w-7" strokeWidth={1.75} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
+                                  {invite.invitedUser}
+                                </p>
+                                <p className="mt-1 text-[11px] text-muted dark:text-dark-muted">
+                                  {formatInviteTime(invite.createdAt, locale, t)}
+                                </p>
+                                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase">
+                                  <StatusIcon className="h-3 w-3" strokeWidth={2} />
+                                  {invite.status}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </section>
           ) : null}
@@ -400,9 +552,12 @@ export default function StudentRepoContributors() {
       <GlobalModal
         variant="sheet"
         open={inviteOpen}
-        setOpen={setInviteOpen}
-        title="Invite collaborator"
-        subtitle="Search for a user, preview the selection, and send a repository invitation."
+        setOpen={(open) => {
+          if (!open) setInviteSearchOpen(false);
+          setInviteOpen(open);
+        }}
+        title={t("studentRepo.contributors.invite.modalTitle")}
+        subtitle={t("studentRepo.contributors.invite.modalSubtitle")}
         isClose
         footer={
           <>
@@ -414,7 +569,7 @@ export default function StudentRepoContributors() {
                 setInviteOpen(false);
               }}
             >
-              Cancel
+              {t("studentRepo.contributors.invite.cancel")}
             </Button>
             <Button
               type="button"
@@ -423,7 +578,7 @@ export default function StudentRepoContributors() {
               loading={inviteMutation.isPending}
               onClick={submitInvite}
             >
-              Send invitation
+              {t("studentRepo.contributors.invite.send")}
             </Button>
           </>
         }
@@ -431,7 +586,7 @@ export default function StudentRepoContributors() {
         <div className="space-y-4">
           <div>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-              Find user
+              {t("studentRepo.contributors.invite.findUser")}
             </p>
             <SearchableSelect
               open={inviteSearchOpen}
@@ -440,8 +595,10 @@ export default function StudentRepoContributors() {
               onValueChange={setSelectedInvitee}
               closeOnSelect={false}
               options={searchOptions}
-              placeholder="Search by name, username, or email"
-              searchPlaceholder="Type to search users"
+              placeholder={t("studentRepo.contributors.invite.placeholder")}
+              searchPlaceholder={t(
+                "studentRepo.contributors.invite.searchPlaceholder",
+              )}
               searchValue={inviteQuery}
               onSearchChange={(nextValue) => {
                 setInviteQuery(nextValue);
@@ -478,13 +635,13 @@ export default function StudentRepoContributors() {
               )}
             />
             <p className="mt-2 text-[11px] text-muted dark:text-dark-muted">
-              Searches one backend term across name, username, and email. Existing collaborators are filtered out automatically.
+              {t("studentRepo.contributors.invite.hint")}
             </p>
           </div>
 
           <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-              Invitation preview
+              {t("studentRepo.contributors.invite.previewLabel")}
             </p>
             {selectedInviteeOption ? (
               <div className="mt-3 flex items-start gap-3 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 py-3 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
@@ -506,7 +663,7 @@ export default function StudentRepoContributors() {
               </div>
             ) : (
               <p className="mt-3 text-sm text-muted dark:text-dark-muted">
-                Select a user to preview the invitation.
+                {t("studentRepo.contributors.invite.previewEmpty")}
               </p>
             )}
           </div>

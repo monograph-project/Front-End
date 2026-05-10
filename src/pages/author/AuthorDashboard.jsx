@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { PenLine, BookOpenCheck, Bell } from "lucide-react";
+import { PenLine, BookOpenCheck, Bell, NotebookPen } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 export default function AuthorDashboard() {
@@ -20,6 +20,12 @@ export default function AuthorDashboard() {
       icon: BookOpenCheck,
       title: t("authorDashboard.cards.publishedTitle"),
       body: t("authorDashboard.cards.publishedBody"),
+    },
+    {
+      to: "/author/unpublished",
+      icon: NotebookPen,
+      title: "Unpublished stories",
+      body: "Review drafts, private stories, and articles that are not published yet.",
     },
     ...(authorOnly
       ? [

@@ -198,7 +198,7 @@ export default function EmployeeRegistrationWizard({
   );
 
   const roleOptions = useMemo(
-    () => [{ value: "EMPLOYEE", label: t("employeeForm.roles.EMPLOYEE") }],
+    () => [{ value: "EMPLOYEE_USER", label: t("employeeForm.roles.EMPLOYEE") }],
     [t],
   );
 
@@ -256,7 +256,7 @@ export default function EmployeeRegistrationWizard({
     defaultValues: {
       username: "",
       password: "",
-      role: "EMPLOYEE",
+      role: "EMPLOYEE_USER",
       firstName: "",
       lastName: "",
       fatherName: "",
@@ -293,7 +293,7 @@ export default function EmployeeRegistrationWizard({
     reset({
       username: existingEmployee.username ?? "",
       password: "",
-      role: existingEmployee.role ?? "EMPLOYEE",
+      role: existingEmployee.role ?? "EMPLOYEE_USER",
       firstName: existingEmployee.firstName ?? "",
       lastName: existingEmployee.lastName ?? "",
       fatherName: existingEmployee.fatherName ?? "",
@@ -330,7 +330,7 @@ export default function EmployeeRegistrationWizard({
     (values) => {
       const body = {
         userName: values.username.trim(),
-        role: (values.role && values.role.trim()) || "EMPLOYEE",
+        role: (values.role && values.role.trim()) || "EMPLOYEE_USER",
         faculty: values.faculty.trim(),
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),

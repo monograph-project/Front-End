@@ -11,9 +11,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "json-server --watch ./src/server/db.json --port 5000",
-    "syncfusion:word:up": "docker compose -f docker-compose.syncfusion-word.yml up -d",
-    "syncfusion:word:down": "docker compose -f docker-compose.syncfusion-word.yml down",
-    "syncfusion:word:logs": "docker compose -f docker-compose.syncfusion-word.yml logs -f"
+    "word:up": "docker compose -f docker-compose.syncfusion-word.yml up -d",
+    "word:down": "docker compose -f docker-compose.syncfusion-word.yml down",
+    "word:logs": "docker compose -f docker-compose.syncfusion-word.yml logs -f"
   },
   "dependencies": {
     "@radix-ui/react-accessible-icon": "^1.1.8",

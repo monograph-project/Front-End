@@ -1,9 +1,5 @@
-import UserNotificationInbox from "../../components/notifications/UserNotificationInbox";
+import AdminNotificationInboxTable from "../../components/admin/AdminNotificationInboxTable";
 
 export default function Notifications() {
-  return (
-    <div className=" w-full min-h-screen bg-white dark:bg-dark-app-secondary ">
-      <UserNotificationInbox basePath="/student/notifications" />
-    </div>
-  );
+  return <AdminNotificationInboxTable basePath="/student/notifications" />;
 }

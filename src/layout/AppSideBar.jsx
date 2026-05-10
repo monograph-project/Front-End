@@ -168,34 +168,16 @@ export default function AppSidebar() {
         path: `${basePath}/dashboard`,
       },
       {
+        key: "workspace",
+        labelKey: "Projects & repositories",
+        Icon: FolderKanban,
+        path: `${basePath}/workspace`,
+      },
+      {
         key: "notifications",
         labelKey: "sidebar.teacher.notifications",
         Icon: Bell,
         path: `${basePath}/notifications`,
-      },
-      {
-        key: "projects",
-        labelKey: "sidebar.teacher.projects",
-        Icon: FolderKanban,
-        path: `${basePath}/projects`,
-      },
-      {
-        key: "calendar",
-        labelKey: "sidebar.teacher.calendar",
-        Icon: CalendarDays,
-        path: `${basePath}/calendar`,
-      },
-      {
-        key: "notes",
-        labelKey: "sidebar.researchNotes",
-        Icon: NotebookPen,
-        path: `${basePath}/notes`,
-      },
-      {
-        key: "reports",
-        labelKey: "sidebar.teacher.reports",
-        Icon: LineChart,
-        path: `${basePath}/reports`,
       },
       {
         key: "settings",
@@ -289,6 +271,12 @@ export default function AppSidebar() {
         path: `${basePath}/writing`,
       },
       {
+        key: "unpublished",
+        labelKey: "Unpublished",
+        Icon: NotebookPen,
+        path: `${basePath}/unpublished`,
+      },
+      {
         key: "published",
         labelKey: "sidebar.author.published",
         Icon: Library,
@@ -375,6 +363,12 @@ export default function AppSidebar() {
             labelKey: "sidebar.author.writing",
             Icon: PenLine,
             path: "/author/writing",
+          },
+          {
+            key: "author-unpublished",
+            labelKey: "Unpublished",
+            Icon: NotebookPen,
+            path: "/author/unpublished",
           },
           {
             key: "author-published",

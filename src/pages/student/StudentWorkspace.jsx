@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   BookMarked,
   Briefcase,
@@ -20,12 +20,13 @@ import { useAuth } from "../../context/AuthContext";
 import Button from "../../components/Button";
 import Select from "../../components/Select";
 import SettingsSectionCard from "../../components/SettingsSectionCard";
+import { resolveShellBasePath } from "../../lib/roles";
 import { cn } from "../../lib/utils";
 import {
+  useVcAccessibleRepositoriesForViewer,
   useFacultyGroups,
   useFacultyProjects,
   useLinkedStudentRecord,
-  useVcRepositoriesForViewer,
 } from "../../services/useApi";
 
 const SIDE_LINK =
@@ -98,6 +99,8 @@ function languageDotColor(language) {
 export default function StudentWorkspace() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const location = useLocation();
+  const shellBase = resolveShellBasePath(location.pathname, user?.role);
   const vcLogin =
     typeof user?.username === "string" ? user.username.trim() : "";
   /** Gateway user id for VC `GET /api/v1/repos/{ownerId}` (list `RepositoryResponse`). */
@@ -126,7 +129,7 @@ export default function StudentWorkspace() {
   const studentEntityId = student?.id ?? null;
 
   const { data: repoList = [], isLoading: reposLoading } =
-    useVcRepositoriesForViewer(vcOwnerAccountId, {
+    useVcAccessibleRepositoriesForViewer(vcOwnerAccountId, {
       enabled: Boolean(vcOwnerAccountId),
       notifyOnError: false,
       activityUsernameFallback: vcLogin,
@@ -366,7 +369,7 @@ export default function StudentWorkspace() {
             </div>
             {showSearchShell ? (
               <Link
-                to="/student/workspace/repositories/new"
+                to={`${shellBase}/workspace/repositories/new`}
                 className="shrink-0"
               >
                 <Button
@@ -507,6 +510,7 @@ export default function StudentWorkspace() {
                       key={`${item.owner.user_name}/${item.repositoryName}`}
                       item={item}
                       t={t}
+                      shellBase={shellBase}
                     />
                   ))}
                 </ul>
@@ -521,6 +525,7 @@ export default function StudentWorkspace() {
                       key={`${item.ownerUsername}/${item.repositoryName}`}
                       item={item}
                       t={t}
+                      shellBase={shellBase}
                     />
                   ))}
                 </div>
@@ -592,13 +597,13 @@ export default function StudentWorkspace() {
 }
 
 /**
- * @param {{ item: object, t: import('i18next').TFunction }} props
+ * @param {{ item: object, t: import('i18next').TFunction, shellBase: string }} props
  */
-function RepoListRow({ item, t }) {
+function RepoListRow({ item, t, shellBase }) {
   console.log(item)
   const owner = item.owner.user_name;
   const name = item.repositoryName;
-  const to = `/student/repository/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  const to = `${shellBase}/repository/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   const visibility = visibilityKind(item.visibility);
   const visibilityLabel =
     visibility === "private"
@@ -683,12 +688,12 @@ function RepoListRow({ item, t }) {
 }
 
 /**
- * @param {{ item: object, t: import('i18next').TFunction }} props
+ * @param {{ item: object, t: import('i18next').TFunction, shellBase: string }} props
  */
-function RepoGridCard({ item, t }) {
+function RepoGridCard({ item, t, shellBase }) {
   const owner = item.ownerUsername;
   const name = item.repositoryName;
-  const to = `/student/repository/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  const to = `${shellBase}/repository/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   const visibility = visibilityKind(item.visibility);
   const visibilityLabel =
     visibility === "private"
