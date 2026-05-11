@@ -3422,6 +3422,19 @@ const resources = {
       "login.remembered": "Remembered it?",
       "login.backToSignIn": "Back to sign in",
       "login.keycloakSignIn": "Sign in with organization account",
+      "login.sideDescription":
+        "Sign in to continue reviewing repositories, project activity, milestones, and workspace collaboration from one secure portal.",
+      "login.identityTitle": "Workspace identity",
+      "login.identityText":
+        "Your account connects role-based access with the correct project dashboard.",
+      "login.securityTitle": "Protected access",
+      "login.securityText":
+        "Authentication keeps repository, milestone, and team information available only to allowed users.",
+      "login.continuityTitle": "Project continuity",
+      "login.continuityText":
+        "Return directly to the work surfaces used by students, teachers, and administrators.",
+      "login.switchHint":
+        "Need an account? The page transition moves this login panel aside and opens the signup form with the same visual language.",
       "login.toast.signInSuccess": "You're signed in.",
       "login.toast.signInFailed": "Sign in failed. Try again.",
       "signup.heading": "Create your account",
@@ -3429,6 +3442,55 @@ const resources = {
       "signup.keycloakRegister": "Register with organization account",
       "signup.orContinueWithEmail": "Or continue with email",
       "signup.fullName": "Full name",
+      "signup.eyebrow": "Account registration",
+      "signup.description":
+        "Create a portal identity with the exact profile fields required by the authentication service.",
+      "signup.secureEyebrow": "Secure signup",
+      "signup.identityTitle": "Identity",
+      "signup.identityText":
+        "Username, first name, and last name are sent as separate fields.",
+      "signup.securityTitle": "Security",
+      "signup.securityText":
+        "Password rules match backend validation before submit.",
+      "signup.consentTitle": "Consent",
+      "signup.consentText":
+        "Terms and privacy agreement are captured explicitly.",
+      "signup.firstName": "First name",
+      "signup.lastName": "Last name",
+      "signup.username": "Username",
+      "signup.phoneNumber": "Phone number",
+      "signup.termsAgree": "I agree to the terms and conditions.",
+      "signup.privacyAgree": "I agree to the privacy policy.",
+      "signup.passwordReq.length": "8-128 characters",
+      "signup.passwordReq.upper": "Uppercase letter",
+      "signup.passwordReq.lower": "Lowercase letter",
+      "signup.passwordReq.number": "Number",
+      "signup.passwordReq.special": "Special character @$!%*?&",
+      "signup.validation.firstNameRequired": "First name is required",
+      "signup.validation.firstNameMax":
+        "First name must not exceed 50 characters",
+      "signup.validation.lastNameRequired": "Last name is required",
+      "signup.validation.lastNameMax":
+        "Last name must not exceed 50 characters",
+      "signup.validation.usernameRequired": "Username is required",
+      "signup.validation.usernameMin":
+        "Username must be at least 3 characters",
+      "signup.validation.usernameMax":
+        "Username must not exceed 50 characters",
+      "signup.validation.usernamePattern":
+        "Use only letters, numbers, dots, and underscores",
+      "signup.validation.emailRequired": "Email is required",
+      "signup.validation.emailInvalid": "Enter a valid email address",
+      "signup.validation.passwordRequired": "Password is required",
+      "signup.validation.passwordMin":
+        "Password must be at least 8 characters",
+      "signup.validation.passwordMax":
+        "Password must not exceed 128 characters",
+      "signup.validation.passwordPattern":
+        "Use uppercase, lowercase, number, and special character",
+      "signup.validation.termsRequired": "You must agree to the terms",
+      "signup.validation.privacyRequired":
+        "You must agree to the privacy policy",
       "signup.createAccount": "Create account",
       "signup.accountCreated": "Account created!",
       "signup.redirecting": "Redirecting to your dashboard…",
@@ -6793,6 +6855,19 @@ const resources = {
       "login.remembered": "یاد مو شو؟",
       "login.backToSignIn": "بېرته ننوتل",
       "login.keycloakSignIn": "د ادارې حساب سره ننوتل",
+      "login.sideDescription":
+        "د یو خوندي پورټل څخه زېرمتونونه، د پروژې فعالیت، پړاوونه او د کاري ځای همکاري بیاکتلو لپاره ننوزئ.",
+      "login.identityTitle": "د کاري ځای پېژندنه",
+      "login.identityText":
+        "ستاسې حساب د رول پر بنسټ لاسرسی له سمې پروژې ډشبورډ سره نښلوي.",
+      "login.securityTitle": "خوندي لاسرسی",
+      "login.securityText":
+        "تصدیق د زېرمتون، پړاو، او ټیم معلومات یوازې مجازو کاروونکو ته ساتي.",
+      "login.continuityTitle": "د پروژې دوام",
+      "login.continuityText":
+        "بېرته هغو کاري برخو ته ورشئ چې محصلین، استادان او مدیران یې کاروي.",
+      "login.switchHint":
+        "حساب ته اړتیا لرئ؟ د پاڼې بدلون دا د ننوتلو برخه څنګ ته وړي او د همدې بڼې سره د ثبت فورم پرانیزي.",
       "login.toast.signInSuccess": "تاسو په بریالیتوب سره ننوتئ.",
       "login.toast.signInFailed": "ننوتنه ناکامه شوه. بیا هڅه وکړئ.",
       "signup.heading": "خپل حساب جوړ کړئ",
@@ -6800,6 +6875,48 @@ const resources = {
       "signup.keycloakRegister": "د ادارې حساب سره ثبت",
       "signup.orContinueWithEmail": "یا د ایمیل سره دوام ورکړئ",
       "signup.fullName": "بشپړ نوم",
+      "signup.eyebrow": "د حساب ثبت",
+      "signup.description":
+        "د تصدیق خدمت د اړتیا وړ دقیقو پېژندنې ساحو سره د پورټل حساب جوړ کړئ.",
+      "signup.secureEyebrow": "خوندي ثبت",
+      "signup.identityTitle": "پېژندنه",
+      "signup.identityText":
+        "کارن نوم، نوم، او تخلص جلا ساحو په توګه استول کېږي.",
+      "signup.securityTitle": "امنیت",
+      "signup.securityText":
+        "د پټنوم اصول له لېږلو مخکې د شا-پای له اعتبار سره سم کتل کېږي.",
+      "signup.consentTitle": "رضایت",
+      "signup.consentText":
+        "د شرایطو او محرمیت منل په څرګند ډول ثبتېږي.",
+      "signup.firstName": "نوم",
+      "signup.lastName": "تخلص",
+      "signup.username": "کارن نوم",
+      "signup.phoneNumber": "د ټیلیفون شمېره",
+      "signup.termsAgree": "زه شرایط او ضوابط منم.",
+      "signup.privacyAgree": "زه د محرمیت تګلاره منم.",
+      "signup.passwordReq.length": "۸-۱۲۸ توري",
+      "signup.passwordReq.upper": "لوی توری",
+      "signup.passwordReq.lower": "کوچنی توری",
+      "signup.passwordReq.number": "شمېره",
+      "signup.passwordReq.special": "ځانګړی توری @$!%*?&",
+      "signup.validation.firstNameRequired": "نوم اړین دی",
+      "signup.validation.firstNameMax": "نوم باید له ۵۰ تورو زیات نه وي",
+      "signup.validation.lastNameRequired": "تخلص اړین دی",
+      "signup.validation.lastNameMax": "تخلص باید له ۵۰ تورو زیات نه وي",
+      "signup.validation.usernameRequired": "کارن نوم اړین دی",
+      "signup.validation.usernameMin": "کارن نوم باید لږ تر لږه ۳ توري وي",
+      "signup.validation.usernameMax": "کارن نوم باید له ۵۰ تورو زیات نه وي",
+      "signup.validation.usernamePattern":
+        "یوازې توري، شمېرې، ټکی او لاندې کرښه وکاروئ",
+      "signup.validation.emailRequired": "ایمیل اړین دی",
+      "signup.validation.emailInvalid": "سم ایمیل ولیکئ",
+      "signup.validation.passwordRequired": "پټنوم اړین دی",
+      "signup.validation.passwordMin": "پټنوم باید لږ تر لږه ۸ توري وي",
+      "signup.validation.passwordMax": "پټنوم باید له ۱۲۸ تورو زیات نه وي",
+      "signup.validation.passwordPattern":
+        "لوی توری، کوچنی توری، شمېره او ځانګړی توری وکاروئ",
+      "signup.validation.termsRequired": "باید شرایط ومنئ",
+      "signup.validation.privacyRequired": "باید د محرمیت تګلاره ومنئ",
       "signup.createAccount": "حساب جوړول",
       "signup.accountCreated": "حساب جوړ شو!",
       "signup.redirecting": "ډشیبورډ ته لیږدول کیږي…",
@@ -10193,6 +10310,19 @@ const resources = {
       "login.remembered": "یادتان آمد؟",
       "login.backToSignIn": "بازگشت به ورود",
       "login.keycloakSignIn": "ورود با حساب سازمانی",
+      "login.sideDescription":
+        "وارد شوید تا از یک پرتال امن، مخزن‌ها، فعالیت پروژه، مراحل و همکاری فضای کار را بررسی کنید.",
+      "login.identityTitle": "هویت فضای کار",
+      "login.identityText":
+        "حساب شما دسترسی مبتنی بر نقش را به داشبورد درست پروژه وصل می‌کند.",
+      "login.securityTitle": "دسترسی محافظت‌شده",
+      "login.securityText":
+        "احراز هویت اطلاعات مخزن، مرحله و تیم را فقط برای کاربران مجاز نگه می‌دارد.",
+      "login.continuityTitle": "تداوم پروژه",
+      "login.continuityText":
+        "مستقیم به سطوح کاری مورد استفاده محصلان، استادان و مدیران برگردید.",
+      "login.switchHint":
+        "حساب ندارید؟ انتقال صفحه، این پنل ورود را کنار می‌برد و فرم ثبت نام را با همین زبان بصری باز می‌کند.",
       "login.toast.signInSuccess": "با موفقیت وارد شدید.",
       "login.toast.signInFailed": "ورود ناموفق بود. دوباره تلاش کنید.",
       "signup.heading": "ایجاد حساب",
@@ -10200,6 +10330,53 @@ const resources = {
       "signup.keycloakRegister": "ثبت نام با حساب سازمانی",
       "signup.orContinueWithEmail": "یا با ایمیل ادامه دهید",
       "signup.fullName": "نام کامل",
+      "signup.eyebrow": "ثبت حساب",
+      "signup.description":
+        "با فیلدهای دقیق مورد نیاز سرویس احراز هویت، هویت پرتال خود را ایجاد کنید.",
+      "signup.secureEyebrow": "ثبت امن",
+      "signup.identityTitle": "هویت",
+      "signup.identityText":
+        "نام کاربری، نام و تخلص به صورت فیلدهای جداگانه ارسال می‌شوند.",
+      "signup.securityTitle": "امنیت",
+      "signup.securityText":
+        "قواعد رمز عبور پیش از ارسال با اعتبارسنجی بک‌اند هماهنگ بررسی می‌شود.",
+      "signup.consentTitle": "رضایت",
+      "signup.consentText":
+        "پذیرش شرایط و حریم خصوصی به صورت صریح ثبت می‌شود.",
+      "signup.firstName": "نام",
+      "signup.lastName": "تخلص",
+      "signup.username": "نام کاربری",
+      "signup.phoneNumber": "شماره تلفن",
+      "signup.termsAgree": "شرایط و مقررات را می‌پذیرم.",
+      "signup.privacyAgree": "سیاست حریم خصوصی را می‌پذیرم.",
+      "signup.passwordReq.length": "۸ تا ۱۲۸ نویسه",
+      "signup.passwordReq.upper": "حرف بزرگ",
+      "signup.passwordReq.lower": "حرف کوچک",
+      "signup.passwordReq.number": "عدد",
+      "signup.passwordReq.special": "نویسه خاص @$!%*?&",
+      "signup.validation.firstNameRequired": "نام الزامی است",
+      "signup.validation.firstNameMax": "نام نباید بیش از ۵۰ نویسه باشد",
+      "signup.validation.lastNameRequired": "تخلص الزامی است",
+      "signup.validation.lastNameMax": "تخلص نباید بیش از ۵۰ نویسه باشد",
+      "signup.validation.usernameRequired": "نام کاربری الزامی است",
+      "signup.validation.usernameMin":
+        "نام کاربری باید حداقل ۳ نویسه باشد",
+      "signup.validation.usernameMax":
+        "نام کاربری نباید بیش از ۵۰ نویسه باشد",
+      "signup.validation.usernamePattern":
+        "فقط از حروف، اعداد، نقطه و زیرخط استفاده کنید",
+      "signup.validation.emailRequired": "ایمیل الزامی است",
+      "signup.validation.emailInvalid": "یک ایمیل معتبر وارد کنید",
+      "signup.validation.passwordRequired": "رمز عبور الزامی است",
+      "signup.validation.passwordMin":
+        "رمز عبور باید حداقل ۸ نویسه باشد",
+      "signup.validation.passwordMax":
+        "رمز عبور نباید بیش از ۱۲۸ نویسه باشد",
+      "signup.validation.passwordPattern":
+        "از حرف بزرگ، حرف کوچک، عدد و نویسه خاص استفاده کنید",
+      "signup.validation.termsRequired": "باید شرایط را بپذیرید",
+      "signup.validation.privacyRequired":
+        "باید سیاست حریم خصوصی را بپذیرید",
       "signup.createAccount": "ایجاد حساب",
       "signup.accountCreated": "حساب ایجاد شد!",
       "signup.redirecting": "در حال هدایت به داشبورد…",

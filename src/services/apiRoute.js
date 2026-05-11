@@ -130,22 +130,34 @@ export async function signup(formData) {
   const fullName = String(formData.fullName ?? "").trim();
   const email = normalizeEmail(formData.email);
   const password = formData.password;
-  const phone_number = formData.phone_number || "";
+  const phone_number = String(
+    formData.phone_number ?? formData.phoneNumber ?? "",
+  ).trim();
+  const explicitFirstName = String(
+    formData.first_name ?? formData.firstName ?? "",
+  ).trim();
+  const explicitLastName = String(
+    formData.last_name ?? formData.lastName ?? "",
+  ).trim();
 
-  if (!fullName || !email || !password) {
+  if ((!fullName && (!explicitFirstName || !explicitLastName)) || !email || !password) {
     throwClientApiError(
-      "Full name, email, and password are required.",
+      "First name, last name, email, and password are required.",
       "apiErrors.validation.fullNameEmailPasswordRequired",
     );
   }
 
   const nameParts = fullName.split(" ").filter(Boolean);
-  const first_name = nameParts[0] ?? "";
-  const last_name = nameParts.slice(1).join(" ") ?? "";
+  const first_name = explicitFirstName || nameParts[0] || "";
+  const last_name = explicitLastName || nameParts.slice(1).join(" ") || "";
   const username =
     typeof formData.username === "string" && formData.username.trim().length > 0
-      ? formData.username.trim().replace(/\s+/g, "_")
+      ? formData.username.trim()
       : email.split("@")[0].replace(/[^a-z0-9]/gi, "");
+  const terms_agreed = Boolean(formData.terms_agreed ?? formData.termsAgreed);
+  const privacy_agreed = Boolean(
+    formData.privacy_agreed ?? formData.privacyAgreed,
+  );
 
   try {
     const { data } = await axiosInstance.post(AUTH.SIGNUP, {
@@ -155,8 +167,9 @@ export async function signup(formData) {
       first_name,
       last_name,
       phone_number,
-      terms_agreed: true,
-      privacy_agreed: true,
+      terms_agreed,
+      privacy_agreed,
+      role: "AUTHOR_USER",
     });
     return ingestGatewayLoginPayload(data);
   } catch (err) {

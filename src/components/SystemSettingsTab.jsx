@@ -12,6 +12,8 @@ import Field from "./Field";
 import Select from "./Select";
 import SearchableSelect from "./SearchableSelect";
 import SettingsSectionCard from "./SettingsSectionCard";
+import RepoOverviewStatCard from "./repo/RepoOverviewStatCard";
+import { REPO_OVERVIEW_STAT_PALETTES } from "./repo/repoOverviewStatPalettes";
 
 const campusOptions = [
   {
@@ -51,9 +53,22 @@ export default function SystemSettingsTab() {
 
   const summaryItems = useMemo(
     () => [
-      { label: t("settings.system.summary.status"), value: t("settings.system.values.operational") },
-      { label: t("settings.system.summary.academicYear"), value: systemProfile.academicYear },
       {
+        icon: SlidersHorizontal,
+        label: t("settings.system.summary.status"),
+        value: t("settings.system.values.operational"),
+        hint: t("settings.system.title"),
+        paletteIndex: 0,
+      },
+      {
+        icon: CalendarRange,
+        label: t("settings.system.summary.academicYear"),
+        value: systemProfile.academicYear,
+        hint: t("settings.system.academic.title"),
+        paletteIndex: 1,
+      },
+      {
+        icon: CalendarRange,
         label: t("settings.system.summary.activeTerm"),
         value:
           {
@@ -62,12 +77,17 @@ export default function SystemSettingsTab() {
             "fall-2026": t("settings.system.semesters.fall2026"),
             "winter-2026": t("settings.system.semesters.winter2026"),
           }[systemProfile.activeSemester] || t("settings.system.values.unknown"),
+        hint: t("settings.system.fields.activeSemester"),
+        paletteIndex: 2,
       },
       {
+        icon: Globe2,
         label: t("settings.system.summary.publicProperties"),
         value: t("settings.system.summary.activeCount", {
           count: publicVisibility.length,
         }),
+        hint: t("settings.system.visibility.title"),
+        paletteIndex: 3,
       },
     ],
     [publicVisibility.length, systemProfile.academicYear, systemProfile.activeSemester, t],
@@ -100,19 +120,20 @@ export default function SystemSettingsTab() {
           </button>
         }
       >
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:gap-4">
           {summaryItems.map((item) => (
-            <div
+            <RepoOverviewStatCard
               key={item.label}
-              className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell"
-            >
-              <p className="text-sm font-medium text-secondary dark:text-dark-secondary">
-                {item.label}
-              </p>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-primary dark:text-dark-primary">
-                {item.value}
-              </p>
-            </div>
+              icon={item.icon}
+              label={item.label}
+              value={item.value}
+              hint={item.hint}
+              palette={
+                REPO_OVERVIEW_STAT_PALETTES[
+                  item.paletteIndex % REPO_OVERVIEW_STAT_PALETTES.length
+                ]
+              }
+            />
           ))}
         </div>
       </SettingsSectionCard>

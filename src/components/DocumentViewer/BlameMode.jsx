@@ -17,6 +17,10 @@ function hashHue(input) {
   return Math.abs(hash) % 360;
 }
 
+function isZipMagic(bytes) {
+  return bytes?.length >= 2 && bytes[0] === 0x50 && bytes[1] === 0x4b;
+}
+
 function lineIndexFrom(row) {
   const n = Number(
     row.lineNumber ?? row.line ?? row.line_no ?? row.lineNo ?? row.lineIdx,
@@ -87,6 +91,89 @@ function normalizeDocText(value) {
 
 function shortCommit(row) {
   return String(commitId(row) ?? "").slice(0, 8);
+}
+
+function DocumentSegmentBlameList({
+  groups,
+  selectedCommit,
+  onSelectCommit,
+  hoveredSegmentId,
+  onHoverSegment,
+  formatTs,
+  t,
+}) {
+  return (
+    <div className="overflow-x-auto">
+      {groups.map((row, index) => {
+        const commit = row.commit;
+        const selected = selectedCommit && commit === selectedCommit;
+        const hovered = hoveredSegmentId === row.key;
+        const hue = hashHue(commit || row.key || index);
+        return (
+          <div
+            key={row.key || `${commit}-${index}`}
+            className="grid border-b border-light-divider md:grid-cols-[minmax(180px,220px)_minmax(0,1fr)] dark:border-dark-divider"
+            onMouseEnter={() => onHoverSegment(row.key || `${index}`)}
+            onMouseLeave={() => onHoverSegment(null)}
+          >
+            <div
+              className={`border-r border-light-divider px-3 py-3 dark:border-dark-divider ${
+                selected
+                  ? "ring-2 ring-inset ring-(--color-light-input-border-focus) dark:ring-(--color-dark-input-border-focus)"
+                  : ""
+              }`}
+              style={{
+                backgroundColor: hovered
+                  ? `hsla(${hue}, 72%, 75%, .35)`
+                  : `hsla(${hue}, 70%, 70%, .18)`,
+              }}
+              onClick={() => onSelectCommit(commit || null)}
+            >
+              <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted dark:text-dark-muted">
+                <span className="rounded-full border border-light-divider px-2 py-0.5 font-mono dark:border-dark-divider">
+                  {(row.shortSha || commit || "").slice(0, 8)}
+                </span>
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-500/12 dark:text-amber-300">
+                  {row.kind || "segment"}
+                </span>
+              </div>
+              <div className="mt-2 font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                {row.author || t("documentViewer.na")}
+              </div>
+              <div className="mt-1 text-[11px] text-muted dark:text-dark-muted">
+                {formatTs(row.timestamp)}
+              </div>
+              <div className="mt-1 text-[11px] text-muted dark:text-dark-muted">
+                {row.message || t("documentViewer.na")}
+              </div>
+            </div>
+
+            <div className="px-4 py-3">
+              <div className="mb-2 text-[10px] uppercase tracking-[0.14em] text-muted dark:text-dark-muted">
+                {row.kind || "segment"}
+                {row.page != null ? ` • Page ${row.page}` : ""}
+              </div>
+              <div className="overflow-hidden rounded-xl border border-light-divider dark:border-dark-divider">
+                {row.lines.map((line) => (
+                  <div
+                    key={`${row.key}-${line.lineNumber}`}
+                    className="grid grid-cols-[48px_minmax(0,1fr)] border-b border-light-divider font-mono text-[11px] leading-6 last:border-b-0 dark:border-dark-divider"
+                  >
+                    <div className="select-none px-2.5 text-right text-muted dark:text-dark-muted">
+                      {line.lineNumber}
+                    </div>
+                    <pre className="m-0 overflow-x-auto px-3 py-0 text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                      <code>{line.code}</code>
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function sameCommitMeta(a, b) {
@@ -189,6 +276,10 @@ export default function BlameMode({
       host.innerHTML = "";
 
       try {
+        if (!isZipMagic(fileBytes)) {
+          throw new Error("The stored DOCX bytes are incomplete or invalid.");
+        }
+
         const blob = new Blob([fileBytes], {
           type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         });
@@ -389,7 +480,12 @@ export default function BlameMode({
         setDocRenderLoading(false);
       } catch (error) {
         if (!cancelled) {
-          setDocRenderError(String(error?.message ?? "Failed to render document blame."));
+          setDocRenderError(
+            String(
+              error?.message ??
+                "The DOCX layout preview could not be rendered.",
+            ),
+          );
           setDocRenderLoading(false);
         }
       }
@@ -407,6 +503,7 @@ export default function BlameMode({
   if (isDocumentSegmentMode) {
     const rows = Array.isArray(blameData) ? blameData : [];
     if (ext === "docx") {
+      const groups = buildDocumentCommitGroups(rows);
       return (
         <div className="overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
           <header className="border-b border-light-divider px-5 py-4 dark:border-dark-divider">
@@ -420,17 +517,31 @@ export default function BlameMode({
 
           {docRenderLoading ? <DocumentViewerLoading /> : null}
           {docRenderError ? (
-            <div className="mx-4 my-4 rounded-md border border-light-error-border bg-light-error-bg p-4 text-xs text-light-error-text dark:border-dark-error-border dark:bg-dark-error-bg dark:text-dark-error-text">
-              {docRenderError}
+            <div className="mx-4 my-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+              The original DOCX layout preview could not be rendered
+              {docRenderError ? `: ${docRenderError}` : "."} Showing extracted
+              document ownership instead.
             </div>
           ) : null}
 
-          <div className="px-4 pb-4">
-            <div
-              ref={previewHostRef}
-              className="docx-render-shell vc-docx-blame-shell max-h-[720px] overflow-auto rounded-none bg-white p-4"
+          {!docRenderError ? (
+            <div className="px-4 pb-4">
+              <div
+                ref={previewHostRef}
+                className="docx-render-shell vc-docx-blame-shell max-h-[720px] overflow-auto rounded-none bg-white p-4"
+              />
+            </div>
+          ) : (
+            <DocumentSegmentBlameList
+              groups={groups}
+              selectedCommit={selectedCommit}
+              onSelectCommit={setSelectedCommit}
+              hoveredSegmentId={hoveredSegmentId}
+              onHoverSegment={setHoveredSegmentId}
+              formatTs={formatTs}
+              t={t}
             />
-          </div>
+          )}
 
           {selectedCommit && resolvedMeta ? (
             <footer className="border-t border-light-divider bg-(--color-light-input-bg) px-5 py-4 text-xs dark:border-dark-divider dark:bg-(--color-dark-input-bg)">

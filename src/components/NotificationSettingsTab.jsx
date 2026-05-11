@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
-import { Bell, Mail, Save, Smartphone } from "lucide-react";
+import { Bell, BellOff, Mail, Save, Smartphone, TimerReset } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import Select from "./Select";
 import SettingsSectionCard from "./SettingsSectionCard";
 import SettingsToggleRow from "./SettingsToggleRow";
+import RepoOverviewStatCard from "./repo/RepoOverviewStatCard";
+import { REPO_OVERVIEW_STAT_PALETTES } from "./repo/repoOverviewStatPalettes";
 
 const initialNotificationItems = [
   {
@@ -49,6 +51,53 @@ export default function NotificationSettingsTab() {
       disabled: subscriptions.filter((item) => !item.enabled).length,
     }),
     [subscriptions],
+  );
+  const channelLabel = t(
+    `settings.notifications.channels.${
+      channel === "in-app-email"
+        ? "inAppEmail"
+        : channel === "in-app"
+          ? "inAppOnly"
+          : "emailOnly"
+    }`,
+  );
+  const frequencyLabel = t(`settings.notifications.frequency.${frequency}`);
+  const summaryTiles = useMemo(
+    () => [
+      {
+        key: "enabled",
+        icon: Bell,
+        label: t("settings.notifications.summary.enabled"),
+        value: summary.enabled,
+        hint: t("settings.notifications.subscriptions.title"),
+        paletteIndex: 0,
+      },
+      {
+        key: "disabled",
+        icon: BellOff,
+        label: t("settings.notifications.summary.disabled"),
+        value: summary.disabled,
+        hint: t("settings.notifications.subscriptions.description"),
+        paletteIndex: 1,
+      },
+      {
+        key: "channel",
+        icon: Mail,
+        label: t("settings.notifications.summary.channelMode"),
+        value: channelLabel,
+        hint: t("settings.notifications.fields.defaultChannel"),
+        paletteIndex: 2,
+      },
+      {
+        key: "digest",
+        icon: TimerReset,
+        label: t("settings.notifications.summary.digestMode"),
+        value: frequencyLabel,
+        hint: t("settings.notifications.fields.digestFrequency"),
+        paletteIndex: 3,
+      },
+    ],
+    [channelLabel, frequencyLabel, summary.disabled, summary.enabled, t],
   );
 
   const toggleSubscription = (id) => {
@@ -129,47 +178,21 @@ export default function NotificationSettingsTab() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
-            <p className="text-sm font-medium text-secondary dark:text-dark-secondary">
-              {t("settings.notifications.summary.enabled")}
-            </p>
-            <p className="mt-2 text-3xl font-bold text-primary dark:text-dark-primary">
-              {summary.enabled}
-            </p>
-          </div>
-          <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
-            <p className="text-sm font-medium text-secondary dark:text-dark-secondary">
-              {t("settings.notifications.summary.disabled")}
-            </p>
-            <p className="mt-2 text-3xl font-bold text-primary dark:text-dark-primary">
-              {summary.disabled}
-            </p>
-          </div>
-          <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
-            <p className="text-sm font-medium text-secondary dark:text-dark-secondary">
-              {t("settings.notifications.summary.channelMode")}
-            </p>
-            <p className="mt-2 text-lg font-bold text-primary dark:text-dark-primary">
-              {t(
-                `settings.notifications.channels.${
-                  channel === "in-app-email"
-                    ? "inAppEmail"
-                    : channel === "in-app"
-                      ? "inAppOnly"
-                      : "emailOnly"
-                }`,
-              )}
-            </p>
-          </div>
-          <div className="rounded-md border border-default bg-shell p-4 dark:border-dark-default dark:bg-dark-shell">
-            <p className="text-sm font-medium text-secondary dark:text-dark-secondary">
-              {t("settings.notifications.summary.digestMode")}
-            </p>
-            <p className="mt-2 text-lg font-bold text-primary dark:text-dark-primary">
-              {t(`settings.notifications.frequency.${frequency}`)}
-            </p>
-          </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {summaryTiles.map((card) => (
+            <RepoOverviewStatCard
+              key={card.key}
+              icon={card.icon}
+              label={card.label}
+              value={card.value}
+              hint={card.hint}
+              palette={
+                REPO_OVERVIEW_STAT_PALETTES[
+                  card.paletteIndex % REPO_OVERVIEW_STAT_PALETTES.length
+                ]
+              }
+            />
+          ))}
         </div>
       </SettingsSectionCard>
 

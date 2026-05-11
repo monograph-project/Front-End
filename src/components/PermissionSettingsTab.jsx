@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Plus } from "lucide-react";
+import { KeyRound, Plus, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import Button from "./Button";
 import Field from "./Field";
 import GlobalModal from "./GlobalModal";
 import Select from "./Select";
 import SettingsSectionCard from "./SettingsSectionCard";
+import RepoOverviewStatCard from "./repo/RepoOverviewStatCard";
+import { REPO_OVERVIEW_STAT_PALETTES } from "./repo/repoOverviewStatPalettes";
 import {
   useCreatePermission,
   usePermissionsByClient,
@@ -14,6 +16,29 @@ import {
 
 const PERMISSIONS_CLIENT_ID =
   import.meta.env.VITE_PERMISSIONS_CLIENT_ID ?? "file-service";
+
+function permissionResource(permission) {
+  return String(
+    permission?.resource ??
+      permission?.resource_name ??
+      permission?.resourceName ??
+      "GENERAL",
+  ).trim();
+}
+
+function permissionAction(permission) {
+  return String(
+    permission?.action ?? permission?.operation ?? permission?.verb ?? "ACCESS",
+  ).trim();
+}
+
+function isSystemPermission(permission) {
+  return Boolean(
+    permission?.is_system_permission ??
+      permission?.isSystemPermission ??
+      permission?.system,
+  );
+}
 
 export default function PermissionSettingsTab() {
   const { t } = useTranslation();
@@ -30,7 +55,9 @@ export default function PermissionSettingsTab() {
     return list.filter(
       (p) =>
         (p.name || "").toLowerCase().includes(q) ||
-        (p.description || "").toLowerCase().includes(q),
+        (p.description || "").toLowerCase().includes(q) ||
+        permissionResource(p).toLowerCase().includes(q) ||
+        permissionAction(p).toLowerCase().includes(q),
     );
   }, [data, filter]);
 
@@ -103,23 +130,26 @@ export default function PermissionSettingsTab() {
           </Button>
         }
       >
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-            <p className="text-sm font-medium text-secondary dark:text-dark-secondary">
-              {t("settings.permissions.summary.totalPermissions")}
-            </p>
-            <p className="mt-2 text-3xl font-bold text-primary dark:text-dark-primary">
-              {isLoading ? "—" : total}
-            </p>
-          </div>
-          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary md:col-span-2">
-            <p className="text-sm font-medium text-secondary dark:text-dark-secondary">
-              {t("settings.permissions.clientIdLabel")}
-            </p>
-            <p className="mt-2 font-mono text-sm text-primary dark:text-dark-primary">
+        <div className="grid gap-3 md:grid-cols-2 xl:gap-4">
+          <RepoOverviewStatCard
+            icon={KeyRound}
+            label={t("settings.permissions.summary.totalPermissions")}
+            value={isLoading ? "—" : total}
+            hint={t("settings.permissions.existing.title")}
+            palette={REPO_OVERVIEW_STAT_PALETTES[0]}
+          />
+          <RepoOverviewStatCard
+            icon={ShieldCheck}
+            label={t("settings.permissions.clientIdLabel")}
+            palette={REPO_OVERVIEW_STAT_PALETTES[2]}
+          >
+            <p className="font-mono text-lg font-semibold tracking-tight text-primary dark:text-dark-primary">
               {PERMISSIONS_CLIENT_ID}
             </p>
-          </div>
+            <p className="mt-1 text-xs leading-relaxed text-secondary dark:text-dark-secondary">
+              {t("settings.permissions.apiListHint")}
+            </p>
+          </RepoOverviewStatCard>
         </div>
       </SettingsSectionCard>
 
@@ -128,7 +158,7 @@ export default function PermissionSettingsTab() {
         title={t("settings.permissions.existing.title")}
         description={t("settings.permissions.apiListHint")}
       >
-        <div className="mb-4">
+        <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <Field
             register={{}}
             label={t("settings.permissions.filterLabel")}
@@ -136,32 +166,84 @@ export default function PermissionSettingsTab() {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
+          <div className="rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 text-xs text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+            <span className="font-semibold text-primary dark:text-dark-primary">
+              {isLoading ? "—" : permissions.length}
+            </span>{" "}
+            of{" "}
+            <span className="font-semibold text-primary dark:text-dark-primary">
+              {isLoading ? "—" : total}
+            </span>{" "}
+            permissions
+          </div>
         </div>
 
-        <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+        <div className="max-h-[520px] overflow-auto rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-dark-card-bg">
           {isLoading && (
-            <p className="text-sm text-muted dark:text-dark-muted">
+            <p className="p-4 text-sm text-muted dark:text-dark-muted">
               {t("settings.permissions.loading")}
             </p>
           )}
-          {!isLoading &&
-            permissions.map((item) => (
-              <div
-                key={item.id ?? item.name}
-                className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"
-              >
-                <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                  {item.name}
-                </p>
-                {item.description ? (
-                  <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                    {item.description}
-                  </p>
-                ) : null}
-              </div>
-            ))}
+          {!isLoading && permissions.length ? (
+            <table className="w-full min-w-[760px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-light-divider bg-light-app-tertiary text-[11px] font-semibold uppercase tracking-wide text-muted dark:border-dark-divider dark:bg-dark-app-tertiary dark:text-dark-muted">
+                  <th className="px-4 py-3 text-left">Permission</th>
+                  <th className="px-4 py-3 text-left">Resource</th>
+                  <th className="px-4 py-3 text-left">Action</th>
+                  <th className="px-4 py-3 text-left">System</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-light-divider dark:divide-dark-divider">
+                {permissions.map((item) => {
+                  const resource = permissionResource(item);
+                  const action = permissionAction(item);
+                  const systemPermission = isSystemPermission(item);
+
+                  return (
+                    <tr
+                      key={item.id ?? item.name}
+                      className="text-primary transition-colors hover:bg-light-app-tertiary/80 dark:text-dark-primary dark:hover:bg-dark-app-tertiary/80"
+                    >
+                      <td className="max-w-[360px] px-4 py-3">
+                        <p className="font-semibold">{item.name}</p>
+                        {item.description ? (
+                          <p className="mt-1 text-xs leading-5 text-secondary dark:text-dark-secondary">
+                            {item.description}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex rounded-full bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-secondary dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                          {resource}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex rounded-full bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-secondary dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                          {action}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                            systemPermission
+                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                              : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                          }`}
+                        >
+                          {systemPermission
+                            ? t("settings.permissions.systemYes")
+                            : t("settings.permissions.systemNo")}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : null}
           {!isLoading && !permissions.length && (
-            <p className="text-sm text-muted dark:text-dark-muted">
+            <p className="p-4 text-sm text-muted dark:text-dark-muted">
               {t("settings.permissions.empty")}
             </p>
           )}

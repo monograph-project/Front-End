@@ -8,6 +8,7 @@ import OverviewMode from "../../components/DocumentViewer/OverviewMode";
 import { useVcRepositoryCommits } from "../../services/useApi";
 import {
   fetchCommitDetails,
+  fetchDocumentBlame,
   fetchRepositoryBlobPayload,
   fetchRepositoryCommitDiff,
   fetchRepositoryCompare,
@@ -297,6 +298,35 @@ function fileIsBinary(row) {
   return isKnownBinaryExtension(getFileExtension(path));
 }
 
+function isDocumentDiffFile(path) {
+  const ext = getFileExtension(path);
+  return ext === "docx" || ext === "pdf";
+}
+
+function documentBlameText(payload) {
+  const segments = Array.isArray(payload?.segments) ? payload.segments : [];
+  return segments
+    .map((segment) => String(segment?.text ?? "").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+async function fetchDocumentTextAtRef(owner, repo, path, ref) {
+  if (!ref) return "";
+  const payload = await fetchDocumentBlame(owner, repo, path, ref);
+  return documentBlameText(payload);
+}
+
+function isAddedStatus(status) {
+  const raw = String(status ?? "").toLowerCase();
+  return raw === "added" || raw === "add" || raw === "created";
+}
+
+function isDeletedStatus(status) {
+  const raw = String(status ?? "").toLowerCase();
+  return raw === "deleted" || raw === "removed" || raw === "delete";
+}
+
 function normalizeCommitDetailFiles(raw) {
   const files =
     raw?.files ??
@@ -327,7 +357,7 @@ function summarizeRows(rows) {
 
 export default function StudentRepoFileHistory() {
   const { t, i18n } = useTranslation();
-  const { owner, repo, repoBase } = useOutletContext() ?? {};
+  const { owner, repo } = useOutletContext() ?? {};
   const locale = i18n.language || undefined;
   const [params, setParams] = useSearchParams();
   const ref = params.get("ref") || "main";
@@ -353,7 +383,10 @@ export default function StudentRepoFileHistory() {
     },
   );
 
-  const commits = Array.isArray(commitsQ.data) ? commitsQ.data : [];
+  const commits = useMemo(
+    () => (Array.isArray(commitsQ.data) ? commitsQ.data : []),
+    [commitsQ.data],
+  );
 
   useEffect(() => {
     if (!commits.length) {
@@ -573,6 +606,56 @@ export default function StudentRepoFileHistory() {
       }));
       try {
         if (file.binary) {
+          if (isDocumentDiffFile(file.path)) {
+            if (!selectedCommit || (!selectedParentSha && !isAddedStatus(file.status))) {
+              if (cancelled) return;
+              setDiffCache((current) => ({
+                ...current,
+                [file.key]: {
+                  loading: false,
+                  rows: [],
+                  error: "No commit refs returned for document diff.",
+                },
+              }));
+              return;
+            }
+
+            const [beforeText, afterText] = await Promise.all([
+              isAddedStatus(file.status)
+                ? Promise.resolve("")
+                : withTimeout(
+                    fetchDocumentTextAtRef(
+                      owner,
+                      repo,
+                      file.path,
+                      selectedParentSha,
+                    ),
+                    15000,
+                    "Timed out extracting previous document version.",
+                  ),
+              isDeletedStatus(file.status)
+                ? Promise.resolve("")
+                : withTimeout(
+                    fetchDocumentTextAtRef(owner, repo, file.path, selectedCommit),
+                    15000,
+                    "Timed out extracting current document version.",
+                  ),
+            ]);
+            if (cancelled) return;
+            const rows = normalizeDiffRows(beforeText ?? "", afterText ?? "");
+            setDiffCache((current) => ({
+              ...current,
+              [file.key]: {
+                loading: false,
+                rows,
+                error: rows.length
+                  ? ""
+                  : "No extracted document text changes found for this file.",
+              },
+            }));
+            return;
+          }
+
           if (cancelled) return;
           setDiffCache((current) => ({
             ...current,
@@ -651,7 +734,15 @@ export default function StudentRepoFileHistory() {
     return () => {
       cancelled = true;
     };
-  }, [diffCache, expandedFile, files, owner, repo]);
+  }, [
+    diffCache,
+    expandedFile,
+    files,
+    owner,
+    repo,
+    selectedCommit,
+    selectedParentSha,
+  ]);
 
   return (
     <div className="space-y-5">
@@ -813,7 +904,9 @@ export default function StudentRepoFileHistory() {
                             </span>
                             {file.binary ? (
                               <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 font-medium text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
-                                Binary
+                                {isDocumentDiffFile(file.path)
+                                  ? "Document"
+                                  : "Binary"}
                               </span>
                             ) : null}
                             <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
@@ -829,7 +922,7 @@ export default function StudentRepoFileHistory() {
                         </span>
                       </button>
                       {expandedFile === file.key ? (
-                        file.binary ? (
+                        file.binary && !isDocumentDiffFile(file.path) ? (
                           <BinaryHistoryPanel owner={owner} repo={repo} file={file} />
                         ) :
                         diffState.loading ? (
@@ -899,35 +992,36 @@ function BinaryHistoryPanel({ owner, repo, file }) {
   );
   const [state, setState] = useState({ loading: false, bytes: null, error: "" });
 
-  const revisions = [
-    {
-      key: "base",
-      label: "Previous version",
-      sha: String(file?.baseSha ?? "").trim(),
-    },
-    {
-      key: "head",
-      label: "Current version",
-      sha: String(file?.headSha ?? "").trim(),
-    },
-  ].filter((item) => item.sha);
-
-  useEffect(() => {
-    if (!revisions.some((item) => item.key === activeRevision)) {
-      setActiveRevision(revisions[0]?.key ?? "head");
-    }
-  }, [activeRevision, revisions]);
+  const revisions = useMemo(
+    () =>
+      [
+        {
+          key: "base",
+          label: "Previous version",
+          sha: String(file?.baseSha ?? "").trim(),
+        },
+        {
+          key: "head",
+          label: "Current version",
+          sha: String(file?.headSha ?? "").trim(),
+        },
+      ].filter((item) => item.sha),
+    [file?.baseSha, file?.headSha],
+  );
+  const activeRevisionKey = revisions.some((item) => item.key === activeRevision)
+    ? activeRevision
+    : (revisions[0]?.key ?? "head");
 
   useEffect(() => {
     let cancelled = false;
-    const current = revisions.find((item) => item.key === activeRevision);
-    if (!owner || !repo || !current?.sha) {
-      setState({ loading: false, bytes: null, error: "" });
-      return undefined;
-    }
-
-    setState({ loading: true, bytes: null, error: "" });
     (async () => {
+      const current = revisions.find((item) => item.key === activeRevisionKey);
+      if (!owner || !repo || !current?.sha) {
+        if (!cancelled) setState({ loading: false, bytes: null, error: "" });
+        return;
+      }
+
+      setState({ loading: true, bytes: null, error: "" });
       try {
         const bytes = await fetchRepositoryBlobPayload(owner, repo, current.sha);
         if (!cancelled) {
@@ -947,14 +1041,13 @@ function BinaryHistoryPanel({ owner, repo, file }) {
     return () => {
       cancelled = true;
     };
-  }, [activeRevision, owner, repo, revisions]);
+  }, [activeRevisionKey, owner, repo, revisions]);
 
   function downloadActive() {
     if (!state.bytes?.length) return;
-    const current = revisions.find((item) => item.key === activeRevision);
     const ext = getFileExtension(file?.path ?? "");
     const stem = String(file?.path ?? "download").split("/").pop() || "download";
-    const suffix = activeRevision === "base" ? "previous" : "current";
+    const suffix = activeRevisionKey === "base" ? "previous" : "current";
     const name = ext
       ? stem.replace(new RegExp(`\\.${ext}$`, "i"), `-${suffix}.${ext}`)
       : `${stem}-${suffix}`;
@@ -989,7 +1082,7 @@ function BinaryHistoryPanel({ owner, repo, file }) {
             type="button"
             className={cn(
               "rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
-              activeRevision === revision.key
+              activeRevisionKey === revision.key
                 ? "border-(--color-light-input-border-focus) bg-blue-50 text-blue-700 dark:border-(--color-dark-input-border-focus) dark:bg-blue-500/12 dark:text-blue-300"
                 : "border-(--color-light-card-border) text-secondary hover:text-primary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:text-dark-primary",
             )}

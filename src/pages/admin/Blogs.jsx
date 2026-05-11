@@ -15,6 +15,8 @@ import { useTranslation } from "react-i18next";
 import BlogModerationCard from "../../components/BlogModerationCard";
 import Select from "../../components/Select";
 import Button from "../../components/Button";
+import RepoOverviewStatCard from "../../components/repo/RepoOverviewStatCard";
+import { REPO_OVERVIEW_STAT_PALETTES } from "../../components/repo/repoOverviewStatPalettes";
 import { cn } from "../../lib/utils";
 import { mapArticleToAdminBlog } from "../../lib/adminArticleMap";
 import {
@@ -29,32 +31,27 @@ const SURFACE_CARD =
 const SURFACE_INSET =
   "rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
 
-function SummaryStat({ label, value, hint, icon: Icon, active = false }) {
+function SummaryStat({ label, value, hint, icon, active = false, onClick, paletteIndex = 0 }) {
   return (
     <button
       type="button"
       className={cn(
-        `${SURFACE_CARD} border-(--color-light-input-border-focus) ring-2 ring-blue-500/15 dark:border-(--color-dark-input-border-focus) dark:ring-blue-400/15  cursor-pointer p-4 text-left transition-colors duration-200`,
+        "block w-full rounded-3xl text-left outline-none transition-transform focus-visible:ring-2 focus-visible:ring-(--color-light-input-border-focus) dark:focus-visible:ring-(--color-dark-input-border-focus)",
+        active && "ring-2 ring-blue-500/20 dark:ring-blue-400/20",
       )}
+      onClick={onClick}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-            {label}
-          </p>
-          <p className="mt-3 text-3xl font-bold text-primary dark:text-dark-primary">
-            {value}
-          </p>
-          <p className="mt-2 text-sm text-secondary dark:text-dark-secondary">
-            {hint}
-          </p>
-        </div>
-        <div
-          className={`${SURFACE_INSET} flex shrink-0 items-center justify-center p-3 text-primary dark:text-dark-primary`}
-        >
-          <Icon className="h-5 w-5" strokeWidth={2} />
-        </div>
-      </div>
+      <RepoOverviewStatCard
+        icon={icon}
+        label={label}
+        value={value}
+        hint={hint}
+        palette={
+          REPO_OVERVIEW_STAT_PALETTES[
+            paletteIndex % REPO_OVERVIEW_STAT_PALETTES.length
+          ]
+        }
+      />
     </button>
   );
 }
@@ -73,7 +70,7 @@ function Blogs() {
     { notifyOnError: true },
   );
 
-  const rawRows = data?.data ?? data?.content ?? [];
+  const rawRows = useMemo(() => data?.data ?? data?.content ?? [], [data]);
   const pagination = data?.pagination;
   const totalCount = pagination?.totalCount ?? rawRows.length;
   const totalPages = pagination?.totalPages ?? 1;
@@ -206,6 +203,7 @@ function Blogs() {
         total: totalCount,
       }),
       icon: BookText,
+      paletteIndex: 0,
       active: activeStatus === "all",
       onClick: () => setActiveStatus("all"),
     },
@@ -214,6 +212,7 @@ function Blogs() {
       value: counts.pending,
       hint: t("blogAdmin.summary.waitingReviewHint"),
       icon: FileClock,
+      paletteIndex: 1,
       active: activeStatus === "pending",
       onClick: () => setActiveStatus("pending"),
     },
@@ -222,6 +221,7 @@ function Blogs() {
       value: counts.accepted,
       hint: t("blogAdmin.summary.acceptedHint"),
       icon: CircleCheckBig,
+      paletteIndex: 3,
       active: activeStatus === "accepted",
       onClick: () => setActiveStatus("accepted"),
     },
@@ -230,6 +230,7 @@ function Blogs() {
       value: counts.published,
       hint: t("blogAdmin.summary.publishedHint"),
       icon: Send,
+      paletteIndex: 2,
       active: activeStatus === "published",
       onClick: () => setActiveStatus("published"),
     },

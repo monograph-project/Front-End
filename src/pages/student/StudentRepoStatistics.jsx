@@ -116,6 +116,93 @@ function numberValue(raw) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function optionalNumber(raw) {
+  if (raw == null || raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function boundedPercent(raw) {
+  return Math.max(0, Math.min(100, numberValue(raw)));
+}
+
+function taskMilestoneNumber(task) {
+  return optionalNumber(
+    task?.milestoneNumber ??
+      task?.milestone_number ??
+      task?.milestone?.number ??
+      task?.milestoneNo,
+  );
+}
+
+function taskMilestoneId(task) {
+  const raw =
+    task?.milestoneId ??
+    task?.milestone_id ??
+    task?.milestone?.id ??
+    task?.milestone?.milestoneId ??
+    "";
+  return raw != null && raw !== "" ? String(raw) : "";
+}
+
+function taskMatchesMilestone(task, milestone) {
+  const milestoneNumber = optionalNumber(milestone?.number);
+  const taskNumber = taskMilestoneNumber(task);
+  if (milestoneNumber != null && taskNumber != null) {
+    return taskNumber === milestoneNumber;
+  }
+
+  const milestoneId =
+    milestone?.id != null && milestone?.id !== "" ? String(milestone.id) : "";
+  return Boolean(milestoneId && taskMilestoneId(task) === milestoneId);
+}
+
+function milestoneTaskCounts(tasks, milestone) {
+  const counts = {
+    total: 0,
+    completed: 0,
+  };
+
+  tasks.forEach((task) => {
+    if (!taskMatchesMilestone(task, milestone)) return;
+    counts.total += 1;
+    if (simplifyTaskStatus(task?.status) === "completed") {
+      counts.completed += 1;
+    }
+  });
+
+  return counts;
+}
+
+function milestoneCompletion(milestone, tasks) {
+  const counts = milestoneTaskCounts(tasks, milestone);
+  const apiCompleted = optionalNumber(
+    milestone?.completedTasks ?? milestone?.completed_tasks,
+  );
+  const apiTotal = optionalNumber(
+    milestone?.totalTasks ?? milestone?.total_tasks ?? milestone?.tasksCount,
+  );
+  const requiredTasks = optionalNumber(
+    milestone?.requiredTasks ?? milestone?.required_tasks,
+  );
+  const completed =
+    counts.total > 0 ? counts.completed : (apiCompleted ?? 0);
+  const target =
+    requiredTasks != null && requiredTasks > 0
+      ? requiredTasks
+      : counts.total > 0
+        ? counts.total
+        : (apiTotal ?? 0);
+
+  if (target > 0) {
+    return Math.round((Math.min(completed, target) / target) * 100);
+  }
+
+  return boundedPercent(
+    milestone?.completionPercentage ?? milestone?.completion_percentage,
+  );
+}
+
 function metricCardDefinitions(milestoneCount, issueCount, overview) {
   return [
     {
@@ -284,13 +371,10 @@ export default function StudentRepoStatistics() {
         truncateLabel(`#${num} · ${title}`, 34);
       return {
         label,
-        completion: Math.max(
-          0,
-          Math.min(100, numberValue(m?.completionPercentage)),
-        ),
+        completion: milestoneCompletion(m, tasks),
       };
     });
-  }, [milestones, t]);
+  }, [milestones, tasks, t]);
 
   const contributorBars = useMemo(
     () =>

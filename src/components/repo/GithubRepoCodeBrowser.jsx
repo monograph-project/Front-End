@@ -106,7 +106,7 @@ function extractTextFromContentsResponse(data) {
   return null;
 }
 
-function extractBytesFromContentsResponse(data) {
+function extractBytesFromContentsResponse(data, { allowTextEncoding = true } = {}) {
   if (!data || typeof data !== "object") return null;
   if (data.encoding === "base64" && typeof data.content === "string") {
     try {
@@ -118,7 +118,7 @@ function extractBytesFromContentsResponse(data) {
       return null;
     }
   }
-  if (typeof data.content === "string") {
+  if (allowTextEncoding && typeof data.content === "string") {
     return new TextEncoder().encode(data.content);
   }
   return null;
@@ -867,21 +867,28 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
     enabled: Boolean(o && r && ref && selected?.path),
   });
 
+  const selectedExt = getFileExtension(selected?.path ?? "");
+  const selectedKnownBinary = isKnownBinaryExtension(selectedExt);
   const selectedBytes = useMemo(() => {
     if (selectedBlobQ.bytes?.length) return selectedBlobQ.bytes;
-    return extractBytesFromContentsResponse(selectedContentsQ.data);
-  }, [selectedBlobQ.bytes, selectedContentsQ.data]);
+    return extractBytesFromContentsResponse(selectedContentsQ.data, {
+      allowTextEncoding: !selectedKnownBinary,
+    });
+  }, [selectedBlobQ.bytes, selectedContentsQ.data, selectedKnownBinary]);
   const selectedText = useMemo(() => {
     const fromBytes = selectedBytes?.length
       ? tryDecodeUtf8(selectedBytes)
       : null;
     if (typeof fromBytes === "string") return fromBytes;
+    if (selectedKnownBinary) return null;
     return extractTextFromContentsResponse(selectedContentsQ.data);
-  }, [selectedBytes, selectedContentsQ.data]);
+  }, [selectedBytes, selectedContentsQ.data, selectedKnownBinary]);
   const selectedIsBinary = useMemo(
     () => isBinarySelection(selected?.path ?? "", selectedBytes, selectedText),
     [selected?.path, selectedBytes, selectedText],
   );
+  const selectedBinaryLoading =
+    selectedKnownBinary && selectedBlobQ.loading && !selectedBlobQ.bytes?.length;
 
   const fileMeta = useMemo(() => {
     const text = String(selectedText ?? "");
@@ -1675,6 +1682,12 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                         repo={r}
                         blobSha={selected.sha}
                       />
+                    ) : selectedBinaryLoading ? (
+                      <div className="p-4">
+                        <p className="text-xs text-white/60">
+                          Loading binary file…
+                        </p>
+                      </div>
                     ) : activeView === "blame" ? (
                       <RepositoryBlamePanel
                         owner={o}
@@ -1694,6 +1707,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                         fileBytes={selectedBytes}
                         fileText={selectedText}
                         fileMeta={fileMeta}
+                        fileLoadError={selectedBlobQ.error}
                         headerCommit={selectedHeaderCommit}
                         branch={ref}
                         isBinary={selectedIsBinary}
@@ -1972,6 +1986,7 @@ function RepositoryCodePanel({
   fileBytes,
   fileText,
   fileMeta,
+  fileLoadError,
   headerCommit,
   branch,
   isBinary,
@@ -1983,6 +1998,7 @@ function RepositoryCodePanel({
         filePath={filePath}
         fileBytes={fileBytes}
         fileMeta={fileMeta}
+        fileLoadError={fileLoadError}
         headerCommit={headerCommit}
         branch={branch}
         onOpenHistory={onOpenHistory}
@@ -2294,6 +2310,7 @@ function RepositoryBinaryCodePanel({
   filePath,
   fileBytes,
   fileMeta,
+  fileLoadError,
   branch,
   onOpenHistory,
 }) {
@@ -2302,8 +2319,8 @@ function RepositoryBinaryCodePanel({
   if (!fileBytes?.length) {
     return (
       <div className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 text-sm text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
-        Preview is unavailable for this binary file response. Use Download to
-        save the original bytes.
+        {fileLoadError ||
+          "Preview is unavailable for this binary file response. Use Download to save the original bytes."}
       </div>
     );
   }

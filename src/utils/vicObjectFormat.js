@@ -36,6 +36,17 @@ function parseVicInflatedObject(raw) {
     throw new Error("Invalid Vic object header.");
   }
   const type = headerStr.slice(0, sp);
-  const content = raw.subarray(z + 1);
+  const declaredSize = Number(headerStr.slice(sp + 1));
+  if (!Number.isSafeInteger(declaredSize) || declaredSize < 0) {
+    throw new Error("Invalid Vic object size.");
+  }
+  const contentStart = z + 1;
+  const contentEnd = contentStart + declaredSize;
+  if (contentEnd > raw.length) {
+    throw new Error(
+      `Truncated Vic object payload: expected ${declaredSize} bytes, received ${Math.max(0, raw.length - contentStart)}.`,
+    );
+  }
+  const content = raw.subarray(contentStart, contentEnd);
   return { type, content };
 }

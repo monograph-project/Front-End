@@ -1,12 +1,41 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, UsersRound } from "lucide-react";
+import { Plus, ShieldCheck, Trash2, UsersRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import Button from "./Button";
 import Field from "./Field";
 import GlobalModal from "./GlobalModal";
 import SettingsSectionCard from "./SettingsSectionCard";
+import RepoOverviewStatCard from "./repo/RepoOverviewStatCard";
+import { REPO_OVERVIEW_STAT_PALETTES } from "./repo/repoOverviewStatPalettes";
 import { useCreateRole, useDeleteRole, useRoles } from "../services/useApi";
+
+const PROTECTED_ROLE_PATTERNS = [
+  "admin",
+  "administrator",
+  "platform",
+  "default-role",
+  "uma_authorization",
+];
+
+function roleNameOf(role) {
+  return String(role?.name ?? role?.roleKey ?? role?.id ?? "UNKNOWN_ROLE");
+}
+
+function roleDescriptionOf(role) {
+  return String(role?.description ?? "").trim();
+}
+
+function roleIdentifierOf(role, roleName) {
+  return String(role?.id ?? role?.roleId ?? role?.key ?? roleName);
+}
+
+function isProtectedRole(roleName) {
+  const normalized = String(roleName).toLowerCase();
+  return PROTECTED_ROLE_PATTERNS.some((pattern) =>
+    normalized.includes(pattern),
+  );
+}
 
 export default function RoleSettingsTab() {
   const { t } = useTranslation();
@@ -68,20 +97,23 @@ export default function RoleSettingsTab() {
           </Button>
         }
       >
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-            <p className="text-sm font-medium text-secondary dark:text-dark-secondary">
-              {t("settings.roles.summary.existingRoles")}
-            </p>
-            <p className="mt-2 text-3xl font-bold text-primary dark:text-dark-primary">
-              {isLoading ? "—" : total}
-            </p>
-          </div>
-          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-            <p className="text-sm text-secondary dark:text-dark-secondary">
+        <div className="grid gap-3 md:grid-cols-2 xl:gap-4">
+          <RepoOverviewStatCard
+            icon={UsersRound}
+            label={t("settings.roles.summary.existingRoles")}
+            value={isLoading ? "—" : total}
+            hint={t("settings.roles.existing.title")}
+            palette={REPO_OVERVIEW_STAT_PALETTES[0]}
+          />
+          <RepoOverviewStatCard
+            icon={ShieldCheck}
+            label={t("settings.roles.title")}
+            palette={REPO_OVERVIEW_STAT_PALETTES[3]}
+          >
+            <p className="text-sm leading-6 text-secondary dark:text-dark-secondary">
               {t("settings.roles.assignHint")}
             </p>
-          </div>
+          </RepoOverviewStatCard>
         </div>
       </SettingsSectionCard>
 
@@ -90,45 +122,84 @@ export default function RoleSettingsTab() {
         title={t("settings.roles.existing.title")}
         description={t("settings.roles.apiListHint")}
       >
-        <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+        <div className="mb-4 rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 text-xs text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+          <span className="font-semibold text-primary dark:text-dark-primary">
+            {isLoading ? "—" : roles.length}
+          </span>{" "}
+          of{" "}
+          <span className="font-semibold text-primary dark:text-dark-primary">
+            {isLoading ? "—" : total}
+          </span>{" "}
+          roles returned from the identity service
+        </div>
+        <div className="max-h-[520px] overflow-auto rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-dark-card-bg">
           {isLoading && (
-            <p className="text-sm text-muted dark:text-dark-muted">
+            <p className="p-4 text-sm text-muted dark:text-dark-muted">
               {t("settings.roles.loading")}
             </p>
           )}
-          {!isLoading &&
-            roles.map((role) => {
-              const roleName = role.name ?? role.roleKey ?? role.id;
-              return (
-                <div
-                  key={roleName}
-                  className="flex flex-col gap-3 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 sm:flex-row sm:items-start sm:justify-between dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                      {roleName}
-                    </p>
-                    {role.description ? (
-                      <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                        {role.description}
-                      </p>
-                    ) : null}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="tertiary"
-                    className="shrink-0 gap-2 text-(--color-light-error-text) dark:text-(--color-dark-error-text)"
-                    onClick={() => setDeleteTarget(roleName)}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4" strokeWidth={2} aria-hidden />
-                    {t("settings.roles.delete")}
-                  </Button>
-                </div>
-              );
-            })}
+          {!isLoading && roles.length ? (
+            <table className="w-full min-w-[760px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-light-divider bg-light-app-tertiary text-[11px] font-semibold uppercase tracking-wide text-muted dark:border-dark-divider dark:bg-dark-app-tertiary dark:text-dark-muted">
+                  <th className="px-4 py-3 text-left">Role</th>
+                  <th className="px-4 py-3 text-left">Identifier</th>
+                  <th className="px-4 py-3 text-left">Type</th>
+                  <th className="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-light-divider dark:divide-dark-divider">
+                {roles.map((role) => {
+                  const roleName = roleNameOf(role);
+                  const roleDescription = roleDescriptionOf(role);
+                  const roleIdentifier = roleIdentifierOf(role, roleName);
+                  const protectedRole = isProtectedRole(roleName);
+
+                  return (
+                    <tr
+                      key={roleName}
+                      className="text-primary transition-colors hover:bg-light-app-tertiary/80 dark:text-dark-primary dark:hover:bg-dark-app-tertiary/80"
+                    >
+                      <td className="max-w-[380px] px-4 py-3">
+                        <p className="font-semibold">{roleName}</p>
+                        {roleDescription ? (
+                          <p className="mt-1 text-xs leading-5 text-secondary dark:text-dark-secondary">
+                            {roleDescription}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex max-w-[220px] rounded-full bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold text-secondary dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                          <span className="truncate">{roleIdentifier}</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                            protectedRole
+                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                              : "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300"
+                          }`}
+                        >
+                          {protectedRole ? "Protected" : "Custom"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Trash2
+                          className="h-4 w-4 cursor-pointer hover:text-red-500"
+                          strokeWidth={2}
+                          aria-hidden
+                          onClick={() => setDeleteTarget(roleName)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : null}
           {!isLoading && !roles.length && (
-            <p className="text-sm text-muted dark:text-dark-muted">
+            <p className="p-4 text-sm text-muted dark:text-dark-muted">
               {t("settings.roles.empty")}
             </p>
           )}

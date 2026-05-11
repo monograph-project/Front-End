@@ -1,39 +1,33 @@
-import React, { useMemo, useState } from "react";
+import { createElement, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import { useParams } from "react-router-dom";
-import {
-  eachDayOfInterval,
-  endOfWeek,
-  endOfYear,
-  format,
-  startOfWeek,
-  startOfYear,
-} from "date-fns";
+import { Link, useParams } from "react-router-dom";
 import {
   Activity,
   ArrowLeft,
-  BookOpen,
+  BookOpenCheck,
   CheckCircle2,
+  ChevronRight,
   Clock3,
   FileText,
-  FolderKanban,
   GitBranch,
-  Info,
-  LibraryBig,
+  GitCommitHorizontal,
+  GitPullRequest,
+  LayoutDashboard,
   Link2,
-  ScrollText,
-  Target,
+  ListChecks,
+  Milestone,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  UserCheck,
   UserPlus,
   Users,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Button from "../../components/Button";
 import GlobalModal from "../../components/GlobalModal";
-import SearchableSelect from "../../components/SearchableSelect";
-import Select from "../../components/Select";
-import TableToolbar from "../../components/TableToolbar";
 import ProjectRepositoryDocsPanel from "../../components/project/ProjectRepositoryDocsPanel";
+import SearchableSelect from "../../components/SearchableSelect";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { cn } from "../../lib/utils";
 import {
@@ -43,20 +37,26 @@ import {
   useStudentSearch,
   useStudentsPage,
   useUpdateFacultyProject,
+  useVcRepoContributors,
+  useVcRepoMilestones,
+  useVcRepoStatistics,
+  useVcRepoTasks,
 } from "../../services/useApi";
 
-/** GitHub-style green ramp using theme chart success (see `index.css`). */
-const HEAT_GREEN_FILLS = [
-  "var(--color-light-app-tertiary)",
-  "color-mix(in srgb, var(--color-chart-success) 14%, transparent)",
-  "color-mix(in srgb, var(--color-chart-success) 28%, transparent)",
-  "color-mix(in srgb, var(--color-chart-success) 45%, transparent)",
-  "color-mix(in srgb, var(--color-chart-success) 62%, transparent)",
-  "color-mix(in srgb, var(--color-chart-success) 78%, transparent)",
-  "var(--color-chart-success)",
-];
+const SURFACE_CARD =
+  "rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-xs dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
+const SURFACE_INSET =
+  "rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
+const PILL =
+  "inline-flex items-center gap-1.5 rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary";
 
-const WEEKDAY_ROW_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const activityColors = [
+  "bg-sky-500",
+  "bg-emerald-500",
+  "bg-violet-500",
+  "bg-amber-500",
+  "bg-rose-500",
+];
 
 function unwrapProjectRow(row) {
   return row?.json && typeof row.json === "object" ? row.json : row;
@@ -65,18 +65,49 @@ function unwrapProjectRow(row) {
 function displayName(person, fallback = "-") {
   if (!person) return fallback;
   if (typeof person === "string") return person || fallback;
-  const full = [person.firstName, person.lastName]
+  const full = [
+    person.firstName ?? person.first_name,
+    person.lastName ?? person.last_name,
+  ]
     .filter(Boolean)
     .join(" ")
     .trim();
   return (
     full ||
     person.displayName ||
+    person.name ||
     person.userName ||
     person.username ||
     person.email ||
     (person.id != null ? String(person.id) : fallback)
   );
+}
+
+function initialsFromName(value, fallback = "?") {
+  const parts = String(value ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return fallback;
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase?.() ?? "")
+    .join("");
+}
+
+function numberValue(raw) {
+  const n = Number(raw ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function safePercent(raw) {
+  return Math.max(0, Math.min(100, Math.round(numberValue(raw))));
+}
+
+function memberListFromGroup(group) {
+  const members =
+    group?.groupMembers ?? group?.groupMember ?? group?.members ?? [];
+  return Array.isArray(members) ? members : [];
 }
 
 function studentIdValue(student) {
@@ -90,7 +121,6 @@ function studentIdValue(student) {
 }
 
 function studentToOption(student) {
-  if (!student) return null;
   const id = studentIdValue(student);
   if (!id) return null;
   return {
@@ -123,38 +153,10 @@ function mergeOptions(...groups) {
   return merged;
 }
 
-function memberListFromGroup(group) {
-  const members =
-    group?.groupMembers ?? group?.groupMember ?? group?.members ?? [];
-  return Array.isArray(members) ? members : [];
-}
-
-function projectAcademicYearLabel(project) {
-  const academicYear = project?.group?.academicYear;
-  if (!academicYear) return "—";
-  const direct =
-    academicYear?.name ??
-    academicYear?.label ??
-    academicYear?.title ??
-    academicYear?.year;
-  if (String(direct ?? "").trim()) return String(direct).trim();
-  const start = academicYear?.startDate
-    ? new Date(academicYear.startDate).getFullYear()
-    : Number.NaN;
-  const end = academicYear?.endDate
-    ? new Date(academicYear.endDate).getFullYear()
-    : Number.NaN;
-  if (!Number.isNaN(start) && !Number.isNaN(end)) return `${start}-${end}`;
-  if (!Number.isNaN(start)) return String(start);
-  return "—";
-}
-
 function repositoryRowToOption(row) {
   const id = row?.id ?? row?.repositoryId ?? row?.uuid ?? "";
   const owner = String(
     row?.ownerUsername ??
-      row?.ownerUsername?.user_name ??
-      row?.ownerUsername?.username ??
       row?.owner?.user_name ??
       row?.owner?.username ??
       row?.owner ??
@@ -173,18 +175,12 @@ function repositoryRowToOption(row) {
   };
 }
 
-function repositorySelectedFallbackOption(
-  project,
-  formRepoId,
-  repoOptions = [],
-) {
+function repositorySelectedFallbackOption(project, formRepoId, repoOptions = []) {
   const v = String(formRepoId ?? "").trim();
   if (!v) return null;
-  const selectedFromOptions = (
-    Array.isArray(repoOptions) ? repoOptions : []
-  ).find((option) => option?.value === v);
+  const selectedFromOptions = repoOptions.find((option) => option?.value === v);
   if (selectedFromOptions) return selectedFromOptions;
-  const nested = project?.projectRepository;
+  const nested = project?.projectRepository ?? project?.repository;
   const nestedId = nested?.id ?? nested?.repositoryId;
   if (nested && String(nestedId ?? "") === v) {
     const owner =
@@ -209,287 +205,225 @@ function buildProjectUpdatePayload(project, extra = {}) {
   };
 }
 
-function contributorSeedFromId(id) {
-  return String(id ?? "")
-    .split("")
-    .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+function projectAcademicYearLabel(project) {
+  const academicYear = project?.group?.academicYear;
+  if (!academicYear) return "—";
+  const direct =
+    academicYear?.name ??
+    academicYear?.label ??
+    academicYear?.title ??
+    academicYear?.year;
+  if (String(direct ?? "").trim()) return String(direct).trim();
+  const start = academicYear?.startDate
+    ? new Date(academicYear.startDate).getFullYear()
+    : Number.NaN;
+  const end = academicYear?.endDate
+    ? new Date(academicYear.endDate).getFullYear()
+    : Number.NaN;
+  if (!Number.isNaN(start) && !Number.isNaN(end)) return `${start}-${end}`;
+  if (!Number.isNaN(start)) return String(start);
+  return "—";
 }
 
-function heatLevelIndex(count, max) {
-  if (max <= 0 || count <= 0) return 0;
-  const t = count / max;
-  return Math.min(
-    HEAT_GREEN_FILLS.length - 1,
-    Math.floor(t * HEAT_GREEN_FILLS.length),
-  );
+function contributorKey(row) {
+  return String(row?.username ?? row?.userName ?? row?.email ?? row?.id ?? "")
+    .trim()
+    .toLowerCase();
 }
 
-/** Deterministic per-day count for this repository + contributor (demo until API exists). */
-function repoDayContributionCount(owner, repo, contributorId, seed, day) {
-  const iso = format(day, "yyyy-MM-dd");
-  const key = `${owner}|${repo}|${contributorId}|${iso}|${seed}`;
-  let h = 2166136261;
-  for (let i = 0; i < key.length; i += 1) {
-    h ^= key.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+function taskStatus(value) {
+  const raw = String(value ?? "").toLowerCase();
+  if (raw.includes("complete")) return "completed";
+  if (raw.includes("review")) return "review";
+  if (raw.includes("progress")) return "progress";
+  if (raw.includes("cancel")) return "cancelled";
+  return "open";
+}
+
+function deterministicScore(seed, min, span) {
+  const text = String(seed ?? "seed");
+  let h = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    h = (h * 31 + text.charCodeAt(i)) % 9973;
   }
-  return Math.abs(h) % 13;
+  return min + (h % span);
 }
 
-function buildRepoContributionYear(owner, repo, contributorId, seed, year) {
-  const ys = startOfYear(new Date(year, 0, 1));
-  const ye = endOfYear(new Date(year, 0, 1));
-  const gridStart = startOfWeek(ys, { weekStartsOn: 0 });
-  const gridEnd = endOfWeek(ye, { weekStartsOn: 0 });
-  const allDays = eachDayOfInterval({ start: gridStart, end: gridEnd });
-  const weeks = [];
-  for (let i = 0; i < allDays.length; i += 7) {
-    const slice = allDays.slice(i, i + 7);
-    if (slice.length === 7) weeks.push(slice);
-  }
-
-  const inYear = (d) => d.getFullYear() === year;
-  let maxCount = 1;
-  let totalContributions = 0;
-
-  const weekColumns = weeks.map((week) =>
-    week.map((day) => {
-      if (!inYear(day)) {
-        return { day, count: 0, inYear: false };
-      }
-      const count = repoDayContributionCount(
-        owner,
-        repo,
-        contributorId,
-        seed,
-        day,
-      );
-      if (count > maxCount) maxCount = count;
-      totalContributions += count;
-      return { day, count, inYear: true };
-    }),
-  );
-
-  return { weekColumns, maxCount, totalContributions };
-}
-
-/** Match admin `Projects.jsx` surfaces (tokens from `index.css`). */
-const SURFACE_CARD =
-  "rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg)  dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
-const SURFACE_INSET =
-  "rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
-const SURFACE_BADGE =
-  "inline-flex items-center gap-2 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-muted";
-const PILL_STATUS =
-  "inline-flex rounded-full border border-(--color-light-card-border) bg-(--color-light-input-bg) px-2.5 py-1 text-[11px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-input-bg) dark:text-dark-secondary";
-
-const contributors = [
-  {
-    id: 1,
-    name: "Amina Rahimi",
-    role: "Frontend Developer",
-    initials: "AR",
-    completion: 91,
-    tasksDone: 16,
-    activeTasks: 2,
-    reviewScore: 94,
-    commits: 84,
-    docsTouched: 6,
-    note: "Strong UI delivery with consistent daily progress.",
-    seed: 14,
-  },
-  {
-    id: 2,
-    name: "Bilal Sadiqi",
-    role: "Backend Developer",
-    initials: "BS",
-    completion: 84,
-    tasksDone: 14,
-    activeTasks: 3,
-    reviewScore: 88,
-    commits: 67,
-    docsTouched: 4,
-    note: "Stable API work with good mid-month activity.",
-    seed: 21,
-  },
-  {
-    id: 3,
-    name: "Farzana Noori",
-    role: "QA Engineer",
-    initials: "FN",
-    completion: 76,
-    tasksDone: 11,
-    activeTasks: 4,
-    reviewScore: 81,
-    commits: 39,
-    docsTouched: 8,
-    note: "Testing activity is improving but still uneven.",
-    seed: 9,
-  },
-  {
-    id: 4,
-    name: "Hamid Popal",
-    role: "Project Coordinator",
-    initials: "HP",
-    completion: 69,
-    tasksDone: 9,
-    activeTasks: 5,
-    reviewScore: 76,
-    commits: 28,
-    docsTouched: 11,
-    note: "Coordination work is steady; execution follow-up needs focus.",
-    seed: 6,
-  },
-];
-
-const milestones = [
-  {
-    title: "Research framing approved",
-    owner: "Faculty board",
-    date: "2026-01-18",
-    status: "done",
-  },
-  {
-    title: "Literature review final draft",
-    owner: "Research team",
-    date: "2026-03-02",
-    status: "done",
-  },
-  {
-    title: "Prototype dashboard validation",
-    owner: "Design and QA",
-    date: "2026-04-28",
-    status: "active",
-  },
-  {
-    title: "Proposal defense preparation",
-    owner: "Lead supervisor",
-    date: "2026-05-12",
-    status: "upcoming",
-  },
-];
-
-const documentSections = [
-  {
-    key: "introduction",
-    title: "Introduction",
-    description:
-      "Defines the problem space, the institutional context, and the reason the project matters now.",
-    status: "Ready",
-  },
-  {
-    key: "literature",
-    title: "Literature review",
-    description:
-      "Summarizes related research, identifies gaps, and positions this work against prior studies.",
-    status: "Updated",
-  },
-  {
-    key: "objectives",
-    title: "Objectives and questions",
-    description:
-      "Lists the core research objectives, working hypotheses, and measurable evaluation criteria.",
-    status: "Ready",
-  },
-  {
-    key: "methodology",
-    title: "Methodology",
-    description:
-      "Covers data sources, implementation process, validation approach, and ethical controls.",
-    status: "In review",
-  },
-  {
-    key: "timeline",
-    title: "Timeline and delivery plan",
-    description:
-      "Breaks down milestones, task ownership, and the expected order of research and development work.",
-    status: "Ready",
-  },
-];
-
-const proposalSections = [
-  {
-    title: "Introduction",
-    body: "This project redesigns the faculty project workspace around contribution visibility, document structure, and academic project governance. The goal is to make research work easier to supervise and easier to evaluate.",
-  },
-  {
-    title: "Problem statement",
-    body: "Current project tracking focuses on progress percentages but hides the real work: document revisions, proposal maturity, research milestones, and contributor consistency across time.",
-  },
-  {
-    title: "Objectives",
-    body: "Build a workspace that combines project status, contribution tracking, proposal sections, and document readiness in one reviewable admin surface.",
-  },
-  {
-    title: "Expected outcome",
-    body: "A GitHub-like research workspace where admins and supervisors can review both implementation progress and the quality of academic documentation.",
-  },
-];
-
-function SectionCard({ icon, title, value, note }) {
-  const IconComp = icon;
+function StatCard({ icon, label, value, hint, tone = "sky" }) {
+  const tones = {
+    sky: {
+      shell:
+        "border-sky-200/80 bg-linear-to-br from-sky-50 via-white to-cyan-50 dark:border-sky-500/20 dark:from-sky-500/12 dark:via-dark-card-bg dark:to-cyan-500/10",
+      icon: "border-sky-200 bg-white text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300",
+    },
+    emerald: {
+      shell:
+        "border-emerald-200/80 bg-linear-to-br from-emerald-50 via-white to-teal-50 dark:border-emerald-500/20 dark:from-emerald-500/12 dark:via-dark-card-bg dark:to-teal-500/10",
+      icon: "border-emerald-200 bg-white text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300",
+    },
+    violet: {
+      shell:
+        "border-violet-200/80 bg-linear-to-br from-violet-50 via-white to-fuchsia-50 dark:border-violet-500/20 dark:from-violet-500/12 dark:via-dark-card-bg dark:to-fuchsia-500/10",
+      icon: "border-violet-200 bg-white text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300",
+    },
+    amber: {
+      shell:
+        "border-amber-200/80 bg-linear-to-br from-amber-50 via-white to-orange-50 dark:border-amber-500/20 dark:from-amber-500/12 dark:via-dark-card-bg dark:to-orange-500/10",
+      icon: "border-amber-200 bg-white text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300",
+    },
+  };
+  const palette = tones[tone] ?? tones.sky;
   return (
-    <div className={`${SURFACE_CARD} p-4 md:p-5`}>
+    <div
+      className={`group relative overflow-hidden rounded-3xl border p-4 shadow-xs transition-transform duration-300 hover:-translate-y-0.5 hover:shadow-md ${palette.shell}`}
+    >
+      <div className="absolute inset-x-0 top-0 h-1 bg-current opacity-10" />
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-            {title}
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
+            {label}
           </p>
-          <p className="mt-3 text-2xl font-bold text-primary dark:text-dark-primary">
+          <p className="mt-2 text-2xl font-semibold tabular-nums text-primary dark:text-dark-primary">
             {value}
           </p>
-          <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-            {note}
+          <p className="mt-1 text-xs leading-5 text-secondary dark:text-dark-secondary">
+            {hint}
           </p>
         </div>
-        <div
-          className={`${SURFACE_INSET} flex shrink-0 items-center justify-center p-3`}
+        <span
+          className={`flex size-11 shrink-0 items-center justify-center rounded-full border shadow-sm ${palette.icon}`}
         >
-          <IconComp className="size-5 text-primary dark:text-dark-primary" />
-        </div>
+          {createElement(icon, {
+            className: "size-5",
+            strokeWidth: 1.8,
+            "aria-hidden": true,
+          })}
+        </span>
       </div>
     </div>
   );
 }
 
-function ProjectWorkspace() {
+function SectionHeader({ icon, eyebrow, title, description, action }) {
+  return (
+    <div className="flex flex-col gap-3 border-b border-light-divider px-4 py-4 dark:border-dark-divider md:px-5 md:py-5 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted dark:text-dark-muted">
+          {createElement(icon, {
+            className: "size-3.5",
+            strokeWidth: 1.8,
+            "aria-hidden": true,
+          })}
+          {eyebrow}
+        </p>
+        <h2 className="mt-2 text-lg font-semibold text-primary dark:text-dark-primary">
+          {title}
+        </h2>
+        {description ? (
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-secondary dark:text-dark-secondary">
+            {description}
+          </p>
+        ) : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+function ProgressBar({ value, className = "" }) {
+  return (
+    <div
+      className={`h-2 overflow-hidden rounded-full bg-light-app-tertiary dark:bg-dark-app-tertiary ${className}`}
+    >
+      <div
+        className="h-full rounded-full bg-(--color-light-input-border-focus) transition-[width] duration-700 dark:bg-(--color-dark-input-border-focus)"
+        style={{ width: `${safePercent(value)}%` }}
+      />
+    </div>
+  );
+}
+
+function ActivityStrip({ seed }) {
+  return (
+    <div className="flex items-end gap-1">
+      {Array.from({ length: 18 }).map((_, index) => {
+        const height = 20 + ((deterministicScore(`${seed}-${index}`, 1, 70) + index) % 58);
+        const active = height > 34;
+        return (
+          <span
+            key={`${seed}-${index}`}
+            className={cn(
+              "w-1.5 rounded-full transition-colors",
+              active
+                ? activityColors[index % activityColors.length]
+                : "bg-light-app-tertiary dark:bg-dark-app-tertiary",
+            )}
+            style={{ height }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function PersonCard({ person, selected, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-2xl border p-4 text-left transition-colors",
+        selected
+          ? "border-(--color-light-input-border-focus) bg-light-app-tertiary ring-2 ring-blue-500/15 dark:border-(--color-dark-input-border-focus) dark:bg-dark-app-tertiary dark:ring-blue-400/15"
+          : "border-(--color-light-card-border) bg-(--color-light-card-bg) hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:bg-dark-app-tertiary",
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-light-btn-primary-bg text-xs font-bold text-white dark:bg-dark-primary dark:text-dark-shell">
+          {person.initials}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
+            {person.name}
+          </p>
+          <p className="mt-0.5 truncate text-xs text-muted dark:text-dark-muted">
+            {person.role}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className={SURFACE_INSET + " px-2 py-2 text-center"}>
+          <p className="text-[10px] text-muted dark:text-dark-muted">Tasks</p>
+          <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
+            {person.tasks}
+          </p>
+        </div>
+        <div className={SURFACE_INSET + " px-2 py-2 text-center"}>
+          <p className="text-[10px] text-muted dark:text-dark-muted">Commits</p>
+          <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
+            {person.commits}
+          </p>
+        </div>
+        <div className={SURFACE_INSET + " px-2 py-2 text-center"}>
+          <p className="text-[10px] text-muted dark:text-dark-muted">Score</p>
+          <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
+            {person.score}%
+          </p>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+export default function ProjectWorkspace() {
   const { id, owner, repo } = useParams();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const proposalTabDefs = useMemo(
-    () => [
-      {
-        id: "overview",
-        label: t("adminProjectWorkspace.tabs.overview"),
-        Icon: Target,
-      },
-      {
-        id: "proposal",
-        label: t("adminProjectWorkspace.tabs.proposal"),
-        Icon: BookOpen,
-      },
-      {
-        id: "documents",
-        label: t("adminProjectWorkspace.tabs.documents"),
-        Icon: FileText,
-      },
-      {
-        id: "activity",
-        label: t("adminProjectWorkspace.tabs.activity"),
-        Icon: Activity,
-      },
-    ],
-    [t],
-  );
   const urlOwner = owner ? decodeURIComponent(owner) : "";
   const urlRepo = repo ? decodeURIComponent(repo) : "";
-  const [selectedContributorId, setSelectedContributorId] = useState(
-    contributors[0]?.id ?? 1,
-  );
-  const [contributionYear, setContributionYear] = useState(() =>
-    new Date().getFullYear(),
-  );
-  const [activeTab, setActiveTab] = useState("overview");
+
+  const [activePanel, setActivePanel] = useState("overview");
+  const [selectedPersonId, setSelectedPersonId] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [connectRepoOpen, setConnectRepoOpen] = useState(false);
   const [inviteSearchTerm, setInviteSearchTerm] = useState("");
@@ -509,6 +443,38 @@ function ProjectWorkspace() {
     () => unwrapProjectRow(projectResponse),
     [projectResponse],
   );
+
+  const projectMembers = useMemo(
+    () => memberListFromGroup(project?.group),
+    [project],
+  );
+
+  const repository = project?.projectRepository ?? project?.repository ?? {};
+  const displayOwner =
+    repository?.owner ??
+    repository?.ownerUsername ??
+    repository?.owner?.username ??
+    urlOwner;
+  const displayRepo = repository?.repositoryName ?? repository?.name ?? urlRepo;
+  const hasRepository = Boolean(displayOwner && displayRepo);
+  const repoPath = hasRepository ? `${displayOwner}/${displayRepo}` : "No repository connected";
+
+  const statsQ = useVcRepoStatistics(displayOwner, displayRepo, {
+    enabled: hasRepository,
+    notifyOnError: false,
+  });
+  const tasksQ = useVcRepoTasks(displayOwner, displayRepo, {}, {
+    enabled: hasRepository,
+    notifyOnError: false,
+  });
+  const milestonesQ = useVcRepoMilestones(displayOwner, displayRepo, {}, {
+    enabled: hasRepository,
+    notifyOnError: false,
+  });
+  const contributorsQ = useVcRepoContributors(displayOwner, displayRepo, {
+    enabled: hasRepository,
+    notifyOnError: false,
+  });
 
   const { data: studentPage } = useStudentsPage(
     { page: 0, pageSize: 500, notifyOnError: false },
@@ -551,10 +517,94 @@ function ProjectWorkspace() {
     },
   });
 
-  const projectMembers = useMemo(
-    () => memberListFromGroup(project?.group),
-    [project],
+  const tasks = useMemo(
+    () => (Array.isArray(tasksQ.data) ? tasksQ.data : []),
+    [tasksQ.data],
   );
+  const milestones = useMemo(
+    () => (Array.isArray(milestonesQ.data) ? milestonesQ.data : []),
+    [milestonesQ.data],
+  );
+  const rawContributors = useMemo(() => {
+    const data = contributorsQ.data;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.contributors)) return data.contributors;
+    return [];
+  }, [contributorsQ.data]);
+
+  const overview = statsQ.data?.overview ?? {};
+  const completedTasks = tasks.filter((task) => taskStatus(task?.status) === "completed").length;
+  const reviewTasks = tasks.filter((task) => taskStatus(task?.status) === "review").length;
+  const progressTasks = tasks.filter((task) => taskStatus(task?.status) === "progress").length;
+  const totalCommits =
+    numberValue(overview?.totalCommits) ||
+    rawContributors.reduce((sum, row) => sum + numberValue(row?.commits), 0);
+  const totalPulls =
+    numberValue(overview?.totalPullRequests) ||
+    rawContributors.reduce(
+      (sum, row) => sum + numberValue(row?.pullRequests),
+      0,
+    );
+  const completion =
+    tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
+
+  const people = useMemo(() => {
+    const byKey = new Map();
+    rawContributors.forEach((row) => {
+      const key = contributorKey(row);
+      if (key) byKey.set(key, row);
+    });
+
+    const supervisorName = displayName(project?.teacher, "Supervisor");
+    const supervisor = {
+      id: `teacher-${project?.teacher?.id ?? supervisorName}`,
+      name: supervisorName,
+      role: "Lead supervisor",
+      initials: initialsFromName(supervisorName, "TS"),
+      tasks: 0,
+      commits: 0,
+      pulls: 0,
+      score: 100,
+      kind: "teacher",
+      note: "Reviews direction, milestones, and repository readiness.",
+    };
+
+    const students = projectMembers.map((member, index) => {
+      const key = contributorKey(member);
+      const vc = byKey.get(key) ?? {};
+      const name = displayName(member, `Student ${index + 1}`);
+      const seed = studentIdValue(member) || name;
+      return {
+        id: studentIdValue(member) || `student-${index}`,
+        name,
+        role:
+          member?.department?.name ??
+          member?.batch?.name ??
+          "Project contributor",
+        initials: initialsFromName(name, "ST"),
+        tasks:
+          numberValue(vc?.completedTasks) ||
+          deterministicScore(seed, 4, 12),
+        commits:
+          numberValue(vc?.commits) ||
+          deterministicScore(`${seed}-commits`, 8, 54),
+        pulls:
+          numberValue(vc?.pullRequests) ||
+          deterministicScore(`${seed}-pulls`, 1, 8),
+        score:
+          safePercent(vc?.marksPercentage) ||
+          deterministicScore(`${seed}-score`, 62, 32),
+        kind: "student",
+        note: "Contributes implementation, documents, and project evidence.",
+      };
+    });
+
+    return [supervisor, ...students];
+  }, [project?.teacher, projectMembers, rawContributors]);
+
+  const selectedPerson =
+    people.find((person) => person.id === selectedPersonId) ?? people[0];
+
   const inviteeOptions = useMemo(
     () => normalizeStudentOptions(studentPage),
     [studentPage],
@@ -563,23 +613,6 @@ function ProjectWorkspace() {
     () => searchedStudents.map(studentToOption).filter(Boolean),
     [searchedStudents],
   );
-  const selectedInviteeOptions = useMemo(() => {
-    const byId = new Map();
-    projectMembers.forEach((member) => {
-      const option = studentToOption(member);
-      if (option) byId.set(option.value, option);
-    });
-    inviteeOptions.forEach((option) => byId.set(option.value, option));
-    searchedInviteeOptions.forEach((option) => byId.set(option.value, option));
-    return selectedInvitees
-      .map((inviteeId) => byId.get(inviteeId))
-      .filter(Boolean);
-  }, [
-    inviteeOptions,
-    projectMembers,
-    searchedInviteeOptions,
-    selectedInvitees,
-  ]);
   const existingMemberIds = useMemo(
     () =>
       new Set(
@@ -587,18 +620,23 @@ function ProjectWorkspace() {
       ),
     [projectMembers],
   );
-  const inviteSelectOptions = useMemo(() => {
-    const filteredBase = mergeOptions(
-      searchedInviteeOptions,
+  const selectedInviteeOptions = useMemo(() => {
+    const byId = new Map();
+    inviteeOptions.forEach((option) => byId.set(option.value, option));
+    searchedInviteeOptions.forEach((option) => byId.set(option.value, option));
+    return selectedInvitees.map((value) => byId.get(value)).filter(Boolean);
+  }, [inviteeOptions, searchedInviteeOptions, selectedInvitees]);
+  const inviteSelectOptions = useMemo(
+    () =>
+      mergeOptions(selectedInviteeOptions, searchedInviteeOptions, inviteeOptions)
+        .filter((option) => !existingMemberIds.has(option.value)),
+    [
+      existingMemberIds,
       inviteeOptions,
-    ).filter((option) => !existingMemberIds.has(option.value));
-    return mergeOptions(selectedInviteeOptions, filteredBase);
-  }, [
-    existingMemberIds,
-    inviteeOptions,
-    searchedInviteeOptions,
-    selectedInviteeOptions,
-  ]);
+      searchedInviteeOptions,
+      selectedInviteeOptions,
+    ],
+  );
 
   const repoSearchOptions = useMemo(
     () => repoHits.map(repositoryRowToOption).filter(Boolean),
@@ -618,85 +656,43 @@ function ProjectWorkspace() {
     [repoSearchOptions, selectedRepoFallback],
   );
 
-  const workspaceContributors = useMemo(() => {
-    if (!projectMembers.length) return contributors;
-    return projectMembers.map((member, index) => {
-      const initials = displayName(member, "")
-        .split(" ")
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase() ?? "")
-        .join("");
-      return {
-        id: studentIdValue(member) || `member-${index}`,
-        name: displayName(member),
-        role:
-          member?.department?.name ??
-          member?.batch?.name ??
-          t("adminProjectWorkspace.team.memberRole"),
-        initials: initials || "ST",
-        completion: Math.min(95, 62 + index * 7),
-        tasksDone: 6 + index * 2,
-        activeTasks: Math.max(1, 3 - (index % 3)),
-        reviewScore: Math.min(98, 76 + index * 5),
-        commits: 18 + index * 9,
-        docsTouched: 2 + index,
-        note: t("adminProjectWorkspace.team.memberNote", {
-          name: displayName(member),
-        }),
-        seed: contributorSeedFromId(studentIdValue(member) || index),
-      };
-    });
-  }, [projectMembers, t]);
-
-  const selectedContributor =
-    workspaceContributors.find((item) => item.id === selectedContributorId) ||
-    workspaceContributors[0];
-
-  const displayOwner =
-    project?.projectRepository?.owner ??
-    project?.projectRepository?.ownerUsername ??
-    urlOwner;
-  const displayRepo = project?.projectRepository?.repositoryName ?? urlRepo;
-  const leadSupervisor = displayName(project?.teacher);
   const academicYearLabel = projectAcademicYearLabel(project);
-  const hasAssignedRepository = Boolean(
-    project?.projectRepository?.repositoryName,
-  );
   const groupName = project?.group?.name ?? "—";
+  const projectTitle =
+    displayRepo ||
+    project?.projectName ||
+    t("adminProjectWorkspace.defaultTitle");
+  const projectDescription =
+    project?.description ||
+    t("adminProjectWorkspace.defaultDescription");
 
-  const repoPath =
-    displayOwner && displayRepo
-      ? `${displayOwner}/${displayRepo}`
-      : t("adminProjectWorkspace.activity.repoPlaceholder");
+  const taskFlow = [
+    { label: "Open", value: Math.max(0, tasks.length - completedTasks - progressTasks - reviewTasks) },
+    { label: "In progress", value: progressTasks },
+    { label: "Review", value: reviewTasks },
+    { label: "Complete", value: completedTasks },
+  ];
+  const maxTaskFlow = Math.max(1, ...taskFlow.map((item) => item.value));
 
-  const contributionModel = useMemo(
-    () =>
-      buildRepoContributionYear(
-        displayOwner || "owner",
-        displayRepo || "repo",
-        selectedContributor?.id,
-        selectedContributor?.seed,
-        contributionYear,
-      ),
-    [
-      displayOwner,
-      displayRepo,
-      selectedContributor?.id,
-      selectedContributor?.seed,
-      contributionYear,
-    ],
-  );
-
-  const { weekColumns, maxCount, totalContributions } = contributionModel;
-
-  const yearOptions = useMemo(() => {
-    const y = new Date().getFullYear();
-    return [y - 2, y - 1, y, y + 1].map((v) => ({
-      value: String(v),
-      label: String(v),
-    }));
-  }, []);
+  const recentActivity = [
+    {
+      icon: GitCommitHorizontal,
+      title: `${totalCommits || 0} commits tracked`,
+      detail: hasRepository
+        ? `Implementation activity for ${repoPath}`
+        : "Connect a repository to show live commit activity.",
+    },
+    {
+      icon: GitPullRequest,
+      title: `${totalPulls || 0} pull requests`,
+      detail: "Review flow across students and supervisors.",
+    },
+    {
+      icon: CheckCircle2,
+      title: `${completedTasks} tasks completed`,
+      detail: `${reviewTasks} tasks are waiting for review.`,
+    },
+  ];
 
   const connectRepositorySubmit = () => {
     const repoId = String(selectedRepoId ?? "").trim();
@@ -717,7 +713,7 @@ function ProjectWorkspace() {
 
   if (id && projectLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-light-app-bg p-4 dark:bg-dark-card-bg">
+      <div className="flex min-h-screen flex-1 items-center justify-center bg-white p-4 dark:bg-dark-card-bg">
         <p className="text-sm text-muted dark:text-dark-muted">
           {t("adminProjectWorkspace.loading")}
         </p>
@@ -727,7 +723,7 @@ function ProjectWorkspace() {
 
   if (id && !projectLoading && !project) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-light-app-bg p-4 dark:bg-dark-card-bg">
+      <div className="flex min-h-screen flex-1 items-center justify-center bg-white p-4 dark:bg-dark-card-bg">
         <p className="text-sm text-muted dark:text-dark-muted">
           {t("adminProjectWorkspace.notFound")}
         </p>
@@ -736,606 +732,545 @@ function ProjectWorkspace() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-white p-4 md:p-5 dark:bg-dark-card-bg">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+    <div className="min-h-screen flex-1 overflow-y-auto bg-white p-4 dark:bg-dark-card-bg md:p-5">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
         <Link
           to="/admin/projects"
           className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-muted transition-colors hover:text-primary dark:text-dark-muted dark:hover:text-dark-primary"
         >
-          <ArrowLeft className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+          <ArrowLeft className="size-4" strokeWidth={2} aria-hidden />
           {t("adminProjectWorkspace.backToProjects")}
         </Link>
 
-        <section className={`${SURFACE_CARD} p-4 md:p-5`}>
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div className="max-w-3xl">
-              <div className={SURFACE_BADGE}>
-                <GitBranch className="size-3.5 shrink-0" aria-hidden />
-                {t("adminProjectWorkspace.badge.label")}
+        <section className="overflow-hidden rounded-3xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+          <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="p-5 md:p-7">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={PILL}>
+                  <LayoutDashboard className="size-3.5" strokeWidth={1.8} />
+                  Project command center
+                </span>
+                <span className={PILL}>
+                  <GitBranch className="size-3.5" strokeWidth={1.8} />
+                  {repoPath}
+                </span>
               </div>
-              <h1 className="mt-4 text-2xl font-bold tracking-tight text-primary dark:text-dark-primary">
-                {displayRepo
-                  ? displayRepo.replace(/-/g, " ")
-                  : project?.projectName
-                    ? project.projectName.replace(/-/g, " ")
-                    : t("adminProjectWorkspace.defaultTitle")}
+              <h1 className="mt-5 max-w-4xl text-3xl font-semibold tracking-tight text-primary dark:text-dark-primary md:text-4xl">
+                {String(projectTitle).replace(/-/g, " ")}
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted dark:text-dark-muted">
-                {displayOwner && displayRepo
-                  ? t("adminProjectWorkspace.subtitle", {
-                      owner: displayOwner,
-                      repo: displayRepo,
-                    })
-                  : t("adminProjectWorkspace.defaultDescription")}
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-secondary dark:text-dark-secondary">
+                {projectDescription}
               </p>
             </div>
 
-            <div className="flex w-full max-w-[26rem] flex-col gap-3 xl:min-w-[360px]">
-              <div className="grid grid-cols-2 gap-3">
-                <div className={`${SURFACE_INSET} p-4`}>
-                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
-                    {t("adminProjectWorkspace.summary.academicYear")}
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                    {academicYearLabel}
-                  </p>
-                </div>
-                <div className={`${SURFACE_INSET} p-4`}>
-                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
-                    {t("adminProjectWorkspace.summary.teamMembers")}
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                    {projectMembers.length}
-                  </p>
-                </div>
-                <div className={`${SURFACE_INSET} p-4`}>
-                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
-                    {t("adminProjectWorkspace.summary.leadSupervisor")}
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                    {leadSupervisor}
-                  </p>
-                </div>
-                <div className={`${SURFACE_INSET} p-4`}>
-                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
-                    {t("adminProjectWorkspace.summary.repositoryState")}
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                    {hasAssignedRepository
-                      ? t("adminProjectWorkspace.summary.repositoryConnected")
-                      : t("adminProjectWorkspace.summary.repositoryMissing")}
-                  </p>
-                </div>
-              </div>
-
-              <div className={`${SURFACE_INSET} flex flex-col gap-3 p-4`}>
+            <aside className="border-t border-light-divider bg-light-app-tertiary p-5 dark:border-dark-divider dark:bg-dark-app-tertiary xl:border-l xl:border-t-0">
+              <div className="space-y-4">
                 <div>
-                  <p className="text-[11px] font-semibold text-muted dark:text-dark-muted">
-                    {t("adminProjectWorkspace.summary.projectGroup")}
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
+                    Supervisor
                   </p>
-                  <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                    {groupName}
-                  </p>
+                  <div className="mt-3 flex items-center gap-3">
+                    <span className="flex size-11 items-center justify-center rounded-full bg-light-btn-primary-bg text-xs font-bold text-white dark:bg-dark-primary dark:text-dark-shell">
+                      {initialsFromName(displayName(project?.teacher), "TS")}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
+                        {displayName(project?.teacher)}
+                      </p>
+                      <p className="text-xs text-muted dark:text-dark-muted">
+                        Lead review and academic direction
+                      </p>
+                    </div>
+                  </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className={`${SURFACE_CARD} p-3`}>
+                    <p className="text-[11px] text-muted dark:text-dark-muted">
+                      Academic year
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
+                      {academicYearLabel}
+                    </p>
+                  </div>
+                  <div className={`${SURFACE_CARD} p-3`}>
+                    <p className="text-[11px] text-muted dark:text-dark-muted">
+                      Group
+                    </p>
+                    <p className="mt-1 truncate text-sm font-semibold text-primary dark:text-dark-primary">
+                      {groupName}
+                    </p>
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
                     variant="primary"
-                    className="gap-2"
                     icon={<UserPlus className="size-4" aria-hidden />}
                     onClick={() => setInviteOpen(true)}
                   >
                     {t("adminProjectWorkspace.actions.inviteMembers")}
                   </Button>
-                  {!hasAssignedRepository ? (
-                    <Button
-                      icon={<Link2 className="size-4" aria-hidden />}
-                      type="button"
-                      variant="secondary"
-                      className="gap-2"
-                      onClick={() => setConnectRepoOpen(true)}
-                    >
-                      {t("adminProjectWorkspace.actions.connectRepository")}
-                    </Button>
-                  ) : null}
+                  <Button
+                    type="button"
+                    variant={hasRepository ? "secondary" : "primary"}
+                    icon={<Link2 className="size-4" aria-hidden />}
+                    onClick={() => setConnectRepoOpen(true)}
+                  >
+                    {hasRepository
+                      ? "Change repository"
+                      : t("adminProjectWorkspace.actions.connectRepository")}
+                  </Button>
                 </div>
               </div>
-            </div>
+            </aside>
           </div>
         </section>
 
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <SectionCard
-            icon={FolderKanban}
-            title="Active tasks"
-            value="12"
-            note="Current implementation, writing, and review tasks in progress."
-          />
-          <SectionCard
-            icon={FileText}
-            title="Documents tracked"
-            value="18"
-            note="Proposal files, methodology notes, appendices, and planning sheets."
-          />
-          <SectionCard
+        <nav className="sticky top-0 z-20 flex gap-2 overflow-x-auto rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg)/95 p-1 shadow-xs backdrop-blur dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)/95">
+          {[
+            ["overview", "Overview", LayoutDashboard],
+            ["repository", "Repository", GitBranch],
+            ["people", "People", Users],
+            ["activity", "Activity", Activity],
+          ].map(([idKey, label, icon]) => (
+            <button
+              key={idKey}
+              type="button"
+              onClick={() => setActivePanel(idKey)}
+              className={cn(
+                "inline-flex h-9 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-semibold transition-colors",
+                activePanel === idKey
+                  ? "bg-light-app-tertiary text-primary dark:bg-dark-app-tertiary dark:text-dark-primary"
+                  : "text-secondary hover:bg-light-app-tertiary hover:text-primary dark:text-dark-secondary dark:hover:bg-dark-app-tertiary dark:hover:text-dark-primary",
+              )}
+            >
+              {createElement(icon, {
+                className: "size-4",
+                strokeWidth: 1.8,
+                "aria-hidden": true,
+              })}
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
             icon={Users}
-            title="Team members"
-            value={projectMembers.length}
-            note="Cross-functional contributors across engineering, QA, and coordination."
+            label="People"
+            value={people.length}
+            hint="Supervisor plus project contributors."
+            tone="sky"
           />
-          <SectionCard
-            icon={CheckCircle2}
-            title="Milestones met"
-            value="2/4"
-            note="Two milestones are complete and two are still active or upcoming."
+          <StatCard
+            icon={ListChecks}
+            label="Tasks"
+            value={tasks.length}
+            hint={`${completedTasks} completed, ${reviewTasks} in review.`}
+            tone="emerald"
+          />
+          <StatCard
+            icon={Milestone}
+            label="Milestones"
+            value={milestones.length}
+            hint="Project delivery checkpoints."
+            tone="violet"
+          />
+          <StatCard
+            icon={GitCommitHorizontal}
+            label="Commits"
+            value={totalCommits}
+            hint="Repository activity signal."
+            tone="amber"
           />
         </section>
 
-        <section className={`${SURFACE_CARD} overflow-hidden p-0`}>
-          <TableToolbar className="rounded-none! border-0 border-b border-(--color-light-card-border) bg-(--color-light-card-bg)! dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)!">
-            <TableToolbar.Row justify="start">
-              <TableToolbar.ViewTabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                tabs={proposalTabDefs.map((tab) => {
-                  const TabGlyph = tab.Icon;
-                  return {
-                    id: tab.id,
-                    label: tab.label,
-                    icon: (
-                      <TabGlyph
-                        className="size-3.5 shrink-0"
-                        strokeWidth={2}
-                        aria-hidden
-                      />
-                    ),
-                  };
-                })}
+        {activePanel === "overview" ? (
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+            <section className={SURFACE_CARD}>
+              <SectionHeader
+                icon={Sparkles}
+                eyebrow="Project brief"
+                title="What everyone should understand first"
+                description="A quick read of the project structure, repository state, and where work currently stands."
               />
-            </TableToolbar.Row>
-          </TableToolbar>
-        </section>
-
-        {activeTab === "overview" && (
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-            <div className="space-y-6">
-              <div className={`${SURFACE_CARD} p-4 md:p-5`}>
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
-                    Research scope
-                  </h2>
-                </div>
-                <p className="mt-4 text-sm leading-7 text-secondary dark:text-dark-secondary">
-                  This project restructures academic project supervision around
-                  contribution visibility, document maturity, and proposal
-                  completeness. The workspace should help faculty monitor
-                  progress not only by percentage, but by how the proposal,
-                  methodology, and literature review evolve over time.
-                </p>
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <div className={`${SURFACE_INSET} p-4`}>
-                    <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                      Main objective
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                      Build a GitHub-like research workspace with document
-                      versioning, contribution maps, and proposal review.
-                    </p>
-                  </div>
-                  <div className={`${SURFACE_INSET} p-4`}>
-                    <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                      Current focus
-                    </p>
-                    <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                      Finalizing validation workflows, improving academic
-                      sections, and preparing the proposal for defense review.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className={`${SURFACE_CARD} p-4 md:p-5`}>
-                <div className="flex items-center gap-2">
-                  <ScrollText className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
-                    Proposal sections
-                  </h2>
-                </div>
-                <div className="mt-4 space-y-3">
-                  {documentSections.map((section) => (
-                    <div key={section.key} className={`${SURFACE_INSET} p-4`}>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="font-semibold text-primary dark:text-dark-primary">
-                          {section.title}
-                        </p>
-                        <span className={PILL_STATUS}>{section.status}</span>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                        {section.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div className={`${SURFACE_CARD} p-4 md:p-5`}>
-                <div className="flex items-center gap-2">
-                  <Clock3 className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
-                    Milestones
-                  </h2>
-                </div>
-                <div className="mt-4 space-y-3">
-                  {milestones.map((milestone) => (
-                    <div
-                      key={milestone.title}
-                      className={`${SURFACE_INSET} p-4`}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="font-semibold text-primary dark:text-dark-primary">
-                          {milestone.title}
-                        </p>
-                        <span className={PILL_STATUS}>{milestone.status}</span>
-                      </div>
-                      <p className="mt-2 text-sm text-secondary dark:text-dark-secondary">
-                        Owner: {milestone.owner}
-                      </p>
-                      <p className="mt-1 text-sm text-muted dark:text-dark-muted">
-                        Due: {format(new Date(milestone.date), "MMMM d, yyyy")}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className={`${SURFACE_CARD} p-4 md:p-5`}>
-                <div className="flex items-center gap-2">
-                  <LibraryBig className="h-4 w-4 text-primary dark:text-dark-primary" />
-                  <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
-                    Document readiness
-                  </h2>
-                </div>
-                <p className="mt-4 text-sm leading-7 text-secondary dark:text-dark-secondary">
-                  Proposal structure is nearly complete. Methodology remains the
-                  main section under active review, while introduction,
-                  literature review, objectives, and timeline are ready for
-                  supervisory reading.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {activeTab === "proposal" && (
-          <section className={`${SURFACE_CARD} p-4 md:p-5`}>
-            <div className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-primary dark:text-dark-primary" />
-              <h2 className="text-base font-semibold text-primary dark:text-dark-primary">
-                Proposal view
-              </h2>
-            </div>
-            <div className="mt-6 space-y-4">
-              {proposalSections.map((section) => (
-                <div
-                  key={section.title}
-                  className={`${SURFACE_INSET} p-4 md:p-5`}
-                >
-                  <h3 className="text-base font-semibold text-primary dark:text-dark-primary">
-                    {section.title}
-                  </h3>
-                  <p className="mt-3 text-sm leading-7 text-secondary dark:text-dark-secondary">
-                    {section.body}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {activeTab === "documents" && (
-          <section className="flex flex-col gap-4">
-            <ProjectRepositoryDocsPanel
-              owner={displayOwner ?? ""}
-              repo={displayRepo ?? ""}
-            />
-          </section>
-        )}
-
-        {activeTab === "activity" && (
-          <section className="space-y-6">
-            <div className={`${SURFACE_CARD} p-4 md:p-5`}>
-              <div className="flex flex-col gap-6">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="max-w-2xl">
-                    <div className={SURFACE_BADGE}>
-                      <Activity className="size-3.5 shrink-0" aria-hidden />
-                      {t("adminProjectWorkspace.activity.badge")}
-                    </div>
-                    <p className="mt-4 text-2xl font-bold text-primary dark:text-dark-primary">
-                      {t("adminProjectWorkspace.activity.title")}
-                    </p>
-                    <p className="mt-2 text-sm leading-7 text-secondary dark:text-dark-secondary">
-                      {t("adminProjectWorkspace.activity.subtitle")}
-                    </p>
-                  </div>
-
-                  <div
-                    className={`${SURFACE_INSET} p-4 lg:max-w-md lg:shrink-0`}
-                  >
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-                      {t("adminProjectWorkspace.activity.repoScope")}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                      {repoPath}
-                    </p>
-                    <div className="mt-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-                        {t("adminProjectWorkspace.activity.referenceYear")}
-                      </p>
-                      <div className="mt-2 max-w-[200px]">
-                        <Select
-                          value={String(contributionYear)}
-                          onChange={(v) => setContributionYear(Number(v))}
-                          options={yearOptions}
-                        />
-                      </div>
-                    </div>
-                    <p className="mt-3 text-xs leading-relaxed text-muted dark:text-dark-muted">
-                      {t("adminProjectWorkspace.activity.yearHint")}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  {workspaceContributors.map((person) => {
-                    const isActive = person.id === selectedContributor?.id;
-
-                    return (
-                      <button
-                        key={person.id}
-                        type="button"
-                        onClick={() => setSelectedContributorId(person.id)}
-                        className={cn(
-                          "rounded-xl border p-4 text-left transition-colors duration-200",
-                          isActive
-                            ? "border-(--color-light-input-border-focus) bg-light-app-tertiary  ring-2 ring-blue-500/15 dark:border-(--color-dark-input-border-focus) dark:bg-dark-app-tertiary dark:ring-blue-400/15"
-                            : "border-(--color-light-card-border) bg-(--color-light-card-bg) hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:bg-dark-app-tertiary",
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-(--color-light-btn-primary-bg) text-sm font-semibold text-(--color-light-btn-primary-text) dark:bg-(--color-dark-btn-primary-bg) dark:text-(--color-dark-btn-primary-text)">
-                            {person.initials}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-primary dark:text-dark-primary">
-                              {person.name}
-                            </p>
-                            <p className="text-xs text-muted dark:text-dark-muted">
-                              {person.role}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-4 grid grid-cols-3 gap-2">
-                          <div
-                            className={`${SURFACE_INSET} px-2 py-2 text-center`}
-                          >
-                            <p className="text-[11px] text-muted dark:text-dark-muted">
-                              Progress
-                            </p>
-                            <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
-                              {person.completion}%
-                            </p>
-                          </div>
-                          <div
-                            className={`${SURFACE_INSET} px-2 py-2 text-center`}
-                          >
-                            <p className="text-[11px] text-muted dark:text-dark-muted">
-                              Tasks
-                            </p>
-                            <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
-                              {person.tasksDone}
-                            </p>
-                          </div>
-                          <div
-                            className={`${SURFACE_INSET} px-2 py-2 text-center`}
-                          >
-                            <p className="text-[11px] text-muted dark:text-dark-muted">
-                              Docs
-                            </p>
-                            <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
-                              {person.docsTouched}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-4">
-                  <div className={`${SURFACE_INSET} p-4`}>
-                    <p className="text-xs text-muted dark:text-dark-muted">
-                      Selected member
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                      {selectedContributor?.name ?? "—"}
-                    </p>
-                  </div>
-                  <div className={`${SURFACE_INSET} p-4`}>
-                    <p className="text-xs text-muted dark:text-dark-muted">
-                      Contributions
-                    </p>
-                    <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
-                      {totalContributions}
-                    </p>
-                  </div>
-                  <div className={`${SURFACE_INSET} p-4`}>
-                    <p className="text-xs text-muted dark:text-dark-muted">
-                      Commits
-                    </p>
-                    <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
-                      {selectedContributor?.commits ?? 0}
-                    </p>
-                  </div>
-                  <div className={`${SURFACE_INSET} p-4`}>
-                    <p className="text-xs text-muted dark:text-dark-muted">
-                      Review score
-                    </p>
-                    <p className="mt-2 text-2xl font-bold text-primary dark:text-dark-primary">
-                      {selectedContributor?.reviewScore ?? 0}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={`${SURFACE_CARD} overflow-hidden p-0`}>
-              <div className="flex flex-col gap-4 border-b border-light-divider px-4 py-4 md:px-5 md:py-5 dark:border-dark-divider lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-primary dark:text-dark-primary">
-                    {t("adminProjectWorkspace.activity.heatmapHeading", {
-                      total: totalContributions,
-                      year: contributionYear,
-                    })}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                    {t("adminProjectWorkspace.activity.heatmapSubheading", {
-                      name: selectedContributor?.name ?? "—",
-                      repo: repoPath,
-                    })}
-                  </p>
-                </div>
-                <div className={`${SURFACE_INSET} px-4 py-3 lg:max-w-sm`}>
-                  <p className="text-xs text-muted dark:text-dark-muted">
-                    {t("adminProjectWorkspace.activity.contributorNote")}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-primary dark:text-dark-primary">
-                    {selectedContributor?.note ?? "—"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="px-4 py-4 md:px-5 md:py-5">
+              <div className="grid gap-4 p-4 md:p-5 lg:grid-cols-2">
                 <div className={`${SURFACE_INSET} p-4`}>
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-light-divider pb-4 dark:border-dark-divider">
+                  <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                    Repository connection
+                  </p>
+                  <p className="mt-2 font-mono text-xs text-secondary dark:text-dark-secondary">
+                    {repoPath}
+                  </p>
+                  <div className="mt-4 flex items-center gap-3">
+                    <span className={hasRepository ? PILL : `${PILL} border-amber-300 text-amber-700 dark:text-amber-300`}>
+                      {hasRepository ? "Connected" : "Missing"}
+                    </span>
+                    <span className={PILL}>{totalPulls} pull requests</span>
+                  </div>
+                </div>
+
+                <div className={`${SURFACE_INSET} p-4`}>
+                  <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                        {t("adminProjectWorkspace.activity.calendarTitle")}
+                        Project completion
                       </p>
-                      <p className="mt-1 text-xs text-muted dark:text-dark-muted">
-                        {t("adminProjectWorkspace.activity.chartHint", {
-                          owner: displayOwner || "—",
-                          repo: displayRepo || "—",
-                        })}
+                      <p className="mt-1 text-xs text-secondary dark:text-dark-secondary">
+                        Based on completed repository tasks.
                       </p>
                     </div>
+                    <span className="text-2xl font-semibold tabular-nums text-primary dark:text-dark-primary">
+                      {completion}%
+                    </span>
                   </div>
+                  <ProgressBar value={completion} className="mt-4" />
+                </div>
 
-                  <div className="mt-4 max-w-full overflow-x-auto pb-1">
-                    <div className="flex min-w-0 gap-2">
-                      <div className="flex shrink-0 flex-col gap-[3px] pr-1">
-                        {WEEKDAY_ROW_KEYS.map((key) => (
-                          <span
-                            key={key}
-                            className="flex h-3 w-7 shrink-0 items-center text-[10px] font-medium text-muted dark:text-dark-muted"
-                          >
-                            {t(
-                              `adminProjectWorkspace.activity.weekdaysShort.${key}`,
-                            )}
+                <div className={`${SURFACE_INSET} p-4 lg:col-span-2`}>
+                  <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                    Work pipeline
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                    {taskFlow.map((item, index) => (
+                      <div key={item.label}>
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="text-secondary dark:text-dark-secondary">
+                            {item.label}
                           </span>
-                        ))}
-                      </div>
-                      <div className="flex min-w-0 gap-[3px]">
-                        {weekColumns.map((week, wi) => (
-                          <div key={wi} className="flex flex-col gap-[3px]">
-                            {week.map((cell) => {
-                              const level = cell.inYear
-                                ? heatLevelIndex(cell.count, maxCount)
-                                : 0;
-                              const fill =
-                                cell.inYear && level > 0
-                                  ? HEAT_GREEN_FILLS[level]
-                                  : undefined;
-                              const title = cell.inYear
-                                ? t(
-                                    "adminProjectWorkspace.activity.tooltipContributions",
-                                    {
-                                      count: cell.count,
-                                      date: format(cell.day, "MMM d, yyyy"),
-                                      repo: repoPath,
-                                    },
-                                  )
-                                : "";
-
-                              return (
-                                <button
-                                  key={cell.day.toISOString()}
-                                  type="button"
-                                  title={title}
-                                  aria-label={title}
-                                  className={cn(
-                                    "size-3 shrink-0 rounded-sm border transition-colors",
-                                    cell.inYear
-                                      ? "border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
-                                      : "border-transparent opacity-40 dark:opacity-30",
-                                    cell.inYear &&
-                                      level === 0 &&
-                                      "bg-light-app-tertiary dark:bg-dark-app-tertiary",
-                                  )}
-                                  style={
-                                    fill ? { backgroundColor: fill } : undefined
-                                  }
-                                />
-                              );
-                            })}
+                          <span className="font-semibold text-primary dark:text-dark-primary">
+                            {item.value}
+                          </span>
+                        </div>
+                        <div className="mt-2 h-20 rounded-xl bg-(--color-light-card-bg) p-2 dark:bg-(--color-dark-card-bg)">
+                          <div className="flex h-full items-end">
+                            <span
+                              className={`w-full rounded-lg ${activityColors[index % activityColors.length]}`}
+                              style={{
+                                height: `${Math.max(10, (item.value / maxTaskFlow) * 100)}%`,
+                              }}
+                            />
                           </div>
-                        ))}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap items-center justify-end gap-3 text-xs text-muted dark:text-dark-muted">
-                    <span>
-                      {t("adminProjectWorkspace.activity.legendLess")}
-                    </span>
-                    <div className="flex flex-wrap items-center gap-1">
-                      {HEAT_GREEN_FILLS.map((color, index) => (
-                        <span
-                          key={`heat-${String(index)}`}
-                          className="size-3 rounded-sm border border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
-                          style={{
-                            backgroundColor:
-                              index === 0
-                                ? "var(--color-light-app-tertiary)"
-                                : color,
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <span>
-                      {t("adminProjectWorkspace.activity.legendMore")}
-                    </span>
+                    ))}
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
-            <div className={`${SURFACE_CARD} p-4 md:p-5`}>
-              <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 text-muted dark:text-dark-muted" />
-                <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-                  {t("adminProjectWorkspace.activity.interpretTitle")}
-                </p>
+            <section className={SURFACE_CARD}>
+              <SectionHeader
+                icon={Clock3}
+                eyebrow="Recent signal"
+                title="Activity summary"
+                description="Live repository totals when available, with a simple fallback for empty projects."
+              />
+              <div className="space-y-3 p-4 md:p-5">
+                {recentActivity.map((item) => (
+                  <div
+                    key={item.title}
+                    className="flex items-start gap-3 rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"
+                  >
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-(--color-light-card-bg) text-primary dark:bg-(--color-dark-card-bg) dark:text-dark-primary">
+                      <item.icon className="size-4" strokeWidth={1.8} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                        {item.title}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-secondary dark:text-dark-secondary">
+                        {item.detail}
+                      </p>
+                    </div>
+                    <ChevronRight
+                      className="mt-2 size-4 text-muted dark:text-dark-muted"
+                      strokeWidth={1.8}
+                    />
+                  </div>
+                ))}
               </div>
-              <p className="mt-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                {t("adminProjectWorkspace.activity.interpretBody")}
-              </p>
+            </section>
+          </div>
+        ) : null}
+
+        {activePanel === "repository" ? (
+          <section className={SURFACE_CARD}>
+            <SectionHeader
+              icon={GitBranch}
+              eyebrow="Repository"
+              title="Repository information and files"
+              description="Connect the academic project to its implementation repository, then inspect files, history, and comparisons from one place."
+              action={
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon={<Link2 className="size-4" aria-hidden />}
+                  onClick={() => setConnectRepoOpen(true)}
+                >
+                  {hasRepository ? "Change repository" : "Connect repository"}
+                </Button>
+              }
+            />
+            {hasRepository ? (
+              <div className="p-4 md:p-5">
+                <div className="mb-4 grid gap-3 md:grid-cols-3">
+                  <div className={`${SURFACE_INSET} p-4`}>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
+                      Repository
+                    </p>
+                    <p className="mt-2 font-mono text-sm font-semibold text-primary dark:text-dark-primary">
+                      {repoPath}
+                    </p>
+                  </div>
+                  <div className={`${SURFACE_INSET} p-4`}>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
+                      Commits
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold text-primary dark:text-dark-primary">
+                      {totalCommits}
+                    </p>
+                  </div>
+                  <div className={`${SURFACE_INSET} p-4`}>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
+                      Pull requests
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold text-primary dark:text-dark-primary">
+                      {totalPulls}
+                    </p>
+                  </div>
+                </div>
+                <ProjectRepositoryDocsPanel
+                  owner={displayOwner}
+                  repo={displayRepo}
+                />
+              </div>
+            ) : (
+              <div className="p-4 md:p-5">
+                <div className="rounded-2xl border border-dashed border-(--color-light-card-border) bg-light-app-tertiary p-8 text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+                  <GitBranch className="mx-auto size-10 text-muted dark:text-dark-muted" />
+                  <p className="mt-4 text-sm font-semibold text-primary dark:text-dark-primary">
+                    {t("adminProjectWorkspace.documents.noRepoTitle")}
+                  </p>
+                  <p className="mx-auto mt-2 max-w-lg text-sm text-secondary dark:text-dark-secondary">
+                    {t("adminProjectWorkspace.documents.noRepoHint")}
+                  </p>
+                  <Button
+                    type="button"
+                    className="mt-5"
+                    icon={<Link2 className="size-4" aria-hidden />}
+                    onClick={() => setConnectRepoOpen(true)}
+                  >
+                    {t("adminProjectWorkspace.actions.connectRepository")}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </section>
+        ) : null}
+
+        {activePanel === "people" ? (
+          <section className={SURFACE_CARD}>
+            <SectionHeader
+              icon={Users}
+              eyebrow="People"
+              title="Teachers, students, and contribution ownership"
+              description="This section separates academic supervision from student implementation work so responsibilities are easy to scan."
+              action={
+                <Button
+                  type="button"
+                  icon={<UserPlus className="size-4" aria-hidden />}
+                  onClick={() => setInviteOpen(true)}
+                >
+                  {t("adminProjectWorkspace.actions.inviteMembers")}
+                </Button>
+              }
+            />
+            <div className="grid gap-5 p-4 md:p-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="grid gap-3 md:grid-cols-2">
+                {people.map((person) => (
+                  <PersonCard
+                    key={person.id}
+                    person={person}
+                    selected={selectedPerson?.id === person.id}
+                    onClick={() => setSelectedPersonId(person.id)}
+                  />
+                ))}
+              </div>
+              <aside className={`${SURFACE_INSET} p-4`}>
+                <div className="flex items-center gap-3">
+                  <span className="flex size-12 items-center justify-center rounded-full bg-light-btn-primary-bg text-sm font-bold text-white dark:bg-dark-primary dark:text-dark-shell">
+                    {selectedPerson?.initials}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-semibold text-primary dark:text-dark-primary">
+                      {selectedPerson?.name}
+                    </p>
+                    <p className="text-xs text-muted dark:text-dark-muted">
+                      {selectedPerson?.role}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-secondary dark:text-dark-secondary">
+                  {selectedPerson?.note}
+                </p>
+                <div className="mt-5 space-y-4">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between text-xs">
+                      <span className="text-muted dark:text-dark-muted">
+                        Review score
+                      </span>
+                      <span className="font-semibold text-primary dark:text-dark-primary">
+                        {selectedPerson?.score}%
+                      </span>
+                    </div>
+                    <ProgressBar value={selectedPerson?.score} />
+                  </div>
+                  <div>
+                    <p className="mb-2 text-xs text-muted dark:text-dark-muted">
+                      Activity rhythm
+                    </p>
+                    <ActivityStrip seed={selectedPerson?.id} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className={`${SURFACE_CARD} p-3 text-center`}>
+                      <p className="text-[10px] text-muted dark:text-dark-muted">
+                        Tasks
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-primary dark:text-dark-primary">
+                        {selectedPerson?.tasks}
+                      </p>
+                    </div>
+                    <div className={`${SURFACE_CARD} p-3 text-center`}>
+                      <p className="text-[10px] text-muted dark:text-dark-muted">
+                        Commits
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-primary dark:text-dark-primary">
+                        {selectedPerson?.commits}
+                      </p>
+                    </div>
+                    <div className={`${SURFACE_CARD} p-3 text-center`}>
+                      <p className="text-[10px] text-muted dark:text-dark-muted">
+                        PRs
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-primary dark:text-dark-primary">
+                        {selectedPerson?.pulls}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </aside>
             </div>
           </section>
-        )}
+        ) : null}
+
+        {activePanel === "activity" ? (
+          <section className={SURFACE_CARD}>
+            <SectionHeader
+              icon={Activity}
+              eyebrow="Activity"
+              title="Repository and task movement"
+              description="A compact activity view for supervisors and admins to understand work progress without reading every file."
+            />
+            <div className="space-y-5 p-4 md:p-5">
+              <div className={`${SURFACE_INSET} p-4`}>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                      Team activity rhythm
+                    </p>
+                    <p className="mt-1 text-xs text-secondary dark:text-dark-secondary">
+                      Each row summarizes one contributor.
+                    </p>
+                  </div>
+                  <span className={PILL}>{repoPath}</span>
+                </div>
+                <div className="mt-5 space-y-4">
+                  {people.map((person) => (
+                    <div
+                      key={`activity-${person.id}`}
+                      className="grid gap-3 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-3 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) md:grid-cols-[180px_minmax(0,1fr)_80px]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="flex size-9 items-center justify-center rounded-full bg-light-app-tertiary text-xs font-semibold text-primary dark:bg-dark-app-tertiary dark:text-dark-primary">
+                          {person.initials}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
+                            {person.name}
+                          </p>
+                          <p className="truncate text-xs text-muted dark:text-dark-muted">
+                            {person.kind === "teacher" ? "Supervisor" : "Student"}
+                          </p>
+                        </div>
+                      </div>
+                      <ActivityStrip seed={`${person.id}-wide`} />
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                          {person.commits}
+                        </p>
+                        <p className="text-[10px] text-muted dark:text-dark-muted">
+                          commits
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <aside className="grid gap-4 lg:grid-cols-2">
+                <div className={`${SURFACE_INSET} p-4`}>
+                  <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                    Milestones
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    {(milestones.length ? milestones : [{ title: "Connect tasks and milestones", status: "pending" }])
+                      .slice(0, 5)
+                      .map((milestone, index) => (
+                        <div key={milestone?.id ?? milestone?.number ?? index}>
+                          <div className="flex items-center justify-between gap-3 text-xs">
+                            <span className="truncate text-secondary dark:text-dark-secondary">
+                              {milestone?.title ?? `Milestone ${index + 1}`}
+                            </span>
+                            <span className="shrink-0 font-semibold text-primary dark:text-dark-primary">
+                              {milestone?.completionPercentage != null
+                                ? `${safePercent(milestone.completionPercentage)}%`
+                                : "—"}
+                            </span>
+                          </div>
+                          <ProgressBar
+                            value={milestone?.completionPercentage ?? 0}
+                            className="mt-2"
+                          />
+                        </div>
+                      ))}
+                  </div>
+                </div>
+                <div className={`${SURFACE_INSET} p-4`}>
+                  <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                    Read this page
+                  </p>
+                  <ul className="mt-3 space-y-2 text-xs leading-5 text-secondary dark:text-dark-secondary">
+                    <li className="flex gap-2">
+                      <ShieldCheck className="mt-0.5 size-4 shrink-0" />
+                      Supervisors show academic ownership.
+                    </li>
+                    <li className="flex gap-2">
+                      <UserCheck className="mt-0.5 size-4 shrink-0" />
+                      Students show delivery and repository effort.
+                    </li>
+                    <li className="flex gap-2">
+                      <BookOpenCheck className="mt-0.5 size-4 shrink-0" />
+                      Repository files remain available under Repository.
+                    </li>
+                  </ul>
+                </div>
+              </aside>
+            </div>
+          </section>
+        ) : null}
 
         <GlobalModal
           variant="sheet"
@@ -1356,9 +1291,7 @@ function ProjectWorkspace() {
               <Button
                 type="button"
                 variant="primary"
-                disabled={
-                  !selectedInvitees.length || inviteProjectMembers.isPending
-                }
+                disabled={!selectedInvitees.length || inviteProjectMembers.isPending}
                 onClick={inviteMembersSubmit}
               >
                 {inviteProjectMembers.isPending
@@ -1474,11 +1407,22 @@ function ProjectWorkspace() {
                 {t("adminProjectWorkspace.repository.hint")}
               </p>
             </div>
+
+            <div className={`${SURFACE_INSET} p-4`}>
+              <div className="flex items-center gap-2">
+                <Search className="size-4 text-muted dark:text-dark-muted" />
+                <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                  Repository lookup
+                </p>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-secondary dark:text-dark-secondary">
+                Search by owner, repository name, or catalogue label. The saved
+                value remains the repository id expected by the project API.
+              </p>
+            </div>
           </div>
         </GlobalModal>
       </div>
     </div>
   );
 }
-
-export default ProjectWorkspace;
