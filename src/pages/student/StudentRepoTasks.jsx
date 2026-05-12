@@ -13,7 +13,6 @@ import {
   ListChecks,
   Milestone as MilestoneIcon,
   Plus,
-  Trash2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { gooeyToast } from "goey-toast";
@@ -572,62 +571,6 @@ function CreateFlowSection({ step, title, subtitle, children }) {
   );
 }
 
-function TaskRequirementRows({ rows, onChange, t }) {
-  const setRow = (index, value) =>
-    onChange(rows.map((row, i) => (i === index ? value : row)));
-  const addRow = () => onChange([...rows, ""]);
-  const removeRow = (index) => {
-    if (rows.length <= 1) {
-      onChange([""]);
-      return;
-    }
-    onChange(rows.filter((_, i) => i !== index));
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="space-y-2">
-        {rows.map((row, index) => (
-          <div key={index} className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <Field
-                register={{}}
-                value={row}
-                onChange={(e) => setRow(index, e.target.value)}
-                placeholder={t(
-                  "studentRepo.tasks.createTask.requirements.itemPlaceholder",
-                )}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              className="mt-0.5 shrink-0"
-              icon={<Trash2 className="h-4 w-4" strokeWidth={1.8} />}
-              disabled={rows.length === 1 && !String(row).trim()}
-              onClick={() => removeRow(index)}
-              aria-label={t(
-                "studentRepo.tasks.createTask.requirements.removeAria",
-              )}
-            />
-          </div>
-        ))}
-      </div>
-      <Button
-        type="button"
-        variant="secondary"
-        icon={<Plus />}
-        onClick={addRow}
-      >
-        {t("studentRepo.tasks.createTask.requirements.addRow")}
-      </Button>
-      <p className="text-xs text-secondary dark:text-dark-secondary">
-        {t("studentRepo.tasks.createTask.requirements.arrayHint")}
-      </p>
-    </div>
-  );
-}
-
 function decodeRouteSegment(raw) {
   if (raw == null || raw === "") return "";
   try {
@@ -656,7 +599,10 @@ export default function StudentRepoTasks() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [milestoneFilter, setMilestoneFilter] = useState("all");
   const [scopeFilter, setScopeFilter] = useState(() =>
-    typeof isTeacher === "function" && isTeacher() ? "all" : "mine",
+    (typeof isTeacher === "function" && isTeacher()) ||
+    (typeof isAdmin === "function" && isAdmin())
+      ? "all"
+      : "mine",
   );
   const [createMilestoneOpen, setCreateMilestoneOpen] = useState(false);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
@@ -667,7 +613,6 @@ export default function StudentRepoTasks() {
     maxScore: "",
     passingScore: "",
     requiredTasks: "",
-    rubric: "",
   });
   const [taskDraft, setTaskDraft] = useState({
     title: "",
@@ -678,7 +623,6 @@ export default function StudentRepoTasks() {
     dueDate: "",
     estimatedHours: "",
     maxScore: "",
-    requirementRows: [""],
   });
   const deferredSearch = useDeferredValue(search);
   const [completing, setCompleting] = useState(() => new Set());
@@ -697,6 +641,10 @@ export default function StudentRepoTasks() {
 
   const currentUsername = repoViewerUsername(user);
   const canViewAllTasks =
+    (typeof isTeacher === "function" && isTeacher()) ||
+    (typeof isAdmin === "function" && isAdmin());
+  const canManageRepoTasks =
+    (currentUsername && usernamesLikelySame(currentUsername, owner)) ||
     (typeof isTeacher === "function" && isTeacher()) ||
     (typeof isAdmin === "function" && isAdmin());
   const effectiveScopeFilter = canViewAllTasks ? scopeFilter : "mine";
@@ -771,7 +719,6 @@ export default function StudentRepoTasks() {
         maxScore: "",
         passingScore: "",
         requiredTasks: "",
-        rubric: "",
       });
     },
   });
@@ -789,7 +736,6 @@ export default function StudentRepoTasks() {
         dueDate: "",
         estimatedHours: "",
         maxScore: "",
-        requirementRows: [""],
       });
     },
   });
@@ -821,11 +767,15 @@ export default function StudentRepoTasks() {
   }, [allRepoTasks, completing, currentUsername, effectiveScopeFilter]);
 
   const taskScopeForProgress = useMemo(() => {
-    if (effectiveScopeFilter === "mine" && currentUsername) {
+    if (
+      !canViewAllTasks &&
+      effectiveScopeFilter === "mine" &&
+      currentUsername
+    ) {
       return allRepoTasks.filter((task) => taskBelongsToUser(task, currentUsername));
     }
     return allRepoTasks;
-  }, [allRepoTasks, currentUsername, effectiveScopeFilter]);
+  }, [allRepoTasks, canViewAllTasks, currentUsername, effectiveScopeFilter]);
 
   const tasks = useMemo(
     () =>
@@ -947,6 +897,7 @@ export default function StudentRepoTasks() {
   const summaryTiles = useMemo(() => {
     const scopedCounts = countTasksByStatus(taskScopeForProgress);
     const useBackendDashboard =
+      !canViewAllTasks &&
       effectiveScopeFilter === "mine" &&
       asNumber(dashboard?.totalTasks) != null;
     const totalTasks = useBackendDashboard
@@ -1002,7 +953,7 @@ export default function StudentRepoTasks() {
         paletteIndex: 0,
       },
     ];
-  }, [dashboard, effectiveScopeFilter, taskScopeForProgress, t]);
+  }, [canViewAllTasks, dashboard, effectiveScopeFilter, taskScopeForProgress, t]);
 
   const isLoading = dashboardLoading || milestonesLoading || tasksLoading;
 
@@ -1017,6 +968,7 @@ export default function StudentRepoTasks() {
   }, [milestones, taskDraft.milestoneNumber]);
 
   async function submitMilestone() {
+    if (!canManageRepoTasks) return;
     await createMilestoneMutation.mutateAsync({
       owner,
       repo,
@@ -1026,12 +978,12 @@ export default function StudentRepoTasks() {
       maxScore: intOrNull(milestoneDraft.maxScore),
       passingScore: intOrNull(milestoneDraft.passingScore),
       requiredTasks: intOrNull(milestoneDraft.requiredTasks),
-      rubric: milestoneDraft.rubric.trim() || null,
       ...(currentUsername ? { createdBy: currentUsername } : {}),
     });
   }
 
   async function submitTask() {
+    if (!canManageRepoTasks) return;
     await createTaskMutation.mutateAsync({
       owner,
       repo,
@@ -1050,19 +1002,6 @@ export default function StudentRepoTasks() {
       dueDate: isoFromDateInput(taskDraft.dueDate),
       estimatedHours: intOrNull(taskDraft.estimatedHours),
       maxScore: intOrNull(taskDraft.maxScore),
-      ...(() => {
-        const lines = asArray(taskDraft.requirementRows)
-          .map((line) => String(line ?? "").trim())
-          .filter(Boolean);
-        if (!lines.length) return {};
-        return {
-          requirements: lines,
-          requirementsChecklist: lines.map((requirement) => ({
-            requirement,
-            completed: false,
-          })),
-        };
-      })(),
     });
   }
 
@@ -1115,6 +1054,7 @@ export default function StudentRepoTasks() {
             <Button
               icon={<CirclePlus />}
               onClick={() => setCreateMilestoneOpen(true)}
+              disabled={!canManageRepoTasks}
             >
               {t("studentRepo.tasks.actions.newMilestone")}
             </Button>
@@ -1154,7 +1094,7 @@ export default function StudentRepoTasks() {
           <Button
             icon={<CirclePlus />}
             onClick={() => setCreateTaskOpen(true)}
-            disabled={!currentUsername}
+            disabled={!currentUsername || !canManageRepoTasks}
             title={
               !currentUsername
                 ? t("studentRepo.tasks.authRequiredUsername")
@@ -1358,35 +1298,6 @@ export default function StudentRepoTasks() {
               />
             </div>
           </CreateFlowSection>
-
-          {canEditGradingForms ? (
-            <CreateFlowSection
-              step={3}
-              title={t("studentRepo.tasks.createMilestone.sections.content")}
-              subtitle={t(
-                "studentRepo.tasks.createMilestone.sections.contentHint",
-              )}
-            >
-              <Field
-                label={t("studentRepo.tasks.createMilestone.fields.rubric")}
-              >
-                <textarea
-                  value={milestoneDraft.rubric}
-                  onChange={(e) =>
-                    setMilestoneDraft((prev) => ({
-                      ...prev,
-                      rubric: e.target.value,
-                    }))
-                  }
-                  placeholder={t(
-                    "studentRepo.tasks.createMilestone.placeholders.rubric",
-                  )}
-                  rows={6}
-                  className={MODAL_TEXTAREA}
-                />
-              </Field>
-            </CreateFlowSection>
-          ) : null}
         </div>
       </GlobalModal>
 
@@ -1554,23 +1465,6 @@ export default function StudentRepoTasks() {
             </Field>
           </CreateFlowSection>
 
-          <CreateFlowSection
-            step={4}
-            title={t("studentRepo.tasks.createTask.sections.content")}
-            subtitle={t("studentRepo.tasks.createTask.sections.contentHint")}
-          >
-            <Field
-              label={t("studentRepo.tasks.createTask.fields.requirements")}
-            >
-              <TaskRequirementRows
-                rows={taskDraft.requirementRows}
-                onChange={(next) =>
-                  setTaskDraft((prev) => ({ ...prev, requirementRows: next }))
-                }
-                t={t}
-              />
-            </Field>
-          </CreateFlowSection>
         </div>
       </GlobalModal>
     </div>

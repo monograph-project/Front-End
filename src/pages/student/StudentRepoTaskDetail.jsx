@@ -545,6 +545,12 @@ export default function StudentRepoTaskDetail() {
   const canViewGrading = task
     ? canViewRepoIssueGradingContext(isStudent, user, task.createdBy)
     : false;
+  const earnedScore = task?.earnedScore ?? task?.score ?? null;
+  const maxScore = task?.maxScore ?? task?.maximumScore ?? null;
+  const scorePercent =
+    maxScore != null && Number(maxScore) > 0 && earnedScore != null
+      ? Math.max(0, Math.min(100, Math.round((Number(earnedScore) / Number(maxScore)) * 100)))
+      : null;
 
   if (!owner || !repo || taskNumber == null || taskNumber === "") {
     return <Navigate to=".." relative="path" replace />;
@@ -658,20 +664,6 @@ export default function StudentRepoTaskDetail() {
                 label={t("studentRepo.tasks.detail.priorityLabel")}
                 value={t(`studentRepo.tasks.priority.${detailPriority}`)}
               />
-              {canViewGrading ? (
-                <DetailRow
-                  icon={ClipboardList}
-                  label={t("studentRepo.tasks.detail.scoreLabel")}
-                  value={
-                    task.maxScore != null
-                      ? t("studentRepo.tasks.detail.scoreValue", {
-                          earned: task.earnedScore ?? 0,
-                          total: task.maxScore,
-                        })
-                      : t("studentRepo.tasks.detail.none")
-                  }
-                />
-              ) : null}
               <DetailRow
                 icon={ClipboardList}
                 label={t("studentRepo.tasks.detail.createdByLabel")}
@@ -684,6 +676,39 @@ export default function StudentRepoTaskDetail() {
                 }
               />
             </div>
+
+            {canViewGrading ? (
+              <div className="mt-5 rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted dark:text-dark-muted">
+                      {t("studentRepo.tasks.detail.scoreLabel")}
+                    </p>
+                    <p className="mt-1 text-2xl font-semibold text-primary dark:text-dark-primary">
+                      {maxScore != null
+                        ? t("studentRepo.tasks.detail.scoreValue", {
+                            earned: earnedScore ?? 0,
+                            total: maxScore,
+                          })
+                        : t("studentRepo.tasks.detail.none")}
+                    </p>
+                  </div>
+                  {scorePercent != null ? (
+                    <span className="rounded-full border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 py-1 text-xs font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-secondary">
+                      {scorePercent}%
+                    </span>
+                  ) : null}
+                </div>
+                {scorePercent != null ? (
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)">
+                    <div
+                      className="h-full rounded-full bg-(--color-chart-blue-primary) dark:bg-(--color-chart-blue-secondary)"
+                      style={{ width: `${scorePercent}%` }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             {labels.length ? (
               <div className="mt-5">
@@ -1024,14 +1049,16 @@ export default function StudentRepoTaskDetail() {
         }
       >
         <div className="space-y-4">
-          <Field
-            register={{}}
-            label={t("studentRepo.tasks.taskDetail.fieldFeedback")}
-            value={reviewDraft.feedback}
-            onChange={(e) =>
-              setReviewDraft((p) => ({ ...p, feedback: e.target.value }))
-            }
-          />
+          <Field label={t("studentRepo.tasks.taskDetail.fieldFeedback")}>
+            <textarea
+              value={reviewDraft.feedback}
+              onChange={(e) =>
+                setReviewDraft((p) => ({ ...p, feedback: e.target.value }))
+              }
+              rows={5}
+              className="min-h-28 w-full resize-y rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3.5 py-2 text-sm text-(--color-light-text-primary) outline-none transition placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
+            />
+          </Field>
           {canEditGradingForms ? (
             <Field
               register={{}}

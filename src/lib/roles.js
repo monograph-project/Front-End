@@ -71,7 +71,9 @@ function deriveAppRole(userTypeRaw, realmRolesUpper, inheritedRolesUpper) {
 
   if (
     ut === "AUTHOR" ||
+    ut === "AUTHOR_USER" ||
     all.has("AUTHOR") ||
+    all.has("AUTHOR_USER") ||
     all.has("BLOG_AUTHOR") ||
     all.has("CONTENT_AUTHOR") ||
     all.has("BLOG_WRITER")

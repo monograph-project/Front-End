@@ -22,6 +22,7 @@ export function usernamesLikelySame(a, b) {
 /** Students (incl. reader `user` facet) see grading context for all issues in the repo. */
 export function canViewRepoIssueGradingContext(isStudentFn, user, issueCreatedBy) {
   if (typeof isStudentFn === "function" && isStudentFn()) return true;
+  if (userHasRole(user, ["admin", "teacher"])) return true;
   const me = repoViewerUsername(user);
   return usernamesLikelySame(me, issueCreatedBy);
 }
@@ -120,9 +121,32 @@ export function canPerformVcTaskPullSubmissionReview(user, task, reviewerRoleFns
  * Creator or faculty/admin may attach an assignee. Random collaborators rely on creators/faculty.
  */
 export function canManageVcTaskAssignment(user, task, gradingRoleFns = {}) {
+  const { isTeacher, isAdmin } = gradingRoleFns;
   if (!task || typeof task !== "object") return false;
+  if (
+    (typeof isTeacher === "function" && isTeacher()) ||
+    (typeof isAdmin === "function" && isAdmin())
+  )
+    return true;
   const me = repoViewerUsername(user);
   if (!me) return false;
   if (task.createdBy && usernamesLikelySame(me, task.createdBy)) return true;
   return false;
+}
+
+function userHasRole(user, roles) {
+  const wanted = new Set(roles.map((role) => String(role).toLowerCase()));
+  const raw = [
+    user?.role,
+    user?.roles,
+    user?.authorities,
+    user?.realm_access?.roles,
+    user?.resource_access?.account?.roles,
+  ];
+  return raw.flat().some((role) => {
+    const normalized = String(role ?? "")
+      .toLowerCase()
+      .replace(/^role_/, "");
+    return wanted.has(normalized);
+  });
 }

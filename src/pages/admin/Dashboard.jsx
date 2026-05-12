@@ -29,6 +29,7 @@ import {
 import SettingsSectionCard from "../../components/SettingsSectionCard";
 import RepoOverviewStatCard from "../../components/repo/RepoOverviewStatCard";
 import { REPO_OVERVIEW_STAT_PALETTES } from "../../components/repo/repoOverviewStatPalettes";
+import AuthorDashboardSummary from "../../components/author/AuthorDashboardSummary";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/themContext";
 import {
@@ -704,6 +705,8 @@ export default function Dashboard() {
           onOpenProject={openProject}
         />
       </div>
+
+      <AuthorDashboardSummary />
 
       <div className="grid gap-3 md:grid-cols-3 xl:gap-4">
         <StatTile

@@ -1,12 +1,7 @@
 import { eachDayOfInterval, format, startOfDay, subDays } from "date-fns";
 import {
   ArrowRight,
-  Bell,
-  BookOpenText,
-  CheckCircle2,
-  Clock3,
   FolderGit2,
-  Layers3,
 } from "lucide-react";
 import { useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,8 +9,6 @@ import { Link, useLocation } from "react-router-dom";
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   Cell,
   Pie,
@@ -25,52 +18,64 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import profilePlaceholder from "../../../s.PNG";
 import Button from "../../components/Button";
+import Avatar from "../../components/Avatar";
+import AuthorDashboardSummary from "../../components/author/AuthorDashboardSummary";
 import { useAuth } from "../../context/AuthContext";
-import { useStudentActivityEpoch } from "../../context/StudentActivityContext";
 import { useTheme } from "../../context/themContext";
 import { resolveShellBasePath } from "../../lib/roles";
-import { readEngagementDailyMs } from "../../lib/studentEngagementStorage";
-import { useLinkedStudentRecord } from "../../services/useApi";
-import Avatar from "../../components/Avatar";
+import {
+  useFacultyProjectsByStudent,
+  useFacultyProjectsByTeacher,
+  useLinkedStudentRecord,
+  useLinkedTeacherRecord,
+  useSemester,
+  useVcAccessibleRepositoriesForViewer,
+  useVcUserActivity,
+} from "../../services/useApi";
 const SURFACE_CARD =
   "rounded-md  border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
 const SOFT_PANEL =
   "rounded-md border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
-const CHART_COLORS = [
-  "var(--color-chart-blue-primary)",
-  "var(--color-chart-blue-secondary)",
-  "var(--color-chart-warning)",
-];
-
-function minutesFromMs(ms) {
-  return Math.round(ms / 60000);
+function normalizeListPayload(payload, ...keys) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object") return [];
+  for (const key of keys) {
+    if (Array.isArray(payload[key])) return payload[key];
+  }
+  if (Array.isArray(payload.content)) return payload.content;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.items)) return payload.items;
+  if (Array.isArray(payload.results)) return payload.results;
+  return [];
 }
 
-function StatCard({ icon, title, value, hint }) {
-  const Glyph = icon;
+function getEventDate(event) {
+  const raw =
+    event?.createdAt ??
+    event?.timestamp ??
+    event?.time ??
+    event?.date ??
+    event?.occurredAt ??
+    event?.updatedAt;
+  const date = raw ? new Date(raw) : null;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+}
 
+function getEventLabel(event) {
   return (
-    <div className={`${SURFACE_CARD} p-4`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-            {title}
-          </p>
-          <p className="mt-3 text-2xl font-semibold tracking-tight text-primary dark:text-dark-primary">
-            {value}
-          </p>
-          <p className="mt-1 text-xs leading-5 text-secondary dark:text-dark-secondary">
-            {hint}
-          </p>
-        </div>
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary text-(--color-chart-blue-primary) dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-(--color-chart-blue-secondary)">
-          <Glyph className="size-5" strokeWidth={1.9} aria-hidden />
-        </span>
-      </div>
-    </div>
+    event?.message ||
+    event?.title ||
+    event?.action ||
+    event?.eventType ||
+    event?.type ||
+    event?.name ||
+    "Repository activity"
   );
+}
+
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 function PanelHeading({ eyebrow, title, body, action }) {
@@ -123,26 +128,87 @@ function DashboardTooltip({ active, label, payload, suffix = "" }) {
 export default function StudentDashboard() {
   const { t, i18n } = useTranslation();
   const { theme } = useTheme();
-  useStudentActivityEpoch();
   const chartFillId = useId().replace(/:/g, "");
   const location = useLocation();
   const { user } = useAuth();
   const shellBase = resolveShellBasePath(location.pathname, user?.role);
+  const isTeacherShell = shellBase === "/teacher";
   const profilePath =
-    shellBase === "/student" ? `${shellBase}/profile` : `${shellBase}/settings`;
-  const { data: student, isFetching } = useLinkedStudentRecord(user ?? null, {
+    shellBase === "/student" || shellBase === "/teacher"
+      ? `${shellBase}/profile`
+      : `${shellBase}/settings`;
+  const { data: student, isFetching: studentFetching } = useLinkedStudentRecord(
+    user ?? null,
+    {
+      notifyOnError: false,
+      enabled: Boolean(user) && !isTeacherShell,
+    },
+  );
+  const { data: teacher, isFetching: teacherFetching } = useLinkedTeacherRecord(user ?? null, {
     notifyOnError: false,
-    enabled: Boolean(user),
+    enabled: Boolean(user) && isTeacherShell,
+  });
+  const linkedRecord = isTeacherShell ? teacher : student;
+  const { data: semester } = useSemester(student?.semesterId, {
+    enabled: Boolean(!isTeacherShell && student?.semesterId),
+    notifyOnError: false,
+  });
+  const { data: studentProjectsPayload } = useFacultyProjectsByStudent(student?.id, {
+    enabled: Boolean(!isTeacherShell && student?.id),
+    notifyOnError: false,
+  });
+  const { data: teacherProjectsPayload } = useFacultyProjectsByTeacher(teacher?.id, {
+    enabled: Boolean(isTeacherShell && teacher?.id),
+    notifyOnError: false,
+  });
+  const activityUsername =
+    linkedRecord?.username ||
+    user?.username ||
+    user?.user_name ||
+    user?.preferred_username ||
+    "";
+  const ownerKey =
+    linkedRecord?.linkedApplicationUserId ||
+    linkedRecord?.applicationUserId ||
+    linkedRecord?.gatewayUserId ||
+    user?.id ||
+    "";
+  const { data: repositoriesPayload } = useVcAccessibleRepositoriesForViewer(ownerKey, {
+    enabled: Boolean(ownerKey || activityUsername),
+    activityUsernameFallback: activityUsername,
+    notifyOnError: false,
+  });
+  const { data: activityPayload } = useVcUserActivity(activityUsername, {
+    enabled: Boolean(activityUsername),
+    notifyOnError: false,
   });
 
   const labelName =
     user?.fullName ||
-    [student?.firstName, student?.lastName].filter(Boolean).join(" ").trim() ||
+    [linkedRecord?.firstName, linkedRecord?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
     user?.username ||
     user?.email ||
     "";
 
-  const dailyMs = readEngagementDailyMs();
+  const projects = useMemo(
+    () =>
+      normalizeListPayload(
+        isTeacherShell ? teacherProjectsPayload : studentProjectsPayload,
+        "projects",
+      ),
+    [isTeacherShell, studentProjectsPayload, teacherProjectsPayload],
+  );
+  const repositories = useMemo(
+    () => normalizeListPayload(repositoriesPayload, "repositories", "repos"),
+    [repositoriesPayload],
+  );
+  const activityEvents = useMemo(
+    () => normalizeListPayload(activityPayload, "activities", "events"),
+    [activityPayload],
+  );
 
   const focusSeries = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(i18n.language, {
@@ -150,19 +216,70 @@ export default function StudentDashboard() {
     });
     const end = startOfDay(new Date());
     const start = subDays(end, 6);
+    const counts = new Map();
+    activityEvents.forEach((event) => {
+      const date = getEventDate(event);
+      if (!date) return;
+      const key = format(startOfDay(date), "yyyy-MM-dd");
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    });
 
     return eachDayOfInterval({ start, end }).map((date) => {
       const key = format(date, "yyyy-MM-dd");
       return {
         key,
         label: formatter.format(date),
-        minutes: minutesFromMs(dailyMs[key] ?? 0),
+        events: counts.get(key) ?? 0,
       };
     });
-  }, [dailyMs, i18n.language]);
+  }, [activityEvents, i18n.language]);
 
-  const completionPercent = student?.id ? 78 : 46;
-  const linkedState = student?.id
+  const semesterDates = useMemo(() => {
+    const startRaw =
+      semester?.startDate ||
+      semester?.academicYear?.startDate ||
+      student?.semester?.startDate ||
+      student?.academicYear?.startDate;
+    const endRaw =
+      semester?.endDate ||
+      semester?.academicYear?.endDate ||
+      student?.semester?.endDate ||
+      student?.academicYear?.endDate;
+    const start = startRaw ? new Date(startRaw) : null;
+    const end = endRaw ? new Date(endRaw) : null;
+    if (
+      !start ||
+      !end ||
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime()) ||
+      start.getTime() >= end.getTime()
+    ) {
+      return null;
+    }
+    return { start, end };
+  }, [semester, student]);
+  const semesterProgress = useMemo(() => {
+    if (!semesterDates) {
+      return { percent: 0, daysRemaining: null, label: "" };
+    }
+    const today = startOfDay(new Date());
+    const start = startOfDay(semesterDates.start);
+    const end = startOfDay(semesterDates.end);
+    const total = Math.max(1, end.getTime() - start.getTime());
+    const elapsed = today.getTime() - start.getTime();
+    const daysRemaining = Math.max(
+      0,
+      Math.ceil((end.getTime() - today.getTime()) / 86400000),
+    );
+    return {
+      percent: clampPercent((elapsed / total) * 100),
+      daysRemaining,
+      label: `${format(start, "MMM d, yyyy")} - ${format(end, "MMM d, yyyy")}`,
+    };
+  }, [semesterDates]);
+  const completionPercent = semesterProgress.percent;
+  const isFetching = isTeacherShell ? teacherFetching : studentFetching;
+  const linkedState = linkedRecord?.id
     ? t("studentDashboard.snapshot.linked")
     : isFetching
       ? t("studentDashboard.snapshot.loading")
@@ -179,45 +296,43 @@ export default function StudentDashboard() {
   const priorities = [
       {
         title: t("studentDashboard.priorities.items.repositoryTitle"),
-        body: t("studentDashboard.priorities.items.repositoryBody"),
+        body: `${repositories.length} repositories available from your account.`,
         to: `${shellBase}/workspace`,
       },
       {
         title: t("studentDashboard.priorities.items.reviewTitle"),
-        body: t("studentDashboard.priorities.items.reviewBody"),
-        to: `${shellBase}/notifications`,
+        body: `${projects.length} faculty projects are currently linked.`,
+        to: `${shellBase}/projects`,
       },
       {
         title: t("studentDashboard.priorities.items.settingsTitle"),
-        body: t("studentDashboard.priorities.items.settingsBody"),
-        to: `${shellBase}/settings`,
+        body: `${activityEvents.length} repository events are available for review.`,
+        to: profilePath,
       },
   ];
 
   const recentActivities = useMemo(
-    () => [
-      {
-        id: "changelog-1",
-        time: t("studentDashboard.changelog.items.one.time"),
-        message: t("studentDashboard.changelog.items.one.message"),
-      },
-      {
-        id: "changelog-2",
-        time: t("studentDashboard.changelog.items.two.time"),
-        message: t("studentDashboard.changelog.items.two.message"),
-      },
-      {
-        id: "changelog-3",
-        time: t("studentDashboard.changelog.items.three.time"),
-        message: t("studentDashboard.changelog.items.three.message"),
-      },
-      {
-        id: "changelog-4",
-        time: t("studentDashboard.changelog.items.four.time"),
-        message: t("studentDashboard.changelog.items.four.message"),
-      },
-    ],
-    [t],
+    () =>
+      activityEvents
+        .slice()
+        .sort((a, b) => (getEventDate(b)?.getTime() ?? 0) - (getEventDate(a)?.getTime() ?? 0))
+        .slice(0, 4)
+        .map((event, index) => {
+          const date = getEventDate(event);
+          return {
+            id: event?.id ?? event?.uuid ?? `${index}-${getEventLabel(event)}`,
+            time: date
+              ? new Intl.DateTimeFormat(i18n.language, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(date)
+              : t("studentDashboard.snapshot.notAvailable"),
+            message: getEventLabel(event),
+          };
+        }),
+    [activityEvents, i18n.language, t],
   );
 
   return (
@@ -230,7 +345,7 @@ export default function StudentDashboard() {
                 <div className="min-w-0">
                   <p className="inline-flex items-center gap-2 rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-muted">
                     <Link to={profilePath} className="inline-block">
-                      <Avatar src={user.photoUrl} />
+                      <Avatar src={user?.photoUrl || linkedRecord?.profilePicture} />
                     </Link>
                     {t("studentDashboard.header.eyebrow")}
                   </p>
@@ -272,7 +387,10 @@ export default function StudentDashboard() {
                         {t("studentDashboard.header.summaryProgram")}
                       </p>
                       <p className="mt-1 text-sm font-semibold text-primary dark:text-dark-primary">
-                        {student?.department ||
+                        {linkedRecord?.department?.name ||
+                          (typeof linkedRecord?.department === "string"
+                            ? linkedRecord.department
+                            : "") ||
                           t("studentDashboard.snapshot.notAvailable")}
                       </p>
                     </div>
@@ -281,7 +399,7 @@ export default function StudentDashboard() {
                         {t("studentDashboard.header.summaryCode")}
                       </p>
                       <p className="mt-1 font-mono text-sm text-primary dark:text-dark-primary">
-                        {student?.code || "—"}
+                        {linkedRecord?.code || "—"}
                       </p>
                     </div>
                   </div>
@@ -349,13 +467,13 @@ export default function StudentDashboard() {
                       <Tooltip
                         content={
                           <DashboardTooltip
-                            suffix={` ${t("studentDashboard.units.minutes")}`}
+                            suffix=" events"
                           />
                         }
                       />
                       <Area
                         type="monotone"
-                        dataKey="minutes"
+                        dataKey="events"
                         stroke="var(--color-chart-blue-primary)"
                         strokeWidth={2.5}
                         fill={`url(#student-focus-${chartFillId})`}
@@ -402,6 +520,8 @@ export default function StudentDashboard() {
                 ))}
               </div>
             </section>
+
+            <AuthorDashboardSummary />
           </div>
 
           <aside className="space-y-5">
@@ -419,7 +539,7 @@ export default function StudentDashboard() {
                   <div className="flex items-center gap-3">
                     <Link to={profilePath} className="block">
                       <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg) overflow-hidden">
-                        <Avatar src={user.photoUrl} />
+                        <Avatar src={user?.photoUrl || linkedRecord?.profilePicture} />
                       </span>
                     </Link>
                     <div className="min-w-0">
@@ -439,8 +559,8 @@ export default function StudentDashboard() {
                       {t("studentDashboard.snapshot.studentId")}
                     </p>
                     <p className="mt-1 font-mono text-sm text-primary dark:text-dark-primary">
-                      {student?.id
-                        ? String(student.id)
+                      {linkedRecord?.id
+                        ? String(linkedRecord.id)
                         : t("studentDashboard.snapshot.notAvailable")}
                     </p>
                   </div>
@@ -449,7 +569,10 @@ export default function StudentDashboard() {
                       {t("studentDashboard.snapshot.department")}
                     </p>
                     <p className="mt-1 text-sm text-primary dark:text-dark-primary">
-                      {student?.department ||
+                      {linkedRecord?.department?.name ||
+                        (typeof linkedRecord?.department === "string"
+                          ? linkedRecord.department
+                          : "") ||
                         t("studentDashboard.snapshot.notAvailable")}
                     </p>
                   </div>
@@ -458,7 +581,7 @@ export default function StudentDashboard() {
                       {t("studentDashboard.snapshot.code")}
                     </p>
                     <p className="mt-1 font-mono text-sm text-primary dark:text-dark-primary">
-                      {student?.code || "—"}
+                      {linkedRecord?.code || "—"}
                     </p>
                   </div>
                 </div>
@@ -506,8 +629,18 @@ export default function StudentDashboard() {
                     <span className="mt-1 text-xs text-secondary dark:text-dark-secondary">
                       {t("studentDashboard.progress.complete")}
                     </span>
+                    {semesterProgress.daysRemaining != null ? (
+                      <span className="mt-1 text-[11px] text-muted dark:text-dark-muted">
+                        {semesterProgress.daysRemaining} days left
+                      </span>
+                    ) : null}
                   </div>
                 </div>
+                {semesterProgress.label ? (
+                  <p className="text-center text-xs text-secondary dark:text-dark-secondary">
+                    {semesterProgress.label}
+                  </p>
+                ) : null}
               </div>
             </section>
 
@@ -520,7 +653,15 @@ export default function StudentDashboard() {
                 <div className="relative ps-6">
                   <span className="absolute inset-y-0 start-[0.42rem] w-px bg-light-divider dark:bg-dark-divider" />
                   <div className="space-y-4">
-                    {recentActivities.map((item) => (
+                    {(recentActivities.length
+                      ? recentActivities
+                      : [
+                          {
+                            id: "empty",
+                            time: t("studentDashboard.snapshot.notAvailable"),
+                            message: "No repository activity has been recorded yet.",
+                          },
+                        ]).map((item) => (
                       <div key={item.id} className="relative min-w-0">
                         <span className="absolute -start-6 top-1.5 size-2 rounded-full bg-(--color-light-text-muted) dark:bg-(--color-dark-text-muted)" />
                         <p className="text-xs text-secondary dark:text-dark-secondary">

@@ -20,9 +20,7 @@ import IC from "../IC";
 /** @param {{ value: number; label: string; suffix?: string }} props */
 export function AdminProfileMetricCard({ value, label, suffix = "%" }) {
   const v =
-    typeof value === "number" && !Number.isNaN(value)
-      ? Math.round(value)
-      : 0;
+    typeof value === "number" && !Number.isNaN(value) ? Math.round(value) : 0;
   return (
     <div className="flex flex-col justify-between rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 shadow-[var(--shadow-sm)] dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:shadow-[var(--shadow-dark-sm)]">
       <span className="text-[11px] font-semibold text-muted dark:text-dark-muted">
@@ -44,7 +42,7 @@ export function AdminProfileSemiGaugeCard({ score, title }) {
   const dash = (pct / 100) * (c / 2);
 
   return (
-    <div className="flex flex-col rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-5 shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+    <div className="flex flex-col rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-5  dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
       <div className="mb-4 flex items-center gap-2">
         <Activity
           className="size-4 text-(--color-light-admin-profile-violet) dark:text-(--color-dark-admin-profile-violet)"
@@ -58,13 +56,7 @@ export function AdminProfileSemiGaugeCard({ score, title }) {
       <div className="relative mx-auto flex w-full max-w-[220px] flex-col items-center">
         <svg viewBox="0 0 120 72" className="w-full overflow-visible">
           <defs>
-            <linearGradient
-              id={gradId}
-              x1="0%"
-              y1="0%"
-              x2="100%"
-              y2="0%"
-            >
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="var(--admin-profile-gauge-a)" />
               <stop offset="100%" stopColor="var(--admin-profile-gauge-b)" />
             </linearGradient>
@@ -109,13 +101,18 @@ export function AdminProfileSemiGaugeCard({ score, title }) {
  *   }>;
  * }} props
  */
-export function AdminProfileHighlightCard({ title, badge, badgeTone = "success", items }) {
+export function AdminProfileHighlightCard({
+  title,
+  badge,
+  badgeTone = "success",
+  items,
+}) {
   const badgeToneClass =
     badgeTone === "violet"
       ? "border border-(--color-light-admin-profile-violet-soft-border) bg-(--color-light-admin-profile-violet-soft-bg) text-(--color-light-admin-profile-violet-soft-text) dark:border-(--color-dark-admin-profile-violet-soft-border) dark:bg-(--color-dark-admin-profile-violet-soft-bg) dark:text-(--color-dark-admin-profile-violet-soft-text)"
       : "bg-(--color-light-success-bg) text-(--color-light-success-text) dark:bg-green-950/40 dark:text-green-300";
   return (
-    <div className="flex flex-col rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-5 shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+    <div className="flex flex-col rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-5 ss dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
           {title}

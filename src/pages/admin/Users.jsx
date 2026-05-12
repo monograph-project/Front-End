@@ -26,6 +26,9 @@ import {
   DropdownItem,
   DropdownMenuRoot,
   DropdownSeparator,
+  DropdownSub,
+  DropdownSubContent,
+  DropdownSubTrigger,
   DropdownTrigger,
 } from "../../components/DropdownMenu";
 import IC from "../../components/IC";
@@ -125,8 +128,29 @@ function normalizeUserRow(raw) {
     roleKey: user.role ?? "student",
     roles,
     status,
+    emailVerified: Boolean(
+      raw?.emailVerified ??
+        raw?.email_verified ??
+        raw?.verifiedEmail ??
+        raw?.emailVerifiedAt ??
+        user?.emailVerified ??
+        false,
+    ),
     registered: firstRegistered,
   };
+}
+
+function userIsSuspended(user) {
+  return String(user?.status ?? "").toLowerCase() === "suspended";
+}
+
+function userEmailIsVerified(user) {
+  return Boolean(
+    user?.emailVerified ??
+      user?.email_verified ??
+      user?.verifiedEmail ??
+      user?.emailVerifiedAt,
+  );
 }
 
 function toUniqueRoleNames(values) {
@@ -523,44 +547,6 @@ export default function Users() {
     { value: "suspended", label: t("adminShared.status.suspended") },
   ];
 
-  const exportToCSV = () => {
-    const headers = [
-      "ID",
-      "Full Name",
-      "Username",
-      "Email",
-      "Role",
-      "Status",
-      "Registered",
-    ];
-    const csvContent = [
-      headers.join(","),
-      ...filteredUsers.map((user) =>
-        [
-          user.id,
-          user.displayName,
-          user.user_name || user.username || "",
-          user.email || "",
-          user.roleKey,
-          user.status,
-          user.registered,
-        ]
-          .map((field) => `"${field ?? ""}"`)
-          .join(","),
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "users.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const confirmDeleteUser = async () => {
     if (deleteUserId == null || deleteSubmitting) return;
     setDeleteSubmitting(true);
@@ -699,43 +685,6 @@ export default function Users() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex-none">
-            <DropdownMenuRoot>
-              <DropdownTrigger>
-                {t("adminShared.labels.actions")}
-              </DropdownTrigger>
-              <DropdownContent align="end">
-                <DropdownItem
-                  icon={<Icon d={IC.download} className="size-4" />}
-                  onClick={exportToCSV}
-                >
-                  {t("adminShared.actions.download")}
-                </DropdownItem>
-                <DropdownItem
-                  icon={<Icon d={IC.upload} className="size-4" />}
-                  onClick={() =>
-                    window.GooeyToaster?.info?.(
-                      t("adminUsers.toolbar.importPending"),
-                    )
-                  }
-                >
-                  {t("adminUsers.toolbar.import")}
-                </DropdownItem>
-              </DropdownContent>
-            </DropdownMenuRoot>
-          </div>
-
-          <div className="flex-none">
-            <Button
-              onClick={() =>
-                window.GooeyToaster?.info?.(t("adminUsers.actions.addPending"))
-              }
-            >
-              {t("adminUsers.actions.add")}
-            </Button>
-          </div>
-        </div>
       </div>
 
       <div className="flex-1">
@@ -936,88 +885,68 @@ export default function Users() {
                       >
                         <span>{t("adminShared.actions.viewProfile")}</span>
                       </DropdownItem>
-                      <DropdownItem
-                        onClick={() =>
-                          openRoleDialog(USER_ROLE_ACTIONS.assignRole, user)
-                        }
-                        icon={<CheckCheck className="size-4" />}
-                      >
-                        <span>{t("adminUsers.operations.assignRole")}</span>
-                      </DropdownItem>
-                      <DropdownItem
-                        onClick={() =>
-                          openRoleDialog(USER_ROLE_ACTIONS.removeRole, user)
-                        }
-                        icon={<ShieldCheck className="size-4" />}
-                      >
-                        <span>{t("adminUsers.operations.removeRole")}</span>
-                      </DropdownItem>
-                      <DropdownItem
-                        onClick={() =>
-                          openRoleDialog(
-                            USER_ROLE_ACTIONS.assignPermission,
-                            user,
-                          )
-                        }
-                        icon={<CheckCheck className="size-4" />}
-                      >
-                        <span>
-                          {t("adminUsers.operations.assignClientRole")}
-                        </span>
-                      </DropdownItem>
-                      <DropdownItem
-                        onClick={() =>
-                          openRoleDialog(
-                            USER_ROLE_ACTIONS.removePermission,
-                            user,
-                          )
-                        }
-                        icon={<ShieldCheck className="size-4" />}
-                      >
-                        <span>
-                          {t("adminUsers.operations.removeClientRole")}
-                        </span>
-                      </DropdownItem>
-                      <DropdownSeparator />
-                      <DropdownItem
-                        onClick={() =>
-                          openAccountDialog(USER_ACCOUNT_ACTIONS.suspend, user)
-                        }
-                        icon={<PauseCircle className="size-4" />}
-                      >
-                        <span>{t("adminUsers.operations.suspendUser")}</span>
-                      </DropdownItem>
-                      <DropdownItem
-                        onClick={() =>
-                          openAccountDialog(USER_ACCOUNT_ACTIONS.activate, user)
-                        }
-                        icon={<PlayCircle className="size-4" />}
-                      >
-                        <span>{t("adminUsers.operations.activateUser")}</span>
-                      </DropdownItem>
-                      <DropdownItem
-                        onClick={() =>
-                          openAccountDialog(USER_ACCOUNT_ACTIONS.lock, user)
-                        }
-                        icon={<Lock className="size-4" />}
-                      >
-                        <span>{t("adminUsers.operations.lockUser")}</span>
-                      </DropdownItem>
-                      <DropdownItem
-                        onClick={() =>
-                          openAccountDialog(
-                            USER_ACCOUNT_ACTIONS.verifyEmail,
-                            user,
-                          )
-                        }
-                        icon={<MailCheck className="size-4" />}
-                      >
-                        <span>{t("adminUsers.operations.verifyEmail")}</span>
-                      </DropdownItem>
-                      <DropdownSeparator />
-                      <DropdownItem>
-                        <span>{t("adminShared.actions.sendMessage")}</span>
-                      </DropdownItem>
+                      <DropdownSub>
+                        <DropdownSubTrigger icon={<ShieldCheck className="size-4" />}>
+                          {t("adminUsers.operations.roleMenu")}
+                        </DropdownSubTrigger>
+                        <DropdownSubContent>
+                          <DropdownItem
+                            onClick={() =>
+                              openRoleDialog(USER_ROLE_ACTIONS.assignRole, user)
+                            }
+                            icon={<CheckCheck className="size-4" />}
+                          >
+                            <span>{t("adminUsers.operations.assignRole")}</span>
+                          </DropdownItem>
+                          <DropdownItem
+                            onClick={() =>
+                              openRoleDialog(USER_ROLE_ACTIONS.removeRole, user)
+                            }
+                            icon={<ShieldCheck className="size-4" />}
+                          >
+                            <span>{t("adminUsers.operations.removeRole")}</span>
+                          </DropdownItem>
+                        </DropdownSubContent>
+                      </DropdownSub>
+                      <DropdownSub>
+                        <DropdownSubTrigger icon={<Lock className="size-4" />}>
+                          {t("adminUsers.operations.accountMenu")}
+                        </DropdownSubTrigger>
+                        <DropdownSubContent>
+                          {userIsSuspended(user) ? (
+                            <DropdownItem
+                              onClick={() =>
+                                openAccountDialog(USER_ACCOUNT_ACTIONS.activate, user)
+                              }
+                              icon={<PlayCircle className="size-4" />}
+                            >
+                              <span>{t("adminUsers.operations.activateUser")}</span>
+                            </DropdownItem>
+                          ) : (
+                            <DropdownItem
+                              onClick={() =>
+                                openAccountDialog(USER_ACCOUNT_ACTIONS.suspend, user)
+                              }
+                              icon={<PauseCircle className="size-4" />}
+                            >
+                              <span>{t("adminUsers.operations.suspendUser")}</span>
+                            </DropdownItem>
+                          )}
+                          {!userEmailIsVerified(user) ? (
+                            <DropdownItem
+                              onClick={() =>
+                                openAccountDialog(
+                                  USER_ACCOUNT_ACTIONS.verifyEmail,
+                                  user,
+                                )
+                              }
+                              icon={<MailCheck className="size-4" />}
+                            >
+                              <span>{t("adminUsers.operations.verifyEmail")}</span>
+                            </DropdownItem>
+                          ) : null}
+                        </DropdownSubContent>
+                      </DropdownSub>
                       <DropdownSeparator />
                       <DropdownItem
                         variant="danger"

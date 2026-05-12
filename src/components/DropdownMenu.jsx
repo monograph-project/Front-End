@@ -21,11 +21,20 @@ export const DropdownTrigger = React.forwardRef(
       showArrow = true,
       /** Header-style circular avatar/account control — no muted overlay on icons */
       compactIcon = false,
+      asChild = false,
       className,
       ...props
     },
     ref,
   ) => {
+    if (asChild) {
+      return (
+        <DropdownMenu.Trigger asChild>
+          {React.cloneElement(children, { ref, ...props })}
+        </DropdownMenu.Trigger>
+      );
+    }
+
     const iconOnly =
       compactIcon ||
       Boolean(icon != null && !children && showArrow === false);

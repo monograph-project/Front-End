@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
+import { createElement } from "react";
 import {
   BarChart3,
   Bell,
@@ -9,10 +10,10 @@ import {
   Building2,
   CalendarDays,
   FolderKanban,
+  GitBranch,
   GraduationCap,
   LayoutDashboard,
   LayoutGrid,
-  Library,
   LineChart,
   NotebookPen,
   PenLine,
@@ -41,15 +42,15 @@ const NOTIFICATION_NAV_KEYS = new Set(["notification", "notifications"]);
 
 function NavGlyph({ IconComponent, active }) {
   return (
-    <IconComponent
-      strokeWidth={active ? 2 : 1.5}
-      className={`size-4 shrink-0 transition-all ${
+    createElement(IconComponent, {
+      strokeWidth: active ? 2 : 1.5,
+      className: `size-4 shrink-0 transition-all ${
         active
           ? "text-dark-text-primary"
           : "text-light-text-primary dark:text-dark-text-primary group-hover:text-dark-text-primary"
-      }`}
-      aria-hidden
-    />
+      }`,
+      "aria-hidden": true,
+    })
   );
 }
 
@@ -153,12 +154,6 @@ export default function AppSidebar() {
         Icon: Settings,
         path: `${basePath}/setting`,
       },
-      {
-        key: "report",
-        labelKey: "sidebar.admin.report",
-        Icon: LineChart,
-        path: `${basePath}/report`,
-      },
     ],
     teacher: [
       {
@@ -168,10 +163,16 @@ export default function AppSidebar() {
         path: `${basePath}/dashboard`,
       },
       {
-        key: "workspace",
-        labelKey: "Projects & repositories",
+        key: "projects",
+        labelKey: "sidebar.teacher.projects",
         Icon: FolderKanban,
-        path: `${basePath}/workspace`,
+        path: `${basePath}/projects`,
+      },
+      {
+        key: "repositories",
+        labelKey: "sidebar.teacher.repositories",
+        Icon: GitBranch,
+        path: `${basePath}/repositories`,
       },
       {
         key: "notifications",
@@ -271,16 +272,10 @@ export default function AppSidebar() {
         path: `${basePath}/writing`,
       },
       {
-        key: "unpublished",
-        labelKey: "Unpublished",
+        key: "stories",
+        labelKey: "sidebar.author.stories",
         Icon: NotebookPen,
-        path: `${basePath}/unpublished`,
-      },
-      {
-        key: "published",
-        labelKey: "sidebar.author.published",
-        Icon: Library,
-        path: `${basePath}/published`,
+        path: `${basePath}/stories`,
       },
       {
         key: "notifications",
@@ -365,16 +360,10 @@ export default function AppSidebar() {
             path: "/author/writing",
           },
           {
-            key: "author-unpublished",
-            labelKey: "Unpublished",
+            key: "author-stories",
+            labelKey: "sidebar.author.stories",
             Icon: NotebookPen,
-            path: "/author/unpublished",
-          },
-          {
-            key: "author-published",
-            labelKey: "sidebar.author.published",
-            Icon: Library,
-            path: "/author/published",
+            path: "/author/stories",
           },
         ]
       : [];

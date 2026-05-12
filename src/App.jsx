@@ -6,6 +6,7 @@ import {
   Outlet,
   Route,
   Routes,
+  useParams,
 } from "react-router-dom";
 import { AppTooltipProvider } from "./components/Tooltip";
 import GuestRoute from "./routes/GuestRoute";
@@ -73,6 +74,7 @@ import GroupRegistrationPage from "./pages/admin/GroupRegistrationPage";
 import About from "./pages/public/About";
 import Download from "./pages/public/Download";
 import Documentation from "./pages/public/Documentation";
+import PublicProjects from "./pages/public/Projects";
 import AuthorDashboard from "./pages/author/AuthorDashboard";
 import AuthorPublished from "./pages/author/AuthorPublished";
 import AuthorUnpublished from "./pages/author/AuthorUnpublished";
@@ -85,6 +87,17 @@ import StaffNotificationDetail from "./pages/staff/StaffNotificationDetail";
 import DeanNotifications from "./pages/dean/DeanNotifications";
 import DeanNotificationDetail from "./pages/dean/DeanNotificationDetail";
 import { PUBLIC_SITE_MEMBER_ROLES } from "./auth/appRoles";
+
+function AuthorPublishedStoryRoute() {
+  const { id } = useParams();
+  return <Navigate to={`/story/${encodeURIComponent(id ?? "")}`} replace />;
+}
+
+function AuthorDraftStoryRoute() {
+  const { id } = useParams();
+  return <Navigate to={`/author/writing?articleId=${encodeURIComponent(id ?? "")}`} replace />;
+}
+
 export default function App() {
   // Sidebar layout and responsiveness handled inside `Applayout` via SidebarContext
   return (
@@ -95,22 +108,13 @@ export default function App() {
             {/* Public blog / stories — dedicated marketing header; read anonymously, write when signed in */}
             <Route element={<PublicWebsiteLayout />}>
               <Route index element={<Home />} />
-              <Route path="topic/:topic" element={<TopicFeed />} />
+              <Route path="home" element={<Navigate to="/" replace />} />
+              <Route path="blogs" element={<Home />} />
+              <Route path="projects" element={<PublicProjects />} />
+              <Route path="projects/:id" element={<PublicProjects />} />
               <Route path="story/:id" element={<StoryDetailPage />} />
-              <Route path="about" element={<About />} />
-              <Route path="download" element={<Download />} />
               <Route path="documentation" element={<Documentation />} />
-              <Route
-                element={
-                  <ProtectedRoute allowedRoles={[...PUBLIC_SITE_MEMBER_ROLES]}>
-                    <Outlet />
-                  </ProtectedRoute>
-                }
-              >
-                <Route path="write" element={<WriteStory />} />
-                <Route path="library" element={<ReaderLibrary />} />
-                <Route path="writer/profile" element={<Profile />} />
-              </Route>
+              <Route path="writer/profile" element={<Profile />} />
             </Route>
 
             <Route
@@ -193,6 +197,33 @@ export default function App() {
                 path="projects/:owner/:repo"
                 element={<ProjectWorkspace />}
               />
+              <Route
+                path="repository/:owner/:repo"
+                element={<StudentRepositoryLayout />}
+              >
+                <Route index element={<StudentRepoCode />} />
+                <Route path="history" element={<StudentRepoFileHistory />} />
+                <Route
+                  path="pull-requests"
+                  element={<StudentRepoPullRequests />}
+                />
+                <Route path="tasks" element={<StudentRepoTasksOutlet />}>
+                  <Route index element={<StudentRepoTasks />} />
+                  <Route
+                    path="milestone/:milestoneNumber"
+                    element={<StudentRepoMilestoneDetail />}
+                  />
+                  <Route
+                    path="issue/:taskNumber"
+                    element={<StudentRepoTaskDetail />}
+                  />
+                </Route>
+                <Route
+                  path="contributors"
+                  element={<StudentRepoContributors />}
+                />
+                <Route path="statistics" element={<StudentRepoStatistics />} />
+              </Route>
               <Route path="blogs" element={<Blog />} />
               <Route path="blogs/:id" element={<BlogDetailPage />} />
               <Route path="setting" element={<Setting />} />
@@ -211,12 +242,40 @@ export default function App() {
             >
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<StudentDashboard />} />
-              <Route path="projects" element={<Navigate to="workspace" replace />} />
-              <Route path="repositories" element={<Navigate to="workspace" replace />} />
+              <Route path="projects" element={<Projects />} />
+              <Route path="repositories" element={<StudentWorkspace />} />
+              <Route
+                path="repositories/new"
+                element={<StudentNewRepository />}
+              />
               <Route path="workspace" element={<StudentWorkspace />} />
               <Route
                 path="workspace/repositories/new"
                 element={<StudentNewRepository />}
+              />
+              <Route
+                path="profile/:username"
+                element={<StudentProfileStudent />}
+              />
+              <Route
+                path="projects/register"
+                element={<ProjectRegistrationPage />}
+              />
+              <Route
+                path="projects/register/:id"
+                element={<ProjectRegistrationPage />}
+              />
+              <Route
+                path="projects/groups/register"
+                element={<GroupRegistrationPage />}
+              />
+              <Route
+                path="projects/groups/register/:id"
+                element={<GroupRegistrationPage />}
+              />
+              <Route
+                path="projects/workspace/:id"
+                element={<ProjectWorkspace />}
               />
               <Route
                 path="repository/:owner/:repo"
@@ -245,6 +304,11 @@ export default function App() {
                 />
                 <Route path="statistics" element={<StudentRepoStatistics />} />
               </Route>
+              <Route path="profile" element={<StudentProfileStudent />} />
+              <Route
+                path="profile/:username"
+                element={<StudentProfileStudent />}
+              />
               <Route path="notifications" element={<TeacherNotifications />} />
               <Route
                 path="notifications/:id"
@@ -295,6 +359,10 @@ export default function App() {
               />
               <Route path="settings" element={<StudentSettings />} />
               <Route path="profile" element={<StudentProfileStudent />} />
+              <Route
+                path="profile/:username"
+                element={<StudentProfileStudent />}
+              />
               <Route
                 path="repository/:owner/:repo"
                 element={<StudentRepositoryLayout />}
@@ -377,8 +445,11 @@ export default function App() {
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<AuthorDashboard />} />
               <Route path="writing" element={<WriteStory />} />
+              <Route path="stories" element={<AuthorPublished />} />
               <Route path="unpublished" element={<AuthorUnpublished />} />
               <Route path="published" element={<AuthorPublished />} />
+              <Route path="publish/:id" element={<AuthorPublishedStoryRoute />} />
+              <Route path="publish/draf/:id" element={<AuthorDraftStoryRoute />} />
               <Route path="notifications" element={<AuthorNotifications />} />
               <Route
                 path="notifications/:id"

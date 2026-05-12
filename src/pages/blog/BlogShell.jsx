@@ -6,7 +6,7 @@ import { cn } from "../../lib/utils";
 export function BlogShell({ children, className, variant = "feed" }) {
   const max =
     variant === "article"
-      ? "max-w-[680px]"
+      ? "max-w-[880px]"
       : variant === "editor"
         ? "max-w-[720px]"
         : "max-w-[1192px]";

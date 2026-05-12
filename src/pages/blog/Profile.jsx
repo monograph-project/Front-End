@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AvatarDemo from "../../components/Avatar.jsx";
 import Button from "../../components/Button.jsx";
+import ContributionHeatmap from "../../components/repo/ContributionHeatmap.jsx";
 import { BlogShell } from "./BlogShell";
 
 const TABS = ["Stories", "About"];
@@ -30,6 +31,40 @@ function useAllStories(totalCount, generate) {
   return { items: list, setItems: setList };
 }
 
+function buildStoryHeatmap(stories) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - 83);
+  const counts = new Map();
+
+  stories.forEach((story) => {
+    const date = new Date(story.date);
+    if (Number.isNaN(date.getTime())) return;
+    date.setHours(0, 0, 0, 0);
+    const key = date.toISOString().slice(0, 10);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  });
+
+  const weeks = [];
+  let currentWeek = [];
+  for (let i = 0; i < 84; i += 1) {
+    const date = new Date(start);
+    date.setDate(start.getDate() + i);
+    const key = date.toISOString().slice(0, 10);
+    currentWeek.push({ key, value: counts.get(key) ?? 0 });
+    if (currentWeek.length === 7) {
+      weeks.push(currentWeek);
+      currentWeek = [];
+    }
+  }
+
+  return {
+    weeks,
+    max: Math.max(1, ...weeks.flat().map((cell) => cell.value)),
+  };
+}
+
 export default function Profile() {
   const [isOwner] = useState(true);
   const [activeTab, setActiveTab] = useState("Stories");
@@ -56,6 +91,7 @@ export default function Profile() {
   );
 
   const { items: stories, setItems } = useAllStories(16, storyGenerator);
+  const storyHeatmap = useMemo(() => buildStoryHeatmap(stories), [stories]);
 
   const [following, setFollowing] = useState(false);
   const toggleFollow = () => setFollowing((v) => !v);
@@ -302,6 +338,21 @@ export default function Profile() {
                       {following ? "Following" : "Follow"}
                     </Button>
                   ) : null}
+                </div>
+              </div>
+              <div className="rounded-xl border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                  Publishing activity
+                </h3>
+                <div className="mt-5">
+                  <ContributionHeatmap
+                    weeks={storyHeatmap.weeks}
+                    max={storyHeatmap.max}
+                    valueLabel="stories"
+                    emptyLabel="No stories"
+                    xAxisLabel="Weeks"
+                    yAxisLabel="Days"
+                  />
                 </div>
               </div>
             </section>

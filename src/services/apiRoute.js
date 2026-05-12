@@ -154,10 +154,6 @@ export async function signup(formData) {
     typeof formData.username === "string" && formData.username.trim().length > 0
       ? formData.username.trim()
       : email.split("@")[0].replace(/[^a-z0-9]/gi, "");
-  const terms_agreed = Boolean(formData.terms_agreed ?? formData.termsAgreed);
-  const privacy_agreed = Boolean(
-    formData.privacy_agreed ?? formData.privacyAgreed,
-  );
 
   try {
     const { data } = await axiosInstance.post(AUTH.SIGNUP, {
@@ -167,9 +163,13 @@ export async function signup(formData) {
       first_name,
       last_name,
       phone_number,
-      terms_agreed,
-      privacy_agreed,
       role: "AUTHOR_USER",
+      terms_agreed: true,
+      privacy_agreed: true,
+      agree_to_terms: true,
+      agree_to_policy: true,
+      terms_accepted: true,
+      policy_accepted: true,
     });
     return ingestGatewayLoginPayload(data);
   } catch (err) {
@@ -298,9 +298,20 @@ function normalizeStudentRecord(raw) {
   if (typeof statusNorm === "string" && statusNorm.trim() !== "")
     statusNorm = statusNorm.trim().toUpperCase();
 
+  const studentRecordId =
+    raw.id ??
+    raw.studentId ??
+    raw.student_id ??
+    raw.studentRecordId ??
+    raw.student_record_id ??
+    raw.facultyStudentId ??
+    raw.faculty_student_id ??
+    "";
+
   return {
     ...raw,
-    id: raw.id ?? raw.studentId ?? raw.student_id ?? "",
+    id: studentRecordId,
+    studentId: studentRecordId,
     firstName,
     lastName,
     username: raw.username ?? raw.userName ?? raw.user_name ?? "",
@@ -336,6 +347,7 @@ function normalizeStudentRecord(raw) {
       raw.keycloak_user_id ??
       raw.keycloakSubject ??
       raw.keycloak_subject ??
+      raw.keycloak ??
       raw.realmUserId ??
       raw.realm_user_id ??
       "",
@@ -821,6 +833,8 @@ function normalizeVcRepoListItem(raw) {
   let ownerUsername =
     raw.ownerUsername ??
     raw.owner_username ??
+    raw.ownerUserName ??
+    raw.owner_user_name ??
     raw.owner_login ??
     "";
   const ownerObj = raw.owner ?? raw.Owner ?? null;
@@ -829,8 +843,8 @@ function normalizeVcRepoListItem(raw) {
     ownerUsername =
       (o.username != null && String(o.username).trim()) ||
       (o.userName != null && String(o.userName).trim()) ||
+      (o.user_name != null && String(o.user_name).trim()) ||
       (o.login != null && String(o.login).trim()) ||
-      (o.email != null && String(o.email).trim()) ||
       "";
   }
   if (
@@ -840,8 +854,6 @@ function normalizeVcRepoListItem(raw) {
   )
     return null;
   if (!ownerUsername.trim()) ownerUsername = String(raw.username ?? "").trim();
-  if (!ownerUsername.trim() && ownerObj?.id != null)
-    ownerUsername = String(ownerObj.id);
   if (!ownerUsername.trim()) return null;
   let branchHeadCount = null;
   const bh = raw.branchHeads ?? raw.branch_heads;
@@ -1460,6 +1472,28 @@ function normalizeTeacherRecord(raw) {
     role: raw.role ?? "TEACHER",
     educationRank: raw.educationRank ?? raw.education_rank ?? "",
     enrollmentDate: toDateInputValue(raw.enrollmentDate ?? raw.enrollment_date),
+    keycloakId:
+      raw.keycloakId ??
+      raw.keycloak_id ??
+      raw.keycloakUserId ??
+      raw.keycloak_user_id ??
+      raw.keycloakSubject ??
+      raw.keycloak_subject ??
+      raw.keycloak ??
+      raw.realmUserId ??
+      raw.realm_user_id ??
+      "",
+    linkedApplicationUserId: (() => {
+      const u =
+        raw.applicationUserId ??
+        raw.application_user_id ??
+        raw.gatewayUserId ??
+        raw.gateway_user_id;
+      if (u != null && String(u).trim() !== "") return String(u).trim();
+      if (typeof raw.user === "object" && raw.user?.id != null)
+        return String(raw.user.id);
+      return "";
+    })(),
     department:
       departmentLabel != null && String(departmentLabel).trim() !== ""
         ? String(departmentLabel)
@@ -1495,6 +1529,30 @@ function normalizeTeachersList(payload) {
     return nested.map(normalizeTeacherRecord).filter(Boolean);
   }
   return [];
+}
+
+export function teacherEntityMatchesGatewayUser(gatewayUser, teacherNorm) {
+  if (!gatewayUser || !teacherNorm?.id) return false;
+  const gId =
+    gatewayUser.id != null ? String(gatewayUser.id).trim() : "";
+  const tk =
+    teacherNorm.keycloakId != null
+      ? String(teacherNorm.keycloakId).trim()
+      : "";
+  if (gId && tk && gId === tk) return true;
+  const ta =
+    teacherNorm.linkedApplicationUserId != null
+      ? String(teacherNorm.linkedApplicationUserId).trim()
+      : "";
+  if (gId && ta && gId === ta) return true;
+  const gun = normalizeLoginIdentifier(
+    gatewayUser.username ?? gatewayUser.user_name ?? "",
+  );
+  const tun = normalizeLoginIdentifier(teacherNorm.username ?? "");
+  if (gun && tun && gun === tun) return true;
+  const ge = normalizeEmail(gatewayUser.email ?? "");
+  const te = normalizeEmail(teacherNorm.email ?? "");
+  return Boolean(ge && te && ge === te);
 }
 
 export async function getTeachers() {
@@ -1557,6 +1615,59 @@ export async function getTeacherById(id) {
       "Failed to load teacher.",
       "apiErrors.failed_to_load_teacher",
     );
+  }
+}
+
+export async function fetchLinkedTeacherForGatewayUser(gatewayUser) {
+  if (!gatewayUser) return null;
+  const directTeacherId =
+    gatewayUser.teacherId ??
+    gatewayUser.teacher_id ??
+    gatewayUser.facultyTeacherId ??
+    gatewayUser.faculty_teacher_id ??
+    gatewayUser.teacher?.id ??
+    "";
+  const directId = String(directTeacherId ?? "").trim();
+  if (directId) {
+    try {
+      const row = await getTeacherById(directId);
+      if (row?.id) return row;
+    } catch {
+      /* fall through to linked lookup */
+    }
+  }
+
+  const uname = normalizeLoginIdentifier(
+    gatewayUser.username ?? gatewayUser.user_name ?? "",
+  );
+  const email = normalizeEmail(gatewayUser.email ?? "");
+  const searchTerms = [...new Set([uname, email].filter(Boolean))];
+
+  for (const term of searchTerms) {
+    try {
+      const list = await searchTeachers(term);
+      const row =
+        list.find((teacher) =>
+          teacherEntityMatchesGatewayUser(gatewayUser, teacher),
+        ) ?? null;
+      if (row?.id) return row;
+    } catch {
+      /* keep trying broader fallbacks */
+    }
+  }
+
+  try {
+    const page = await getTeachersPage({
+      page: 0,
+      size: 500,
+    });
+    const row =
+      (page.content ?? []).find((teacher) =>
+        teacherEntityMatchesGatewayUser(gatewayUser, teacher),
+      ) ?? null;
+    return row?.id ? row : null;
+  } catch {
+    return null;
   }
 }
 
@@ -2278,15 +2389,35 @@ export async function deleteSemester(id) {
 
 /* ─── Faculty project (`/api/project`) ────────────────────────────────────── */
 
-export async function getFacultyProjects(query = {}) {
+export async function getFacultyProjects(query = {}, requestConfig = {}) {
   try {
-    const { data } = await axiosInstance.get(FACULTY_PROJECT.LIST(query));
+    const { data } = await axiosInstance.get(
+      FACULTY_PROJECT.LIST(query),
+      requestConfig,
+    );
     return facultyListItems(data);
   } catch (err) {
     if (err?.response?.status === 404) return [];
     throwApiError(
       err,
       "Failed to load projects.",
+      "apiErrors.failed_to_load_faculty_projects",
+    );
+  }
+}
+
+export async function getPublishedFacultyProjects(query = {}, requestConfig = {}) {
+  try {
+    const { data } = await axiosInstance.get(
+      FACULTY_PROJECT.PUBLIC_LIST(query),
+      requestConfig,
+    );
+    return facultyListItems(data);
+  } catch (err) {
+    if (err?.response?.status === 404) return [];
+    throwApiError(
+      err,
+      "Failed to load published projects.",
       "apiErrors.failed_to_load_faculty_projects",
     );
   }
@@ -2303,6 +2434,26 @@ export async function getFacultyProjectById(id) {
       "apiErrors.failed_to_load_faculty_project",
     );
   }
+}
+
+export async function getPublishedFacultyProjectById(id, requestConfig = {}) {
+  try {
+    const { data } = await axiosInstance.get(
+      FACULTY_PROJECT.PUBLIC_BY_ID(id),
+      requestConfig,
+    );
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load published project.",
+      "apiErrors.failed_to_load_faculty_project",
+    );
+  }
+}
+
+export function getPublishedFacultyProjectDownloadUrl(id) {
+  return FACULTY_PROJECT.PUBLIC_DOWNLOAD(id);
 }
 
 export async function getFacultyProjectByStudentId(id, studentId) {
@@ -2407,6 +2558,45 @@ export async function updateFacultyProject(id, body) {
   }
 }
 
+export async function completeFacultyProject(id) {
+  try {
+    const { data } = await axiosInstance.patch(FACULTY_PROJECT.COMPLETE(id));
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to mark project as completed.",
+      "apiErrors.failed_to_update_faculty_project",
+    );
+  }
+}
+
+export async function publishFacultyProject(id) {
+  try {
+    const { data } = await axiosInstance.patch(FACULTY_PROJECT.PUBLISH(id));
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to publish project.",
+      "apiErrors.failed_to_update_faculty_project",
+    );
+  }
+}
+
+export async function unpublishFacultyProject(id) {
+  try {
+    const { data } = await axiosInstance.patch(FACULTY_PROJECT.UNPUBLISH(id));
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to unpublish project.",
+      "apiErrors.failed_to_update_faculty_project",
+    );
+  }
+}
+
 export async function inviteFacultyProjectMembers(id, body) {
   try {
     const { data } = await axiosInstance.request({
@@ -2486,6 +2676,21 @@ export async function updateFacultyGroup(id, body) {
     throwApiError(
       err,
       "Failed to update group.",
+      "apiErrors.failed_to_update_faculty_group",
+    );
+  }
+}
+
+export async function updateFacultyGroupLeader(id, leaderId) {
+  try {
+    const { data } = await axiosInstance.put(
+      FACULTY_GROUP.UPDATE_LEADER(id, leaderId),
+    );
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to update group leader.",
       "apiErrors.failed_to_update_faculty_group",
     );
   }
@@ -3020,9 +3225,9 @@ export async function getPermissionClientStats(clientId) {
 
 /* ─── Blog articles & engagement ──────────────────────────────────────────── */
 
-export async function getArticles(params = {}) {
+export async function getArticles(params = {}, requestConfig = {}) {
   try {
-    const { data } = await axiosInstance.get(BLOG.ARTICLES(params));
+    const { data } = await axiosInstance.get(BLOG.ARTICLES(params), requestConfig);
     return data;
   } catch (err) {
     throwApiError(
@@ -3033,9 +3238,63 @@ export async function getArticles(params = {}) {
   }
 }
 
-export async function getArticleById(articleId) {
+export async function getAdminArticles(params = {}, requestConfig = {}) {
   try {
-    const { data } = await axiosInstance.get(BLOG.ARTICLE_BY_ID(articleId));
+    const { data } = await axiosInstance.get(
+      BLOG.ADMIN_ARTICLES(params),
+      requestConfig,
+    );
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load admin articles.",
+      "apiErrors.failed_to_load_articles",
+    );
+  }
+}
+
+export async function getPublicArticles(params = {}) {
+  try {
+    const { data } = await axiosInstance.get(BLOG.PUBLIC_ARTICLES(params), {
+      skipAuthToken: true,
+      skipAuthRedirect: true,
+    });
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load articles.",
+      "apiErrors.failed_to_load_articles",
+    );
+  }
+}
+
+export async function getArticleById(articleId, requestConfig = {}) {
+  try {
+    const { data } = await axiosInstance.get(
+      BLOG.ARTICLE_BY_ID(articleId),
+      requestConfig,
+    );
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load article.",
+      "apiErrors.failed_to_load_article",
+    );
+  }
+}
+
+export async function getPublicArticleById(articleId) {
+  try {
+    const { data } = await axiosInstance.get(
+      BLOG.PUBLIC_ARTICLE_BY_ID(articleId),
+      {
+        skipAuthToken: true,
+        skipAuthRedirect: true,
+      },
+    );
     return data;
   } catch (err) {
     throwApiError(

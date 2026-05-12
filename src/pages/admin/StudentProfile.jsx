@@ -8,6 +8,8 @@ import {
   AdminProfilePeerCompareCard,
   AdminProfileSemiGaugeCard,
 } from "../../components/admin/AdminProfileDashboard";
+import ContributionHeatmap from "../../components/repo/ContributionHeatmap";
+import useActivityHeatmap from "../../hooks/useActivityHeatmap";
 import {
   AdminPersonProfileBreadcrumbs,
   AdminPersonProfileExpandableList,
@@ -26,6 +28,7 @@ import IC from "../../components/IC";
 import {
   useFacultyProjectsByStudent,
   useStudent,
+  useUser,
   useVcRepositoriesForViewer,
   useVcUserActivity,
 } from "../../services/useApi";
@@ -158,8 +161,16 @@ export default function StudentProfile() {
     isFetching,
   } = useStudent(id, { notifyOnError: false });
 
-  const vcUsername = String(student?.username ?? "").trim();
   const ownerKey = String(student?.linkedApplicationUserId ?? "").trim();
+
+  const { data: gatewayUser } = useUser(student?.keycloakId, {
+    enabled: Boolean(student?.keycloakId),
+    notifyOnError: false,
+  });
+
+  const vcUsername = String(
+    gatewayUser?.user_name ?? gatewayUser?.username ?? student?.username ?? "",
+  ).trim();
 
   const { data: repos = [] } = useVcRepositoriesForViewer(ownerKey, {
     enabled: Boolean(ownerKey || vcUsername),
@@ -185,27 +196,7 @@ export default function StudentProfile() {
     () => bucketVcActivityEvents(rawActivity),
     [rawActivity],
   );
-
-  const aspectScore = useMemo(() => {
-    const repoN = repos.length;
-    const p = buckets.pushes.length;
-    const pr = buckets.pulls.length;
-    const m = buckets.merges.length;
-    const base = 52;
-    const bump = repoN * 4 + p * 2 + pr * 5 + m * 6;
-    return Math.min(99, Math.max(38, base + Math.min(bump, 42)));
-  }, [repos.length, buckets]);
-
-  const peerCompare = useMemo(() => {
-    const cohort = Math.min(
-      96,
-      Math.max(
-        48,
-        aspectScore + Math.round((student?.id?.length || 3) % 9) - 4,
-      ),
-    );
-    return { subject: aspectScore, peer: cohort };
-  }, [aspectScore, student?.id]);
+  const heatmap = useActivityHeatmap(rawActivity);
 
   const pipelineStageLabels = useMemo(
     () =>
@@ -340,14 +331,6 @@ export default function StudentProfile() {
     },
   ];
 
-  const firstName =
-    `${student.firstName || ""}`.trim() || fullName.split(/\s+/)[0] || fullName;
-
-  const mailHref =
-    typeof student.email === "string" && student.email.trim()
-      ? `mailto:${encodeURIComponent(student.email.trim())}`
-      : "";
-
   const moreApplications = Math.max(0, applicationItems.length - 3);
 
   return (
@@ -440,6 +423,18 @@ export default function StudentProfile() {
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="font-semibold text-muted dark:text-dark-muted">
+                    Keycloak ID
+                  </dt>
+                  <dd className="max-w-[12rem] truncate font-mono text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
+                    {student.keycloakId ||
+                      (student.linkedApplicationUserId ??
+                        student.applicationUserId ??
+                        "")}
+                  </dd>
+                </div>
+
+                <div className="flex justify-between gap-3">
+                  <dt className="font-semibold text-muted dark:text-dark-muted">
                     {t("studentProfile.fields.dateOfBirth")}
                   </dt>
                   <dd className="text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
@@ -495,6 +490,28 @@ export default function StudentProfile() {
                   />
                 </div>
               )}
+            </div>
+
+            <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 md:p-5 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                  {t("studentSelfProfile.heatmap.title", {
+                    count: heatmap.total,
+                  })}
+                </h2>
+                <span className="text-[11px] text-muted dark:text-dark-muted">
+                  {vcUsername ? `@${vcUsername}` : t("studentProfile.na")} ·{" "}
+                  {repos.length} {t("studentSelfProfile.stats.repositories")}
+                </span>
+              </div>
+              <ContributionHeatmap
+                weeks={heatmap.weeks}
+                max={heatmap.max}
+                valueLabel={t("studentSelfProfile.activity.contributions", {
+                  defaultValue: "contributions",
+                })}
+                emptyLabel={t("studentSelfProfile.activityFeed.empty")}
+              />
             </div>
 
             {pipelineRows.length ? (

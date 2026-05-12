@@ -37,7 +37,7 @@ function isRefreshRequestUrl(url) {
 
 apiClient.interceptors.request.use((config) => {
   const token = getStoredAccessToken();
-  if (token) {
+  if (token && !config.skipAuthToken) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -76,6 +76,10 @@ apiClient.interceptors.response.use(
 
     if (isAuthBypassUrl(reqUrl)) {
       clearAuthStorage();
+      return Promise.reject(error);
+    }
+
+    if (originalRequest.skipAuthRedirect) {
       return Promise.reject(error);
     }
 

@@ -6,16 +6,12 @@ import {
   Copy,
   Download,
   Ellipsis,
-  Eye,
   File,
   Folder,
   GitBranch,
-  GitFork,
   Link2,
-  Package,
   Pencil,
   Search,
-  Star,
 } from "lucide-react";
 import { saveAs } from "file-saver";
 import { gooeyToast } from "goey-toast";
@@ -44,6 +40,7 @@ import {
 import {
   fetchDocumentBlame,
   fetchFileBlame,
+  downloadRepositoryArchive,
   fetchRepositoryBlobPayload,
   fetchRepositoryCommits,
 } from "../../services/versionControlService";
@@ -594,12 +591,6 @@ function branchOptionsFromRefsPayload(payload) {
   return opts;
 }
 
-function countOrZero(v) {
-  if (v == null) return "0";
-  const n = Number(v);
-  return Number.isNaN(n) ? String(v) : String(n);
-}
-
 function commitMetaCacheKey(ref, path) {
   return `${String(ref ?? "").trim()}::${String(path ?? "").trim()}`;
 }
@@ -718,6 +709,8 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
     comparedTo: String(metaDefaultBranch || "main"),
   });
   const [fileFilter, setFileFilter] = useState("");
+  const [cloneMenuOpen, setCloneMenuOpen] = useState(false);
+  const [archiveProgress, setArchiveProgress] = useState(null);
   const [activeView, setActiveView] = useState(
     /** @type {"code" | "blame" | "raw"} */ ("code"),
   );
@@ -791,22 +784,6 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
     repositoryMeta?.branches_count ?? repositoryMeta?.branchCount ?? null;
   const tagCount =
     repositoryMeta?.tags_count ?? repositoryMeta?.releases_count ?? null;
-  const starCount =
-    repositoryMeta?.stars_count ??
-    repositoryMeta?.starsCount ??
-    repositoryMeta?.stars ??
-    repositoryMeta?.stargazers_count ??
-    0;
-  const forkCount =
-    repositoryMeta?.forks_count ??
-    repositoryMeta?.forksCount ??
-    repositoryMeta?.forks ??
-    0;
-  const watchCount =
-    repositoryMeta?.watchers_count ??
-    repositoryMeta?.subscriptions_count ??
-    repositoryMeta?.watch_count ??
-    0;
   const topics = Array.isArray(repositoryMeta?.topics)
     ? repositoryMeta.topics.filter(Boolean)
     : [];
@@ -827,6 +804,23 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
       gooeyToast.success(t("studentRepo.code.cloneCopied"));
     } catch {
       gooeyToast.error(t("studentRepo.code.cloneCopyFailed"));
+    }
+  }
+
+  async function downloadArchive() {
+    if (!o || !r) return;
+    setCloneMenuOpen(false);
+    setArchiveProgress({ loaded: 0, total: 0, percent: 0, elapsedMs: 0 });
+    try {
+      await downloadRepositoryArchive(o, r, {
+        ref,
+        onProgress: setArchiveProgress,
+      });
+      gooeyToast.success(t("studentRepo.browser.downloadReady"));
+    } catch {
+      gooeyToast.error(t("studentRepo.browser.downloadFailed"));
+    } finally {
+      window.setTimeout(() => setArchiveProgress(null), 1200);
     }
   }
 
@@ -1177,33 +1171,6 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
         ? String(topics.length)
         : t("studentRepo.about.none"),
     },
-    {
-      key: "stars",
-      icon: Star,
-      label: t("studentRepo.about.stars"),
-      value: countOrZero(starCount),
-    },
-    {
-      key: "watching",
-      icon: Eye,
-      label: t("studentRepo.about.watching"),
-      value: countOrZero(watchCount),
-    },
-    {
-      key: "forks",
-      icon: GitFork,
-      label: t("studentRepo.about.forks"),
-      value: countOrZero(forkCount),
-    },
-    {
-      key: "audit-log",
-      icon: Package,
-      label: t("studentRepo.about.auditLog"),
-      value:
-        repositoryMeta?.visibility ??
-        repositoryMeta?.repository_visibility ??
-        "—",
-    },
   ];
 
   return (
@@ -1275,18 +1242,76 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
             {t("studentRepo.browser.addFileDisabled")}
             <ChevronDown className="h-4 w-4" strokeWidth={1.7} aria-hidden />
           </button> */}
-          <button
-            type="button"
-            className={darkButtonClass({ green: true, disabled: !cloneUrl })}
-            // disabled={!cloneUrl}
-            onClick={copyClone}
-          >
-            <CodeIcon />
-            {t("studentRepo.browser.code")}
-            <ChevronDown className="h-4 w-4" strokeWidth={1.7} aria-hidden />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              className={darkButtonClass({ green: true, disabled: !cloneUrl })}
+              disabled={!cloneUrl}
+              onClick={() => setCloneMenuOpen((open) => !open)}
+              aria-expanded={cloneMenuOpen}
+            >
+              <CodeIcon />
+              {t("studentRepo.browser.code")}
+              <ChevronDown className="h-4 w-4" strokeWidth={1.7} aria-hidden />
+            </button>
+            {cloneMenuOpen ? (
+              <div className="absolute right-0 top-full z-30 mt-2 w-64 overflow-hidden rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-2 shadow-lg dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-primary transition-colors hover:bg-light-app-tertiary dark:text-dark-primary dark:hover:bg-dark-app-tertiary"
+                  onClick={async () => {
+                    setCloneMenuOpen(false);
+                    await copyClone();
+                  }}
+                >
+                  <Copy className="size-4" strokeWidth={1.7} aria-hidden />
+                  {t("studentRepo.browser.copyCloneUrl")}
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-primary transition-colors hover:bg-light-app-tertiary dark:text-dark-primary dark:hover:bg-dark-app-tertiary"
+                  onClick={downloadArchive}
+                >
+                  <Download className="size-4" strokeWidth={1.7} aria-hidden />
+                  {t("studentRepo.browser.downloadZip")}
+                </button>
+                <p className="mt-1 truncate rounded-lg bg-light-app-tertiary px-3 py-2 font-mono text-[10px] text-muted dark:bg-dark-app-tertiary dark:text-dark-muted">
+                  {cloneUrl}
+                </p>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
+
+      {archiveProgress ? (
+        <div className="rounded-lg border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 py-2 text-xs dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+          <div className="flex items-center justify-between gap-3 text-muted dark:text-dark-muted">
+            <span>{t("studentRepo.browser.downloadProgress")}</span>
+            <span>
+              {archiveProgress.percent != null
+                ? `${archiveProgress.percent}%`
+                : formatBytes(archiveProgress.loaded)}
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-light-app-tertiary dark:bg-dark-app-tertiary">
+            <div
+              className="h-full rounded-full bg-light-btn-primary-bg transition-all dark:bg-dark-primary"
+              style={{
+                width: `${Math.max(8, archiveProgress.percent ?? 35)}%`,
+              }}
+            />
+          </div>
+          <p className="mt-1 text-[11px] text-muted dark:text-dark-muted">
+            {t("studentRepo.browser.downloadElapsed", {
+              seconds: Math.max(
+                1,
+                Math.round((archiveProgress.elapsedMs ?? 0) / 1000),
+              ),
+            })}
+          </p>
+        </div>
+      ) : null}
 
       {ref !== metaDefaultBranch ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 py-2 text-xs dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">

@@ -20,6 +20,23 @@ export function normalizeArticleBlock(block) {
     }
   }
   if (!data || typeof data !== "object") data = {};
+  const mediaUrl = firstText(
+    data.url,
+    data.src,
+    data.fileUrl,
+    data.publicUrl,
+    data.downloadUrl,
+    data.imageUrl,
+    data.thumbnailUrl,
+    data.uploadUrl,
+    block.url,
+    block.fileUrl,
+    block.publicUrl,
+    block.downloadUrl,
+  );
+  if (mediaUrl && !data.url) {
+    data = { ...data, url: mediaUrl };
+  }
   return {
     ...block,
     type: typeStr,
@@ -30,6 +47,13 @@ export function normalizeArticleBlock(block) {
         ? Number(block.position)
         : 0,
   };
+}
+
+function firstText(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
 }
 
 function extractBlocksFromArticle(article) {
@@ -62,6 +86,33 @@ export function normalizeReadMinutes(article) {
   return undefined;
 }
 
+export function articleCoverImageUrl(article) {
+  const meta = article?.metadata || {};
+  const media = article?.media || article?.assets || {};
+  const cover = article?.coverImage;
+  const thumbnail = article?.thumbnail;
+  return firstText(
+    article?.coverImageUrl,
+    article?.thumbnailUrl,
+    article?.featuredImageUrl,
+    article?.imageUrl,
+    typeof cover === "string" ? cover : cover?.url,
+    typeof thumbnail === "string" ? thumbnail : thumbnail?.url,
+    meta.coverImageUrl,
+    meta.thumbnailUrl,
+    meta.featuredImageUrl,
+    meta.imageUrl,
+    typeof meta.coverImage === "string" ? meta.coverImage : meta.coverImage?.url,
+    typeof meta.thumbnail === "string" ? meta.thumbnail : meta.thumbnail?.url,
+    media.coverImageUrl,
+    media.thumbnailUrl,
+    media.featuredImageUrl,
+    media.imageUrl,
+    typeof media.coverImage === "string" ? media.coverImage : media.coverImage?.url,
+    typeof media.thumbnail === "string" ? media.thumbnail : media.thumbnail?.url,
+  );
+}
+
 export function mapArticleToAdminBlog(article) {
   const author = article.author || {};
   const authorId = author.id ?? article.authorId ?? author.userId;
@@ -69,6 +120,10 @@ export function mapArticleToAdminBlog(article) {
   const stats = article.stats || {};
   const meta = article.metadata || {};
   const blocks = extractBlocksFromArticle(article);
+  const firstImageBlock = blocks.find(
+    (block) =>
+      String(block?.type ?? "").toUpperCase() === "IMAGE" && block?.data?.url,
+  );
   const tags = Array.isArray(article.tags)
     ? article.tags
     : Array.isArray(meta.tags)
@@ -107,8 +162,7 @@ export function mapArticleToAdminBlog(article) {
     visibility: article.visibility,
     slug: article.slug,
     blocks,
-    coverImageUrl:
-      article.coverImageUrl ?? meta.coverImageUrl ?? meta.thumbnailUrl,
+    coverImageUrl: articleCoverImageUrl(article) || firstImageBlock?.data?.url,
     stats,
     _rawStatus: (article.status || "").toUpperCase(),
     raw: article,

@@ -20,7 +20,7 @@ import { REPO_OVERVIEW_STAT_PALETTES } from "../../components/repo/repoOverviewS
 import { cn } from "../../lib/utils";
 import { mapArticleToAdminBlog } from "../../lib/adminArticleMap";
 import {
-  useArticles,
+  useAdminArticles,
   useDeleteArticle,
   usePublishArticle,
   useUpdateArticle,
@@ -65,7 +65,7 @@ function Blogs() {
   const [activeStatus, setActiveStatus] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
 
-  const { data, isLoading, isError, refetch } = useArticles(
+  const { data, isLoading, isError, refetch } = useAdminArticles(
     { page, pageSize },
     { notifyOnError: true },
   );
@@ -248,7 +248,7 @@ function Blogs() {
     updateMutation.isPending;
 
   return (
-    <div className="flex min-h-screen flex-1 overflow-y-auto bg-white  p-4 md:p-5 min-h-screen dark:bg-dark-card-bg">
+    <div className="flex min-h-screen flex-1 overflow-y-auto bg-white  p-4 md:p-5 dark:bg-dark-card-bg">
       <div className="mx-auto w-full max-w-7xl space-y-6">
         <section className={`${SURFACE_CARD} overflow-hidden`}>
           <div className="relative border-b border-light-divider px-4 py-6 dark:border-dark-divider md:px-6 md:py-7">
@@ -411,14 +411,28 @@ function Blogs() {
 
                 {!filteredBlogs.length && (
                   <div
-                    className={`${SURFACE_INSET} border-dashed px-6 py-14 text-center`}
+                    className={`${SURFACE_INSET} border-dashed px-6 py-16 text-center`}
                   >
+                    <div className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) text-muted dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-muted">
+                      <BookText className="size-5" strokeWidth={1.8} />
+                    </div>
                     <p className="text-lg font-semibold text-primary dark:text-dark-primary">
                       {t("blogAdmin.empty.title")}
                     </p>
                     <p className="mt-2 text-sm text-secondary dark:text-dark-secondary">
                       {t("blogAdmin.empty.description")}
                     </p>
+                    {hasFilters ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        icon={<X className="size-4" strokeWidth={1.8} />}
+                        className="mt-5 gap-2"
+                        onClick={clearFilters}
+                      >
+                        {t("blogAdmin.filters.clear")}
+                      </Button>
+                    ) : null}
                   </div>
                 )}
 

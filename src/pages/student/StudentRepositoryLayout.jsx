@@ -59,6 +59,10 @@ export default function StudentRepositoryLayout() {
   });
 
   const repoBase = `${shellBase}/repository/${encodeURIComponent(decodedOwner)}/${encodeURIComponent(decodedRepo)}`;
+  const backPath =
+    shellBase === "/admin" || shellBase === "/teacher"
+      ? `${shellBase}/projects`
+      : `${shellBase}/workspace`;
 
   const visibility =
     meta?.visibility ??
@@ -97,7 +101,7 @@ export default function StudentRepositoryLayout() {
       <div className="mx-auto px-4 py-5 md:px-6 lg:px-8">
         <div className="mb-3 text-xs text-muted dark:text-dark-muted">
           <NavLink
-            to={`${shellBase}/workspace`}
+            to={backPath}
             className="transition-colors hover:text-(--color-chart-blue-primary) dark:hover:text-(--color-chart-blue-secondary)"
           >
             {t("studentRepo.shell.back")}

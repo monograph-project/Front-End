@@ -1,5 +1,6 @@
 import {
   Activity,
+  BadgeCheck,
   Building2,
   CalendarDays,
   FolderGit2,
@@ -7,12 +8,16 @@ import {
   LayoutGrid,
   LayoutList,
   ListChecks,
+  UserPlus,
   UserCircle2,
   Users,
+  UsersRound,
 } from "lucide-react";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { gooeyToast } from "goey-toast";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../../components/Button";
 import Checkbox from "../../components/Checkbox";
 import {
@@ -23,9 +28,13 @@ import {
   DropdownTrigger,
 } from "../../components/DropdownMenu";
 import Field from "../../components/Field";
+import GlobalModal from "../../components/GlobalModal";
 import IC from "../../components/IC";
 import Icon from "../../components/Icon";
+import PersonAvatar from "../../components/PersonAvatar";
+import SearchableSelect from "../../components/SearchableSelect";
 import Select from "../../components/Select";
+import SensitiveActionModal from "../../components/SensitiveActionModal";
 import StatusPill from "../../components/StatusPill";
 import Table from "../../components/Table";
 import TableBody from "../../components/TableBody";
@@ -33,7 +42,18 @@ import TableColumn from "../../components/TableColumn";
 import TableHeader from "../../components/TableHeader";
 import TableRow from "../../components/TableRow";
 import TableToolbar from "../../components/TableToolbar";
-import { useFacultyProjects } from "../../services/useApi";
+import { useAuth } from "../../context/AuthContext";
+import { resolveShellBasePath } from "../../lib/roles";
+import {
+  useDeleteFacultyGroup,
+  useFacultyProjects,
+  useFacultyProjectsByTeacher,
+  useFacultyGroups,
+  useLinkedTeacherRecord,
+  useStudentsPage,
+  useUpdateFacultyGroup,
+  useUpdateFacultyGroupLeader,
+} from "../../services/useApi";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 const KANBAN_LANES = ["todo", "in_progress", "in_review", "done"];
@@ -59,14 +79,12 @@ function memberListFromGroup(group) {
   return Array.isArray(members) ? members : [];
 }
 
-function memberInitials(member) {
-  const label = personDisplayName(member);
-  if (!label) return "";
-  const parts = label.split(/\s+/).filter(Boolean);
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
+function memberAvatarRecord(member) {
+  if (!member || typeof member !== "object") return null;
+  return {
+    ...member,
+    name: personDisplayName(member),
+  };
 }
 
 function normalizeProjectLane(project) {
@@ -79,6 +97,15 @@ function normalizeProjectLane(project) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "_");
+  const statusMap = {
+    planned: "todo",
+    in_progress: "in_progress",
+    in_review: "in_review",
+    completed: "done",
+    done: "done",
+    archived: "stuck",
+  };
+  if (statusMap[normalized]) return statusMap[normalized];
   if (
     ["todo", "in_progress", "in_review", "done", "stuck"].includes(normalized)
   ) {
@@ -194,7 +221,7 @@ function normalizeProjectRecord(row) {
     laneStatus: normalizeProjectLane(project),
     progress: normalizeProjectProgress(project, members.length),
     tags: [visibility, group?.name].filter(Boolean),
-    collaboratorInitials: members.map(memberInitials).filter(Boolean),
+    collaboratorMembers: members.map(memberAvatarRecord).filter(Boolean),
     targetDate: project?.targetDate ?? project?.deadline ?? null,
     canOpenWorkspace: Boolean(project?.id ?? repository?.id ?? repositoryName),
     memberNames,
@@ -218,10 +245,81 @@ function projectLaneToPillVariant(lane) {
   }
 }
 
+function normalizeGroupId(group) {
+  return String(group?.id ?? group?.groupId ?? group?.uuid ?? "");
+}
+
+function groupTitle(group) {
+  return (
+    group?.name ?? group?.title ?? (group?.id != null ? String(group.id) : "-")
+  );
+}
+
+function studentIdValue(student) {
+  const value =
+    student?.id ??
+    student?.studentId ??
+    student?.student_id ??
+    student?.uuid ??
+    "";
+  return value != null && value !== "" ? String(value) : "";
+}
+
+function groupMembersList(group) {
+  const members =
+    group?.groupMembers ??
+    group?.members ??
+    group?.students ??
+    group?.studentIds ??
+    group?.groupMemberIds ??
+    [];
+  return Array.isArray(members) ? members : [];
+}
+
+function groupMemberIds(group) {
+  return groupMembersList(group).map(studentIdValue).filter(Boolean);
+}
+
+function groupLeaderId(group) {
+  return studentIdValue(group?.groupLeader ?? group?.leader);
+}
+
+function groupMembersCount(group) {
+  return groupMembersList(group).length;
+}
+
+function studentToOption(student) {
+  const id = studentIdValue(student);
+  if (!id) return null;
+  return {
+    value: id,
+    label: personDisplayName(student) || id,
+    description:
+      student?.email ??
+      student?.code ??
+      student?.studentCode ??
+      student?.department?.name ??
+      student?.department ??
+      undefined,
+  };
+}
+
+function buildGroupUpdatePayload(group, nextMembers, nextLeader) {
+  const leader = String(nextLeader ?? "").trim();
+  const members = Array.from(
+    new Set([...nextMembers.map(String), leader].filter(Boolean)),
+  );
+  return {
+    name: String(groupTitle(group)).trim(),
+    groupLeader: leader,
+    groupMembers: members,
+  };
+}
+
 function ProgressBar({ value }) {
   const pct = Math.min(100, Math.max(0, Number(value) || 0));
   return (
-    <div className="flex min-w-[6rem] flex-col gap-1">
+    <div className="flex min-w-24 flex-col gap-1">
       <div className="flex items-center justify-between text-[10px] font-semibold text-muted dark:text-dark-muted">
         <span />
         <span>{pct}%</span>
@@ -236,21 +334,29 @@ function ProgressBar({ value }) {
   );
 }
 
-function TeamAvatars({ initials }) {
-  if (!initials?.length)
+function TeamAvatars({ members }) {
+  if (!members?.length)
     return <span className="text-muted dark:text-dark-muted">—</span>;
-  const shown = initials.slice(0, 4);
+  const shown = members.slice(0, 4);
   return (
     <div className="flex -space-x-2">
-      {shown.map((ini, i) => (
+      {shown.map((member, i) => (
         <span
-          key={`${ini}-${i}`}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-(--color-light-card-bg) bg-accent/15 text-[10px] font-semibold text-primary dark:border-(--color-dark-card-bg) dark:bg-[rgba(0,102,255,0.22)] dark:text-dark-primary"
-          title={ini}
+          key={`${member.id ?? member.email ?? member.name ?? "member"}-${i}`}
+          title={personDisplayName(member)}
+          className="inline-flex h-8 w-8 shrink-0 overflow-hidden rounded-full border-2 border-(--color-light-card-bg) bg-accent/15 text-[10px] font-semibold text-primary dark:border-(--color-dark-card-bg) dark:bg-[rgba(0,102,255,0.22)] dark:text-dark-primary"
         >
-          {ini}
+          <PersonAvatar
+            person={member}
+            sizeClass="inline-flex size-full items-center justify-center overflow-hidden rounded-full"
+          />
         </span>
       ))}
+      {members.length > shown.length ? (
+        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-(--color-light-card-bg) bg-light-app-tertiary text-[10px] font-semibold text-secondary dark:border-(--color-dark-card-bg) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+          +{members.length - shown.length}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -301,9 +407,9 @@ function KanbanCard({ project, onOpen, locale }) {
       <div className="flex items-center justify-between border-t border-light-divider pt-2 dark:border-dark-divider">
         <div className="flex items-center gap-1 text-xs text-muted dark:text-dark-muted">
           <Users className="size-3.5" strokeWidth={2} aria-hidden />
-          <span>{project.collaboratorInitials?.length ?? 0}</span>
+          <span>{project.collaboratorMembers?.length ?? 0}</span>
         </div>
-        <TeamAvatars initials={project.collaboratorInitials} />
+        <TeamAvatars members={project.collaboratorMembers} />
       </div>
     </button>
   );
@@ -311,13 +417,91 @@ function KanbanCard({ project, onOpen, locale }) {
 
 export default function Projects() {
   const { t, i18n } = useTranslation();
-  const { data: facultyProjects = [] } = useFacultyProjects();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const location = useLocation();
+  const shellBase = resolveShellBasePath(location.pathname, user?.role);
+  const isTeacherShell = shellBase === "/teacher";
+  const sessionTeacherId = String(
+    user?.teacherId ??
+      user?.teacher_id ??
+      user?.facultyTeacherId ??
+      user?.faculty_teacher_id ??
+      user?.teacher?.id ??
+      "",
+  ).trim();
+  const { data: linkedTeacher } = useLinkedTeacherRecord(user, {
+    enabled: isTeacherShell && !sessionTeacherId,
+    notifyOnError: false,
+  });
+  const teacherId =
+    sessionTeacherId ||
+    (linkedTeacher?.id != null ? String(linkedTeacher.id).trim() : "");
+  const { data: adminFacultyProjects = [] } = useFacultyProjects(
+    {},
+    {
+      enabled: !isTeacherShell,
+      notifyOnError: false,
+    },
+  );
+  const { data: teacherFacultyProjects = [] } = useFacultyProjectsByTeacher(
+    teacherId,
+    {
+      enabled: isTeacherShell && Boolean(teacherId),
+      notifyOnError: false,
+    },
+  );
+  const facultyProjects = isTeacherShell
+    ? teacherFacultyProjects
+    : adminFacultyProjects;
+  const { data: facultyGroups = [] } = useFacultyGroups(
+    {},
+    { enabled: !isTeacherShell, notifyOnError: false },
+  );
+  const { data: studentPage } = useStudentsPage(
+    { page: 0, pageSize: 500, notifyOnError: false },
+    { enabled: !isTeacherShell, staleTime: 60_000 },
+  );
+  const updateFacultyGroup = useUpdateFacultyGroup({
+    showSuccessToast: false,
+    showErrorToast: false,
+  });
+  const updateFacultyGroupLeader = useUpdateFacultyGroupLeader({
+    showSuccessToast: false,
+    showErrorToast: false,
+  });
+  const deleteFacultyGroup = useDeleteFacultyGroup({
+    showSuccessToast: false,
+    showErrorToast: false,
+  });
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("projects");
   const [viewMode, setViewMode] = useState("list");
+  const [groupViewMode, setGroupViewMode] = useState("list");
   const [searchInput, setSearchInput] = useState("");
+  const [groupSearchInput, setGroupSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput, 300);
+  const debouncedGroupSearch = useDebouncedValue(groupSearchInput, 300);
   const [statusFilter, setStatusFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
+  const [groupOperation, setGroupOperation] = useState(null);
+  const [groupOperationDraft, setGroupOperationDraft] = useState({
+    studentId: "",
+  });
+  const [deleteGroup, setDeleteGroup] = useState(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isTeacherShell && location.state?.returnTab === "groups") {
+      setActiveTab("groups");
+    }
+  }, [isTeacherShell, location.state]);
+
+  useEffect(() => {
+    if (isTeacherShell && activeTab !== "projects") {
+      setActiveTab("projects");
+    }
+  }, [activeTab, isTeacherShell]);
 
   const currentYear = new Date().getFullYear();
   const locale =
@@ -326,6 +510,49 @@ export default function Projects() {
       : i18n.language === "prs"
         ? "fa-AF"
         : "en-US";
+
+  const studentOptions = useMemo(
+    () =>
+      (Array.isArray(studentPage?.content) ? studentPage.content : [])
+        .map(studentToOption)
+        .filter(Boolean),
+    [studentPage],
+  );
+
+  const filteredGroups = useMemo(() => {
+    const q = debouncedGroupSearch.trim().toLowerCase();
+    const rows = Array.isArray(facultyGroups) ? facultyGroups : [];
+    if (!q) return rows;
+    return rows.filter((group) =>
+      [
+        normalizeGroupId(group),
+        groupTitle(group),
+        personDisplayName(group?.groupLeader ?? group?.leader),
+        ...groupMembersList(group).map(personDisplayName),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [debouncedGroupSearch, facultyGroups]);
+
+  const groupOperationMemberIds = useMemo(
+    () => groupMemberIds(groupOperation?.record),
+    [groupOperation],
+  );
+  const groupAddMemberOptions = useMemo(
+    () =>
+      studentOptions.filter(
+        (option) => !groupOperationMemberIds.includes(option.value),
+      ),
+    [groupOperationMemberIds, studentOptions],
+  );
+  const groupLeaderOptions = useMemo(() => {
+    const memberOptions = groupMembersList(groupOperation?.record)
+      .map(studentToOption)
+      .filter(Boolean);
+    return memberOptions.length ? memberOptions : studentOptions;
+  }, [groupOperation, studentOptions]);
 
   const projects = useMemo(() => {
     const rows = Array.isArray(facultyProjects) ? facultyProjects : [];
@@ -422,7 +649,7 @@ export default function Projects() {
 
   const openWorkspace = (p) => {
     if (!p?.id) return;
-    navigate(`/admin/projects/workspace/${encodeURIComponent(p.id)}`);
+    navigate(`${shellBase}/projects/workspace/${encodeURIComponent(p.id)}`);
   };
 
   const projectHeaderData = useMemo(
@@ -501,6 +728,189 @@ export default function Projects() {
     [t],
   );
 
+  const groupHeaderData = useMemo(
+    () => [
+      {
+        title: "",
+        tooltip: t("adminShared.tableHints.bulkSelection"),
+        icon: (
+          <ListChecks
+            className="size-3.5 shrink-0 opacity-70"
+            strokeWidth={2}
+            aria-hidden
+          />
+        ),
+      },
+      {
+        title: t("adminProjects.table.groupId"),
+        icon: <FolderGit2 className="size-3.5 shrink-0" strokeWidth={2} />,
+      },
+      {
+        title: t("adminProjects.faculty.col.name"),
+        icon: <UsersRound className="size-3.5 shrink-0" strokeWidth={2} />,
+      },
+      {
+        title: t("adminProjects.faculty.col.leader"),
+        icon: <UserCircle2 className="size-3.5 shrink-0" strokeWidth={2} />,
+      },
+      {
+        title: t("adminProjects.faculty.col.members"),
+        icon: <Users className="size-3.5 shrink-0" strokeWidth={2} />,
+      },
+      {
+        title: t("adminProjects.table.actions"),
+        align: "center",
+        icon: <LayoutList className="size-3.5 shrink-0" strokeWidth={2} />,
+      },
+    ],
+    [t],
+  );
+
+  const openGroupRegistration = (group) => {
+    const groupId = normalizeGroupId(group);
+    navigate(
+      groupId
+        ? `${shellBase}/projects/groups/register/${encodeURIComponent(groupId)}`
+        : `${shellBase}/projects/groups/register`,
+      {
+        state: {
+          returnTo: `${shellBase}/projects`,
+          returnTab: "groups",
+        },
+      },
+    );
+  };
+
+  const openGroupOperation = (mode, record) => {
+    const leader = groupLeaderId(record);
+    setGroupOperation({ mode, record });
+    setGroupOperationDraft({
+      studentId: mode === "change-leader" ? leader : "",
+    });
+  };
+
+  const closeGroupOperation = () => {
+    setGroupOperation(null);
+    setGroupOperationDraft({ studentId: "" });
+  };
+
+  const submitGroupOperation = async () => {
+    if (
+      !groupOperation?.record ||
+      updateFacultyGroup.isPending ||
+      updateFacultyGroupLeader.isPending
+    )
+      return;
+    const selectedStudentId = String(groupOperationDraft.studentId ?? "").trim();
+    if (!selectedStudentId) {
+      gooeyToast.error(t("adminProjects.groups.operations.validation.student"));
+      return;
+    }
+
+    const record = groupOperation.record;
+    const groupId = normalizeGroupId(record);
+    const currentMembers = groupMemberIds(record);
+    const currentLeader = groupLeaderId(record);
+    const nextMembers =
+      groupOperation.mode === "add-member"
+        ? [...currentMembers, selectedStudentId]
+        : currentMembers;
+    const nextLeader =
+      groupOperation.mode === "change-leader"
+        ? selectedStudentId
+        : currentLeader;
+
+    try {
+      if (groupOperation.mode === "change-leader") {
+        await updateFacultyGroupLeader.mutateAsync({
+          id: groupId,
+          leaderId: nextLeader,
+        });
+      } else {
+        await updateFacultyGroup.mutateAsync({
+          id: groupId,
+          ...buildGroupUpdatePayload(record, nextMembers, nextLeader),
+        });
+      }
+      await queryClient.invalidateQueries({ queryKey: ["faculty-groups"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["faculty-groups", "detail", groupId],
+      });
+      gooeyToast.success(
+        groupOperation.mode === "add-member"
+          ? t("adminProjects.groups.operations.addMemberSuccess")
+          : t("adminProjects.groups.operations.changeLeaderSuccess"),
+      );
+      closeGroupOperation();
+    } catch (e) {
+      gooeyToast.error(
+        e?.message || t("adminProjects.groups.operations.updateError"),
+      );
+    }
+  };
+
+  const confirmDeleteGroup = async () => {
+    if (!deleteGroup || deleteSubmitting) return;
+    setDeleteSubmitting(true);
+    try {
+      await deleteFacultyGroup.mutateAsync(deleteGroup.id);
+      await queryClient.invalidateQueries({ queryKey: ["faculty-groups"] });
+      gooeyToast.success(t("adminProjects.delete.success"));
+      setDeleteGroup(null);
+    } catch (e) {
+      gooeyToast.error(e?.message || t("adminProjects.delete.error"));
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
+  const renderGroupActions = (group) => (
+    <DropdownMenuRoot>
+      <DropdownTrigger showArrow={false}>
+        <Icon
+          d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zM12 13a1 1 0 110-2 1 1 0 010 2zM12 20a1 1 0 110-2 1 1 0 010 2z"
+          className="mx-auto size-5 text-muted dark:text-dark-muted"
+        />
+      </DropdownTrigger>
+      <DropdownContent align="end">
+        <DropdownItem onClick={() => openGroupRegistration(group)}>
+          <span>{t("adminShared.actions.editDetails")}</span>
+        </DropdownItem>
+        <DropdownItem
+          icon={<UserPlus className="size-3.5" />}
+          onClick={() => openGroupOperation("add-member", group)}
+        >
+          <span>{t("adminProjects.groups.operations.addMember")}</span>
+        </DropdownItem>
+        <DropdownItem
+          icon={<BadgeCheck className="size-3.5" />}
+          onClick={() => openGroupOperation("change-leader", group)}
+        >
+          <span>{t("adminProjects.groups.operations.changeLeader")}</span>
+        </DropdownItem>
+        <DropdownItem
+          icon={<UsersRound className="size-3.5" />}
+          onClick={() => openGroupRegistration(group)}
+        >
+          <span>{t("adminProjects.groups.operations.manageRoster")}</span>
+        </DropdownItem>
+        <DropdownSeparator />
+        <DropdownItem
+          variant="danger"
+          onClick={() =>
+            setDeleteGroup({
+              id: normalizeGroupId(group),
+              name: groupTitle(group),
+              meta: personDisplayName(group?.groupLeader ?? group?.leader),
+            })
+          }
+        >
+          <span>{t("adminShared.actions.delete")}</span>
+        </DropdownItem>
+      </DropdownContent>
+    </DropdownMenuRoot>
+  );
+
   return (
     <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-white  p-4 md:p-5 dark:bg-dark-card-bg min-h-screen ">
       <div className="flex flex-col gap-4">
@@ -513,21 +923,68 @@ export default function Projects() {
               {t("adminProjects.header.subtitle")}
             </p>
             <p className="mt-1 text-sm text-muted dark:text-dark-muted">
-              {t("adminProjects.header.description", {
-                count: filteredProjects.length,
-              })}
+              {activeTab === "groups"
+                ? t("adminProjects.header.groupDescription", {
+                    count: filteredGroups.length,
+                  })
+                : t("adminProjects.header.description", {
+                    count: filteredProjects.length,
+                  })}
             </p>
           </div>
-          <Button
-            icon={<Icon d={IC.plus} className="size-4" />}
-            onClick={() => navigate("/admin/projects/register")}
-          >
-            {t("adminProjects.actions.new")}
-          </Button>
+          {!isTeacherShell ? (
+            <Button
+              icon={<Icon d={IC.plus} className="size-4" />}
+              onClick={() =>
+                activeTab === "groups"
+                  ? openGroupRegistration()
+                  : navigate(`${shellBase}/projects/register`)
+              }
+            >
+              {activeTab === "groups"
+                ? t("adminProjects.registry.addGroup")
+                : t("adminProjects.actions.new")}
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      {viewMode === "list" ? (
+      {!isTeacherShell ? (
+        <TableToolbar>
+          <TableToolbar.Row justify="start">
+            <TableToolbar.ViewTabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              tabs={[
+                {
+                  id: "projects",
+                  label: t("adminProjects.tabs.projects"),
+                  icon: (
+                    <FolderGit2
+                      className="size-3.5 shrink-0"
+                      strokeWidth={2}
+                      aria-hidden
+                    />
+                  ),
+                },
+                {
+                  id: "groups",
+                  label: t("adminProjects.tabs.groups"),
+                  icon: (
+                    <UsersRound
+                      className="size-3.5 shrink-0"
+                      strokeWidth={2}
+                      aria-hidden
+                    />
+                  ),
+                },
+              ]}
+            />
+          </TableToolbar.Row>
+        </TableToolbar>
+      ) : null}
+
+      {activeTab === "projects" && viewMode === "list" ? (
         <Table
           toolbar={
             <TableToolbar>
@@ -565,7 +1022,7 @@ export default function Projects() {
                 />
               </TableToolbar.Row>
               <TableToolbar.Row justify="start" className="gap-2">
-                <div className="min-w-0 flex-1 sm:min-w-[12rem]">
+                <div className="min-w-0 flex-1 sm:min-w-48">
                   <Field
                     id="projects-search"
                     placeholder={t("adminProjects.filters.searchPlaceholder")}
@@ -641,7 +1098,7 @@ export default function Projects() {
                         <Checkbox />
                       </TableColumn>
                       <TableColumn>
-                        <TeamAvatars initials={project.collaboratorInitials} />
+                        <TeamAvatars members={project.collaboratorMembers} />
                       </TableColumn>
                       <TableColumn>
                         <button
@@ -658,13 +1115,13 @@ export default function Projects() {
                               ? `${project.ownerUsername}/${project.repositoryName}`
                               : (project.source?.projectName ?? "—")}
                           </div>
-                          <div className="mt-1 line-clamp-1 text-xs text-muted dark:text-dark-muted">
+                          <div className="mt-1 line-clamp-1 truncate text-xs text-muted dark:text-dark-muted max-w-8">
                             {project.description}
                           </div>
                         </button>
                       </TableColumn>
                       <TableColumn nowrap={false}>
-                        <span className="inline-flex max-w-[14rem] rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                        <span className="inline-flex max-w-56 rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
                           {project.facultyDepartment}
                         </span>
                       </TableColumn>
@@ -717,7 +1174,7 @@ export default function Projects() {
             )}
           </TableBody>
         </Table>
-      ) : (
+      ) : activeTab === "projects" ? (
         <div className="flex flex-col gap-4">
           <TableToolbar>
             <TableToolbar.Row
@@ -819,7 +1276,306 @@ export default function Projects() {
             ))}
           </div>
         </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <Table
+            toolbar={
+              <TableToolbar>
+                <TableToolbar.Row
+                  justify="between"
+                  className="items-stretch gap-3 sm:items-center"
+                >
+                  <TableToolbar.ViewTabs
+                    value={groupViewMode}
+                    onValueChange={setGroupViewMode}
+                    tabs={[
+                      {
+                        id: "list",
+                        label: t("adminProjects.toolbar.list"),
+                        icon: (
+                          <LayoutList
+                            className="size-3.5 shrink-0"
+                            strokeWidth={2}
+                            aria-hidden
+                          />
+                        ),
+                      },
+                      {
+                        id: "board",
+                        label: t("adminProjects.toolbar.board"),
+                        icon: (
+                          <LayoutGrid
+                            className="size-3.5 shrink-0"
+                            strokeWidth={2}
+                            aria-hidden
+                          />
+                        ),
+                      },
+                    ]}
+                  />
+                </TableToolbar.Row>
+                <TableToolbar.Row justify="start" className="gap-2">
+                  <div className="min-w-0 flex-1 sm:min-w-48">
+                    <Field
+                      id="project-groups-search"
+                      placeholder={t("adminProjects.registry.search")}
+                      value={groupSearchInput}
+                      onChange={(e) => setGroupSearchInput(e.target.value)}
+                      iconD={IC.search}
+                    />
+                  </div>
+                </TableToolbar.Row>
+              </TableToolbar>
+            }
+          >
+            {groupViewMode === "list" ? (
+              <>
+                <TableHeader headerData={groupHeaderData} />
+                <TableBody>
+                  {filteredGroups.map((group) => (
+                    <TableRow key={normalizeGroupId(group)}>
+                      <TableColumn className="w-10">
+                        <Checkbox />
+                      </TableColumn>
+                      <TableColumn className="font-mono text-xs">
+                        #{normalizeGroupId(group)}
+                      </TableColumn>
+                      <TableColumn nowrap={false}>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                            <UsersRound className="size-4" strokeWidth={2} />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="line-clamp-1 text-sm font-medium text-primary dark:text-dark-primary">
+                              {groupTitle(group)}
+                            </div>
+                            <div className="text-xs text-muted dark:text-dark-muted">
+                              {t("adminProjects.registry.memberCount", {
+                                count: groupMembersCount(group),
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </TableColumn>
+                      <TableColumn nowrap={false}>
+                        <span className="text-sm text-secondary dark:text-dark-secondary">
+                          {personDisplayName(group?.groupLeader ?? group?.leader) ||
+                            "—"}
+                        </span>
+                      </TableColumn>
+                      <TableColumn className="text-sm text-secondary dark:text-dark-secondary">
+                        {t("adminProjects.registry.memberCount", {
+                          count: groupMembersCount(group),
+                        })}
+                      </TableColumn>
+                      <TableColumn className="text-center">
+                        {renderGroupActions(group)}
+                      </TableColumn>
+                    </TableRow>
+                  ))}
+
+                  {filteredGroups.length === 0 ? (
+                    <TableRow className="table-advanced-tr--empty cursor-default">
+                      <TableColumn
+                        colSpan={groupHeaderData.length}
+                        nowrap={false}
+                        className="py-12 text-center text-muted dark:text-dark-muted"
+                      >
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                            <UsersRound className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                          <span className="font-medium">
+                            {t("adminProjects.faculty.emptyGroups")}
+                          </span>
+                          <span className="text-xs opacity-75">
+                            {t("adminProjects.registry.emptyHint")}
+                          </span>
+                        </div>
+                      </TableColumn>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </>
+            ) : null}
+          </Table>
+
+          {groupViewMode === "board" ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filteredGroups.map((group) => (
+                <article
+                  key={`group-card-${normalizeGroupId(group)}`}
+                  className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 shadow-xs dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <Checkbox />
+                    {renderGroupActions(group)}
+                  </div>
+                  <div className="mt-3">
+                    <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                      {groupTitle(group)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted dark:text-dark-muted">
+                      #{normalizeGroupId(group)}
+                    </p>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                      {t("adminProjects.registry.memberCount", {
+                        count: groupMembersCount(group),
+                      })}
+                    </span>
+                  </div>
+                  <p className="mt-4 text-xs text-secondary dark:text-dark-secondary">
+                    {personDisplayName(group?.groupLeader ?? group?.leader) ||
+                      "—"}
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </div>
       )}
+
+      {groupOperation ? (
+        <GlobalModal
+          open={true}
+          setOpen={(open) => {
+            if (
+              !open &&
+              !updateFacultyGroup.isPending &&
+              !updateFacultyGroupLeader.isPending
+            )
+              closeGroupOperation();
+          }}
+          isClose
+          title={
+            groupOperation.mode === "add-member"
+              ? t("adminProjects.groups.operations.addMemberTitle")
+              : t("adminProjects.groups.operations.changeLeaderTitle")
+          }
+          subtitle={t("adminProjects.groups.operations.subtitle", {
+            group: groupTitle(groupOperation.record),
+          })}
+          footer={
+            <>
+              <Button
+                type="button"
+                variant="tertiary"
+                onClick={closeGroupOperation}
+                disabled={
+                  updateFacultyGroup.isPending ||
+                  updateFacultyGroupLeader.isPending
+                }
+              >
+                {t("adminProjects.form.group.actions.cancel")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void submitGroupOperation()}
+                loading={
+                  updateFacultyGroup.isPending ||
+                  updateFacultyGroupLeader.isPending
+                }
+                disabled={
+                  updateFacultyGroup.isPending ||
+                  updateFacultyGroupLeader.isPending ||
+                  !String(groupOperationDraft.studentId ?? "").trim()
+                }
+              >
+                {updateFacultyGroup.isPending ||
+                updateFacultyGroupLeader.isPending
+                  ? t("adminProjects.form.group.actions.submitting")
+                  : groupOperation.mode === "add-member"
+                    ? t("adminProjects.groups.operations.addMember")
+                    : t("adminProjects.groups.operations.changeLeader")}
+              </Button>
+            </>
+          }
+          className="max-w-xl"
+        >
+          <div className="grid gap-4">
+            <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-secondary px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-app-secondary)">
+              <div className="text-[11px] font-semibold text-primary dark:text-dark-primary">
+                {groupTitle(groupOperation.record)}
+              </div>
+              <div className="mt-1 text-[11px] text-secondary dark:text-dark-secondary">
+                {t("adminProjects.groups.operations.currentSummary", {
+                  leader: personDisplayName(groupOperation.record?.groupLeader),
+                  count: groupMembersCount(groupOperation.record),
+                })}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold text-primary dark:text-dark-primary">
+                {groupOperation.mode === "add-member"
+                  ? t("adminProjects.groups.operations.memberLabel")
+                  : t("adminProjects.groups.operations.leaderLabel")}
+              </span>
+              <SearchableSelect
+                value={groupOperationDraft.studentId}
+                onValueChange={(value) =>
+                  setGroupOperationDraft({ studentId: value ?? "" })
+                }
+                options={
+                  groupOperation.mode === "add-member"
+                    ? groupAddMemberOptions
+                    : groupLeaderOptions
+                }
+                placeholder={
+                  groupOperation.mode === "add-member"
+                    ? t("adminProjects.groups.operations.memberPlaceholder")
+                    : t("adminProjects.groups.operations.leaderPlaceholder")
+                }
+                searchPlaceholder={t(
+                  "adminProjects.form.group.placeholders.groupLeaderSearch",
+                )}
+                disabled={
+                  updateFacultyGroup.isPending ||
+                  updateFacultyGroupLeader.isPending ||
+                  (groupOperation.mode === "add-member" &&
+                    groupAddMemberOptions.length === 0)
+                }
+              />
+              {groupOperation.mode === "add-member" &&
+              groupAddMemberOptions.length === 0 ? (
+                <p className="text-[11px] text-muted dark:text-dark-muted">
+                  {t("adminProjects.groups.operations.noAvailableStudents")}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </GlobalModal>
+      ) : null}
+
+      {deleteGroup ? (
+        <SensitiveActionModal
+          open={true}
+          setOpen={(open) => {
+            if (!open && !deleteSubmitting) setDeleteGroup(null);
+          }}
+          title={t("adminProjects.delete.title")}
+          subtitle={t("adminProjects.delete.description", {
+            name: deleteGroup.name,
+          })}
+          summaryItems={[
+            {
+              label: t("adminProjects.delete.meta"),
+              value: deleteGroup.meta || "—",
+              mono: true,
+            },
+          ]}
+          warning={t("adminProjects.delete.warning")}
+          cancelLabel={t("adminProjects.form.group.actions.cancel")}
+          confirmLabel={
+            deleteSubmitting
+              ? t("adminProjects.form.group.actions.submitting")
+              : t("adminShared.actions.delete")
+          }
+          onConfirm={confirmDeleteGroup}
+          submitting={deleteSubmitting}
+        />
+      ) : null}
     </div>
   );
 }

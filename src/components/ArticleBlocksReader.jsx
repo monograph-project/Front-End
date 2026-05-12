@@ -101,11 +101,11 @@ export default function ArticleBlocksReader({ blocks, className }) {
           case "IMAGE":
             if (d.url) {
               return (
-                <figure key={key} className="my-6 space-y-2">
+                <figure key={key} className="my-8 space-y-2">
                   <img
                     src={d.url}
                     alt={d.alt ?? ""}
-                    className="max-h-[480px] w-full rounded-xl object-cover"
+                    className="aspect-video w-full rounded-xl border border-(--color-light-card-border) object-cover dark:border-(--color-dark-card-border)"
                   />
                   {d.alt ? (
                     <figcaption className="text-center text-sm text-muted dark:text-dark-muted">

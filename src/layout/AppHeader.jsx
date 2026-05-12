@@ -21,7 +21,11 @@ import {
   DropdownSubContent,
 } from "../components/DropdownMenu";
 import AvatarDemo from "../components/Avatar";
-import { resolveShellBasePath, settingsPathForShell } from "../lib/roles";
+import {
+  getFacultyDashboardPath,
+  resolveShellBasePath,
+  settingsPathForShell,
+} from "../lib/roles";
 import {
   resolveProfilePhotoUrl,
   buildPersonInitials,
@@ -208,6 +212,10 @@ export default function AppHeader({
     }
     if (base === "/writer" || user?.role === "author") {
       navigate("/writer/profile");
+      return;
+    }
+    if (base === "/student" || base === "/teacher") {
+      navigate(`${base}/profile`);
       return;
     }
     navigate(`${base}/dashboard`);

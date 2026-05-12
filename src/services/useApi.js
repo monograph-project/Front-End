@@ -904,10 +904,21 @@ export function useDeleteBatch(options) {
 }
 
 export function useFacultyProjects(params = {}, queryOptions = {}) {
-  const { notifyOnError = false, ...rest } = queryOptions;
+  const { notifyOnError = false, requestConfig, ...rest } = queryOptions;
   const q = useQuery({
     queryKey: ["faculty-projects", params],
-    queryFn: () => Api.getFacultyProjects(params),
+    queryFn: () => Api.getFacultyProjects(params, requestConfig),
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_projects");
+  return q;
+}
+
+export function usePublishedFacultyProjects(params = {}, queryOptions = {}) {
+  const { notifyOnError = false, requestConfig, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["faculty-projects", "published", params],
+    queryFn: () => Api.getPublishedFacultyProjects(params, requestConfig),
     ...rest,
   });
   useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_projects");
@@ -919,6 +930,23 @@ export function useFacultyProject(id, queryOptions = {}) {
   const q = useQuery({
     queryKey: ["faculty-projects", "detail", id],
     queryFn: () => Api.getFacultyProjectById(id),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_faculty_project");
+  return q;
+}
+
+export function usePublishedFacultyProject(id, queryOptions = {}) {
+  const {
+    enabled = Boolean(id),
+    notifyOnError = false,
+    requestConfig,
+    ...rest
+  } = queryOptions;
+  const q = useQuery({
+    queryKey: ["faculty-projects", "published", "detail", id],
+    queryFn: () => Api.getPublishedFacultyProjectById(id, requestConfig),
     enabled,
     ...rest,
   });
@@ -1022,6 +1050,33 @@ export function useUpdateFacultyProject(options) {
   });
 }
 
+export function useCompleteFacultyProject(options) {
+  return useApiMutation({
+    mutationFn: ({ id }) => Api.completeFacultyProject(id),
+    mutationKey: ["faculty-projects", "complete"],
+    toastSuccess: "Project marked as completed",
+    ...options,
+  });
+}
+
+export function usePublishFacultyProject(options) {
+  return useApiMutation({
+    mutationFn: ({ id }) => Api.publishFacultyProject(id),
+    mutationKey: ["faculty-projects", "publish"],
+    toastSuccess: "Project published",
+    ...options,
+  });
+}
+
+export function useUnpublishFacultyProject(options) {
+  return useApiMutation({
+    mutationFn: ({ id }) => Api.unpublishFacultyProject(id),
+    mutationKey: ["faculty-projects", "unpublish"],
+    toastSuccess: "Project unpublished",
+    ...options,
+  });
+}
+
 export function useInviteFacultyProjectMembers(options) {
   return useApiMutation({
     mutationFn: ({ id, invitations }) =>
@@ -1078,6 +1133,15 @@ export function useUpdateFacultyGroup(options) {
     mutationFn: ({ id, ...body }) => Api.updateFacultyGroup(id, body),
     mutationKey: ["faculty-groups", "update"],
     toastSuccess: "Group updated",
+    ...options,
+  });
+}
+
+export function useUpdateFacultyGroupLeader(options) {
+  return useApiMutation({
+    mutationFn: ({ id, leaderId }) => Api.updateFacultyGroupLeader(id, leaderId),
+    mutationKey: ["faculty-groups", "update-leader"],
+    toastSuccess: "Group leader updated",
     ...options,
   });
 }
@@ -1370,10 +1434,21 @@ export function usePermissionClientStats(clientId, queryOptions = {}) {
 /* ─── Blog / articles ───────────────────────────────────────────────────────── */
 
 export function useArticles(params = {}, queryOptions = {}) {
-  const { notifyOnError = true, ...rest } = queryOptions;
+  const { notifyOnError = true, requestConfig, ...rest } = queryOptions;
   const q = useQuery({
     queryKey: ["articles", "list", params],
-    queryFn: () => Api.getArticles(params),
+    queryFn: () => Api.getArticles(params, requestConfig),
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_articles");
+  return q;
+}
+
+export function usePublicArticles(params = {}, queryOptions = {}) {
+  const { notifyOnError = true, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["articles", "public-list", params],
+    queryFn: () => Api.getPublicArticles(params),
     ...rest,
   });
   useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_articles");
@@ -1381,11 +1456,24 @@ export function useArticles(params = {}, queryOptions = {}) {
 }
 
 export function useArticle(articleId, queryOptions = {}) {
-  const { enabled = Boolean(articleId), notifyOnError = true, ...rest } =
+  const { enabled = Boolean(articleId), notifyOnError = true, requestConfig, ...rest } =
     queryOptions;
   const q = useQuery({
     queryKey: ["articles", "detail", articleId],
-    queryFn: () => Api.getArticleById(articleId),
+    queryFn: () => Api.getArticleById(articleId, requestConfig),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_article");
+  return q;
+}
+
+export function usePublicArticle(articleId, queryOptions = {}) {
+  const { enabled = Boolean(articleId), notifyOnError = true, ...rest } =
+    queryOptions;
+  const q = useQuery({
+    queryKey: ["articles", "public-detail", articleId],
+    queryFn: () => Api.getPublicArticleById(articleId),
     enabled,
     ...rest,
   });
@@ -2103,6 +2191,52 @@ export function useLinkedStudentRecord(gatewayUser, queryOptions = {}) {
     q,
     notifyOnError,
     "apiErrors.failed_to_load_student",
+  );
+  return q;
+}
+
+export function useAdminArticles(params = {}, queryOptions = {}) {
+  const { notifyOnError = true, requestConfig, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["articles", "admin", params],
+    queryFn: () => Api.getAdminArticles(params, requestConfig),
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_articles");
+  return q;
+}
+
+/** `/api/teacher` row keyed to the signed-in gateway user (teacher id, not gateway user id). */
+export function useLinkedTeacherRecord(gatewayUser, queryOptions = {}) {
+  const {
+    notifyOnError = false,
+    enabled: enabledOverride,
+    ...rest
+  } = queryOptions;
+  const gid = gatewayUser?.id ?? "";
+  const uname =
+    typeof gatewayUser?.username === "string"
+      ? gatewayUser.username.trim()
+      : typeof gatewayUser?.user_name === "string"
+        ? gatewayUser.user_name.trim()
+        : "";
+
+  const enabled =
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : Boolean(gatewayUser != null && (gid !== "" || uname !== ""));
+
+  const q = useQuery({
+    queryKey: ["teachers", "linked-profile", gid, uname],
+    queryFn: () => Api.fetchLinkedTeacherForGatewayUser(gatewayUser),
+    enabled,
+    staleTime: 60_000,
+    ...rest,
+  });
+  useQueryErrorToast(
+    q,
+    notifyOnError,
+    "apiErrors.failed_to_load_teacher",
   );
   return q;
 }

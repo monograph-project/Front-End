@@ -15,6 +15,9 @@ import Button from "../../components/Button";
 import StatusPill, { statusToPillVariant } from "../../components/StatusPill";
 import { useDepartment } from "../../services/useApi";
 
+const SURFACE_CARD =
+  "rounded-3xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
+
 function formatDate(value, locale, fallback) {
   if (!value) return fallback;
   const date = new Date(value);
@@ -28,9 +31,9 @@ function formatDate(value, locale, fallback) {
 
 function InfoCard({ icon, label, value }) {
   return (
-    <div className="rounded-2xl border border-(--color-light-card-border) bg-light-card-bg p-4 dark:border-(--color-dark-card-border) dark:bg-dark-card-bg">
+    <div className={`${SURFACE_CARD} p-4`}>
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
           {icon}
         </div>
         <div className="min-w-0">
@@ -45,6 +48,7 @@ function InfoCard({ icon, label, value }) {
     </div>
   );
 }
+
 
 export default function DepartmentProfile() {
   const { id } = useParams();
@@ -92,7 +96,7 @@ export default function DepartmentProfile() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
+    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-white p-4 md:p-5 dark:bg-dark-card-bg">
       <div className="rounded-3xl border border-(--color-light-card-border) bg-light-card-bg p-5 shadow-sm dark:border-(--color-dark-card-border) dark:bg-dark-card-bg">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-4">
@@ -122,10 +126,12 @@ export default function DepartmentProfile() {
                 </StatusPill>
               </div>
               <p className="mt-2 text-sm text-secondary dark:text-dark-secondary">
-                {department.field || t("adminDepartments.profile.fieldFallback")}
+                {department.field ||
+                  t("adminDepartments.profile.fieldFallback")}
               </p>
               <p className="mt-1 text-xs text-muted dark:text-dark-muted">
-                {department.facultyName || t("adminDepartments.fallback.faculty")}
+                {department.facultyName ||
+                  t("adminDepartments.fallback.faculty")}
               </p>
             </div>
           </div>
@@ -164,12 +170,17 @@ export default function DepartmentProfile() {
               <InfoCard
                 icon={<BadgeCheck className="size-4" strokeWidth={1.8} />}
                 label={t("adminDepartments.profile.shortName")}
-                value={department.shortName || t("adminDepartments.fallback.date")}
+                value={
+                  department.shortName || t("adminDepartments.fallback.date")
+                }
               />
               <InfoCard
                 icon={<GraduationCap className="size-4" strokeWidth={1.8} />}
                 label={t("adminDepartments.profile.faculty")}
-                value={department.facultyName || t("adminDepartments.fallback.faculty")}
+                value={
+                  department.facultyName ||
+                  t("adminDepartments.fallback.faculty")
+                }
               />
               <InfoCard
                 icon={<CalendarDays className="size-4" strokeWidth={1.8} />}

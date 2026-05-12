@@ -1,6 +1,6 @@
 import { createElement, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Activity,
   ArrowLeft,
@@ -26,21 +26,30 @@ import {
 import { useTranslation } from "react-i18next";
 import Button from "../../components/Button";
 import GlobalModal from "../../components/GlobalModal";
+import PersonAvatar from "../../components/PersonAvatar";
 import ProjectRepositoryDocsPanel from "../../components/project/ProjectRepositoryDocsPanel";
 import SearchableSelect from "../../components/SearchableSelect";
+import { useAuth } from "../../context/AuthContext";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { resolveShellBasePath } from "../../lib/roles";
 import { cn } from "../../lib/utils";
 import {
   useFacultyProject,
+  useFacultyProjectByTeacher,
+  useCompleteFacultyProject,
   useInviteFacultyProjectMembers,
+  useLinkedTeacherRecord,
+  usePublishFacultyProject,
   useRepositorySearch,
   useStudentSearch,
   useStudentsPage,
+  useUnpublishFacultyProject,
   useUpdateFacultyProject,
   useVcRepoContributors,
   useVcRepoMilestones,
   useVcRepoStatistics,
   useVcRepoTasks,
+  useVcUserActivity,
 } from "../../services/useApi";
 
 const SURFACE_CARD =
@@ -98,6 +107,19 @@ function initialsFromName(value, fallback = "?") {
 function numberValue(raw) {
   const n = Number(raw ?? 0);
   return Number.isFinite(n) ? n : 0;
+}
+
+function normalizeListPayload(payload, ...keys) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object") return [];
+  for (const key of keys) {
+    if (Array.isArray(payload[key])) return payload[key];
+  }
+  if (Array.isArray(payload.content)) return payload.content;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.items)) return payload.items;
+  if (Array.isArray(payload.results)) return payload.results;
+  return [];
 }
 
 function safePercent(raw) {
@@ -231,6 +253,27 @@ function contributorKey(row) {
     .toLowerCase();
 }
 
+function contributorKeys(row) {
+  return [
+    row?.username,
+    row?.userName,
+    row?.displayName,
+    row?.email,
+    row?.id,
+    row?.userId,
+    row?.code,
+  ]
+    .map((value) => String(value ?? "").trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function firstContributorMatch(index, row) {
+  for (const key of contributorKeys(row)) {
+    if (index.has(key)) return index.get(key);
+  }
+  return null;
+}
+
 function taskStatus(value) {
   const raw = String(value ?? "").toLowerCase();
   if (raw.includes("complete")) return "completed";
@@ -240,13 +283,20 @@ function taskStatus(value) {
   return "open";
 }
 
-function deterministicScore(seed, min, span) {
-  const text = String(seed ?? "seed");
-  let h = 0;
-  for (let i = 0; i < text.length; i += 1) {
-    h = (h * 31 + text.charCodeAt(i)) % 9973;
-  }
-  return min + (h % span);
+function peopleFromStats(rows) {
+  return (Array.isArray(rows) ? rows : []).map((row, index) => {
+    const name = displayName(row, row?.username || `Contributor ${index + 1}`);
+    return {
+      id: String(row?.userId ?? row?.id ?? row?.username ?? `contributor-${index}`),
+      name,
+      email: row?.email ?? "",
+      profilePicture: row?.profile ?? row?.profilePicture ?? "",
+      tasks: numberValue(row?.completedTasks ?? row?.assignedTasks),
+      commits: numberValue(row?.commits),
+      pulls: numberValue(row?.pullRequests),
+      score: safePercent(row?.marksPercentage ?? row?.activityScore),
+    };
+  });
 }
 
 function StatCard({ icon, label, value, hint, tone = "sky" }) {
@@ -343,25 +393,98 @@ function ProgressBar({ value, className = "" }) {
   );
 }
 
-function ActivityStrip({ seed }) {
+function ActivityStrip({ seed, points = [] }) {
+  const values = Array.isArray(points) && points.length ? points : [0];
+  const max = Math.max(1, ...values.map((point) => numberValue(point?.value)));
   return (
     <div className="flex items-end gap-1">
-      {Array.from({ length: 18 }).map((_, index) => {
-        const height = 20 + ((deterministicScore(`${seed}-${index}`, 1, 70) + index) % 58);
-        const active = height > 34;
+      {values.map((point, index) => {
+        const value = numberValue(point?.value);
+        const height = Math.max(10, (value / max) * 72);
+        const label = point?.label ?? `Point ${index + 1}`;
         return (
           <span
             key={`${seed}-${index}`}
-            className={cn(
-              "w-1.5 rounded-full transition-colors",
-              active
-                ? activityColors[index % activityColors.length]
-                : "bg-light-app-tertiary dark:bg-dark-app-tertiary",
-            )}
+            className="group relative w-1.5 rounded-full bg-light-app-tertiary transition-colors hover:bg-(--color-light-input-border-focus) dark:bg-dark-app-tertiary dark:hover:bg-(--color-dark-input-border-focus)"
             style={{ height }}
-          />
+          >
+            {value > 0 ? (
+              <span
+                className={cn(
+                  "absolute inset-x-0 bottom-0 rounded-full",
+                  activityColors[index % activityColors.length],
+                )}
+                style={{ height: "100%" }}
+              />
+            ) : null}
+            <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden min-w-28 -translate-x-1/2 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-2 py-1 text-center text-[10px] font-semibold text-primary shadow-md group-hover:block dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-primary">
+              {label}: {value}
+            </span>
+          </span>
         );
       })}
+    </div>
+  );
+}
+
+function AxisActivityChart({
+  seed,
+  points = [],
+  xAxisLabel = "Timeline",
+  yAxisLabel = "Events",
+}) {
+  const values = Array.isArray(points) && points.length ? points : [];
+  const max = Math.max(1, ...values.map((point) => numberValue(point?.value)));
+  const firstLabel = values[0]?.label ?? "";
+  const lastLabel = values.at(-1)?.label ?? "";
+
+  return (
+    <div className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2">
+      <div className="flex items-center justify-center">
+        <span className="-rotate-90 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+          {yAxisLabel}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <div className="flex h-28 items-end gap-1 border-b border-l border-light-divider pl-2 dark:border-dark-divider">
+          {values.length ? (
+            values.map((point, index) => {
+              const value = numberValue(point?.value);
+              const height = Math.max(8, (value / max) * 96);
+              const label = point?.label ?? `Point ${index + 1}`;
+              return (
+                <span
+                  key={`${seed}-${index}`}
+                  className="group relative flex min-w-1 flex-1 items-end"
+                  style={{ height }}
+                >
+                  <span
+                    className={cn(
+                      "block w-full rounded-t-md",
+                      activityColors[index % activityColors.length],
+                    )}
+                    style={{ height: "100%" }}
+                  />
+                  <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden min-w-32 -translate-x-1/2 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-2 py-1 text-center text-[10px] font-semibold text-primary shadow-md group-hover:block dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-primary">
+                    {label}: {value}
+                  </span>
+                </span>
+              );
+            })
+          ) : (
+            <span className="pb-4 text-xs text-muted dark:text-dark-muted">
+              No activity yet
+            </span>
+          )}
+        </div>
+        <div className="mt-2 flex items-center justify-between text-[10px] text-muted dark:text-dark-muted">
+          <span>{firstLabel}</span>
+          <span className="font-semibold uppercase tracking-wide">
+            {xAxisLabel}
+          </span>
+          <span>{lastLabel}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -379,9 +502,11 @@ function PersonCard({ person, selected, onClick }) {
       )}
     >
       <div className="flex items-start gap-3">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-light-btn-primary-bg text-xs font-bold text-white dark:bg-dark-primary dark:text-dark-shell">
-          {person.initials}
-        </span>
+        <PersonAvatar
+          person={person}
+          sizeClass="inline-flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full"
+          className="bg-light-btn-primary-bg text-xs font-bold text-white dark:bg-dark-primary dark:text-dark-shell"
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
             {person.name}
@@ -389,6 +514,11 @@ function PersonCard({ person, selected, onClick }) {
           <p className="mt-0.5 truncate text-xs text-muted dark:text-dark-muted">
             {person.role}
           </p>
+          {person.email ? (
+            <p className="mt-1 truncate text-[11px] text-muted dark:text-dark-muted">
+              {person.email}
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="mt-4 grid grid-cols-3 gap-2">
@@ -418,7 +548,28 @@ function PersonCard({ person, selected, onClick }) {
 export default function ProjectWorkspace() {
   const { id, owner, repo } = useParams();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const shellBase = resolveShellBasePath(location.pathname, user?.role);
+  const isTeacherShell = shellBase === "/teacher";
+  const isAdminShell = shellBase === "/admin";
+  const sessionTeacherId = String(
+    user?.teacherId ??
+      user?.teacher_id ??
+      user?.facultyTeacherId ??
+      user?.faculty_teacher_id ??
+      user?.teacher?.id ??
+      "",
+  ).trim();
+  const { data: linkedTeacher } = useLinkedTeacherRecord(user, {
+    enabled: isTeacherShell && !sessionTeacherId,
+    notifyOnError: false,
+  });
+  const teacherId =
+    sessionTeacherId ||
+    (linkedTeacher?.id != null ? String(linkedTeacher.id).trim() : "");
   const urlOwner = owner ? decodeURIComponent(owner) : "";
   const urlRepo = repo ? decodeURIComponent(repo) : "";
 
@@ -439,10 +590,23 @@ export default function ProjectWorkspace() {
       enabled: Boolean(id),
       notifyOnError: true,
     });
+  const { data: teacherProjectResponse, isLoading: teacherProjectLoading } =
+    useFacultyProjectByTeacher(id, teacherId, {
+      enabled: Boolean(id && teacherId && isTeacherShell),
+      notifyOnError: false,
+    });
   const project = useMemo(
-    () => unwrapProjectRow(projectResponse),
-    [projectResponse],
+    () =>
+      unwrapProjectRow(
+        isTeacherShell
+          ? (teacherProjectResponse ?? projectResponse)
+          : projectResponse,
+      ),
+    [isTeacherShell, projectResponse, teacherProjectResponse],
   );
+  const activeProjectLoading = isTeacherShell
+    ? projectLoading || (Boolean(teacherId) && teacherProjectLoading)
+    : projectLoading;
 
   const projectMembers = useMemo(
     () => memberListFromGroup(project?.group),
@@ -458,6 +622,9 @@ export default function ProjectWorkspace() {
   const displayRepo = repository?.repositoryName ?? repository?.name ?? urlRepo;
   const hasRepository = Boolean(displayOwner && displayRepo);
   const repoPath = hasRepository ? `${displayOwner}/${displayRepo}` : "No repository connected";
+  const repositoryWorkspacePath = hasRepository
+    ? `${shellBase}/repository/${encodeURIComponent(displayOwner)}/${encodeURIComponent(displayRepo)}`
+    : "";
 
   const statsQ = useVcRepoStatistics(displayOwner, displayRepo, {
     enabled: hasRepository,
@@ -474,6 +641,11 @@ export default function ProjectWorkspace() {
   const contributorsQ = useVcRepoContributors(displayOwner, displayRepo, {
     enabled: hasRepository,
     notifyOnError: false,
+  });
+  const activityQ = useVcUserActivity(displayOwner, {
+    enabled: hasRepository && Boolean(displayOwner),
+    notifyOnError: false,
+    limit: 100,
   });
 
   const { data: studentPage } = useStudentsPage(
@@ -517,20 +689,62 @@ export default function ProjectWorkspace() {
     },
   });
 
+  const refreshProjectQueries = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["faculty-projects"] });
+    await queryClient.invalidateQueries({
+      queryKey: ["faculty-projects", "detail", id],
+    });
+  };
+
+  const completeProject = useCompleteFacultyProject({
+    toastSuccess: "Project marked as completed",
+    toastError: "apiErrors.failed_to_update_faculty_project",
+    onSuccess: refreshProjectQueries,
+  });
+
+  const publishProject = usePublishFacultyProject({
+    toastSuccess: "Project published",
+    toastError: "apiErrors.failed_to_update_faculty_project",
+    onSuccess: refreshProjectQueries,
+  });
+
+  const unpublishProject = useUnpublishFacultyProject({
+    toastSuccess: "Project unpublished",
+    toastError: "apiErrors.failed_to_update_faculty_project",
+    onSuccess: refreshProjectQueries,
+  });
+
   const tasks = useMemo(
-    () => (Array.isArray(tasksQ.data) ? tasksQ.data : []),
+    () => normalizeListPayload(tasksQ.data, "tasks"),
     [tasksQ.data],
   );
   const milestones = useMemo(
-    () => (Array.isArray(milestonesQ.data) ? milestonesQ.data : []),
+    () => normalizeListPayload(milestonesQ.data, "milestones"),
     [milestonesQ.data],
   );
   const rawContributors = useMemo(() => {
     const data = contributorsQ.data;
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.contributors)) return data.contributors;
-    return [];
-  }, [contributorsQ.data]);
+    const statsRows = Array.isArray(statsQ.data?.contributors)
+      ? statsQ.data.contributors
+      : [];
+    const rows = [];
+    const seen = new Set();
+    const add = (row) => {
+      if (!row || typeof row !== "object") return;
+      const key = contributorKey(row) || String(rows.length);
+      if (seen.has(key)) return;
+      seen.add(key);
+      rows.push(row);
+    };
+    statsRows.forEach(add);
+    if (Array.isArray(data)) data.forEach(add);
+    if (Array.isArray(data?.contributors)) data.contributors.forEach(add);
+    return rows;
+  }, [contributorsQ.data, statsQ.data]);
+  const activityEvents = useMemo(
+    () => (Array.isArray(activityQ.data) ? activityQ.data : []),
+    [activityQ.data],
+  );
 
   const overview = statsQ.data?.overview ?? {};
   const completedTasks = tasks.filter((task) => taskStatus(task?.status) === "completed").length;
@@ -547,53 +761,82 @@ export default function ProjectWorkspace() {
     );
   const completion =
     tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
+  const activityPoints = useMemo(() => {
+    const buckets = new Map();
+    for (const event of activityEvents) {
+      const rawDate =
+        event?.createdAt ??
+        event?.timestamp ??
+        event?.time ??
+        event?.date ??
+        event?.occurredAt;
+      const date = rawDate ? new Date(rawDate) : null;
+      const key =
+        date && !Number.isNaN(date.getTime())
+          ? date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+          : "Recent";
+      buckets.set(key, (buckets.get(key) ?? 0) + 1);
+    }
+    if (!buckets.size) {
+      return peopleFromStats(rawContributors).map((person) => ({
+        label: person.name,
+        value: person.commits + person.pulls + person.tasks,
+      }));
+    }
+    return [...buckets.entries()]
+      .slice(-18)
+      .map(([label, value]) => ({ label, value }));
+  }, [activityEvents, rawContributors]);
 
   const people = useMemo(() => {
     const byKey = new Map();
     rawContributors.forEach((row) => {
-      const key = contributorKey(row);
-      if (key) byKey.set(key, row);
+      contributorKeys(row).forEach((key) => byKey.set(key, row));
     });
 
     const supervisorName = displayName(project?.teacher, "Supervisor");
+    const supervisorStats = firstContributorMatch(byKey, project?.teacher) ?? {};
     const supervisor = {
       id: `teacher-${project?.teacher?.id ?? supervisorName}`,
       name: supervisorName,
       role: "Lead supervisor",
+      email: project?.teacher?.email ?? supervisorStats?.email ?? "",
+      profilePicture:
+        project?.teacher?.profilePicture ??
+        supervisorStats?.profile ??
+        supervisorStats?.profilePicture ??
+        "",
       initials: initialsFromName(supervisorName, "TS"),
-      tasks: 0,
-      commits: 0,
-      pulls: 0,
-      score: 100,
+      tasks: numberValue(
+        supervisorStats?.completedTasks ?? supervisorStats?.assignedTasks,
+      ),
+      commits: numberValue(supervisorStats?.commits),
+      pulls: numberValue(supervisorStats?.pullRequests),
+      score: safePercent(
+        supervisorStats?.marksPercentage ?? supervisorStats?.activityScore,
+      ),
       kind: "teacher",
       note: "Reviews direction, milestones, and repository readiness.",
     };
 
     const students = projectMembers.map((member, index) => {
-      const key = contributorKey(member);
-      const vc = byKey.get(key) ?? {};
+      const vc = firstContributorMatch(byKey, member) ?? {};
       const name = displayName(member, `Student ${index + 1}`);
-      const seed = studentIdValue(member) || name;
       return {
         id: studentIdValue(member) || `student-${index}`,
         name,
+        email: member?.email ?? vc?.email ?? "",
+        profilePicture:
+          member?.profilePicture ?? vc?.profile ?? vc?.profilePicture ?? "",
         role:
           member?.department?.name ??
           member?.batch?.name ??
           "Project contributor",
         initials: initialsFromName(name, "ST"),
-        tasks:
-          numberValue(vc?.completedTasks) ||
-          deterministicScore(seed, 4, 12),
-        commits:
-          numberValue(vc?.commits) ||
-          deterministicScore(`${seed}-commits`, 8, 54),
-        pulls:
-          numberValue(vc?.pullRequests) ||
-          deterministicScore(`${seed}-pulls`, 1, 8),
-        score:
-          safePercent(vc?.marksPercentage) ||
-          deterministicScore(`${seed}-score`, 62, 32),
+        tasks: numberValue(vc?.completedTasks ?? vc?.assignedTasks),
+        commits: numberValue(vc?.commits),
+        pulls: numberValue(vc?.pullRequests),
+        score: safePercent(vc?.marksPercentage ?? vc?.activityScore),
         kind: "student",
         note: "Contributes implementation, documents, and project evidence.",
       };
@@ -665,6 +908,9 @@ export default function ProjectWorkspace() {
   const projectDescription =
     project?.description ||
     t("adminProjectWorkspace.defaultDescription");
+  const projectStatus = String(project?.status ?? "").toUpperCase();
+  const isProjectCompleted = projectStatus === "COMPLETED";
+  const isProjectPublished = Boolean(project?.published);
 
   const taskFlow = [
     { label: "Open", value: Math.max(0, tasks.length - completedTasks - progressTasks - reviewTasks) },
@@ -681,16 +927,19 @@ export default function ProjectWorkspace() {
       detail: hasRepository
         ? `Implementation activity for ${repoPath}`
         : "Connect a repository to show live commit activity.",
+      to: repositoryWorkspacePath,
     },
     {
       icon: GitPullRequest,
       title: `${totalPulls || 0} pull requests`,
       detail: "Review flow across students and supervisors.",
+      to: `${repositoryWorkspacePath}/pull-requests`,
     },
     {
       icon: CheckCircle2,
       title: `${completedTasks} tasks completed`,
       detail: `${reviewTasks} tasks are waiting for review.`,
+      to: `${repositoryWorkspacePath}/tasks`,
     },
   ];
 
@@ -711,7 +960,22 @@ export default function ProjectWorkspace() {
     });
   };
 
-  if (id && projectLoading) {
+  const completeProjectSubmit = () => {
+    if (!id || completeProject.isPending || isProjectCompleted) return;
+    completeProject.mutate({ id });
+  };
+
+  const publishProjectSubmit = () => {
+    if (!id || publishProject.isPending || !isProjectCompleted) return;
+    publishProject.mutate({ id });
+  };
+
+  const unpublishProjectSubmit = () => {
+    if (!id || unpublishProject.isPending) return;
+    unpublishProject.mutate({ id });
+  };
+
+  if (id && activeProjectLoading) {
     return (
       <div className="flex min-h-screen flex-1 items-center justify-center bg-white p-4 dark:bg-dark-card-bg">
         <p className="text-sm text-muted dark:text-dark-muted">
@@ -721,7 +985,7 @@ export default function ProjectWorkspace() {
     );
   }
 
-  if (id && !projectLoading && !project) {
+  if (id && !activeProjectLoading && !project) {
     return (
       <div className="flex min-h-screen flex-1 items-center justify-center bg-white p-4 dark:bg-dark-card-bg">
         <p className="text-sm text-muted dark:text-dark-muted">
@@ -735,7 +999,7 @@ export default function ProjectWorkspace() {
     <div className="min-h-screen flex-1 overflow-y-auto bg-white p-4 dark:bg-dark-card-bg md:p-5">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
         <Link
-          to="/admin/projects"
+          to={`${shellBase}/projects`}
           className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-muted transition-colors hover:text-primary dark:text-dark-muted dark:hover:text-dark-primary"
         >
           <ArrowLeft className="size-4" strokeWidth={2} aria-hidden />
@@ -803,26 +1067,68 @@ export default function ProjectWorkspace() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="primary"
-                    icon={<UserPlus className="size-4" aria-hidden />}
-                    onClick={() => setInviteOpen(true)}
-                  >
-                    {t("adminProjectWorkspace.actions.inviteMembers")}
-                  </Button>
+                <div className={`${SURFACE_CARD} space-y-3 p-3`}>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted dark:text-dark-muted">
+                      {t("adminProjectWorkspace.actions.title")}
+                    </p>
+                    <p className="mt-1 text-xs text-muted dark:text-dark-muted">
+                      {t("adminProjectWorkspace.actions.helper")}
+                    </p>
+                  </div>
                   <Button
                     type="button"
                     variant={hasRepository ? "secondary" : "primary"}
                     icon={<Link2 className="size-4" aria-hidden />}
                     onClick={() => setConnectRepoOpen(true)}
+                    className="w-full justify-center"
                   >
                     {hasRepository
-                      ? "Change repository"
+                      ? t("adminProjectWorkspace.actions.changeRepository")
                       : t("adminProjectWorkspace.actions.connectRepository")}
                   </Button>
+                  {isTeacherShell ? (
+                    <Button
+                      type="button"
+                      variant={isProjectCompleted ? "secondary" : "primary"}
+                      icon={<CheckCircle2 className="size-4" aria-hidden />}
+                      disabled={completeProject.isPending || isProjectCompleted}
+                      onClick={completeProjectSubmit}
+                      className="w-full justify-center"
+                    >
+                      {isProjectCompleted
+                        ? t("adminProjectWorkspace.actions.completed")
+                        : t("adminProjectWorkspace.actions.markCompleted")}
+                    </Button>
+                  ) : null}
+                  {isAdminShell ? (
+                    <Button
+                      type="button"
+                      variant={isProjectPublished ? "secondary" : "primary"}
+                      icon={<BookOpenCheck className="size-4" aria-hidden />}
+                      disabled={
+                        publishProject.isPending ||
+                        unpublishProject.isPending ||
+                        (!isProjectPublished && !isProjectCompleted)
+                      }
+                      onClick={
+                        isProjectPublished
+                          ? unpublishProjectSubmit
+                          : publishProjectSubmit
+                      }
+                      className="w-full justify-center"
+                    >
+                      {isProjectPublished
+                        ? t("adminProjectWorkspace.actions.unpublish")
+                        : t("adminProjectWorkspace.actions.publish")}
+                    </Button>
+                  ) : null}
                 </div>
+                {isAdminShell && !isProjectCompleted ? (
+                  <p className="text-xs text-muted dark:text-dark-muted">
+                    {t("adminProjectWorkspace.publishRequiresCompletion")}
+                  </p>
+                ) : null}
               </div>
             </aside>
           </div>
@@ -838,7 +1144,13 @@ export default function ProjectWorkspace() {
             <button
               key={idKey}
               type="button"
-              onClick={() => setActivePanel(idKey)}
+              onClick={() => {
+                if (idKey === "repository" && repositoryWorkspacePath) {
+                  navigate(repositoryWorkspacePath);
+                  return;
+                }
+                setActivePanel(idKey);
+              }}
               className={cn(
                 "inline-flex h-9 shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-semibold transition-colors",
                 activePanel === idKey
@@ -970,8 +1282,9 @@ export default function ProjectWorkspace() {
               />
               <div className="space-y-3 p-4 md:p-5">
                 {recentActivity.map((item) => (
-                  <div
+                  <Link
                     key={item.title}
+                    to={item.to}
                     className="flex items-start gap-3 rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"
                   >
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-(--color-light-card-bg) text-primary dark:bg-(--color-dark-card-bg) dark:text-dark-primary">
@@ -989,7 +1302,7 @@ export default function ProjectWorkspace() {
                       className="mt-2 size-4 text-muted dark:text-dark-muted"
                       strokeWidth={1.8}
                     />
-                  </div>
+                  </Link>
                 ))}
               </div>
             </section>
@@ -1001,8 +1314,8 @@ export default function ProjectWorkspace() {
             <SectionHeader
               icon={GitBranch}
               eyebrow="Repository"
-              title="Repository information and files"
-              description="Connect the academic project to its implementation repository, then inspect files, history, and comparisons from one place."
+              title={t("adminProjectWorkspace.repositoryPanel.title")}
+              description={t("adminProjectWorkspace.repositoryPanel.description")}
               action={
                 <Button
                   type="button"
@@ -1010,7 +1323,9 @@ export default function ProjectWorkspace() {
                   icon={<Link2 className="size-4" aria-hidden />}
                   onClick={() => setConnectRepoOpen(true)}
                 >
-                  {hasRepository ? "Change repository" : "Connect repository"}
+                  {hasRepository
+                    ? t("adminProjectWorkspace.actions.changeRepository")
+                    : t("adminProjectWorkspace.actions.connectRepository")}
                 </Button>
               }
             />
@@ -1040,6 +1355,25 @@ export default function ProjectWorkspace() {
                     <p className="mt-2 text-2xl font-semibold text-primary dark:text-dark-primary">
                       {totalPulls}
                     </p>
+                  </div>
+                </div>
+                <div className={`${SURFACE_INSET} mb-4 p-4`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                        {t("adminProjectWorkspace.repositoryPanel.fullTitle")}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-secondary dark:text-dark-secondary">
+                        {t("adminProjectWorkspace.repositoryPanel.fullDescription")}
+                      </p>
+                    </div>
+                    <Link
+                      to={repositoryWorkspacePath}
+                      className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-xl border border-(--color-light-input-border) bg-(--color-light-card-bg) px-4 py-2 text-sm font-semibold text-secondary transition-colors hover:border-(--color-light-input-border-focus) hover:text-primary dark:border-dark-input-border dark:bg-(--color-dark-card-bg) dark:text-dark-secondary dark:hover:border-(--color-dark-input-border-focus) dark:hover:text-dark-primary"
+                    >
+                      <LayoutDashboard className="size-4" strokeWidth={1.8} />
+                      {t("adminProjectWorkspace.repositoryPanel.openWorkspace")}
+                    </Link>
                   </div>
                 </div>
                 <ProjectRepositoryDocsPanel
@@ -1132,7 +1466,15 @@ export default function ProjectWorkspace() {
                     <p className="mb-2 text-xs text-muted dark:text-dark-muted">
                       Activity rhythm
                     </p>
-                    <ActivityStrip seed={selectedPerson?.id} />
+                    <ActivityStrip
+                      seed={selectedPerson?.id}
+                      points={[
+                        { label: "Tasks", value: selectedPerson?.tasks },
+                        { label: "Commits", value: selectedPerson?.commits },
+                        { label: "Pull requests", value: selectedPerson?.pulls },
+                        { label: "Score", value: selectedPerson?.score },
+                      ]}
+                    />
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className={`${SURFACE_CARD} p-3 text-center`}>
@@ -1188,6 +1530,22 @@ export default function ProjectWorkspace() {
                   <span className={PILL}>{repoPath}</span>
                 </div>
                 <div className="mt-5 space-y-4">
+                  <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-3 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold text-primary dark:text-dark-primary">
+                        Repository events
+                      </p>
+                      <span className="text-[10px] text-muted dark:text-dark-muted">
+                        Hover bars for details
+                      </span>
+                    </div>
+                    <AxisActivityChart
+                      seed="repository-events"
+                      points={activityPoints}
+                      xAxisLabel="Date"
+                      yAxisLabel="Events"
+                    />
+                  </div>
                   {people.map((person) => (
                     <div
                       key={`activity-${person.id}`}
@@ -1206,7 +1564,17 @@ export default function ProjectWorkspace() {
                           </p>
                         </div>
                       </div>
-                      <ActivityStrip seed={`${person.id}-wide`} />
+                      <AxisActivityChart
+                        seed={`${person.id}-wide`}
+                        points={[
+                          { label: "Tasks", value: person.tasks },
+                          { label: "Commits", value: person.commits },
+                          { label: "Pull requests", value: person.pulls },
+                          { label: "Score", value: person.score },
+                        ]}
+                        xAxisLabel="Metric"
+                        yAxisLabel="Value"
+                      />
                       <div className="text-right">
                         <p className="text-sm font-semibold text-primary dark:text-dark-primary">
                           {person.commits}

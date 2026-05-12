@@ -20,16 +20,18 @@ import PersonAvatar from "../../components/PersonAvatar";
 import Button from "../../components/Button";
 import Checkbox from "../../components/Checkbox";
 import {
+  AdminRecordsBoard,
+  AdminTableToolDropdowns,
+} from "../../components/admin/AdminTableControls";
+import {
   DropdownContent,
   DropdownItem,
   DropdownMenuRoot,
-  DropdownSeparator,
   DropdownTrigger,
 } from "../../components/DropdownMenu";
 import Field from "../../components/Field";
 import IC from "../../components/IC";
 import Icon from "../../components/Icon";
-import OperationsDropdown from "../../components/OperationsDropdown";
 import Pagination from "../../components/Pagination";
 import Select from "../../components/Select";
 import SensitiveActionModal from "../../components/SensitiveActionModal";
@@ -55,6 +57,11 @@ export default function Students() {
   const debouncedSearch = useDebouncedValue(searchInput, 400);
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewTab, setViewTab] = useState("list");
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [hiddenColumns, setHiddenColumns] = useState(() => new Set());
+  const [compactRows, setCompactRows] = useState(false);
+  const [sortKey, setSortKey] = useState("name");
+  const [sortDirection, setSortDirection] = useState("asc");
   const [deleteStudentId, setDeleteStudentId] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
@@ -75,7 +82,6 @@ export default function Students() {
 
   const {
     data: pageData,
-    isLoading,
     isError,
     error,
   } = useStudentsPage({
@@ -97,10 +103,12 @@ export default function Students() {
     (row) => String(row.id) === String(deleteStudentId),
   );
 
-  const headerData = useMemo(
+  const columnDefs = useMemo(
     () => [
       {
+        id: "select",
         title: "",
+        required: true,
         tooltip: t("adminShared.tableHints.bulkSelection"),
         icon: (
           <ListChecks
@@ -111,6 +119,7 @@ export default function Students() {
         ),
       },
       {
+        id: "id",
         title: t("adminStudents.table.id"),
         tooltip: t("adminShared.tableHints.recordId"),
         icon: (
@@ -118,6 +127,7 @@ export default function Students() {
         ),
       },
       {
+        id: "student",
         title: t("adminStudents.table.student"),
         tooltip: t("adminShared.tableHints.displayName"),
         icon: (
@@ -129,6 +139,7 @@ export default function Students() {
         ),
       },
       {
+        id: "department",
         title: t("adminStudents.table.department"),
         tooltip: t("adminShared.tableHints.department"),
         icon: (
@@ -140,6 +151,7 @@ export default function Students() {
         ),
       },
       {
+        id: "status",
         title: t("adminStudents.table.status"),
         tooltip: t("adminShared.tableHints.columnStatus"),
         icon: (
@@ -151,6 +163,7 @@ export default function Students() {
         ),
       },
       {
+        id: "enrolled",
         title: t("adminStudents.table.enrolled"),
         tooltip: t("adminShared.tableHints.dateEnrolled"),
         icon: (
@@ -162,6 +175,8 @@ export default function Students() {
         ),
       },
       {
+        id: "actions",
+        required: true,
         title: t("adminStudents.table.actions"),
         align: "center",
         tooltip: t("adminShared.tableHints.rowActions"),
@@ -176,6 +191,22 @@ export default function Students() {
     ],
     [t],
   );
+  const visibleColumnDefs = useMemo(
+    () => columnDefs.filter((column) => !hiddenColumns.has(column.id)),
+    [columnDefs, hiddenColumns],
+  );
+  const headerData = useMemo(
+    () =>
+      visibleColumnDefs.map((column) => ({
+        title: column.title,
+        tooltip: column.tooltip,
+        icon: column.icon,
+        align: column.align,
+        className: column.className,
+      })),
+    [visibleColumnDefs],
+  );
+  const isColumnVisible = (id) => !hiddenColumns.has(id);
 
   const locale =
     i18n.language === "ps"
@@ -191,6 +222,44 @@ export default function Students() {
     { value: "rejected", label: t("adminShared.status.rejected") },
     { value: "suspended", label: t("adminShared.status.suspended") },
   ];
+  const sortOptions = [
+    { value: "name", label: t("adminStudents.table.student") },
+    { value: "department", label: t("adminStudents.table.department") },
+    { value: "status", label: t("adminStudents.table.status") },
+    { value: "enrolled", label: t("adminStudents.table.enrolled") },
+  ];
+  const sortedStudents = useMemo(() => {
+    const accessors = {
+      name: (student) => `${student.firstName ?? ""} ${student.lastName ?? ""}`,
+      department: (student) => student.department ?? "",
+      status: (student) => student.status ?? "",
+      enrolled: (student) => student.enrollmentDate ?? "",
+    };
+    const getValue = accessors[sortKey] ?? accessors.name;
+    return [...students].sort((a, b) => {
+      const result = String(getValue(a)).localeCompare(String(getValue(b)), undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      return sortDirection === "desc" ? -result : result;
+    });
+  }, [students, sortDirection, sortKey]);
+  const toggleSelected = (id) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleColumn = (id) => {
+    setHiddenColumns((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const exportToCSV = () => {
     const headers = [
@@ -252,6 +321,41 @@ export default function Students() {
     }
   };
 
+  const renderStudentActions = (student) => (
+    <DropdownMenuRoot>
+      <DropdownTrigger showArrow={false}>
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 15 15"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
+            fill="currentColor"
+            fillRule="evenodd"
+            clipRule="evenodd"
+          />
+        </svg>
+      </DropdownTrigger>
+      <DropdownContent align="end">
+        <DropdownItem onClick={() => handleViewProfile(student)}>
+          <span>{t("adminShared.actions.viewProfile")}</span>
+        </DropdownItem>
+        <DropdownItem onClick={() => navigate(`/admin/student/${student.id}/edit`)}>
+          <span>{t("adminShared.actions.editDetails")}</span>
+        </DropdownItem>
+        <DropdownItem
+          variant="danger"
+          onClick={() => setDeleteStudentId(student.id)}
+        >
+          <span>{t("adminShared.actions.delete")}</span>
+        </DropdownItem>
+      </DropdownContent>
+    </DropdownMenuRoot>
+  );
+
   if (isError) {
     return (
       <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto bg-light-app-bg p-4 md:p-5 dark:bg-dark-card-bg">
@@ -291,28 +395,6 @@ export default function Students() {
 
         <div className="flex items-center gap-3">
           <div className="flex-none">
-            <OperationsDropdown
-              items={[
-                {
-                  key: "export",
-                  icon: <Icon d={IC.download} className="size-4" />,
-                  label: t("adminShared.actions.download"),
-                  onClick: exportToCSV,
-                },
-                {
-                  key: "import",
-                  icon: <Icon d={IC.upload} className="size-4" />,
-                  label: t("adminStudents.toolbar.import"),
-                  onClick: () =>
-                    window.GooeyToaster?.info?.(
-                      t("adminStudents.toolbar.importPending"),
-                    ),
-                },
-              ]}
-            />
-          </div>
-
-          <div className="flex-none">
             <button
               type="button"
               onClick={() => navigate("/admin/student/new")}
@@ -337,14 +419,7 @@ export default function Students() {
               >
                 <TableToolbar.ViewTabs
                   value={viewTab}
-                  onValueChange={(id) => {
-                    setViewTab(id);
-                    if (id === "board") {
-                      window.GooeyToaster?.info?.(
-                        t("adminStudents.toolbar.boardPending"),
-                      );
-                    }
-                  }}
+                  onValueChange={setViewTab}
                   tabs={[
                     {
                       id: "list",
@@ -388,83 +463,69 @@ export default function Students() {
                     onValueChange={setStatusFilter}
                   />
                 </div>
-                <TableToolbar.Section className="w-full shrink-0 justify-start sm:ml-auto sm:w-auto md:justify-end">
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminStudents.toolbar.filter")}
-                    icon={
-                      <Filter className="size-3.5 shrink-0" strokeWidth={2} />
-                    }
-                    onClick={() =>
-                      window.GooeyToaster?.info?.(
-                        t("adminStudents.toolbar.filtersPending"),
-                      )
-                    }
-                  >
-                    {t("adminStudents.toolbar.filter")}
-                  </TableToolbar.IconButton>
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminStudents.toolbar.sort")}
-                    icon={
-                      <ArrowUpDown
-                        className="size-3.5 shrink-0"
-                        strokeWidth={2}
-                      />
-                    }
-                    onClick={() =>
-                      window.GooeyToaster?.info?.(
-                        t("adminStudents.toolbar.sortPending"),
-                      )
-                    }
-                  >
-                    {t("adminStudents.toolbar.sort")}
-                  </TableToolbar.IconButton>
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminStudents.toolbar.columns")}
-                    icon={
-                      <Columns3 className="size-3.5 shrink-0" strokeWidth={2} />
-                    }
-                    onClick={() =>
-                      window.GooeyToaster?.info?.(
-                        t("adminStudents.toolbar.columnsPending"),
-                      )
-                    }
-                  >
-                    {t("adminStudents.toolbar.columns")}
-                  </TableToolbar.IconButton>
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminStudents.toolbar.hide")}
-                    icon={
-                      <EyeOff className="size-3.5 shrink-0" strokeWidth={2} />
-                    }
-                    onClick={() =>
-                      window.GooeyToaster?.info?.(
-                        t("adminStudents.toolbar.densityPending"),
-                      )
-                    }
-                  >
-                    {t("adminStudents.toolbar.hide")}
-                  </TableToolbar.IconButton>
-                </TableToolbar.Section>
+                <AdminTableToolDropdowns
+                  labels={{
+                    filter: t("adminStudents.toolbar.filter"),
+                    sort: t("adminStudents.toolbar.sort"),
+                    columns: t("adminStudents.toolbar.columns"),
+                    hide: t("adminStudents.toolbar.hide"),
+                  }}
+                  icons={{
+                    filter: <Filter className="size-3.5 shrink-0" strokeWidth={2} />,
+                    sort: <ArrowUpDown className="size-3.5 shrink-0" strokeWidth={2} />,
+                    columns: <Columns3 className="size-3.5 shrink-0" strokeWidth={2} />,
+                    hide: <EyeOff className="size-3.5 shrink-0" strokeWidth={2} />,
+                  }}
+                  statusOptions={statusOptions}
+                  statusFilter={statusFilter}
+                  onStatusFilterChange={setStatusFilter}
+                  sortOptions={sortOptions}
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSortChange={(key, direction) => {
+                    setSortKey(key);
+                    setSortDirection(direction);
+                  }}
+                  columns={columnDefs.map((column) => ({
+                    id: column.id,
+                    label: column.title || t("adminTable.columns.selection"),
+                    required: column.required,
+                  }))}
+                  hiddenColumns={[...hiddenColumns]}
+                  onToggleColumn={toggleColumn}
+                  onResetColumns={() => setHiddenColumns(new Set())}
+                  compactRows={compactRows}
+                  onToggleCompactRows={() => setCompactRows((value) => !value)}
+                />
               </TableToolbar.Row>
             </TableToolbar>
           }
         >
-          <TableHeader headerData={headerData} />
-          <TableBody>
-            {students.map((student) => (
-              <TableRow key={student.id}>
-                <TableColumn className="w-10">
-                  <Checkbox />
-                </TableColumn>
+          {viewTab === "list" ? (
+            <>
+              <TableHeader headerData={headerData} />
+              <TableBody>
+                {sortedStudents.map((student) => (
+              <TableRow
+                key={student.id}
+                className={compactRows ? "[&_td]:py-2" : undefined}
+              >
+                {isColumnVisible("select") ? (
+                  <TableColumn className="w-10">
+                    <Checkbox
+                      checked={selectedIds.has(String(student.id))}
+                      onChange={() => toggleSelected(String(student.id))}
+                    />
+                  </TableColumn>
+                ) : null}
 
+                {isColumnVisible("id") ? (
                 <TableColumn className="font-mono text-xs">
                   #{String(student.code).padStart(2, "0")}
                 </TableColumn>
+                ) : null}
 
+                {isColumnVisible("student") ? (
                 <TableColumn>
                   <div className="flex items-center gap-3">
                     <PersonAvatar person={student} />
@@ -478,13 +539,17 @@ export default function Students() {
                     </div>
                   </div>
                 </TableColumn>
+                ) : null}
 
+                {isColumnVisible("department") ? (
                 <TableColumn nowrap={false}>
                   <span className="inline-flex max-w-[14rem] rounded-full border border-default bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold capitalize text-secondary dark:border-dark-default dark:bg-dark-app-tertiary dark:text-dark-secondary">
                     {student.department || t("adminStudents.emptyHint")}
                   </span>
                 </TableColumn>
+                ) : null}
 
+                {isColumnVisible("status") ? (
                 <TableColumn>
                   <StatusPill variant={statusToPillVariant(student.status)}>
                     {t(
@@ -492,7 +557,9 @@ export default function Students() {
                     )}
                   </StatusPill>
                 </TableColumn>
+                ) : null}
 
+                {isColumnVisible("enrolled") ? (
                 <TableColumn className="whitespace-nowrap text-xs">
                   {student.enrollmentDate
                     ? new Date(student.enrollmentDate).toLocaleDateString(
@@ -505,7 +572,9 @@ export default function Students() {
                       )
                     : "—"}
                 </TableColumn>
+                ) : null}
 
+                {isColumnVisible("actions") ? (
                 <TableColumn className="text-center">
                   <DropdownMenuRoot>
                     <DropdownTrigger showArrow={false}>
@@ -535,12 +604,6 @@ export default function Students() {
                       >
                         <span>{t("adminShared.actions.editDetails")}</span>
                       </DropdownItem>
-                      <DropdownItem>
-                        <span>{t("adminShared.actions.sendMessage")}</span>
-                      </DropdownItem>
-
-                      <DropdownSeparator />
-
                       <DropdownItem
                         variant="danger"
                         onClick={() => setDeleteStudentId(student.id)}
@@ -550,10 +613,11 @@ export default function Students() {
                     </DropdownContent>
                   </DropdownMenuRoot>
                 </TableColumn>
+                ) : null}
               </TableRow>
             ))}
 
-            {students.length === 0 && (
+            {sortedStudents.length === 0 && (
               <TableRow className="table-advanced-tr--empty cursor-default">
                 <TableColumn
                   colSpan={headerData.length}
@@ -577,8 +641,46 @@ export default function Students() {
                 </TableColumn>
               </TableRow>
             )}
-          </TableBody>
+              </TableBody>
+            </>
+          ) : null}
         </Table>
+        {viewTab === "board" ? (
+          <div className="mt-4">
+            <AdminRecordsBoard
+              rows={sortedStudents}
+              getKey={(student) => student.id}
+              selectedIds={selectedIds}
+              onToggleSelected={toggleSelected}
+              renderTitle={(student) =>
+                `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim() ||
+                student.email ||
+                student.id
+              }
+              renderSubtitle={(student) =>
+                student.email || student.username || student.code || "—"
+              }
+              renderStatus={(student) => (
+                <StatusPill variant={statusToPillVariant(student.status)}>
+                  {t(`adminShared.status.${String(student.status).toLowerCase()}`)}
+                </StatusPill>
+              )}
+              renderMeta={(student) => (
+                <>
+                  <span>{student.department || t("adminStudents.emptyHint")}</span>
+                  <span>
+                    {student.enrollmentDate
+                      ? new Date(student.enrollmentDate).toLocaleDateString(locale)
+                      : "—"}
+                  </span>
+                </>
+              )}
+              renderActions={renderStudentActions}
+              emptyTitle={t("adminStudents.empty")}
+              emptyDescription={t("adminStudents.emptyHint")}
+            />
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
           <Pagination
             currentPage={page}

@@ -11,7 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useOutletContext } from "react-router-dom";
+import { Link, useLocation, useOutletContext } from "react-router-dom";
 import Avatar from "../../components/Avatar";
 import Button from "../../components/Button";
 import GlobalModal from "../../components/GlobalModal";
@@ -20,6 +20,7 @@ import { REPO_OVERVIEW_STAT_PALETTES } from "../../components/repo/repoOverviewS
 import SearchableSelect from "../../components/SearchableSelect";
 import SettingsSectionCard from "../../components/SettingsSectionCard";
 import { buildPersonInitials, resolveProfilePhotoUrl } from "../../lib/profileMedia";
+import { resolveShellBasePath } from "../../lib/roles";
 import {
   useSessionProfile,
   useUserSearch,
@@ -150,7 +151,9 @@ function invitationRow(raw) {
 export default function StudentRepoContributors() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language || undefined;
+  const location = useLocation();
   const { owner, repo, repositoryMeta } = useOutletContext() ?? {};
+  const shellBase = resolveShellBasePath(location.pathname, undefined);
   const queryClient = useQueryClient();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteSearchOpen, setInviteSearchOpen] = useState(false);
@@ -218,8 +221,11 @@ export default function StudentRepoContributors() {
         role: roleLabel(entry),
         avatarUrl: resolveProfilePhotoUrl(entry),
         initials: buildPersonInitials(entry),
+        profilePath: usernameOf(entry)
+          ? `${shellBase}/profile/${encodeURIComponent(usernameOf(entry))}`
+          : "",
       })),
-    [collaborators],
+    [collaborators, shellBase],
   );
 
   const existingUsernames = useMemo(
@@ -384,19 +390,40 @@ export default function StudentRepoContributors() {
                       <div className="flex items-start gap-4">
                         <div className="relative shrink-0">
                           <div className="absolute -inset-0.5 rounded-full bg-linear-to-br from-(--color-chart-blue-primary)/25 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:from-(--color-chart-blue-secondary)/20" />
-                          <Avatar
-                            src={person.avatarUrl}
-                            alt={person.name}
-                            initials={person.initials}
-                            className="relative rounded-full ring-2 ring-(--color-light-card-border) ring-offset-2 ring-offset-(--color-light-card-bg) dark:ring-(--color-dark-card-border) dark:ring-offset-dark-card-bg"
-                            sizeClass="inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
-                          />
+                          {person.profilePath ? (
+                            <Link to={person.profilePath}>
+                              <Avatar
+                                src={person.avatarUrl}
+                                alt={person.name}
+                                initials={person.initials}
+                                className="relative rounded-full ring-2 ring-(--color-light-card-border) ring-offset-2 ring-offset-(--color-light-card-bg) dark:ring-(--color-dark-card-border) dark:ring-offset-dark-card-bg"
+                                sizeClass="inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
+                              />
+                            </Link>
+                          ) : (
+                            <Avatar
+                              src={person.avatarUrl}
+                              alt={person.name}
+                              initials={person.initials}
+                              className="relative rounded-full ring-2 ring-(--color-light-card-border) ring-offset-2 ring-offset-(--color-light-card-bg) dark:ring-(--color-dark-card-border) dark:ring-offset-dark-card-bg"
+                              sizeClass="inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
+                            />
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate text-[15px] font-semibold tracking-tight text-primary dark:text-dark-primary">
-                              {person.name}
-                            </p>
+                            {person.profilePath ? (
+                              <Link
+                                to={person.profilePath}
+                                className="truncate text-[15px] font-semibold tracking-tight text-primary underline-offset-4 hover:underline dark:text-dark-primary"
+                              >
+                                {person.name}
+                              </Link>
+                            ) : (
+                              <p className="truncate text-[15px] font-semibold tracking-tight text-primary dark:text-dark-primary">
+                                {person.name}
+                              </p>
+                            )}
                             <span className="rounded-full border border-(--color-light-input-border) bg-light-app-tertiary px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary dark:border-dark-input-border dark:bg-dark-app-tertiary dark:text-dark-secondary">
                               {person.role}
                             </span>

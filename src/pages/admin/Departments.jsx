@@ -11,7 +11,10 @@ import {
   GraduationCap,
   Hash,
   Layers,
+  LayoutGrid,
+  LayoutList,
   Plus,
+  UserPlus,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -21,6 +24,10 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/Button";
 import Checkbox from "../../components/Checkbox";
+import {
+  AdminRecordsBoard,
+  AdminTableToolDropdowns,
+} from "../../components/admin/AdminTableControls";
 import {
   DropdownContent,
   DropdownItem,
@@ -34,6 +41,7 @@ import IC from "../../components/IC";
 import Icon from "../../components/Icon";
 import OperationsDropdown from "../../components/OperationsDropdown";
 import Pagination from "../../components/Pagination";
+import SearchableSelect from "../../components/SearchableSelect";
 import Select from "../../components/Select";
 import SensitiveActionModal from "../../components/SensitiveActionModal";
 import SettingsTabs from "../../components/SettingsTabs";
@@ -61,10 +69,13 @@ import {
   useDepartments,
   useFaculties,
   useFacultyGroups,
+  useStudentsPage,
   useSemesters,
   useUpdateAcademicYear,
   useUpdateBatch,
   useUpdateFaculty,
+  useUpdateFacultyGroup,
+  useUpdateFacultyGroupLeader,
   useUpdateSemester,
 } from "../../services/useApi";
 import AddDepartmentForm from "./AddDepartmentForm";
@@ -230,6 +241,63 @@ function groupMembersCount(group) {
   return Array.isArray(members) ? members.length : 0;
 }
 
+function studentIdValue(student) {
+  const value =
+    student?.id ??
+    student?.studentId ??
+    student?.student_id ??
+    student?.uuid ??
+    "";
+  return value != null && value !== "" ? String(value) : "";
+}
+
+function groupMembersList(group) {
+  const members =
+    group?.groupMembers ??
+    group?.members ??
+    group?.students ??
+    group?.studentIds ??
+    group?.groupMemberIds ??
+    [];
+  return Array.isArray(members) ? members : [];
+}
+
+function groupMemberIds(group) {
+  return groupMembersList(group).map(studentIdValue).filter(Boolean);
+}
+
+function groupLeaderId(group) {
+  return studentIdValue(group?.groupLeader ?? group?.leader);
+}
+
+function studentToOption(student) {
+  const id = studentIdValue(student);
+  if (!id) return null;
+  return {
+    value: id,
+    label: displayName(student, id),
+    description:
+      student?.email ??
+      student?.code ??
+      student?.studentCode ??
+      student?.department?.name ??
+      student?.department ??
+      undefined,
+  };
+}
+
+function buildGroupUpdatePayload(group, nextMembers, nextLeader) {
+  const leader = String(nextLeader ?? "").trim();
+  const members = Array.from(
+    new Set([...nextMembers.map(String), leader].filter(Boolean)),
+  );
+  return {
+    name: String(groupTitle(group)).trim(),
+    groupLeader: leader,
+    groupMembers: members,
+  };
+}
+
 function getRegistryTabs(t) {
   return [
     {
@@ -256,11 +324,6 @@ function getRegistryTabs(t) {
       id: "faculties",
       label: t("adminRegistry.tabs.faculties"),
       icon: Building2,
-    },
-    {
-      id: "groups",
-      label: t("adminProjects.tabs.groups"),
-      icon: UsersRound,
     },
   ];
 }
@@ -814,15 +877,25 @@ export default function Departments() {
   const { t, i18n } = useTranslation();
 
   const [activeTab, setActiveTab] = useState("departments");
+  const [viewTab, setViewTab] = useState("list");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState(STATUS_ALL);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [hiddenColumns, setHiddenColumns] = useState(() => new Set());
+  const [compactRows, setCompactRows] = useState(false);
+  const [sortKey, setSortKey] = useState("name");
+  const [sortDirection, setSortDirection] = useState("asc");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [deleteRecord, setDeleteRecord] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [groupOperation, setGroupOperation] = useState(null);
+  const [groupOperationDraft, setGroupOperationDraft] = useState({
+    studentId: "",
+  });
   const debouncedSearch = useDebouncedValue(searchInput, 400);
 
   const [formValues, setFormValues] = useState(
@@ -849,6 +922,10 @@ export default function Departments() {
     {},
     { notifyOnError: true },
   );
+  const { data: studentPage } = useStudentsPage(
+    { page: 0, pageSize: 500, notifyOnError: false },
+    { staleTime: 60_000 },
+  );
   const { data: academicYears = EMPTY } = useAcademicYears(
     {},
     { notifyOnError: false },
@@ -870,6 +947,14 @@ export default function Departments() {
   const updateFaculty = useUpdateFaculty();
   const deleteFaculty = useDeleteFaculty();
   const deleteFacultyGroup = useDeleteFacultyGroup({
+    showSuccessToast: false,
+    showErrorToast: false,
+  });
+  const updateFacultyGroup = useUpdateFacultyGroup({
+    showSuccessToast: false,
+    showErrorToast: false,
+  });
+  const updateFacultyGroupLeader = useUpdateFacultyGroupLeader({
     showSuccessToast: false,
     showErrorToast: false,
   });
@@ -898,11 +983,38 @@ export default function Departments() {
       })),
     [academicYears],
   );
+  const studentOptions = useMemo(
+    () =>
+      (Array.isArray(studentPage?.content) ? studentPage.content : [])
+        .map(studentToOption)
+        .filter(Boolean),
+    [studentPage],
+  );
+  const groupOperationMemberIds = useMemo(
+    () => groupMemberIds(groupOperation?.record),
+    [groupOperation],
+  );
+  const groupAddMemberOptions = useMemo(
+    () =>
+      studentOptions.filter(
+        (option) => !groupOperationMemberIds.includes(option.value),
+      ),
+    [groupOperationMemberIds, studentOptions],
+  );
+  const groupLeaderOptions = useMemo(() => {
+    const memberOptions = groupMembersList(groupOperation?.record)
+      .map(studentToOption)
+      .filter(Boolean);
+    return memberOptions.length ? memberOptions : studentOptions;
+  }, [groupOperation, studentOptions]);
 
   useEffect(() => {
     setPage(1);
     setStatusFilter(STATUS_ALL);
     setSearchInput("");
+    setHiddenColumns(new Set());
+    setSelectedIds(new Set());
+    setSortKey("name");
   }, [activeTab]);
 
   useEffect(() => {
@@ -1033,10 +1145,40 @@ export default function Departments() {
     if (totalPages > 0 && page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
+  const sortedRows = useMemo(() => {
+    const accessors = {
+      id: (record) =>
+        activeTab === "groups"
+          ? normalizeGroupId(record)
+          : normalizeId(record?.id ?? record?.code, ""),
+      name: (record) =>
+        activeTab === "groups"
+          ? groupTitle(record)
+          : String(record?.name ?? record?.title ?? record?.code ?? ""),
+      status: (record) => {
+        if (activeTab === "academic-years")
+          return inferTimelineStatus(record?.startDate, record?.endDate);
+        if (activeTab === "semesters") return getSemesterStatus(record);
+        if (activeTab === "batches") return getBatchStatus(record);
+        return String(record?.status ?? "");
+      },
+      date: (record) =>
+        record?.createdAt ?? record?.startDate ?? record?.endDate ?? "",
+    };
+    const getValue = accessors[sortKey] ?? accessors.name;
+    return [...filteredRows].sort((a, b) => {
+      const result = String(getValue(a)).localeCompare(String(getValue(b)), undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      return sortDirection === "desc" ? -result : result;
+    });
+  }, [activeTab, filteredRows, sortDirection, sortKey]);
+
   const pageRows = useMemo(() => {
     const start = (page - 1) * pageSize;
-    return filteredRows.slice(start, start + pageSize);
-  }, [filteredRows, page, pageSize]);
+    return sortedRows.slice(start, start + pageSize);
+  }, [sortedRows, page, pageSize]);
 
   const statusOptions = useMemo(() => {
     if (!availableStatuses.length) return [];
@@ -1048,6 +1190,34 @@ export default function Departments() {
       })),
     ];
   }, [availableStatuses, t]);
+  const effectiveStatusOptions = statusOptions.length
+    ? statusOptions
+    : [{ value: STATUS_ALL, label: t("adminShared.filters.allStatus") }];
+  const sortOptions = useMemo(
+    () => [
+      { value: "name", label: t("adminTable.sort.name") },
+      { value: "id", label: t("adminDepartments.table.id") },
+      { value: "status", label: t("adminDepartments.table.status") },
+      { value: "date", label: t("adminDepartments.table.created") },
+    ],
+    [t],
+  );
+  const toggleSelected = (id) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleColumn = (id) => {
+    setHiddenColumns((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const toolbarTitle = useMemo(() => {
     if (activeTab === "departments") return t("adminDepartments.header.title");
@@ -1106,99 +1276,124 @@ export default function Departments() {
     t,
   ]);
 
-  const headerData = useMemo(() => {
+  const columnDefs = useMemo(() => {
     if (activeTab === "departments") {
       return [
-        { title: "" },
+        { id: "select", title: "", required: true },
         {
+          id: "id",
           title: t("adminDepartments.table.id"),
           icon: <Hash className="size-3.5 shrink-0" strokeWidth={2} />,
         },
         {
+          id: "primary",
           title: t("adminDepartments.table.department"),
           icon: <Building2 className="size-3.5 shrink-0" strokeWidth={2} />,
         },
         {
+          id: "secondary",
           title: t("adminDepartments.table.head"),
           icon: <UserRound className="size-3.5 shrink-0" strokeWidth={2} />,
         },
         {
+          id: "status",
           title: t("adminDepartments.table.status"),
           icon: <BadgeCheck className="size-3.5 shrink-0" strokeWidth={2} />,
         },
         {
+          id: "date",
           title: t("adminDepartments.table.created"),
           icon: <CalendarDays className="size-3.5 shrink-0" strokeWidth={2} />,
         },
-        { title: t("adminDepartments.table.actions"), align: "center" },
+        { id: "actions", title: t("adminDepartments.table.actions"), align: "center", required: true },
       ];
     }
 
     if (activeTab === "academic-years") {
       return [
-        { title: "" },
-        { title: t("adminDepartments.table.id") },
-        { title: t("settings.academic.year.fieldName") },
-        { title: t("adminRegistry.table.range") },
-        { title: t("settings.academic.year.fieldCalendar") },
-        { title: t("adminDepartments.table.status") },
-        { title: t("adminDepartments.table.actions"), align: "center" },
+        { id: "select", title: "", required: true },
+        { id: "id", title: t("adminDepartments.table.id") },
+        { id: "primary", title: t("settings.academic.year.fieldName") },
+        { id: "secondary", title: t("adminRegistry.table.range") },
+        { id: "type", title: t("settings.academic.year.fieldCalendar") },
+        { id: "status", title: t("adminDepartments.table.status") },
+        { id: "actions", title: t("adminDepartments.table.actions"), align: "center", required: true },
       ];
     }
 
     if (activeTab === "semesters") {
       return [
-        { title: "" },
-        { title: t("adminDepartments.table.id") },
+        { id: "select", title: "", required: true },
+        { id: "id", title: t("adminDepartments.table.id") },
         {
+          id: "primary",
           title: t("adminRegistry.table.semester"),
         },
         {
+          id: "secondary",
           title: t("settings.academic.batch.fieldAcademicYear"),
         },
         {
+          id: "date",
           title: t("adminRegistry.table.range"),
         },
-        { title: t("adminDepartments.table.status") },
-        { title: t("adminDepartments.table.actions"), align: "center" },
+        { id: "status", title: t("adminDepartments.table.status") },
+        { id: "actions", title: t("adminDepartments.table.actions"), align: "center", required: true },
       ];
     }
 
     if (activeTab === "batches") {
       return [
-        { title: "" },
-        { title: t("adminDepartments.table.id") },
-        { title: t("settings.academic.batch.fieldName") },
-        { title: t("settings.academic.batch.fieldAcademicYear") },
-        { title: t("settings.academic.batch.fieldType") },
-        { title: t("adminDepartments.table.status") },
-        { title: t("adminDepartments.table.actions"), align: "center" },
+        { id: "select", title: "", required: true },
+        { id: "id", title: t("adminDepartments.table.id") },
+        { id: "primary", title: t("settings.academic.batch.fieldName") },
+        { id: "secondary", title: t("settings.academic.batch.fieldAcademicYear") },
+        { id: "type", title: t("settings.academic.batch.fieldType") },
+        { id: "status", title: t("adminDepartments.table.status") },
+        { id: "actions", title: t("adminDepartments.table.actions"), align: "center", required: true },
       ];
     }
 
     if (activeTab === "groups") {
       return [
-        { title: "" },
-        { title: t("adminProjects.table.groupId") },
-        { title: t("adminProjects.faculty.col.name") },
-        { title: t("adminProjects.faculty.col.leader") },
-        { title: t("adminProjects.faculty.col.members") },
-        { title: t("adminDepartments.table.actions"), align: "center" },
+        { id: "select", title: "", required: true },
+        { id: "id", title: t("adminProjects.table.groupId") },
+        { id: "primary", title: t("adminProjects.faculty.col.name") },
+        { id: "secondary", title: t("adminProjects.faculty.col.leader") },
+        { id: "status", title: t("adminProjects.faculty.col.members") },
+        { id: "actions", title: t("adminDepartments.table.actions"), align: "center", required: true },
       ];
     }
 
     return [
-      { title: "" },
-      { title: t("adminDepartments.table.id") },
+      { id: "select", title: "", required: true },
+      { id: "id", title: t("adminDepartments.table.id") },
       {
+        id: "primary",
         title: t("adminRegistry.table.faculty"),
       },
       {
+        id: "secondary",
         title: t("adminDepartments.form.fields.description"),
       },
-      { title: t("adminDepartments.table.actions"), align: "center" },
+      { id: "actions", title: t("adminDepartments.table.actions"), align: "center", required: true },
     ];
   }, [activeTab, t]);
+  const visibleColumnDefs = useMemo(
+    () => columnDefs.filter((column) => !hiddenColumns.has(column.id)),
+    [columnDefs, hiddenColumns],
+  );
+  const headerData = useMemo(
+    () =>
+      visibleColumnDefs.map((column) => ({
+        title: column.title,
+        tooltip: column.tooltip,
+        icon: column.icon,
+        align: column.align,
+        className: column.className,
+      })),
+    [visibleColumnDefs],
+  );
 
   const activeMutationState = useMemo(() => {
     if (activeTab === "academic-years") {
@@ -1236,7 +1431,7 @@ export default function Departments() {
     if (activeTab === "groups") {
       return {
         create: null,
-        update: null,
+        update: updateFacultyGroup,
         delete: deleteFacultyGroup,
         queryKey: ["faculty-groups"],
       };
@@ -1262,6 +1457,7 @@ export default function Departments() {
     updateAcademicYear,
     updateBatch,
     updateFaculty,
+    updateFacultyGroup,
     updateSemester,
   ]);
 
@@ -1345,7 +1541,9 @@ export default function Departments() {
       return;
     }
     if (activeTab === "groups") {
-      navigate("/admin/projects/groups/register");
+      navigate("/admin/projects/groups/register", {
+        state: { returnTo: "/admin/department", returnTab: "groups" },
+      });
       return;
     }
     setRegistryFieldErrors({});
@@ -1357,6 +1555,7 @@ export default function Departments() {
     if (activeTab === "groups") {
       navigate(
         `/admin/projects/groups/register/${encodeURIComponent(normalizeGroupId(record))}`,
+        { state: { returnTo: "/admin/department", returnTab: "groups" } },
       );
       return;
     }
@@ -1368,12 +1567,80 @@ export default function Departments() {
     setShowEditModal(true);
   };
 
+  const openGroupOperation = (mode, record) => {
+    const leader = groupLeaderId(record);
+    setGroupOperation({ mode, record });
+    setGroupOperationDraft({
+      studentId: mode === "change-leader" ? leader : "",
+    });
+  };
+
+  const closeGroupOperation = () => {
+    setGroupOperation(null);
+    setGroupOperationDraft({ studentId: "" });
+  };
+
   const closeFormModals = () => {
     setShowAddModal(false);
     setShowEditModal(false);
     setSelectedRecord(null);
     setRegistryFieldErrors({});
     setFormValues(getDefaultFormValues(activeTab));
+  };
+
+  const submitGroupOperation = async () => {
+    if (
+      !groupOperation?.record ||
+      updateFacultyGroup.isPending ||
+      updateFacultyGroupLeader.isPending
+    )
+      return;
+    const selectedStudentId = String(groupOperationDraft.studentId ?? "").trim();
+    if (!selectedStudentId) {
+      gooeyToast.error(t("adminProjects.groups.operations.validation.student"));
+      return;
+    }
+
+    const record = groupOperation.record;
+    const groupId = normalizeGroupId(record);
+    const currentMembers = groupMemberIds(record);
+    const currentLeader = groupLeaderId(record);
+    const nextMembers =
+      groupOperation.mode === "add-member"
+        ? [...currentMembers, selectedStudentId]
+        : currentMembers;
+    const nextLeader =
+      groupOperation.mode === "change-leader"
+        ? selectedStudentId
+        : currentLeader;
+
+    try {
+      if (groupOperation.mode === "change-leader") {
+        await updateFacultyGroupLeader.mutateAsync({
+          id: groupId,
+          leaderId: nextLeader,
+        });
+      } else {
+        await updateFacultyGroup.mutateAsync({
+          id: groupId,
+          ...buildGroupUpdatePayload(record, nextMembers, nextLeader),
+        });
+      }
+      await queryClient.invalidateQueries({ queryKey: ["faculty-groups"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["faculty-groups", "detail", groupId],
+      });
+      gooeyToast.success(
+        groupOperation.mode === "add-member"
+          ? t("adminProjects.groups.operations.addMemberSuccess")
+          : t("adminProjects.groups.operations.changeLeaderSuccess"),
+      );
+      closeGroupOperation();
+    } catch (e) {
+      gooeyToast.error(
+        e?.message || t("adminProjects.groups.operations.updateError"),
+      );
+    }
   };
 
   const submitGenericForm = async (mode) => {
@@ -1451,6 +1718,97 @@ export default function Departments() {
       setDeleteSubmitting(false);
     }
   };
+
+  const openDeleteRecord = (record) => {
+    setDeleteRecord({
+      id: activeTab === "groups" ? normalizeGroupId(record) : record?.id,
+      name:
+        (activeTab === "groups" ? groupTitle(record) : null) ??
+        record?.name ??
+        record?.title ??
+        record?.code ??
+        normalizeId(record?.id),
+      meta:
+        activeTab === "departments"
+          ? record?.head || t("adminDepartments.fallback.head")
+          : activeTab === "academic-years"
+            ? record?.calendarType || "-"
+            : activeTab === "semesters"
+              ? record?.type || "-"
+              : activeTab === "batches"
+                ? getAcademicYearLabel(record?.academicYear) || "-"
+                : activeTab === "groups"
+                  ? displayName(record?.groupLeader)
+                  : record?.code || "-",
+    });
+  };
+
+  const renderRegistryActions = (record) => (
+    <DropdownMenuRoot>
+      <DropdownTrigger showArrow={false}>
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 15 15"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
+            fill="currentColor"
+            fillRule="evenodd"
+            clipRule="evenodd"
+          />
+        </svg>
+      </DropdownTrigger>
+      <DropdownContent align="end">
+        {activeTab === "departments" ? (
+          <DropdownItem onClick={() => navigate(`/admin/department/${record.id}`)}>
+            <span>{t("adminShared.actions.viewProfile")}</span>
+          </DropdownItem>
+        ) : null}
+        <DropdownItem onClick={() => openEditModal(record)}>
+          <span>{t("adminShared.actions.editDetails")}</span>
+        </DropdownItem>
+        {activeTab === "groups" ? (
+          <>
+            <DropdownItem
+              icon={<UserPlus className="size-3.5" />}
+              onClick={() => openGroupOperation("add-member", record)}
+            >
+              <span>{t("adminProjects.groups.operations.addMember")}</span>
+            </DropdownItem>
+            <DropdownItem
+              icon={<BadgeCheck className="size-3.5" />}
+              onClick={() => openGroupOperation("change-leader", record)}
+            >
+              <span>{t("adminProjects.groups.operations.changeLeader")}</span>
+            </DropdownItem>
+            <DropdownItem
+              icon={<UsersRound className="size-3.5" />}
+              onClick={() =>
+                navigate(
+                  `/admin/projects/groups/register/${encodeURIComponent(normalizeGroupId(record))}`,
+                  {
+                    state: {
+                      returnTo: "/admin/department",
+                      returnTab: "groups",
+                    },
+                  },
+                )
+              }
+            >
+              <span>{t("adminProjects.groups.operations.manageRoster")}</span>
+            </DropdownItem>
+          </>
+        ) : null}
+        <DropdownSeparator />
+        <DropdownItem variant="danger" onClick={() => openDeleteRecord(record)}>
+          <span>{t("adminShared.actions.delete")}</span>
+        </DropdownItem>
+      </DropdownContent>
+    </DropdownMenuRoot>
+  );
 
   if (isError) {
     return (
@@ -1531,6 +1889,34 @@ export default function Departments() {
                   activeTab={activeTab}
                   onChange={setActiveTab}
                 />
+                <TableToolbar.ViewTabs
+                  value={viewTab}
+                  onValueChange={setViewTab}
+                  tabs={[
+                    {
+                      id: "list",
+                      label: t("adminDepartments.toolbar.list"),
+                      icon: (
+                        <LayoutList
+                          className="size-3.5 shrink-0"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
+                      ),
+                    },
+                    {
+                      id: "board",
+                      label: t("adminDepartments.toolbar.board"),
+                      icon: (
+                        <LayoutGrid
+                          className="size-3.5 shrink-0"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
+                      ),
+                    },
+                  ]}
+                />
               </TableToolbar.Row>
               <TableToolbar.Row justify="start" className="gap-2">
                 <div className="min-w-0 flex-1 sm:min-w-[12rem]">
@@ -1551,69 +1937,46 @@ export default function Departments() {
                     />
                   </div>
                 ) : null}
-                <TableToolbar.Section className="w-full shrink-0 justify-start sm:ml-auto sm:w-auto md:justify-end">
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminDepartments.toolbar.filter")}
-                    icon={
-                      <Filter className="size-3.5 shrink-0" strokeWidth={2} />
-                    }
-                    onClick={() =>
-                      gooeyToast.info(
-                        t("adminDepartments.toolbar.filtersPending"),
-                      )
-                    }
-                  >
-                    {t("adminDepartments.toolbar.filter")}
-                  </TableToolbar.IconButton>
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminDepartments.toolbar.sort")}
-                    icon={
-                      <ArrowUpDown
-                        className="size-3.5 shrink-0"
-                        strokeWidth={2}
-                      />
-                    }
-                    onClick={() =>
-                      gooeyToast.info(t("adminDepartments.toolbar.sortPending"))
-                    }
-                  >
-                    {t("adminDepartments.toolbar.sort")}
-                  </TableToolbar.IconButton>
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminDepartments.toolbar.columns")}
-                    icon={
-                      <Columns3 className="size-3.5 shrink-0" strokeWidth={2} />
-                    }
-                    onClick={() =>
-                      gooeyToast.info(
-                        t("adminDepartments.toolbar.columnsPending"),
-                      )
-                    }
-                  >
-                    {t("adminDepartments.toolbar.columns")}
-                  </TableToolbar.IconButton>
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminDepartments.toolbar.hide")}
-                    icon={
-                      <EyeOff className="size-3.5 shrink-0" strokeWidth={2} />
-                    }
-                    onClick={() =>
-                      gooeyToast.info(
-                        t("adminDepartments.toolbar.densityPending"),
-                      )
-                    }
-                  >
-                    {t("adminDepartments.toolbar.hide")}
-                  </TableToolbar.IconButton>
-                </TableToolbar.Section>
+                <AdminTableToolDropdowns
+                  labels={{
+                    filter: t("adminDepartments.toolbar.filter"),
+                    sort: t("adminDepartments.toolbar.sort"),
+                    columns: t("adminDepartments.toolbar.columns"),
+                    hide: t("adminDepartments.toolbar.hide"),
+                  }}
+                  icons={{
+                    filter: <Filter className="size-3.5 shrink-0" strokeWidth={2} />,
+                    sort: <ArrowUpDown className="size-3.5 shrink-0" strokeWidth={2} />,
+                    columns: <Columns3 className="size-3.5 shrink-0" strokeWidth={2} />,
+                    hide: <EyeOff className="size-3.5 shrink-0" strokeWidth={2} />,
+                  }}
+                  statusOptions={effectiveStatusOptions}
+                  statusFilter={statusFilter}
+                  onStatusFilterChange={setStatusFilter}
+                  sortOptions={sortOptions}
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSortChange={(key, direction) => {
+                    setSortKey(key);
+                    setSortDirection(direction);
+                  }}
+                  columns={columnDefs.map((column) => ({
+                    id: column.id,
+                    label: column.title || t("adminTable.columns.selection"),
+                    required: column.required,
+                  }))}
+                  hiddenColumns={[...hiddenColumns]}
+                  onToggleColumn={toggleColumn}
+                  onResetColumns={() => setHiddenColumns(new Set())}
+                  compactRows={compactRows}
+                  onToggleCompactRows={() => setCompactRows((value) => !value)}
+                />
               </TableToolbar.Row>
             </TableToolbar>
           }
         >
+          {viewTab === "list" ? (
+            <>
           <TableHeader headerData={headerData} />
           <TableBody>
             {pageRows.map((record) => (
@@ -1623,9 +1986,23 @@ export default function Departments() {
                     ? `${activeTab}-${normalizeGroupId(record)}`
                     : `${activeTab}-${normalizeId(record?.id ?? record?.code)}`
                 }
+                className={compactRows ? "[&_td]:py-2" : undefined}
               >
                 <TableColumn className="w-10">
-                  <Checkbox />
+                  <Checkbox
+                    checked={selectedIds.has(
+                      activeTab === "groups"
+                        ? normalizeGroupId(record)
+                        : normalizeId(record?.id ?? record?.code),
+                    )}
+                    onChange={() =>
+                      toggleSelected(
+                        activeTab === "groups"
+                          ? normalizeGroupId(record)
+                          : normalizeId(record?.id ?? record?.code),
+                      )
+                    }
+                  />
                 </TableColumn>
 
                 {activeTab === "departments" ? (
@@ -1864,6 +2241,54 @@ export default function Departments() {
                       <DropdownItem onClick={() => openEditModal(record)}>
                         <span>{t("adminShared.actions.editDetails")}</span>
                       </DropdownItem>
+                      {activeTab === "groups" ? (
+                        <>
+                          <DropdownItem
+                            icon={<UserPlus className="size-3.5" />}
+                            onClick={() =>
+                              openGroupOperation("add-member", record)
+                            }
+                          >
+                            <span>
+                              {t(
+                                "adminProjects.groups.operations.addMember",
+                              )}
+                            </span>
+                          </DropdownItem>
+                          <DropdownItem
+                            icon={<BadgeCheck className="size-3.5" />}
+                            onClick={() =>
+                              openGroupOperation("change-leader", record)
+                            }
+                          >
+                            <span>
+                              {t(
+                                "adminProjects.groups.operations.changeLeader",
+                              )}
+                            </span>
+                          </DropdownItem>
+                          <DropdownItem
+                            icon={<UsersRound className="size-3.5" />}
+                            onClick={() =>
+                              navigate(
+                                `/admin/projects/groups/register/${encodeURIComponent(normalizeGroupId(record))}`,
+                                {
+                                  state: {
+                                    returnTo: "/admin/department",
+                                    returnTab: "groups",
+                                  },
+                                },
+                              )
+                            }
+                          >
+                            <span>
+                              {t(
+                                "adminProjects.groups.operations.manageRoster",
+                              )}
+                            </span>
+                          </DropdownItem>
+                        </>
+                      ) : null}
                       <DropdownSeparator />
                       <DropdownItem
                         variant="danger"
@@ -1937,7 +2362,77 @@ export default function Departments() {
               </TableRow>
             ) : null}
           </TableBody>
+            </>
+          ) : null}
         </Table>
+
+        {viewTab === "board" ? (
+          <div className="mt-4">
+            <AdminRecordsBoard
+              rows={pageRows}
+              getKey={(record) =>
+                activeTab === "groups"
+                  ? normalizeGroupId(record)
+                  : normalizeId(record?.id ?? record?.code)
+              }
+              selectedIds={selectedIds}
+              onToggleSelected={toggleSelected}
+              renderTitle={(record) =>
+                activeTab === "groups"
+                  ? groupTitle(record)
+                  : record?.name || record?.title || record?.code || "-"
+              }
+              renderSubtitle={(record) => {
+                if (activeTab === "departments") return getDepartmentMetaLine(record, t);
+                if (activeTab === "groups") return displayName(record?.groupLeader);
+                if (activeTab === "faculties") return getFacultyMetaLine(record) || "-";
+                return formatDateRange(record?.startDate, record?.endDate, locale);
+              }}
+              renderStatus={(record) => {
+                if (activeTab === "groups") {
+                  return (
+                    <span className="rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                      {t("adminProjects.registry.memberCount", {
+                        count: groupMembersCount(record),
+                      })}
+                    </span>
+                  );
+                }
+                const status =
+                  activeTab === "academic-years"
+                    ? inferTimelineStatus(record?.startDate, record?.endDate)
+                    : activeTab === "semesters"
+                      ? getSemesterStatus(record)
+                      : activeTab === "batches"
+                        ? getBatchStatus(record)
+                        : record?.status || "active";
+                return (
+                  <StatusPill variant={statusToPillVariant(status)}>
+                    {t(`adminShared.status.${String(status).toLowerCase()}`)}
+                  </StatusPill>
+                );
+              }}
+              renderMeta={(record) => (
+                <>
+                  <span>
+                    {activeTab === "departments"
+                      ? record?.head || t("adminDepartments.fallback.head")
+                      : activeTab === "groups"
+                        ? normalizeGroupId(record)
+                        : record?.calendarType || record?.type || record?.code || "-"}
+                  </span>
+                </>
+              )}
+              renderActions={renderRegistryActions}
+              emptyTitle={
+                activeTab === "groups"
+                  ? t("adminProjects.faculty.emptyGroups")
+                  : t("adminRegistry.empty.title")
+              }
+              emptyDescription={t("adminRegistry.empty.hint")}
+            />
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
           <Pagination
@@ -2088,6 +2583,114 @@ export default function Departments() {
           </GlobalModal>
         </>
       )}
+
+      {groupOperation ? (
+        <GlobalModal
+          open={true}
+          setOpen={(open) => {
+            if (
+              !open &&
+              !updateFacultyGroup.isPending &&
+              !updateFacultyGroupLeader.isPending
+            )
+              closeGroupOperation();
+          }}
+          isClose
+          title={
+            groupOperation.mode === "add-member"
+              ? t("adminProjects.groups.operations.addMemberTitle")
+              : t("adminProjects.groups.operations.changeLeaderTitle")
+          }
+          subtitle={t("adminProjects.groups.operations.subtitle", {
+            group: groupTitle(groupOperation.record),
+          })}
+          footer={
+            <>
+              <Button
+                type="button"
+                variant="tertiary"
+                onClick={closeGroupOperation}
+                disabled={
+                  updateFacultyGroup.isPending ||
+                  updateFacultyGroupLeader.isPending
+                }
+              >
+                {t("adminProjects.form.group.actions.cancel")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void submitGroupOperation()}
+                loading={updateFacultyGroup.isPending}
+                disabled={
+                  updateFacultyGroup.isPending ||
+                  updateFacultyGroupLeader.isPending ||
+                  !String(groupOperationDraft.studentId ?? "").trim()
+                }
+              >
+                {updateFacultyGroup.isPending ||
+                updateFacultyGroupLeader.isPending
+                  ? t("adminProjects.form.group.actions.submitting")
+                  : groupOperation.mode === "add-member"
+                    ? t("adminProjects.groups.operations.addMember")
+                    : t("adminProjects.groups.operations.changeLeader")}
+              </Button>
+            </>
+          }
+          className="max-w-xl"
+        >
+          <div className="grid gap-4">
+            <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-secondary px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-app-secondary)">
+              <div className="text-[11px] font-semibold text-primary dark:text-dark-primary">
+                {groupTitle(groupOperation.record)}
+              </div>
+              <div className="mt-1 text-[11px] text-secondary dark:text-dark-secondary">
+                {t("adminProjects.groups.operations.currentSummary", {
+                  leader: displayName(groupOperation.record?.groupLeader),
+                  count: groupMembersCount(groupOperation.record),
+                })}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-semibold text-primary dark:text-dark-primary">
+                {groupOperation.mode === "add-member"
+                  ? t("adminProjects.groups.operations.memberLabel")
+                  : t("adminProjects.groups.operations.leaderLabel")}
+              </span>
+              <SearchableSelect
+                value={groupOperationDraft.studentId}
+                onValueChange={(value) =>
+                  setGroupOperationDraft({ studentId: value ?? "" })
+                }
+                options={
+                  groupOperation.mode === "add-member"
+                    ? groupAddMemberOptions
+                    : groupLeaderOptions
+                }
+                placeholder={
+                  groupOperation.mode === "add-member"
+                    ? t("adminProjects.groups.operations.memberPlaceholder")
+                    : t("adminProjects.groups.operations.leaderPlaceholder")
+                }
+                searchPlaceholder={t(
+                  "adminProjects.form.group.placeholders.groupLeaderSearch",
+                )}
+                disabled={
+                  updateFacultyGroup.isPending ||
+                  updateFacultyGroupLeader.isPending ||
+                  (groupOperation.mode === "add-member" &&
+                    groupAddMemberOptions.length === 0)
+                }
+              />
+              {groupOperation.mode === "add-member" &&
+              groupAddMemberOptions.length === 0 ? (
+                <p className="text-[11px] text-muted dark:text-dark-muted">
+                  {t("adminProjects.groups.operations.noAvailableStudents")}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </GlobalModal>
+      ) : null}
 
       {deleteRecord ? (
         <SensitiveActionModal

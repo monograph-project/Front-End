@@ -31,11 +31,6 @@ export default function RepoOverviewStatCard({
               <p className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-primary dark:text-dark-primary">
                 {value}
               </p>
-              {hint ? (
-                <p className="mt-1 max-w-[30ch] text-xs leading-relaxed text-secondary dark:text-dark-secondary">
-                  {hint}
-                </p>
-              ) : null}
             </>
           )}
         </div>

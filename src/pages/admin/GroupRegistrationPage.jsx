@@ -12,7 +12,7 @@ import {
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import FacultyFormSectionCard from "../../components/admin/FacultyFormSectionCard";
 import Button from "../../components/Button";
 import Field from "../../components/Field";
@@ -42,7 +42,10 @@ const stepMotion = {
 function displayName(person, fallback = "-") {
   if (!person) return fallback;
   if (typeof person === "string") return person || fallback;
-  const full = [person.firstName, person.lastName].filter(Boolean).join(" ").trim();
+  const full = [person.firstName, person.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
   return (
     full ||
     person.displayName ||
@@ -57,9 +60,48 @@ function studentIdValue(student) {
     student?.id ??
     student?.studentId ??
     student?.student_id ??
+    student?.studentRecordId ??
+    student?.student_record_id ??
+    student?.facultyStudentId ??
+    student?.faculty_student_id ??
     student?.uuid ??
     "";
   return value != null && value !== "" ? String(value) : "";
+}
+
+function studentAlternateIds(student) {
+  if (!student || typeof student !== "object") return [];
+  return [
+    student.keycloakId,
+    student.keycloak_id,
+    student.keycloak,
+    student.linkedApplicationUserId,
+    student.applicationUserId,
+    student.application_user_id,
+    student.gatewayUserId,
+    student.gateway_user_id,
+    student.user?.id,
+  ]
+    .map((value) =>
+      value != null && String(value).trim() !== "" ? String(value) : "",
+    )
+    .filter(Boolean);
+}
+
+function resolveStudentId(input, students) {
+  const rawId =
+    typeof input === "string" || typeof input === "number"
+      ? String(input)
+      : studentIdValue(input);
+  if (!rawId) return "";
+
+  const list = Array.isArray(students) ? students : [];
+  const match = list.find((student) => {
+    const primaryId = studentIdValue(student);
+    return primaryId === rawId || studentAlternateIds(student).includes(rawId);
+  });
+
+  return studentIdValue(match) || rawId;
 }
 
 function normalizeStudentOptions(page) {
@@ -117,7 +159,8 @@ function mergeOptions(...groups) {
 
 function normalizeGroupLeader(value) {
   if (!value) return "";
-  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "string" || typeof value === "number")
+    return String(value);
   return studentIdValue(value);
 }
 
@@ -125,7 +168,8 @@ function normalizeGroupMembers(value) {
   if (!Array.isArray(value)) return [];
   return value
     .map((item) => {
-      if (typeof item === "string" || typeof item === "number") return String(item);
+      if (typeof item === "string" || typeof item === "number")
+        return String(item);
       return studentIdValue(item);
     })
     .filter(Boolean);
@@ -146,7 +190,10 @@ function resolveAvatarUrl(raw) {
   const t = raw.trim();
   if (!t) return null;
   if (t.startsWith("http://") || t.startsWith("https://")) return t;
-  const base = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+  const base = String(import.meta.env.VITE_API_BASE_URL || "").replace(
+    /\/$/,
+    "",
+  );
   if (!base) return t.startsWith("/") ? t : `/${t}`;
   return t.startsWith("/") ? `${base}${t}` : `${base}/${t}`;
 }
@@ -180,13 +227,24 @@ export default function GroupRegistrationPage() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const [step, setStep] = useState(1);
   const [leaderSearchTerm, setLeaderSearchTerm] = useState("");
-  const [debouncedLeaderSearchTerm, setDebouncedLeaderSearchTerm] = useState("");
+  const [debouncedLeaderSearchTerm, setDebouncedLeaderSearchTerm] =
+    useState("");
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
-  const [debouncedMemberSearchTerm, setDebouncedMemberSearchTerm] = useState("");
+  const [debouncedMemberSearchTerm, setDebouncedMemberSearchTerm] =
+    useState("");
+  const returnTo =
+    typeof location.state?.returnTo === "string" && location.state.returnTo
+      ? location.state.returnTo
+      : "/admin/projects?tab=groups";
+  const returnState = location.state?.returnTab
+    ? { returnTab: location.state.returnTab }
+    : undefined;
+  const navigateBack = () => navigate(returnTo, { state: returnState });
 
   const { data: group, isLoading: groupLoading } = useFacultyGroup(id, {
     enabled: isEdit,
@@ -196,26 +254,20 @@ export default function GroupRegistrationPage() {
     { page: 0, pageSize: 500, notifyOnError: false },
     { staleTime: 60_000 },
   );
-  const { data: academicYears = [], isLoading: academicYearsLoading } = useAcademicYears(
-    {},
-    { notifyOnError: false, staleTime: 120_000 },
-  );
-  const { data: searchedStudents = [], isFetching: isSearchingStudents } = useStudentSearch(
-    debouncedLeaderSearchTerm,
-    {
+  const { data: academicYears = [], isLoading: academicYearsLoading } =
+    useAcademicYears({}, { notifyOnError: false, staleTime: 120_000 });
+  const { data: searchedStudents = [], isFetching: isSearchingStudents } =
+    useStudentSearch(debouncedLeaderSearchTerm, {
       enabled: debouncedLeaderSearchTerm.length > 0,
       staleTime: 30_000,
       notifyOnError: false,
-    },
-  );
-  const { data: memberSearchHits = [], isFetching: isSearchingMembers } = useStudentSearch(
-    debouncedMemberSearchTerm,
-    {
+    });
+  const { data: memberSearchHits = [], isFetching: isSearchingMembers } =
+    useStudentSearch(debouncedMemberSearchTerm, {
       enabled: debouncedMemberSearchTerm.length > 0,
       staleTime: 30_000,
       notifyOnError: false,
-    },
-  );
+    });
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -231,7 +283,10 @@ export default function GroupRegistrationPage() {
     return () => window.clearTimeout(handle);
   }, [memberSearchTerm]);
 
-  const pageStudents = useMemo(() => studentsFromPage(studentPage), [studentPage]);
+  const pageStudents = useMemo(
+    () => studentsFromPage(studentPage),
+    [studentPage],
+  );
   const studentOptions = useMemo(
     () => normalizeStudentOptions(studentPage),
     [studentPage],
@@ -244,6 +299,17 @@ export default function GroupRegistrationPage() {
     () => memberSearchHits.map(studentToOption).filter(Boolean),
     [memberSearchHits],
   );
+  const knownStudentRecords = useMemo(
+    () =>
+      [
+        ...pageStudents,
+        ...searchedStudents,
+        ...memberSearchHits,
+        group?.groupLeader,
+        ...(Array.isArray(group?.groupMembers) ? group.groupMembers : []),
+      ].filter(Boolean),
+    [group, memberSearchHits, pageStudents, searchedStudents],
+  );
 
   const academicYearOptions = useMemo(() => {
     const list = Array.isArray(academicYears) ? academicYears : [];
@@ -254,7 +320,13 @@ export default function GroupRegistrationPage() {
         return { value: String(vid), label: String(y?.name ?? vid) };
       })
       .filter(Boolean);
-    return [{ value: ACADEMIC_NONE, label: t("adminProjects.form.group.academicYearOptional") }, ...opts];
+    return [
+      {
+        value: ACADEMIC_NONE,
+        label: t("adminProjects.form.group.academicYearOptional"),
+      },
+      ...opts,
+    ];
   }, [academicYears, t]);
 
   const {
@@ -320,7 +392,7 @@ export default function GroupRegistrationPage() {
     toastError: "apiErrors.failed_to_create_faculty_group",
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["faculty-groups"] });
-      navigate("/admin/projects?tab=groups");
+      navigateBack();
     },
   });
 
@@ -329,8 +401,10 @@ export default function GroupRegistrationPage() {
     toastError: "apiErrors.failed_to_update_faculty_group",
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["faculty-groups"] });
-      await queryClient.invalidateQueries({ queryKey: ["faculty-groups", "detail", id] });
-      navigate("/admin/projects?tab=groups");
+      await queryClient.invalidateQueries({
+        queryKey: ["faculty-groups", "detail", id],
+      });
+      navigateBack();
     },
   });
 
@@ -338,16 +412,24 @@ export default function GroupRegistrationPage() {
   const leaderId = String(values?.groupLeader ?? "").trim();
   const selectedLeaderRecord = !leaderId
     ? null
-    : pageStudents.find((student) => studentIdValue(student) === leaderId) ??
-      searchedStudents.find((student) => studentIdValue(student) === leaderId) ??
-      (studentIdValue(group?.groupLeader) === leaderId ? group.groupLeader : null) ??
-      (Array.isArray(group?.groupMembers)
-        ? group.groupMembers.find((member) => studentIdValue(member) === leaderId)
+    : (pageStudents.find((student) => studentIdValue(student) === leaderId) ??
+      searchedStudents.find(
+        (student) => studentIdValue(student) === leaderId,
+      ) ??
+      (studentIdValue(group?.groupLeader) === leaderId
+        ? group.groupLeader
         : null) ??
-      null;
+      (Array.isArray(group?.groupMembers)
+        ? group.groupMembers.find(
+            (member) => studentIdValue(member) === leaderId,
+          )
+        : null) ??
+      null);
   const leaderOptions = useMemo(() => {
     const baseOptions =
-      debouncedLeaderSearchTerm.length > 0 ? searchedStudentOptions : studentOptions;
+      debouncedLeaderSearchTerm.length > 0
+        ? searchedStudentOptions
+        : studentOptions;
     const selectedOption = studentToOption(selectedLeaderRecord);
     return mergeOptions(selectedOption ? [selectedOption] : [], baseOptions);
   }, [
@@ -356,13 +438,25 @@ export default function GroupRegistrationPage() {
     selectedLeaderRecord,
     studentOptions,
   ]);
-  const selectedLeader = leaderOptions.find((item) => item.value === values.groupLeader);
-  const memberIds = Array.isArray(values.groupMembers) ? values.groupMembers.filter(Boolean) : [];
+  const selectedLeader = leaderOptions.find(
+    (item) => item.value === values.groupLeader,
+  );
+  const memberIds = useMemo(
+    () =>
+      Array.isArray(values.groupMembers)
+        ? values.groupMembers.filter(Boolean)
+        : [],
+    [values.groupMembers],
+  );
   const memberPickerOptions = useMemo(() => {
     const baseOptions =
-      debouncedMemberSearchTerm.length > 0 ? memberSearchOptions : studentOptions;
+      debouncedMemberSearchTerm.length > 0
+        ? memberSearchOptions
+        : studentOptions;
     const forSelected = memberIds
-      .map((mid) => studentToOption(resolveMemberRecord(mid, pageStudents, group)))
+      .map((mid) =>
+        studentToOption(resolveMemberRecord(mid, pageStudents, group)),
+      )
       .filter(Boolean);
     return mergeOptions(forSelected, baseOptions);
   }, [
@@ -381,16 +475,26 @@ export default function GroupRegistrationPage() {
     if (!lid) return;
     const cur = normalizeGroupMembers(getValues("groupMembers"));
     if (!cur.includes(lid)) {
-      setValue("groupMembers", [...cur, lid], { shouldValidate: false, shouldDirty: true });
+      setValue("groupMembers", [...cur, lid], {
+        shouldValidate: false,
+        shouldDirty: true,
+      });
     }
   }, [values?.groupLeader, getValues, setValue]);
 
   const onSubmit = (formValues) => {
-    const leader = formValues.groupLeader;
+    const leader = resolveStudentId(formValues.groupLeader, knownStudentRecords);
     const rawMembers = Array.isArray(formValues.groupMembers)
       ? formValues.groupMembers.filter(Boolean)
       : [];
-    const ids = new Set([...rawMembers.map(String), String(leader)].filter(Boolean));
+    const ids = new Set(
+      [
+        ...rawMembers.map((member) =>
+          resolveStudentId(member, knownStudentRecords),
+        ),
+        String(leader),
+      ].filter(Boolean),
+    );
     const groupMembers = Array.from(ids);
 
     const payload = {
@@ -426,10 +530,18 @@ export default function GroupRegistrationPage() {
   const setMemberRole = (memberId, role) => {
     const mid = String(memberId);
     if (role === "remove") {
-      const next = normalizeGroupMembers(getValues("groupMembers")).filter((x) => x !== mid);
-      setValue("groupMembers", next, { shouldValidate: true, shouldDirty: true });
+      const next = normalizeGroupMembers(getValues("groupMembers")).filter(
+        (x) => x !== mid,
+      );
+      setValue("groupMembers", next, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
       if (getValues("groupLeader") === mid) {
-        setValue("groupLeader", "", { shouldValidate: true, shouldDirty: true });
+        setValue("groupLeader", "", {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
       }
       return;
     }
@@ -437,7 +549,10 @@ export default function GroupRegistrationPage() {
       setValue("groupLeader", mid, { shouldValidate: true, shouldDirty: true });
       const cur = normalizeGroupMembers(getValues("groupMembers"));
       if (!cur.includes(mid)) {
-        setValue("groupMembers", [...cur, mid], { shouldValidate: true, shouldDirty: true });
+        setValue("groupMembers", [...cur, mid], {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
       }
     }
   };
@@ -449,7 +564,9 @@ export default function GroupRegistrationPage() {
       case 2:
         return selectedLeader?.label || "—";
       case 3:
-        return t("adminProjects.form.group.selectedCount", { count: memberIds.length });
+        return t("adminProjects.form.group.selectedCount", {
+          count: memberIds.length,
+        });
       default:
         return "";
     }
@@ -484,11 +601,15 @@ export default function GroupRegistrationPage() {
                   required: t("adminProjects.form.group.validation.name"),
                   minLength: {
                     value: 2,
-                    message: t("adminProjects.form.group.validation.nameLength"),
+                    message: t(
+                      "adminProjects.form.group.validation.nameLength",
+                    ),
                   },
                   maxLength: {
                     value: 50,
-                    message: t("adminProjects.form.group.validation.nameLength"),
+                    message: t(
+                      "adminProjects.form.group.validation.nameLength",
+                    ),
                   },
                 })}
                 error={errors.name?.message}
@@ -499,7 +620,9 @@ export default function GroupRegistrationPage() {
                 render={({ field }) => (
                   <Select
                     label={t("adminProjects.form.group.fields.academicYear")}
-                    placeholder={t("adminProjects.form.group.placeholders.academicYear")}
+                    placeholder={t(
+                      "adminProjects.form.group.placeholders.academicYear",
+                    )}
                     options={academicYearOptions}
                     value={field.value || ACADEMIC_NONE}
                     onValueChange={field.onChange}
@@ -509,7 +632,9 @@ export default function GroupRegistrationPage() {
               />
               {academicYearsLoading ? (
                 <p className="text-[11px] text-muted dark:text-dark-muted">
-                  {t("adminProjects.form.group.placeholders.loadingAcademicYears")}
+                  {t(
+                    "adminProjects.form.group.placeholders.loadingAcademicYears",
+                  )}
                 </p>
               ) : null}
             </FacultyFormSectionCard>
@@ -537,7 +662,9 @@ export default function GroupRegistrationPage() {
                 name="groupLeader"
                 control={control}
                 rules={{
-                  required: t("adminProjects.form.group.validation.groupLeader"),
+                  required: t(
+                    "adminProjects.form.group.validation.groupLeader",
+                  ),
                 }}
                 render={({ field, fieldState }) => (
                   <div className="flex flex-col gap-2">
@@ -547,10 +674,16 @@ export default function GroupRegistrationPage() {
                       options={leaderOptions}
                       placeholder={
                         studentsLoading
-                          ? t("adminProjects.form.group.placeholders.loadingStudents")
-                          : t("adminProjects.form.group.placeholders.groupLeader")
+                          ? t(
+                              "adminProjects.form.group.placeholders.loadingStudents",
+                            )
+                          : t(
+                              "adminProjects.form.group.placeholders.groupLeader",
+                            )
                       }
-                      searchPlaceholder={t("adminProjects.form.group.placeholders.groupLeaderSearch")}
+                      searchPlaceholder={t(
+                        "adminProjects.form.group.placeholders.groupLeaderSearch",
+                      )}
                       loading={isSearchingStudents}
                       onSearchChange={setLeaderSearchTerm}
                       disabled={studentsLoading}
@@ -613,8 +746,12 @@ export default function GroupRegistrationPage() {
                         options={memberPickerOptions}
                         placeholder={
                           studentsLoading
-                            ? t("adminProjects.form.group.placeholders.loadingStudents")
-                            : t("adminProjects.form.group.placeholders.membersPicker")
+                            ? t(
+                                "adminProjects.form.group.placeholders.loadingStudents",
+                              )
+                            : t(
+                                "adminProjects.form.group.placeholders.membersPicker",
+                              )
                         }
                         searchPlaceholder={t(
                           "adminProjects.form.group.placeholders.membersSearch",
@@ -645,16 +782,36 @@ export default function GroupRegistrationPage() {
                         </li>
                       ) : (
                         memberIds.map((mid) => {
-                          const rec = resolveMemberRecord(mid, pageStudents, group);
+                          const rec = resolveMemberRecord(
+                            mid,
+                            pageStudents,
+                            group,
+                          );
                           const title = displayName(rec, mid);
                           const email = rec?.email ?? "";
                           const pic = resolveAvatarUrl(rec?.profilePicture);
-                          const isLeader = String(values?.groupLeader) === String(mid);
+                          const isLeader =
+                            String(values?.groupLeader) === String(mid);
                           const roleValue = isLeader ? "leader" : "member";
                           const roleOptions = [
-                            { value: "member", label: t("adminProjects.form.group.invite.roleMember") },
-                            { value: "leader", label: t("adminProjects.form.group.invite.roleLeader") },
-                            { value: "remove", label: t("adminProjects.form.group.invite.remove") },
+                            {
+                              value: "member",
+                              label: t(
+                                "adminProjects.form.group.invite.roleMember",
+                              ),
+                            },
+                            {
+                              value: "leader",
+                              label: t(
+                                "adminProjects.form.group.invite.roleLeader",
+                              ),
+                            },
+                            {
+                              value: "remove",
+                              label: t(
+                                "adminProjects.form.group.invite.remove",
+                              ),
+                            },
                           ];
                           return (
                             <li
@@ -679,16 +836,22 @@ export default function GroupRegistrationPage() {
                                   </p>
                                   {isLeader ? (
                                     <span className="shrink-0 rounded-full border border-(--color-light-card-border) bg-(--color-light-card-bg) px-2 py-0.5 text-[10px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-secondary">
-                                      {t("adminProjects.form.group.selector.leaderBadge")}
+                                      {t(
+                                        "adminProjects.form.group.selector.leaderBadge",
+                                      )}
                                     </span>
                                   ) : (
                                     <span className="shrink-0 rounded-full border border-(--color-light-card-border) px-2 py-0.5 text-[10px] font-semibold text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
-                                      {t("adminProjects.form.group.badge.member")}
+                                      {t(
+                                        "adminProjects.form.group.badge.member",
+                                      )}
                                     </span>
                                   )}
                                 </div>
                                 {email ? (
-                                  <p className="truncate text-xs text-muted dark:text-dark-muted">{email}</p>
+                                  <p className="truncate text-xs text-muted dark:text-dark-muted">
+                                    {email}
+                                  </p>
                                 ) : null}
                               </div>
                               <div className="w-[min(100%,8.5rem)] shrink-0">
@@ -703,8 +866,10 @@ export default function GroupRegistrationPage() {
                                       });
                                       return;
                                     }
-                                    if (v === "leader") setMemberRole(mid, "leader");
-                                    if (v === "remove") setMemberRole(mid, "remove");
+                                    if (v === "leader")
+                                      setMemberRole(mid, "leader");
+                                    if (v === "remove")
+                                      setMemberRole(mid, "remove");
                                   }}
                                 />
                               </div>
@@ -738,19 +903,30 @@ export default function GroupRegistrationPage() {
               subtitle={t("adminProjects.form.group.overviewDescription")}
             >
               <div className="grid gap-2 sm:grid-cols-2">
-                <ReviewRow k={t("adminProjects.form.group.fields.name")} v={values?.name} />
+                <ReviewRow
+                  k={t("adminProjects.form.group.fields.name")}
+                  v={values?.name}
+                />
                 <ReviewRow
                   k={t("adminProjects.form.group.fields.academicYear")}
                   v={
-                    values?.academicYear && values.academicYear !== ACADEMIC_NONE
-                      ? academicYearOptions.find((o) => o.value === values.academicYear)?.label
+                    values?.academicYear &&
+                    values.academicYear !== ACADEMIC_NONE
+                      ? academicYearOptions.find(
+                          (o) => o.value === values.academicYear,
+                        )?.label
                       : t("adminProjects.form.group.academicYearOptional")
                   }
                 />
-                <ReviewRow k={t("adminProjects.form.group.fields.groupLeader")} v={selectedLeader?.label} />
+                <ReviewRow
+                  k={t("adminProjects.form.group.fields.groupLeader")}
+                  v={selectedLeader?.label}
+                />
                 <ReviewRow
                   k={t("adminProjects.form.group.fields.groupMembers")}
-                  v={t("adminProjects.form.group.selectedCount", { count: memberIds.length })}
+                  v={t("adminProjects.form.group.selectedCount", {
+                    count: memberIds.length,
+                  })}
                 />
               </div>
             </FacultyFormSectionCard>
@@ -774,7 +950,10 @@ export default function GroupRegistrationPage() {
   if (isEdit && !groupLoading && !group) {
     return (
       <div className="flex min-h-screen flex-1 flex-col items-start gap-4 bg-white p-4 dark:bg-dark-card-bg md:p-5">
-        <Button variant="tertiary" onClick={() => navigate("/admin/projects?tab=groups")}>
+        <Button
+          variant="tertiary"
+          onClick={navigateBack}
+        >
           {t("adminProjects.form.group.actions.back")}
         </Button>
         <div className="rounded-3xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-6 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
@@ -788,14 +967,15 @@ export default function GroupRegistrationPage() {
 
   const aySummary =
     values?.academicYear && values.academicYear !== ACADEMIC_NONE
-      ? academicYearOptions.find((o) => o.value === values.academicYear)?.label ?? "—"
+      ? (academicYearOptions.find((o) => o.value === values.academicYear)
+          ?.label ?? "—")
       : t("adminProjects.form.group.academicYearOptional");
 
   return (
     <div className="flex min-h-screen flex-1 flex-col gap-4 overflow-y-auto bg-light-app-bg p-4 dark:bg-dark-card-bg md:p-5">
       <button
         type="button"
-        onClick={() => navigate("/admin/projects?tab=groups")}
+        onClick={navigateBack}
         className="inline-flex w-fit items-center gap-2 rounded-xl border border-default bg-bg-shell px-3 py-2 text-xs font-semibold text-secondary transition-colors hover:bg-hover dark:border-dark-default dark:bg-dark-shell dark:text-dark-secondary dark:hover:bg-dark-hover"
       >
         <Icon d={IC.chevLeft} className="size-3.5 stroke-[2]" />
@@ -809,13 +989,13 @@ export default function GroupRegistrationPage() {
         <div className="card rounded-xl px-5 py-8 shadow-sm md:px-8 md:py-10">
           <header className="mb-8 flex flex-col gap-4 border-b border-default pb-6 dark:border-dark-default sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p
-                className="text-[11px] font-semibold uppercase tracking-wider text-(--color-light-nav-text-active) dark:text-(--color-dark-nav-text-active)"
-              >
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-(--color-light-nav-text-active) dark:text-(--color-dark-nav-text-active)">
                 {t("adminProjects.tabs.groups")}
               </p>
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-primary sm:text-[1.65rem] dark:text-dark-primary">
-                {isEdit ? t("adminProjects.form.group.editTitle") : t("adminProjects.form.group.createTitle")}
+                {isEdit
+                  ? t("adminProjects.form.group.editTitle")
+                  : t("adminProjects.form.group.createTitle")}
               </h1>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-secondary dark:text-dark-secondary">
                 {t("adminProjects.form.group.subtitle")}
@@ -846,7 +1026,9 @@ export default function GroupRegistrationPage() {
                       ].join(" ")}
                     >
                       <IconStep className="size-3.5 shrink-0" strokeWidth={2} />
-                      <span className="max-w-[8rem] truncate">{t(s.titleKey)}</span>
+                      <span className="max-w-[8rem] truncate">
+                        {t(s.titleKey)}
+                      </span>
                     </li>
                   );
                 })}
@@ -857,7 +1039,10 @@ export default function GroupRegistrationPage() {
                   const done = s.id < step;
                   const IconStep = s.icon;
                   return (
-                    <li key={s.id} className="relative flex gap-3 pb-8 last:pb-0">
+                    <li
+                      key={s.id}
+                      className="relative flex gap-3 pb-8 last:pb-0"
+                    >
                       {i < steps.length - 1 ? (
                         <span
                           className={[
@@ -886,9 +1071,15 @@ export default function GroupRegistrationPage() {
                         <span
                           className={[
                             "block text-[11px] font-semibold leading-snug break-words",
-                            !active && !done ? "text-secondary dark:text-dark-secondary" : "",
-                            active ? "text-(--color-light-timeline-text) dark:text-(--color-dark-timeline-text)" : "",
-                            done ? "text-[color:var(--color-chart-success)] dark:text-[color:var(--color-chart-success)]" : "",
+                            !active && !done
+                              ? "text-secondary dark:text-dark-secondary"
+                              : "",
+                            active
+                              ? "text-(--color-light-timeline-text) dark:text-(--color-dark-timeline-text)"
+                              : "",
+                            done
+                              ? "text-[color:var(--color-chart-success)] dark:text-[color:var(--color-chart-success)]"
+                              : "",
                           ].join(" ")}
                         >
                           {t(s.titleKey)}
@@ -909,7 +1100,9 @@ export default function GroupRegistrationPage() {
                   <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-(--color-light-success-text) dark:text-(--color-dark-success-text)">
-                        {t("adminProjects.form.group.progress", { pct: progressPct })}
+                        {t("adminProjects.form.group.progress", {
+                          pct: progressPct,
+                        })}
                       </p>
                       <p className="mt-1 text-[11px] text-(--color-light-success-text) opacity-90 dark:text-(--color-dark-success-text)">
                         {t("adminProjects.form.group.progress.hint")}
@@ -924,7 +1117,12 @@ export default function GroupRegistrationPage() {
                       }}
                       initial={false}
                       animate={{ width: `${progressPct}%` }}
-                      transition={{ type: "spring", stiffness: 100, damping: 22, mass: 0.85 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 100,
+                        damping: 22,
+                        mass: 0.85,
+                      }}
                     />
                   </div>
                 </div>
@@ -948,7 +1146,10 @@ export default function GroupRegistrationPage() {
                                 initial={{ opacity: 0, y: 14 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -6 }}
-                                transition={{ duration: 0.36, ease: motionEase }}
+                                transition={{
+                                  duration: 0.36,
+                                  ease: motionEase,
+                                }}
                                 className="flex items-start gap-3 rounded-xl border border-(--color-light-border-default) bg-light-app-secondary px-4 py-3 dark:border-(--color-dark-border-default) dark:bg-(--color-dark-app-secondary)"
                               >
                                 <span
@@ -958,7 +1159,10 @@ export default function GroupRegistrationPage() {
                                     color: "var(--color-chart-success)",
                                   }}
                                 >
-                                  <DoneIcon className="size-4" strokeWidth={2} />
+                                  <DoneIcon
+                                    className="size-4"
+                                    strokeWidth={2}
+                                  />
                                 </span>
                                 <div className="min-w-0 flex-1">
                                   <p className="text-[11px] font-semibold text-primary dark:text-dark-primary">
@@ -978,21 +1182,35 @@ export default function GroupRegistrationPage() {
                           })}
                       </AnimatePresence>
                     </div>
-                    <AnimatePresence mode="wait">{stepContent()}</AnimatePresence>
+                    <AnimatePresence mode="wait">
+                      {stepContent()}
+                    </AnimatePresence>
                   </div>
                 </LayoutGroup>
 
                 <footer className="mt-10 flex flex-col gap-4 border-t border-default pt-6 dark:border-dark-border-default sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2 text-[11px] text-muted dark:text-dark-muted">
                     <Clock3 className="size-3.5 shrink-0 opacity-70" />
-                    <span>{t("adminProjects.form.group.progress.footerHint")}</span>
+                    <span>
+                      {t("adminProjects.form.group.progress.footerHint")}
+                    </span>
                   </div>
                   <div className="flex flex-wrap justify-end gap-2">
-                    <Button type="button" variant="tertiary" onClick={() => navigate("/admin/projects?tab=groups")}>
-                      {t("adminProjects.form.group.actions.cancel")}
-                    </Button>
+                    {step === 1 ? (
+                      <Button
+                        type="button"
+                        variant="tertiary"
+                        onClick={navigateBack}
+                      >
+                        {t("adminProjects.form.group.actions.cancel")}
+                      </Button>
+                    ) : null}
                     {step > 1 ? (
-                      <Button type="button" variant="secondary" onClick={goPrev}>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={goPrev}
+                      >
                         {t("adminProjects.form.group.actions.previous")}
                       </Button>
                     ) : null}
@@ -1003,7 +1221,9 @@ export default function GroupRegistrationPage() {
                     ) : (
                       <Button
                         type="button"
-                        disabled={createGroup.isPending || updateGroup.isPending}
+                        disabled={
+                          createGroup.isPending || updateGroup.isPending
+                        }
                         onClick={() => void handleSubmit(onSubmit)()}
                       >
                         {createGroup.isPending || updateGroup.isPending
@@ -1027,8 +1247,14 @@ export default function GroupRegistrationPage() {
                   {t("adminProjects.form.group.overviewDescription")}
                 </p>
                 <ul className="mt-5 space-y-3 border-t border-default pt-5 text-[11px] dark:border-dark-default">
-                  <SummaryLine label={t("adminProjects.form.group.fields.name")} value={values?.name?.trim() || "—"} />
-                  <SummaryLine label={t("adminProjects.form.group.fields.academicYear")} value={aySummary} />
+                  <SummaryLine
+                    label={t("adminProjects.form.group.fields.name")}
+                    value={values?.name?.trim() || "—"}
+                  />
+                  <SummaryLine
+                    label={t("adminProjects.form.group.fields.academicYear")}
+                    value={aySummary}
+                  />
                   <SummaryLine
                     label={t("adminProjects.form.group.stats.leader")}
                     value={selectedLeader?.label || "—"}
@@ -1041,7 +1267,8 @@ export default function GroupRegistrationPage() {
                 <div className="mt-6 flex items-center gap-2 rounded-xl bg-(--color-light-nav-hover-bg) px-3 py-2 dark:bg-(--color-dark-card-hover)">
                   <CalendarRange className="size-3.5 shrink-0 text-(--color-light-timeline-accent) dark:text-(--color-dark-timeline-accent)" />
                   <span className="text-[10px] font-medium text-secondary dark:text-dark-secondary">
-                    {t("adminProjects.form.group.stepLabel", { step })} / {steps.length}
+                    {t("adminProjects.form.group.stepLabel", { step })} /{" "}
+                    {steps.length}
                   </span>
                 </div>
               </div>
@@ -1057,7 +1284,9 @@ function SummaryLine({ label, value }) {
   return (
     <li className="flex justify-between gap-3 border-b border-default pb-2 last:border-0 last:pb-0 dark:border-dark-default">
       <span className="shrink-0 text-muted dark:text-dark-muted">{label}</span>
-      <span className="min-w-0 text-right font-medium text-primary dark:text-dark-primary">{value}</span>
+      <span className="min-w-0 text-right font-medium text-primary dark:text-dark-primary">
+        {value}
+      </span>
     </li>
   );
 }
@@ -1066,8 +1295,12 @@ function ReviewRow({ k, v }) {
   const display = v != null && `${v}`.trim() !== "" ? `${v}` : "—";
   return (
     <div className="rounded-lg bg-bg-shell px-3 py-2 dark:bg-dark-shell">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-muted dark:text-dark-muted">{k}</div>
-      <div className="mt-1 text-xs font-semibold text-primary dark:text-dark-primary">{display}</div>
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted dark:text-dark-muted">
+        {k}
+      </div>
+      <div className="mt-1 text-xs font-semibold text-primary dark:text-dark-primary">
+        {display}
+      </div>
     </div>
   );
 }

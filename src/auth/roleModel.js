@@ -51,6 +51,7 @@ function matchFacetFromToken(upper) {
   if (upper === "DEAN") return "admin";
   if (
     upper === "AUTHOR" ||
+    upper === "AUTHOR_USER" ||
     upper === "BLOG_AUTHOR" ||
     upper === "CONTENT_AUTHOR" ||
     upper === "BLOG_WRITER"

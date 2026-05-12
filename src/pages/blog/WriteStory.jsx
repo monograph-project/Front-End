@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { gooeyToast } from "goey-toast";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
-  Bell,
+  Code2,
   Eye,
   Image as ImageIcon,
   MoreHorizontal,
-  Play,
-  Search,
+  Quote,
+  Rows3,
   X,
 } from "lucide-react";
 import Select from "../../components/Select";
@@ -26,15 +26,38 @@ import {
   useCreateArticle,
   useCreateArticleWithFiles,
   useCreateDraftArticle,
+  useArticle,
+  useUpdateArticle,
+  useUpdateArticleWithFile,
 } from "../../services/useApi";
 
-const STORAGE_KEY = "draft_story_v2";
+const STORAGE_KEY_PREFIX = "draft_story_v2";
+const BLOCK_INSERT_TAGS = new Set(["DIV", "FIGURE", "HR", "VIDEO", "IFRAME"]);
 
-/** Medium-style editor chrome */
-const M = {
-  green: "#1a8917",
-  greenMuted: "rgba(26, 137, 23, 0.45)",
-};
+function draftStorageKey(user) {
+  const userKey =
+    user?.id || user?.user_name || user?.username || user?.email || "guest";
+  return `${STORAGE_KEY_PREFIX}:${String(userKey).toLowerCase()}`;
+}
+
+function placeCaretInside(el) {
+  const sel = window.getSelection();
+  if (!sel) return;
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function ensureParagraphAfterBlock(node) {
+  if (!BLOCK_INSERT_TAGS.has(node?.nodeName)) return false;
+  const p = document.createElement("p");
+  p.innerHTML = "<br>";
+  node.after(p);
+  placeCaretInside(p);
+  return true;
+}
 
 function insertAtCaret(editorEl, node) {
   if (!editorEl) return;
@@ -42,6 +65,7 @@ function insertAtCaret(editorEl, node) {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) {
     editorEl.appendChild(node);
+    ensureParagraphAfterBlock(node);
     return;
   }
   const range = sel.getRangeAt(0);
@@ -52,14 +76,17 @@ function insertAtCaret(editorEl, node) {
   const inside = anchor instanceof Element && editorEl.contains(anchor);
   if (!inside) {
     editorEl.appendChild(node);
+    ensureParagraphAfterBlock(node);
     return;
   }
   range.deleteContents();
   range.insertNode(node);
-  range.setStartAfter(node);
-  range.collapse(true);
-  sel.removeAllRanges();
-  sel.addRange(range);
+  if (!ensureParagraphAfterBlock(node)) {
+    range.setStartAfter(node);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
 }
 
 function IconPlus() {
@@ -76,58 +103,30 @@ function IconPlus() {
   );
 }
 
-function IconEmbed() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="size-[18px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.85}
-    >
-      <path d="M10 19H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M14 5h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
-    </svg>
-  );
-}
-
-function IconBraces() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="size-[18px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.85}
-    >
-      <path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 4l-4 16" />
-    </svg>
-  );
-}
-
-function IconDividerDots() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="size-[18px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <circle cx="5" cy="12" r="1.25" />
-      <circle cx="12" cy="12" r="1.25" />
-      <circle cx="19" cy="12" r="1.25" />
-    </svg>
-  );
-}
-
 function ToolChip({ title: label, children, onClick }) {
   return (
     <button
       type="button"
       title={label}
       onClick={onClick}
-      className="flex size-9 shrink-0 items-center justify-center rounded-full border bg-white text-[#1a8917] transition-colors hover:bg-[rgba(26,137,23,0.06)] dark:border-[rgba(74,222,128,0.35)] dark:bg-zinc-900 dark:text-green-400 dark:hover:bg-green-950/40"
-      style={{ borderColor: M.greenMuted }}
+      className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) text-primary shadow-sm transition-colors hover:bg-light-app-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/15 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-primary dark:hover:bg-dark-app-tertiary dark:focus-visible:ring-blue-400/15"
+    >
+      {children}
+    </button>
+  );
+}
+
+function FormatButton({ active = false, title, children, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={`flex h-8 min-w-8 items-center justify-center rounded-xl px-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/15 dark:focus-visible:ring-blue-400/15 ${
+        active
+          ? "bg-(--color-light-btn-primary-bg) text-(--color-light-btn-primary-text) dark:bg-(--color-dark-btn-primary-bg) dark:text-(--color-dark-btn-primary-text)"
+          : "text-secondary hover:bg-light-app-tertiary dark:text-dark-secondary dark:hover:bg-dark-app-tertiary"
+      }`}
     >
       {children}
     </button>
@@ -140,11 +139,32 @@ function mapAudienceToVisibility(v) {
   return "PUBLIC";
 }
 
+function articleBlocksToHtml(blocks = []) {
+  return [...blocks]
+    .sort((a, b) => (a?.order ?? 0) - (b?.order ?? 0))
+    .map((block) => {
+      const type = String(block?.type ?? block?.blockType ?? "").toUpperCase();
+      const data = typeof block?.data === "object" && block.data ? block.data : {};
+      const text = String(data.text ?? "").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+      if (type === "HEADING") return `<h${data.level || 2}>${text}</h${data.level || 2}>`;
+      if (type === "QUOTE") return `<blockquote>${text}</blockquote>`;
+      if (type === "CODE") return `<pre>${String(data.code ?? "")}</pre>`;
+      if (type === "DIVIDER") return "<hr />";
+      if (type === "IMAGE" && data.url) {
+        return `<figure class="my-8 mx-auto flex aspect-video w-full max-w-3xl flex-col items-center justify-center overflow-hidden rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"><img src="${data.url}" alt="${data.alt ?? ""}" class="h-full w-full object-cover" /></figure>`;
+      }
+      return text ? `<p>${text}</p>` : "";
+    })
+    .join("");
+}
+
 export default function WriteStory() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const editArticleId = searchParams.get("articleId") || "";
 
   const userInitial = (
     user?.first_name?.[0] ||
@@ -153,6 +173,7 @@ export default function WriteStory() {
     user?.email?.[0] ||
     "U"
   ).toUpperCase();
+  const storageKey = useMemo(() => draftStorageKey(user), [user]);
 
   const initialDraft = useMemo(() => {
     const defaults = {
@@ -167,7 +188,7 @@ export default function WriteStory() {
 
     try {
       if (typeof window === "undefined") return defaults;
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey);
       if (!raw) return defaults;
 
       const data = JSON.parse(raw);
@@ -178,12 +199,13 @@ export default function WriteStory() {
         visibility: data.visibility || "public",
         cover: data.cover || null,
         body: data.body || "",
+        direction: data.direction || "auto",
         restoredAt: typeof data.lastSaved === "number" ? data.lastSaved : null,
       };
     } catch {
       return defaults;
     }
-  }, []);
+  }, [storageKey]);
 
   const [title, setTitle] = useState(initialDraft.title);
   const [subtitle, setSubtitle] = useState(initialDraft.subtitle);
@@ -192,6 +214,10 @@ export default function WriteStory() {
   /** Data URL preview (local autosave); optional uploaded file below. */
   const [cover, setCover] = useState(initialDraft.cover);
   const [coverFile, setCoverFile] = useState(null);
+  const [writingDirection, setWritingDirection] = useState(
+    initialDraft.direction || "auto",
+  );
+  const inlineFileByDataUrlRef = useRef(new Map());
   const [contentKind, setContentKind] = useState("WEBLOG");
   const [savedNote, setSavedNote] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -200,13 +226,44 @@ export default function WriteStory() {
     !(initialDraft.body || "").trim(),
   );
   const [toolbarOpen, setToolbarOpen] = useState(false);
+  const [activeBlockTop, setActiveBlockTop] = useState(8);
+  const [formatState, setFormatState] = useState({
+    justifyLeft: false,
+    justifyCenter: false,
+    justifyRight: false,
+  });
 
   const editorRef = useRef(null);
   const titleRef = useRef(null);
   const saveTimeoutRef = useRef(null);
 
+  const editArticleQuery = useArticle(editArticleId, {
+    enabled: Boolean(editArticleId),
+    notifyOnError: false,
+  });
+
+  const clearLocalDraft = useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(storageKey);
+    }
+  }, [storageKey]);
+
+  const resetEditor = useCallback(() => {
+    setTitle("");
+    setSubtitle("");
+    setTags("");
+    setVisibility("public");
+    setCover(null);
+    setCoverFile(null);
+    setWritingDirection("auto");
+    setIsBodyEmpty(true);
+    if (editorRef.current) editorRef.current.innerHTML = "";
+  }, []);
+
   const createJson = useCreateArticle({
     onSuccess: (data) => {
+      clearLocalDraft();
+      resetEditor();
       queryClient.invalidateQueries({ queryKey: ["articles"] });
       const nextId = data?.id ?? data?.articleId;
       if (nextId) navigate(`/story/${nextId}`);
@@ -217,8 +274,34 @@ export default function WriteStory() {
 
   const createMultipart = useCreateArticleWithFiles({
     onSuccess: (data) => {
+      clearLocalDraft();
+      resetEditor();
       queryClient.invalidateQueries({ queryKey: ["articles"] });
       const nextId = data?.id ?? data?.articleId;
+      if (nextId) navigate(`/story/${nextId}`);
+    },
+    showSuccessToast: true,
+    toastSuccess: t("writerStory.success.published"),
+  });
+
+  const updateJson = useUpdateArticle({
+    onSuccess: (data) => {
+      clearLocalDraft();
+      resetEditor();
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      const nextId = data?.id ?? data?.articleId ?? editArticleId;
+      if (nextId) navigate(`/story/${nextId}`);
+    },
+    showSuccessToast: true,
+    toastSuccess: t("writerStory.success.published"),
+  });
+
+  const updateMultipart = useUpdateArticleWithFile({
+    onSuccess: (data) => {
+      clearLocalDraft();
+      resetEditor();
+      queryClient.invalidateQueries({ queryKey: ["articles"] });
+      const nextId = data?.id ?? data?.articleId ?? editArticleId;
       if (nextId) navigate(`/story/${nextId}`);
     },
     showSuccessToast: true,
@@ -239,7 +322,11 @@ export default function WriteStory() {
   });
 
   const submitBusy =
-    createJson.isPending || createMultipart.isPending || saveDraft.isPending;
+    createJson.isPending ||
+    createMultipart.isPending ||
+    updateJson.isPending ||
+    updateMultipart.isPending ||
+    saveDraft.isPending;
 
   useEffect(() => {
     titleRef.current?.focus();
@@ -261,6 +348,54 @@ export default function WriteStory() {
     editorRef.current.innerHTML = initialDraft.body || "";
   }, [initialDraft.body]);
 
+  useEffect(() => {
+    const article = editArticleQuery.data;
+    if (!article || !editArticleId) return;
+    const meta = article.metadata || {};
+    const blocks = article.content?.blocks ?? article.blocks ?? [];
+    setTitle(article.title || "");
+    setSubtitle(article.subtitle || article.description || "");
+    setTags(Array.isArray(article.tags) ? article.tags.join(", ") : "");
+    setVisibility(String(article.visibility ?? "PUBLIC").toLowerCase());
+    setContentKind(String(article.contentType ?? "WEBLOG").toUpperCase());
+    setCover(
+      article.coverImageUrl ||
+        article.thumbnailUrl ||
+        meta.coverImageUrl ||
+        meta.thumbnailUrl ||
+        null,
+    );
+    if (editorRef.current) {
+      editorRef.current.innerHTML =
+        articleBlocksToHtml(blocks) || article.contentHtml || article.body || "";
+      setIsBodyEmpty(!editorRef.current.innerText.trim());
+    }
+  }, [editArticleId, editArticleQuery.data]);
+
+  const updateBlockToolbarPosition = useCallback(() => {
+    const ed = editorRef.current;
+    const sel = window.getSelection();
+    if (!ed || !sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    let node = range.commonAncestorContainer;
+    if (node.nodeType !== Node.ELEMENT_NODE && node.parentElement) {
+      node = node.parentElement;
+    }
+    const block =
+      node instanceof Element
+        ? node.closest("p,h1,h2,h3,h4,h5,h6,blockquote,pre,figure,hr,div")
+        : null;
+    if (!block || !ed.contains(block)) return;
+    const editorRect = ed.getBoundingClientRect();
+    const blockRect = block.getBoundingClientRect();
+    setActiveBlockTop(Math.max(4, blockRect.top - editorRect.top - 46));
+    setFormatState({
+      justifyLeft: document.queryCommandState("justifyLeft"),
+      justifyCenter: document.queryCommandState("justifyCenter"),
+      justifyRight: document.queryCommandState("justifyRight"),
+    });
+  }, []);
+
   const autosave = useCallback(() => {
     const payload = {
       title,
@@ -272,10 +407,11 @@ export default function WriteStory() {
       visibility,
       cover,
       body: editorRef.current?.innerHTML || "",
+      direction: writingDirection,
       lastSaved: Date.now(),
     };
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    localStorage.setItem(storageKey, JSON.stringify(payload));
     setSavedNote(t("writerStory.autosave.localSaved"));
 
     if (saveTimeoutRef.current) {
@@ -285,7 +421,7 @@ export default function WriteStory() {
     saveTimeoutRef.current = setTimeout(() => {
       setSavedNote("");
     }, 2000);
-  }, [cover, subtitle, tags, title, visibility, t]);
+  }, [cover, subtitle, storageKey, tags, title, visibility, writingDirection, t]);
 
   useEffect(() => {
     const intervalId = setInterval(autosave, 5000);
@@ -300,6 +436,22 @@ export default function WriteStory() {
   const exec = (command, value = null) => {
     document.execCommand(command, false, value);
     editorRef.current?.focus();
+    updateBlockToolbarPosition();
+  };
+
+  const applyDirection = (direction) => {
+    setWritingDirection(direction);
+    if (editorRef.current) {
+      editorRef.current.dir = direction === "auto" ? "auto" : direction;
+      editorRef.current.style.textAlign =
+        direction === "rtl" ? "right" : direction === "ltr" ? "left" : "";
+      editorRef.current.focus();
+    }
+  };
+
+  const clearCover = () => {
+    setCover(null);
+    setCoverFile(null);
   };
 
   const appendOrInsert = useCallback(
@@ -307,6 +459,7 @@ export default function WriteStory() {
       const ed = editorRef.current;
       if (!ed) return;
       insertAtCaret(ed, el);
+      setIsBodyEmpty(!ed.innerText.trim());
       autosave();
     },
     [autosave],
@@ -318,15 +471,17 @@ export default function WriteStory() {
 
       const reader = new FileReader();
       reader.onload = (event) => {
+        const dataUrl = String(event.target?.result || "");
+        if (dataUrl) inlineFileByDataUrlRef.current.set(dataUrl, file);
         const wrapper = document.createElement("figure");
         wrapper.className =
-          "my-8 flex flex-col items-center text-center max-w-full";
+          "my-8 mx-auto flex aspect-video w-full max-w-3xl flex-col items-center justify-center overflow-hidden rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
 
         const img = document.createElement("img");
-        img.src = event.target?.result || "";
+        img.src = dataUrl;
         img.alt = file.name || "Story image";
         img.className =
-          "mx-auto max-h-[min(70vh,520px)] max-w-full rounded-sm object-contain";
+          "h-full w-full object-cover";
 
         wrapper.appendChild(img);
         appendOrInsert(wrapper);
@@ -359,7 +514,7 @@ export default function WriteStory() {
       if (type === "divider") {
         const divider = document.createElement("hr");
         divider.className =
-          "my-10 border-0 border-t border-neutral-200 dark:border-neutral-700";
+          "my-10 border-0 border-t border-light-divider dark:border-dark-divider";
         appendOrInsert(divider);
         return;
       }
@@ -374,71 +529,6 @@ export default function WriteStory() {
           files.forEach(insertImageFile);
         };
         input.click();
-        return;
-      }
-
-      if (type === "stock") {
-        const term =
-          typeof window !== "undefined"
-            ? window.prompt("Stock image keyword (demo uses placeholder):", "")
-            : "";
-        if (!term?.trim()) return;
-        const seed = encodeURIComponent(term.trim().slice(0, 40));
-        const wrapper = document.createElement("figure");
-        wrapper.className = "my-8 flex flex-col items-center max-w-full";
-        const img = document.createElement("img");
-        img.src = `https://picsum.photos/seed/${seed}/920/560`;
-        img.alt = term;
-        img.loading = "lazy";
-        img.className =
-          "mx-auto max-h-[min(70vh,520px)] max-w-full rounded-sm object-cover";
-        wrapper.appendChild(img);
-        const cap = document.createElement("figcaption");
-        cap.className =
-          "mt-2 font-blog-serif text-sm text-muted dark:text-dark-muted";
-        cap.textContent = `Photo · ${term.trim()}`;
-        wrapper.appendChild(cap);
-        appendOrInsert(wrapper);
-        return;
-      }
-
-      if (type === "video") {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "video/*";
-        input.onchange = (event) => {
-          const file = event.target.files?.[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (loadEvent) => {
-              const video = document.createElement("video");
-              video.src = loadEvent.target?.result || "";
-              video.controls = true;
-              video.className =
-                "mx-auto my-8 max-h-[420px] w-full max-w-full rounded-sm border border-neutral-200 object-contain dark:border-neutral-700";
-              appendOrInsert(video);
-            };
-            reader.readAsDataURL(file);
-          }
-        };
-        input.click();
-        return;
-      }
-
-      if (type === "embed") {
-        const url =
-          typeof window !== "undefined"
-            ? window.prompt(
-                "Embed URL (many sites allow iframe previews):",
-                "https://",
-              )
-            : "";
-        if (!url?.trim()) return;
-        const embed = document.createElement("div");
-        embed.className =
-          "my-8 w-full overflow-hidden rounded-sm bg-neutral-50 dark:bg-zinc-900";
-        embed.innerHTML = `<iframe src="${encodeURI(url.trim())}" class="aspect-video min-h-[240px] w-full" title="Embedded content" referrerpolicy="no-referrer" loading="lazy" />`;
-        appendOrInsert(embed);
         return;
       }
 
@@ -514,17 +604,37 @@ export default function WriteStory() {
     autosave();
 
     const base = buildArticlePayload();
+    const inlineFiles = [];
+    const blocksForSubmit = (base.blocks ?? []).map((block) => {
+      const type = String(block?.type ?? "").toUpperCase();
+      const url = block?.data?.url;
+      const file =
+        typeof url === "string" ? inlineFileByDataUrlRef.current.get(url) : null;
+      if ((type === "IMAGE" || type === "VIDEO") && file instanceof File) {
+        const uploadIndex = inlineFiles.length;
+        inlineFiles.push(file);
+        const { url: _url, ...dataWithoutUrl } = block.data ?? {};
+        return {
+          ...block,
+          data: {
+            ...dataWithoutUrl,
+            uploadIndex,
+          },
+        };
+      }
+      return block;
+    });
 
-    if (coverFile instanceof File) {
+    if (coverFile instanceof File || inlineFiles.length) {
       const fd = new FormData();
       fd.append("title", base.title);
       if (base.description != null && base.description !== "")
         fd.append("description", String(base.description));
-      fd.append("blocks", JSON.stringify(base.blocks ?? []));
+      fd.append("blocks", JSON.stringify(blocksForSubmit));
       fd.append(
         "tags",
         Array.isArray(base.tags)
-          ? base.tags.join(",")
+          ? JSON.stringify(base.tags)
           : String(base.tags ?? ""),
       );
       fd.append("visibility", String(base.visibility ?? "PUBLIC"));
@@ -533,14 +643,27 @@ export default function WriteStory() {
         base.contentType === "MONOGRAPH" ? "MONOGRAPH" : "WEBLOG",
       );
       if (base.subtitle) fd.append("subtitle", base.subtitle);
-      fd.append("coverImage", coverFile);
-      createMultipart.mutate({
-        authorUserId: user.id,
-        formData: fd,
-      });
+      if (coverFile instanceof File) fd.append("coverImage", coverFile);
+      inlineFiles.forEach((file) => fd.append("inlineFiles", file));
+      if (editArticleId) {
+        updateMultipart.mutate({
+          articleId: editArticleId,
+          authorId: user.id,
+          formData: fd,
+        });
+      } else {
+        createMultipart.mutate({
+          authorUserId: user.id,
+          formData: fd,
+        });
+      }
       return;
     }
 
+    if (editArticleId) {
+      updateJson.mutate({ articleId: editArticleId, authorId: user.id, ...base });
+      return;
+    }
     createJson.mutate({ userId: user.id, ...base });
   };
 
@@ -601,8 +724,7 @@ export default function WriteStory() {
             type="button"
             disabled={!canPublish || submitBusy}
             onClick={handlePublish}
-            className="rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-35"
-            style={{ backgroundColor: M.green }}
+            className="rounded-xl bg-(--color-light-btn-primary-bg) px-4 py-1.5 text-sm font-medium text-(--color-light-btn-primary-text) transition-colors hover:bg-(--color-light-btn-primary-hover) disabled:cursor-not-allowed disabled:opacity-35 dark:bg-(--color-dark-btn-primary-bg) dark:text-(--color-dark-btn-primary-text) dark:hover:bg-(--color-dark-btn-primary-hover)"
           >
             {submitBusy && (createJson.isPending || createMultipart.isPending)
               ? t("writerStory.publishing")
@@ -712,7 +834,7 @@ export default function WriteStory() {
                 />
                 <label
                   htmlFor="writer-cover-v2"
-                  className="block cursor-pointer rounded-lg border border-dashed border-neutral-300 px-3 py-2 text-center text-xs font-medium text-neutral-600 transition-colors hover:border-[#1a8917]/50 hover:bg-[rgba(26,137,23,0.04)] dark:border-zinc-600 dark:text-neutral-400"
+                  className="block cursor-pointer rounded-xl border border-dashed border-(--color-light-card-border) px-3 py-2 text-center text-xs font-medium text-secondary transition-colors hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:bg-dark-app-tertiary"
                 >
                   {cover
                     ? t("writerStory.cover.replace")
@@ -732,11 +854,76 @@ export default function WriteStory() {
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-6 sm:px-10">
+        <div className="sticky top-[56px] z-10 -mx-6 border-b border-light-divider bg-(--color-light-card-bg)/92 px-6 py-2 backdrop-blur-md dark:border-dark-divider dark:bg-(--color-dark-card-bg)/92 sm:-mx-10 sm:px-10">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="me-2 flex flex-wrap items-center gap-1 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-1 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+              <FormatButton
+                onClick={() => exec("bold")}
+                title={t("writerStory.toolbar.bold")}
+              >
+                B
+              </FormatButton>
+              <FormatButton
+                onClick={() => exec("italic")}
+                title={t("writerStory.toolbar.italic")}
+              >
+                <span className="italic">I</span>
+              </FormatButton>
+              <FormatButton
+                onClick={() => exec("formatBlock", "H2")}
+                title={t("writerStory.toolbar.heading")}
+              >
+                H2
+              </FormatButton>
+              <FormatButton
+                onClick={() => exec("insertUnorderedList")}
+                title={t("writerStory.toolbar.bullets")}
+              >
+                •
+              </FormatButton>
+              <FormatButton
+                onClick={() => exec("justifyLeft")}
+                active={formatState.justifyLeft}
+                title={t("writerStory.toolbar.alignLeft")}
+              >
+                L
+              </FormatButton>
+              <FormatButton
+                onClick={() => exec("justifyCenter")}
+                active={formatState.justifyCenter}
+                title={t("writerStory.toolbar.alignCenter")}
+              >
+                C
+              </FormatButton>
+              <FormatButton
+                onClick={() => exec("justifyRight")}
+                active={formatState.justifyRight}
+                title={t("writerStory.toolbar.alignRight")}
+              >
+                R
+              </FormatButton>
+            </div>
+            <div className="flex items-center gap-1 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-1 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+              {["ltr", "auto", "rtl"].map((dir) => (
+                <FormatButton
+                  key={dir}
+                  active={writingDirection === dir}
+                  onClick={() => applyDirection(dir)}
+                  title={t(`writerStory.direction.${dir}`)}
+                >
+                  {dir}
+                </FormatButton>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="pt-14 sm:pt-16">
           <input
             ref={titleRef}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            dir={writingDirection === "auto" ? "auto" : writingDirection}
             placeholder={t("writerStory.placeholders.title")}
             className="font-blog-display w-full border-0 bg-transparent px-0 py-2 text-[2.625rem] font-bold leading-[1.06] tracking-tight text-neutral-900 outline-none placeholder:text-neutral-400 sm:text-[2.875rem] dark:text-neutral-50 dark:placeholder:text-zinc-500"
           />
@@ -746,79 +933,104 @@ export default function WriteStory() {
           <input
             value={subtitle}
             onChange={(e) => setSubtitle(e.target.value)}
+            dir={writingDirection === "auto" ? "auto" : writingDirection}
             placeholder={t("writerStory.placeholders.optionalSubtitle")}
             className="font-blog-serif w-full border-0 bg-transparent px-0 py-1 text-[1.2rem] font-normal italic leading-snug text-neutral-600 outline-none placeholder:text-neutral-400 sm:text-xl dark:text-zinc-400 dark:placeholder:text-zinc-500"
           />
         </div>
 
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          <label
+            htmlFor="writer-cover-inline"
+            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-(--color-light-card-border) px-4 text-sm font-medium text-secondary transition-colors hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:bg-dark-app-tertiary"
+          >
+            <ImageIcon className="size-4" strokeWidth={1.85} />
+            {cover
+              ? t("writerStory.cover.replace")
+              : t("writerStory.cover.add")}
+          </label>
+          <input
+            id="writer-cover-inline"
+            type="file"
+            accept="image/*"
+            onChange={handleCover}
+            className="hidden"
+          />
+          {cover ? (
+            <button
+              type="button"
+              onClick={clearCover}
+              className="inline-flex h-9 items-center rounded-xl border border-(--color-light-card-border) px-3 text-xs font-semibold text-secondary transition-colors hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:bg-dark-app-tertiary"
+            >
+              {t("writerStory.cover.remove")}
+            </button>
+          ) : null}
+        </div>
+
         {cover && (
-          <figure className="mt-10 overflow-hidden rounded-sm border border-neutral-200 dark:border-neutral-800">
+          <figure className="mt-10 aspect-video overflow-hidden rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
             <img
               src={cover}
               alt=""
-              className="max-h-[min(420px,50vh)] w-full object-cover"
+              className="h-full w-full object-cover"
             />
           </figure>
         )}
 
-        <div
-          className={`mt-10 flex flex-wrap items-center gap-2 ${cover ? "" : ""}`}
-        >
+        <div className="relative mt-8 min-h-[50vh]">
+          <div
+            className="absolute start-2 z-[3] flex items-start gap-2 transition-[top] duration-200 ease-out"
+            style={{ top: activeBlockTop }}
+          >
           {toolbarOpen ? (
-            <>
+            <div className="flex origin-left items-center gap-2 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-1 shadow-lg transition-all duration-200 ease-out animate-in fade-in zoom-in-95 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
               <ToolChip
-                title="Close menu"
+                title={t("writerStory.toolbar.close")}
                 onClick={() => setToolbarOpen(false)}
               >
                 <X className="size-[18px]" strokeWidth={2.2} />
               </ToolChip>
               <ToolChip
-                title="Insert image"
+                title={t("writerStory.toolbar.image")}
                 onClick={() => closeToolbarAnd(() => handleInsert("image"))}
               >
                 <ImageIcon className="size-[18px]" strokeWidth={1.85} />
               </ToolChip>
               <ToolChip
-                title="Stock-style image (demo)"
-                onClick={() => closeToolbarAnd(() => handleInsert("stock"))}
-              >
-                <Search className="size-[18px]" strokeWidth={1.85} />
-              </ToolChip>
-              <ToolChip
-                title="Insert video"
-                onClick={() => closeToolbarAnd(() => handleInsert("video"))}
-              >
-                <Play className="size-[18px]" strokeWidth={1.85} />
-              </ToolChip>
-              <ToolChip
-                title="Embed iframe"
-                onClick={() => closeToolbarAnd(() => handleInsert("embed"))}
-              >
-                <IconEmbed />
-              </ToolChip>
-              <ToolChip
-                title="Code block"
+                title={t("writerStory.toolbar.code")}
                 onClick={() => closeToolbarAnd(() => handleInsert("code"))}
               >
-                <IconBraces />
+                <Code2 className="size-[18px]" strokeWidth={1.85} />
               </ToolChip>
               <ToolChip
-                title="Section divider"
+                title={t("writerStory.toolbar.divider")}
                 onClick={() => closeToolbarAnd(() => handleInsert("divider"))}
               >
-                <IconDividerDots />
+                <Rows3 className="size-[18px]" strokeWidth={1.85} />
               </ToolChip>
-            </>
+              <ToolChip
+                title={t("writerStory.toolbar.quote")}
+                onClick={() => closeToolbarAnd(() => handleInsert("quote"))}
+              >
+                <Quote className="size-[18px]" strokeWidth={1.85} />
+              </ToolChip>
+            </div>
           ) : (
-            <ToolChip title="Rich media" onClick={() => setToolbarOpen(true)}>
+            <ToolChip
+              title={t("writerStory.toolbar.richMedia")}
+              onClick={() => setToolbarOpen(true)}
+            >
               <IconPlus />
             </ToolChip>
           )}
-        </div>
-
-        <div className="relative mt-8 min-h-[50vh]">
+          </div>
           {isBodyEmpty && (
-            <div className="pointer-events-none absolute left-0 top-1 select-none font-blog-serif text-xl font-normal leading-[1.8] text-neutral-400 dark:text-zinc-500">
+            <div
+              dir={writingDirection === "auto" ? "auto" : writingDirection}
+              className={`pointer-events-none absolute top-1 select-none font-blog-serif text-xl font-normal leading-[1.8] text-neutral-400 dark:text-zinc-500 ${
+                writingDirection === "rtl" ? "right-14" : "left-14"
+              }`}
+            >
               {t("writerStory.bodyPlaceholder")}
             </div>
           )}
@@ -827,10 +1039,24 @@ export default function WriteStory() {
             contentEditable
             suppressContentEditableWarning
             spellCheck
+            dir={writingDirection === "auto" ? "auto" : writingDirection}
             onDrop={handleDrop}
             onPaste={handlePaste}
-            onInput={(e) => setIsBodyEmpty(!e.currentTarget.innerText.trim())}
-            className="font-blog-serif relative z-[1] min-h-[50vh] w-full border-0 bg-transparent pb-24 text-xl leading-[1.8] text-neutral-900 outline-none empty:before:text-neutral-400 focus:outline-none dark:text-neutral-100"
+            onClick={updateBlockToolbarPosition}
+            onKeyUp={updateBlockToolbarPosition}
+            onInput={(e) => {
+              setIsBodyEmpty(!e.currentTarget.innerText.trim());
+              updateBlockToolbarPosition();
+            }}
+            className="font-blog-serif relative z-[1] min-h-[50vh] w-full border-0 bg-transparent ps-14 pb-24 text-xl leading-[1.8] text-neutral-900 outline-none empty:before:text-neutral-400 focus:outline-none dark:text-neutral-100"
+            style={{
+              textAlign:
+                writingDirection === "rtl"
+                  ? "right"
+                  : writingDirection === "ltr"
+                    ? "left"
+                    : undefined,
+            }}
           />
         </div>
       </main>

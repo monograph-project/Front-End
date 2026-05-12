@@ -8,6 +8,17 @@ import {
   AdminProfilePeerCompareCard,
   AdminProfileSemiGaugeCard,
 } from "../../components/admin/AdminProfileDashboard";
+import ContributionHeatmap from "../../components/repo/ContributionHeatmap";
+import useActivityHeatmap from "../../hooks/useActivityHeatmap";
+import {
+  AdminPersonProfileBreadcrumbs,
+  AdminPersonProfileExpandableList,
+  AdminPersonProfileFrame,
+  AdminPersonProfileHero,
+  AdminPersonProfileMiniCard,
+  AdminPersonProfilePillSection,
+  AdminPersonProfilePipeline,
+} from "../../components/admin/AdminPersonProfileChrome";
 import AdminProfileGreenScope from "../../components/admin/AdminProfileGreenScope";
 import Button from "../../components/Button";
 import Icon from "../../components/Icon";
@@ -15,6 +26,7 @@ import IC from "../../components/IC";
 import {
   useFacultyProjectsByTeacher,
   useTeacher,
+  useUser,
   useVcRepositoriesForViewer,
   useVcUserActivity,
 } from "../../services/useApi";
@@ -23,8 +35,7 @@ import { bucketVcActivityEvents } from "../../utils/vcActivityBuckets";
 function profileInitials(fullName) {
   const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2)
-    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase() ||
-      "?";
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase() || "?";
   return (parts[0]?.slice(0, 2) || "?").toUpperCase();
 }
 
@@ -86,7 +97,6 @@ export default function TeacherProfile() {
     notifyOnError: false,
   });
 
-  const vcUsername = String(teacher?.username ?? "").trim();
   const ownerKey = String(
     teacher?.linkedApplicationUserId ??
       teacher?.applicationUserId ??
@@ -94,6 +104,22 @@ export default function TeacherProfile() {
       "",
   ).trim();
 
+  const userLookupId = String(
+    teacher?.keycloak ??
+      teacher?.applicationUserId ??
+      teacher?.gatewayUserId ??
+      teacher?.keycloakId ??
+      "",
+  ).trim();
+
+  const { data: gatewayUser } = useUser(userLookupId, {
+    enabled: Boolean(userLookupId),
+    notifyOnError: false,
+  });
+
+  const vcUsername = String(
+    gatewayUser?.user_name ?? gatewayUser?.username ?? teacher?.username ?? "",
+  ).trim();
   const { data: repos = [] } = useVcRepositoriesForViewer(ownerKey, {
     enabled: Boolean(ownerKey || vcUsername),
     notifyOnError: false,
@@ -104,17 +130,18 @@ export default function TeacherProfile() {
     enabled: Boolean(vcUsername),
     notifyOnError: false,
   });
-
   const buckets = useMemo(
     () => bucketVcActivityEvents(rawActivity),
     [rawActivity],
   );
+  const heatmap = useActivityHeatmap(rawActivity);
 
   const derivedGroups = useMemo(() => groupsFromProjects(projects), [projects]);
 
   const aspectScore = useMemo(() => {
     const base = 58;
-    const bump = projects.length * 5 + derivedGroups.length * 4 + repos.length * 2;
+    const bump =
+      projects.length * 5 + derivedGroups.length * 4 + repos.length * 2;
     return Math.min(98, Math.max(44, base + Math.min(bump, 32)));
   }, [projects.length, derivedGroups.length, repos.length]);
 
@@ -158,283 +185,295 @@ export default function TeacherProfile() {
     t("studentProfile.na");
   const statusKey = (teacher.status || "active").toLowerCase();
 
-  return (
-    <AdminProfileGreenScope>
-      <div className="flex flex-1 flex-col overflow-hidden bg-light-app-bg dark:bg-dark-shell">
-        <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto p-4 md:flex-row md:gap-5 md:p-5">
-          <aside className="flex w-full shrink-0 flex-col gap-4 md:max-w-[320px]">
-            <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-              <div className="mb-4 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => navigate("/admin/teacher")}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-(--color-light-input-border) bg-(--color-light-app-secondary) text-muted transition-colors hover:bg-(--color-light-nav-hover-bg) dark:border-dark-input-border dark:bg-dark-shell dark:text-dark-muted dark:hover:bg-(--color-dark-card-hover)"
-                  aria-label={t("adminPersonProfile.backToTeachers")}
-                >
-                  <Icon d={IC.chevLeft} className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="relative mx-auto mb-4 flex w-fit flex-col items-center">
-                <div className="relative rounded-3xl bg-gradient-to-br from-(--color-light-admin-profile-hero-from) to-(--color-light-admin-profile-hero-to) p-[2px] shadow-md dark:from-(--color-dark-admin-profile-hero-from) dark:to-(--color-dark-admin-profile-hero-to)">
-                  <div className="flex size-28 items-center justify-center rounded-2xl bg-(--color-light-card-bg) ring-4 ring-white dark:bg-(--color-dark-card-bg) dark:ring-(--color-dark-card-bg)">
-                    <span className="text-xl font-bold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                      {profileInitials(fullName)}
-                    </span>
-                  </div>
-                </div>
-                <span className="absolute -end-1 -top-1 inline-flex items-center gap-1 rounded-full border border-(--color-light-card-border) bg-(--color-light-card-bg) px-2 py-0.5 text-[10px] font-semibold text-(--color-light-admin-profile-violet-strong) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-admin-profile-violet)">
-                  <Icon d={IC.check} className="size-3" />
-                  {t("adminPersonProfile.verified")}
-                </span>
-              </div>
-              <h1 className="text-center text-lg font-bold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                {fullName}
-              </h1>
-              <div className="mt-2 flex flex-wrap justify-center gap-2">
-                <span className="rounded-full bg-(--color-light-success-bg) px-3 py-1 text-[11px] font-semibold text-(--color-light-success-text) dark:bg-green-950/40 dark:text-green-300">
-                  {t("adminShared.roles.teacher")}
-                </span>
-                <span className="rounded-full border border-(--color-light-card-border) px-3 py-1 text-[11px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:text-dark-secondary">
-                  {t(`adminShared.status.${statusKey}`, statusKey)}
-                </span>
-              </div>
-            {teacher.department ? (
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <span className="rounded-full border border-(--color-light-card-border) bg-(--color-light-app-secondary) px-2.5 py-1 text-[10px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-shell dark:text-dark-secondary">
-                  {teacher.department}
-                </span>
-                {teacher.educationRank ? (
-                  <span className="rounded-full border border-(--color-light-card-border) bg-(--color-light-app-secondary) px-2.5 py-1 text-[10px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-shell dark:text-dark-secondary">
-                    {teacher.educationRank}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="mt-4 space-y-2">
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full justify-center rounded-xl py-3"
-                onClick={() => navigate(`/admin/teacher/${teacher.id}/edit`)}
-              >
-                {t("adminPersonProfile.editDetails")}
-              </Button>
-            </div>
+  const sidebarTags = [
+    teacher.department,
+    teacher.educationRank,
+    vcUsername ? `@${vcUsername}` : null,
+  ].filter(Boolean);
+
+  const applicationItems = projects.map((p) => {
+    const pk = String(p?.id ?? p?.uuid ?? "");
+    const title =
+      [p?.title, p?.name, p?.topic].find(
+        (x) => typeof x === "string" && x.trim(),
+      ) ?? pk;
+    return {
+      id: pk,
+      title,
+      subtitle: teacher.department || t("adminShared.roles.teacher"),
+    };
+  });
+
+  const sidebar = (
+    <div className="overflow-visible rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) pb-8  dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) ">
+      <AdminPersonProfileHero
+        onBack={() => navigate("/admin/teacher")}
+        verifiedLabel={t("adminPersonProfile.verified")}
+        initials={profileInitials(fullName)}
+      />
+      <div className="px-6 ">
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+              {fullName}
+            </h1>
+            <p className="mt-0.5 text-xs text-muted dark:text-dark-muted">
+              @{vcUsername || t("studentProfile.na")}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-(--color-light-admin-profile-violet-soft-border) bg-(--color-light-admin-profile-violet-soft-bg) px-3 py-1 text-[11px] font-semibold text-(--color-light-admin-profile-violet-soft-text) dark:border-(--color-dark-admin-profile-violet-soft-border) dark:bg-(--color-dark-admin-profile-violet-soft-bg) dark:text-(--color-dark-admin-profile-violet-soft-text)">
+              {t("adminShared.roles.teacher")}
+            </span>
+            <span className="rounded-full border border-(--color-light-card-border) bg-(--color-light-admin-profile-pill-bg) px-2.5 py-1 text-[11px] font-semibold text-(--color-light-admin-profile-pill-text) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-admin-profile-pill-bg) dark:text-(--color-dark-admin-profile-pill-text)">
+              {t(`adminShared.status.${statusKey}`, statusKey)}
+            </span>
+          </div>
+        </div>
+
+        {sidebarTags.length ? (
+          <AdminPersonProfilePillSection
+            title={t("adminPersonProfile.skills.heading")}
+            tags={sidebarTags}
+          />
+        ) : null}
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <AdminPersonProfileMiniCard
+            label={t("adminPersonProfile.sidebar.location")}
+            value={
+              [teacher.addressCity, teacher.addressProvince]
+                .filter(Boolean)
+                .join(", ") || t("studentProfile.na")
+            }
+          />
+          <AdminPersonProfileMiniCard
+            label={t("adminPersonProfile.mini.timezone")}
+            value={t("adminPersonProfile.timezone.unset")}
+          />
+        </div>
+
+        <AdminPersonProfileExpandableList
+          title={t("adminPersonProfile.sidebar.applications")}
+          items={applicationItems}
+          collapsedCount={3}
+          expandLabel={t("adminPersonProfile.seeMoreCount", {
+            count: Math.max(0, applicationItems.length - 3),
+          })}
+          collapseLabel={t("adminPersonProfile.seeLess")}
+        />
+
+        <dl className="mt-6 space-y-2 border-t border-light-divider pt-5 text-[11px] dark:border-dark-divider">
+          <div className="flex justify-between gap-3">
+            <dt className="font-semibold text-muted dark:text-dark-muted">
+              {t("adminPersonProfile.fields.teacherId")}
+            </dt>
+            <dd className="max-w-[12rem] truncate font-mono text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
+              {teacher.id}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="font-semibold text-muted dark:text-dark-muted">
+              Keycloak ID
+            </dt>
+            <dd className="max-w-[12rem] truncate font-mono text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
+              {teacher.keycloakId ||
+                (teacher.linkedApplicationUserId ??
+                  teacher.applicationUserId ??
+                  teacher.gatewayUserId ??
+                  "")}
+            </dd>
           </div>
 
-          <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-            <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-              {t("adminPersonProfile.teacher.personalTitle")}
-            </h2>
-            <dl className="space-y-2 text-xs">
-              <div>
-                <dt className="text-[10px] font-semibold text-muted dark:text-dark-muted">
-                  {t("adminPersonProfile.fields.teacherId")}
-                </dt>
-                <dd className="font-mono font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                  {teacher.id}
-                </dd>
-              </div>
-              {vcUsername ? (
-                <div>
-                  <dt className="text-[10px] font-semibold text-muted dark:text-dark-muted">
-                    {t("adminPersonProfile.sidebar.vcUsername")}
-                  </dt>
-                  <dd className="font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                    @{vcUsername}
-                  </dd>
-                </div>
-              ) : null}
-              <div>
-                <dt className="text-[10px] font-semibold text-muted dark:text-dark-muted">
-                  {t("adminPersonProfile.fields.joined")}
-                </dt>
-                <dd className="font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                  {formatDisplayDate(teacher.joined, locale) || t("studentProfile.na")}
-                </dd>
-              </div>
-            </dl>
+          <div className="flex justify-between gap-3">
+            <dt className="font-semibold text-muted dark:text-dark-muted">
+              {t("adminPersonProfile.fields.joined")}
+            </dt>
+            <dd className="text-light-text-secondary dark:text-dark-text-secondary">
+              {formatDisplayDate(teacher.joined, locale) ||
+                t("studentProfile.na")}
+            </dd>
           </div>
-        </aside>
-
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-            <AdminProfileMetricCard
-              label={t("adminPersonProfile.metrics.facultyProjects")}
-              value={projects.length}
-              suffix=""
-            />
-            <AdminProfileMetricCard
-              label={t("adminPersonProfile.metrics.assignedGroups")}
-              value={derivedGroups.length}
-              suffix=""
-            />
-            <AdminProfileMetricCard
-              label={t("adminPersonProfile.metrics.repositories")}
-              value={repos.length}
-              suffix=""
-            />
-            <AdminProfileMetricCard
-              label={t("adminPersonProfile.metrics.pullRequests")}
-              value={buckets.pulls.length}
-              suffix=""
-            />
-            <AdminProfileMetricCard
-              label={t("adminPersonProfile.metrics.merges")}
-              value={buckets.merges.length}
-              suffix=""
-            />
-            <AdminProfileMetricCard
-              label={t("adminPersonProfile.metrics.responsibilityIndex")}
-              value={aspectScore}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <AdminProfileSemiGaugeCard
-              title={t("adminPersonProfile.charts.academicStanding")}
-              score={aspectScore}
-            />
-            <AdminProfileHighlightCard
-              title={t("adminPersonProfile.chapters.excellence")}
-              badge={t("adminPersonProfile.charts.trusted")}
-              items={[
-                {
-                  key: "p",
-                  Icon: UsersRound,
-                  label: t("adminPersonProfile.highlights.projects", {
-                    count: projects.length,
-                  }),
-                },
-                {
-                  key: "g",
-                  Icon: GraduationCap,
-                  label: t("adminPersonProfile.highlights.groups", {
-                    count: derivedGroups.length,
-                  }),
-                },
-                {
-                  key: "r",
-                  label: t("adminPersonProfile.highlights.repositories", {
-                    count: repos.length,
-                  }),
-                },
-              ]}
-            />
-            <AdminProfilePeerCompareCard
-              title={t("adminPersonProfile.charts.peerCompareDept")}
-              subjectLabel={t("adminPersonProfile.charts.you")}
-              peerLabel={t("adminPersonProfile.charts.deptAverage")}
-              subjectPct={peerCompare.subject}
-              peerPct={peerCompare.peer}
-            />
-          </div>
-
-          <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                {t("adminPersonProfile.sections.assignedProjects")}
-              </h2>
-            </div>
-            {projects.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted dark:text-dark-muted">
-                {t("adminPersonProfile.teacher.noProjects")}
-              </p>
-            ) : (
-              <ul className="grid gap-2 md:grid-cols-2">
-                {projects.map((p) => {
-                  const pk = String(p?.id ?? p?.uuid ?? "");
-                  const title =
-                    [p?.title, p?.name, p?.topic].find(
-                      (x) => typeof x === "string" && x.trim(),
-                    ) ?? pk;
-                  return (
-                    <li
-                      key={pk || title}
-                      className="flex items-center gap-3 rounded-xl border border-(--color-light-card-border) bg-(--color-light-app-secondary) px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-shell"
-                    >
-                      <GraduationCap
-                        className="size-5 shrink-0 text-(--color-blue-500)"
-                        strokeWidth={2}
-                      />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                          {title}
-                        </p>
-                        <p className="truncate text-[11px] text-muted dark:text-dark-muted">
-                          {t("adminPersonProfile.project.id", { id: pk })}
-                        </p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-            <h2 className="mb-3 text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-              {t("adminPersonProfile.sections.assignedGroups")}
-            </h2>
-            {derivedGroups.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted dark:text-dark-muted">
-                {t("adminPersonProfile.teacher.noGroups")}
-              </p>
-            ) : (
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {derivedGroups.map((g) => (
-                  <li
-                    key={g.id}
-                    className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-app-secondary) px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-shell"
-                  >
-                    <p className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                      {g.name}
-                    </p>
-                    <p className="font-mono text-[11px] text-muted dark:text-dark-muted">
-                      {g.id}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-            <h2 className="mb-3 text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-              {t("adminPersonProfile.sections.publicRecord")}
-            </h2>
-            <div className="grid gap-3 text-xs md:grid-cols-3">
-              <div>
-                <p className="font-semibold text-muted dark:text-dark-muted">
-                  {t("studentProfile.fields.email")}
-                </p>
-                <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                  {teacher.email || t("studentProfile.na")}
-                </p>
-              </div>
-              <div>
-                <p className="font-semibold text-muted dark:text-dark-muted">
-                  {t("studentProfile.fields.phone")}
-                </p>
-                <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                  {teacher.phone || t("studentProfile.na")}
-                </p>
-              </div>
-              <div>
-                <p className="font-semibold text-muted dark:text-dark-muted">
-                  {t("adminPersonProfile.fields.addressCity")}
-                </p>
-                <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
-                  {[teacher.addressCity, teacher.addressProvince]
-                    .filter(Boolean)
-                    .join(", ") || t("studentProfile.na")}
-                </p>
-              </div>
-            </div>
-          </div>
-        </main>
+        </dl>
       </div>
     </div>
+  );
+
+  const children = (
+    <>
+      <div className="grid grid-cols-1 gap-4">
+        <AdminProfilePeerCompareCard
+          title={t("adminPersonProfile.charts.peerCompareDept")}
+          subjectLabel={t("adminPersonProfile.charts.you")}
+          peerLabel={t("adminPersonProfile.charts.deptAverage")}
+          subjectPct={peerCompare.subject}
+          peerPct={peerCompare.peer}
+        />
+      </div>
+
+      <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 md:p-5 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+            {t("studentSelfProfile.heatmap.title", {
+              count: heatmap.total,
+            })}
+          </h2>
+          <span className="text-[11px] text-muted dark:text-dark-muted">
+            {vcUsername ? `@${vcUsername}` : t("studentProfile.na")}
+          </span>
+        </div>
+        <ContributionHeatmap
+          weeks={heatmap.weeks}
+          max={heatmap.max}
+          valueLabel={t("studentSelfProfile.activity.contributions", {
+            defaultValue: "contributions",
+          })}
+          emptyLabel={t("studentSelfProfile.activityFeed.empty")}
+        />
+        <div className="mt-4 grid gap-3 text-xs sm:grid-cols-4">
+          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+            <p className="text-muted dark:text-dark-muted">
+              {t("adminPersonProfile.activity.pushes")}
+            </p>
+            <p className="mt-1 text-lg font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+              {buckets.pushes.length}
+            </p>
+          </div>
+          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+            <p className="text-muted dark:text-dark-muted">
+              {t("adminPersonProfile.activity.pullRequests")}
+            </p>
+            <p className="mt-1 text-lg font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+              {buckets.pulls.length}
+            </p>
+          </div>
+          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+            <p className="text-muted dark:text-dark-muted">
+              {t("adminPersonProfile.activity.merges")}
+            </p>
+            <p className="mt-1 text-lg font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+              {buckets.merges.length}
+            </p>
+          </div>
+          <div className="rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+            <p className="text-muted dark:text-dark-muted">
+              {t("studentSelfProfile.stats.repositories")}
+            </p>
+            <p className="mt-1 text-lg font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+              {repos.length}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+            {t("adminPersonProfile.sections.assignedProjects")}
+          </h2>
+        </div>
+        {projects.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted dark:text-dark-muted">
+            {t("adminPersonProfile.teacher.noProjects")}
+          </p>
+        ) : (
+          <ul className="grid gap-2 md:grid-cols-2">
+            {projects.map((p) => {
+              const pk = String(p?.id ?? p?.uuid ?? "");
+              const title =
+                [p?.title, p?.name, p?.topic].find(
+                  (x) => typeof x === "string" && x.trim(),
+                ) ?? pk;
+              return (
+                <li
+                  key={pk || title}
+                  className="flex items-center gap-3 rounded-xl border border-(--color-light-card-border) bg-(--color-light-app-secondary) px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-shell"
+                >
+                  <GraduationCap
+                    className="size-5 shrink-0 text-(--color-blue-500)"
+                    strokeWidth={2}
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                      {title}
+                    </p>
+                    <p className="truncate text-[11px] text-muted dark:text-dark-muted">
+                      {t("adminPersonProfile.project.id", { id: pk })}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+        <h2 className="mb-3 text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+          {t("adminPersonProfile.sections.assignedGroups")}
+        </h2>
+        {derivedGroups.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted dark:text-dark-muted">
+            {t("adminPersonProfile.teacher.noGroups")}
+          </p>
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {derivedGroups.map((g) => (
+              <li
+                key={g.id}
+                className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-app-secondary) px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-shell"
+              >
+                <p className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                  {g.name}
+                </p>
+                <p className="font-mono text-[11px] text-muted dark:text-dark-muted">
+                  {g.id}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+        <h2 className="mb-3 text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+          {t("adminPersonProfile.sections.publicRecord")}
+        </h2>
+        <div className="grid gap-3 text-xs md:grid-cols-3">
+          <div>
+            <p className="font-semibold text-muted dark:text-dark-muted">
+              {t("studentProfile.fields.email")}
+            </p>
+            <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+              {teacher.email || t("studentProfile.na")}
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-muted dark:text-dark-muted">
+              {t("studentProfile.fields.phone")}
+            </p>
+            <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+              {teacher.phone || t("studentProfile.na")}
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-muted dark:text-dark-muted">
+              {t("adminPersonProfile.fields.addressCity")}
+            </p>
+            <p className="truncate font-medium text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+              {[teacher.addressCity, teacher.addressProvince]
+                .filter(Boolean)
+                .join(", ") || t("studentProfile.na")}
+            </p>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <AdminProfileGreenScope>
+      <AdminPersonProfileFrame sidebar={sidebar} children={children} />
     </AdminProfileGreenScope>
   );
 }

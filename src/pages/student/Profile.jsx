@@ -1,25 +1,27 @@
-import { useMemo, useState } from "react";
+import { createElement, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { Clock, Eye, GitBranch, Globe, MapPin, Star } from "lucide-react";
 import Avatar from "../../components/Avatar";
 import Button from "../../components/Button";
+import ContributionHeatmap from "../../components/repo/ContributionHeatmap";
 import { useAuth } from "../../context/AuthContext";
-import { useStudentActivityEpoch } from "../../context/StudentActivityContext";
-import { useTheme } from "../../context/themContext";
+import { resolveShellBasePath, settingsPathForShell } from "../../lib/roles";
+import useActivityHeatmap from "../../hooks/useActivityHeatmap";
 import {
   useFacultyProjectsByStudent,
+  useFacultyProjectsByTeacher,
   useLinkedStudentRecord,
+  useLinkedTeacherRecord,
   useVcAccessibleRepositoriesForViewer,
+  useUserByUsername,
   useVcUserActivity,
 } from "../../services/useApi";
 import {
   buildPersonInitials,
   resolveProfilePhotoUrl,
 } from "../../lib/profileMedia";
-import { readEngagementDailyMs } from "../../lib/studentEngagementStorage";
 import { bucketVcActivityEvents } from "../../utils/vcActivityBuckets";
-
 const SURFACE_CARD =
   "rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg)  dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
 const SOFT_PANEL =
@@ -95,7 +97,7 @@ function StatPill({ value, label }) {
   );
 }
 
-function InfoRow({ icon: Icon, label, value, href = "" }) {
+function InfoRow({ icon: IconComponent, label, value, href = "" }) {
   const content = href ? (
     <a
       href={href}
@@ -113,11 +115,11 @@ function InfoRow({ icon: Icon, label, value, href = "" }) {
 
   return (
     <div className="flex min-w-0 items-start gap-3">
-      <Icon
-        className="mt-0.5 size-4 shrink-0 text-muted dark:text-dark-muted"
-        strokeWidth={1.9}
-        aria-hidden
-      />
+      {createElement(IconComponent, {
+        className: "mt-0.5 size-4 shrink-0 text-muted dark:text-dark-muted",
+        strokeWidth: 1.9,
+        "aria-hidden": true,
+      })}
       <div className="min-w-0">
         <p className="text-xs text-secondary dark:text-dark-secondary">
           {label}
@@ -131,73 +133,128 @@ function InfoRow({ icon: Icon, label, value, href = "" }) {
 export default function Profile() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
-  const { theme } = useTheme();
+  const { username: routeUsername } = useParams();
+  const locationCtx = useLocation();
   const [showMore, setShowMore] = useState(false);
-  const activityEpoch = useStudentActivityEpoch();
-
+  const shellBase = resolveShellBasePath(locationCtx.pathname, user?.role);
+  const requestedUsername = String(routeUsername ?? "").trim();
+  const selfUsername = String(user?.username ?? user?.user_name ?? "").trim();
+  const isSelfProfile = !requestedUsername || requestedUsername === selfUsername;
+  const { data: routedUser, isLoading: routedUserLoading } = useUserByUsername(
+    requestedUsername,
+    {
+      enabled: Boolean(requestedUsername),
+      notifyOnError: false,
+    },
+  );
+  const profileUser = useMemo(
+    () => (isSelfProfile ? user : (routedUser ?? {})),
+    [isSelfProfile, routedUser, user],
+  );
+  const profileUserReady = isSelfProfile ? Boolean(user) : Boolean(routedUser);
+  const role = String(
+    profileUser?.role ?? profileUser?.user_type ?? user?.role ?? "",
+  )
+    .trim()
+    .toLowerCase();
   const {
     data: student,
     isLoading,
     isError,
-  } = useLinkedStudentRecord(user, {
+  } = useLinkedStudentRecord(profileUser, {
     notifyOnError: false,
-    enabled: Boolean(user),
+    enabled: profileUserReady && role !== "teacher",
   });
+  const { data: teacher, isLoading: teacherLoading } = useLinkedTeacherRecord(
+    profileUser,
+    {
+      notifyOnError: false,
+      enabled: profileUserReady && role === "teacher",
+    },
+  );
 
-  const hasStudentRecord = Boolean(student?.id);
-  const showUnlinkedNotice = !isLoading && (isError || !hasStudentRecord);
+  const personRecord = role === "teacher" ? teacher : student;
+  const hasLinkedRecord = Boolean(personRecord?.id);
+  const showUnlinkedNotice =
+    isSelfProfile &&
+    !isLoading &&
+    !teacherLoading &&
+    (isError || !hasLinkedRecord);
   const locale = i18n.language || undefined;
 
   const labelName =
-    user?.fullName ||
-    [student?.firstName, student?.lastName].filter(Boolean).join(" ").trim() ||
-    [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() ||
-    user?.username ||
-    user?.user_name ||
-    user?.email ||
+    profileUser?.fullName ||
+    [personRecord?.firstName, personRecord?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    [profileUser?.first_name, profileUser?.last_name]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    profileUser?.username ||
+    profileUser?.user_name ||
+    profileUser?.email ||
     t("studentProfile.na");
 
   const username = displayOrDash(
-    student?.username || user?.username || user?.user_name,
+    personRecord?.username || profileUser?.username || profileUser?.user_name,
     t("studentProfile.na"),
   );
   const photoUrl = useMemo(
-    () => resolveProfilePhotoUrl(student ?? user ?? {}),
-    [student, user],
+    () => resolveProfilePhotoUrl(personRecord ?? profileUser ?? {}),
+    [personRecord, profileUser],
   );
   const initials = useMemo(
-    () => buildPersonInitials(student ?? user ?? {}, user?.email),
-    [student, user],
+    () =>
+      buildPersonInitials(personRecord ?? profileUser ?? {}, profileUser?.email),
+    [personRecord, profileUser],
   );
 
   const ownerKey = String(
-    student?.linkedApplicationUserId ?? user?.id ?? "",
+    personRecord?.linkedApplicationUserId ??
+      personRecord?.applicationUserId ??
+      personRecord?.gatewayUserId ??
+      profileUser?.id ??
+      "",
   ).trim();
-  const vcUsername = String(student?.username ?? user?.username ?? "").trim();
-  const joinedDate =
-    formatDate(user?.createdAt || user?.created_at, locale) ||
-    t("studentProfile.na");
-  const location = [student?.addressCity, student?.addressProvince]
-    .map((item) => String(item ?? "").trim())
-    .filter(Boolean)
-    .join(", ");
-  const statusLabel = formatStatus(student?.status) || t("studentProfile.na");
-  const semesterLabel = student?.semester
-    ? t(`studentForm.options.semester${student.semester}`)
-    : t("studentProfile.na");
-  const headline = [
-    student?.department,
-    semesterLabel !== t("studentProfile.na") ? semesterLabel : "",
-  ]
-    .filter(Boolean)
-    .join(" • ");
-
+  const vcUsername = String(
+    personRecord?.username ??
+      profileUser?.username ??
+      profileUser?.user_name ??
+      requestedUsername ??
+      "",
+  ).trim();
   const { data: repos = [] } = useVcAccessibleRepositoriesForViewer(ownerKey, {
     enabled: Boolean(ownerKey || vcUsername),
     notifyOnError: false,
     activityUsernameFallback: vcUsername || undefined,
   });
-
+  const repositories = repos;
+  const joinedDate =
+    formatDate(profileUser?.createdAt || profileUser?.created_at, locale) ||
+    t("studentProfile.na");
+  const personLocation = [
+    personRecord?.addressCity,
+    personRecord?.addressProvince,
+  ]
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean)
+    .join(", ");
+  const statusLabel =
+    formatStatus(personRecord?.status) || t("studentProfile.na");
+  const semesterLabel = personRecord?.semester
+    ? t(`studentForm.options.semester${personRecord.semester}`)
+    : t("studentProfile.na");
+  const headline = [
+    personRecord?.department,
+    role !== "teacher" && semesterLabel !== t("studentProfile.na")
+      ? semesterLabel
+      : "",
+    role === "teacher" ? t("adminShared.roles.teacher") : "",
+  ]
+    .filter(Boolean)
+    .join(" • ");
   const { data: rawActivity = [] } = useVcUserActivity(vcUsername, {
     enabled: Boolean(vcUsername),
     notifyOnError: false,
@@ -206,108 +263,26 @@ export default function Profile() {
   const { data: facultyProjects = [] } = useFacultyProjectsByStudent(
     student?.id,
     {
-      enabled: Boolean(student?.id),
+      enabled: Boolean(student?.id) && role !== "teacher",
       notifyOnError: false,
     },
   );
+  const { data: teacherProjects = [] } = useFacultyProjectsByTeacher(
+    teacher?.id,
+    {
+      enabled: Boolean(teacher?.id) && role === "teacher",
+      notifyOnError: false,
+    },
+  );
+  const profileProjects = role === "teacher" ? teacherProjects : facultyProjects;
 
   const buckets = useMemo(
     () => bucketVcActivityEvents(rawActivity),
     [rawActivity],
   );
-  const dailyMs = useMemo(() => readEngagementDailyMs(), [activityEpoch]);
+  const heatmap = useActivityHeatmap(rawActivity);
+  const totalContributions = heatmap.total;
 
-  const totalContributions = useMemo(() => {
-    return Object.values(dailyMs).reduce(
-      (sum, value) => sum + Math.round((value ?? 0) / 60000),
-      0,
-    );
-  }, [dailyMs]);
-
-  const weeks = useMemo(() => {
-    const end = new Date();
-    end.setHours(0, 0, 0, 0);
-    const start = new Date(end);
-    start.setDate(end.getDate() - 364);
-    const days = [];
-
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const key = d.toISOString().slice(0, 10);
-      days.push({ key, value: Math.round((dailyMs[key] ?? 0) / 60000) });
-    }
-
-    const cols = [];
-    for (let i = 0; i < days.length; i += 7) cols.push(days.slice(i, i + 7));
-    return cols;
-  }, [dailyMs]);
-
-  const repositories = [
-    {
-      id: 1,
-      name: "student-portfolio",
-      description:
-        "A comprehensive portfolio website showcasing projects and skills.",
-      visibility: "Public",
-      stars: 12,
-      forks: 4,
-      language: "TypeScript",
-      updatedAt: "2 days ago",
-    },
-    {
-      id: 2,
-      name: "course-notes",
-      description:
-        "Personal notes and summaries from computer science courses.",
-      visibility: "Private",
-      stars: 3,
-      forks: 0,
-      language: "Markdown",
-      updatedAt: "1 week ago",
-    },
-    {
-      id: 3,
-      name: "react-components-library",
-      description:
-        "Reusable React components for building modern web applications.",
-      visibility: "Public",
-      stars: 28,
-      forks: 7,
-      language: "TypeScript",
-      updatedAt: "3 days ago",
-    },
-    {
-      id: 4,
-      name: "data-structures-js",
-      description:
-        "Implementation of common data structures and algorithms in JavaScript.",
-      visibility: "Public",
-      stars: 15,
-      forks: 3,
-      language: "JavaScript",
-      updatedAt: "1 month ago",
-    },
-    {
-      id: 5,
-      name: "machine-learning-experiments",
-      description:
-        "Experiments and learning projects with machine learning models.",
-      visibility: "Private",
-      stars: 2,
-      forks: 1,
-      language: "Python",
-      updatedAt: "2 weeks ago",
-    },
-    {
-      id: 6,
-      name: "web-scraper-tool",
-      description: "Tool for scraping and processing web data efficiently.",
-      visibility: "Public",
-      stars: 8,
-      forks: 2,
-      language: "Python",
-      updatedAt: "5 days ago",
-    },
-  ];
   const visibilityColor = (visibility) => {
     if (visibility === "Private") {
       return "bg-red-50 text-red-700 border-red-200";
@@ -323,30 +298,6 @@ export default function Profile() {
       Markdown: { dot: "#083fa1", label: "Markdown" },
     };
     return colors[language] || { dot: "#858585", label: language };
-  };
-
-  const heatmapMax = Math.max(1, ...weeks.flat().map((day) => day?.value ?? 0));
-  const getIntensityStyle = (value) => {
-    const intensity = Math.round((value / heatmapMax) * 4);
-    const light = [
-      "var(--color-light-app-tertiary)",
-      "var(--color-light-badge-bg)",
-      "var(--color-blue-200)",
-      "var(--color-blue-400)",
-      "var(--color-blue-600)",
-    ];
-    const dark = [
-      "var(--color-dark-app-tertiary)",
-      "var(--color-dark-badge-bg)",
-      "var(--color-dark-btn-tertiary-border)",
-      "var(--color-chart-blue-secondary)",
-      "var(--color-dark-badge-text)",
-    ];
-    return {
-      backgroundColor:
-        (theme === "dark" ? dark : light)[intensity] ||
-        (theme === "dark" ? dark[0] : light[0]),
-    };
   };
 
   const pinnedItems = useMemo(() => {
@@ -373,7 +324,7 @@ export default function Profile() {
       }));
     }
 
-    return facultyProjects.slice(0, 2).map((project, index) => ({
+    return profileProjects.slice(0, 2).map((project, index) => ({
       key: String(project?.id ?? index),
       name:
         project?.title ||
@@ -388,7 +339,7 @@ export default function Profile() {
         t("studentSelfProfile.pinned.projectDescriptionFallback"),
       stars: 0,
     }));
-  }, [facultyProjects, repos, t]);
+  }, [profileProjects, repos, t]);
 
   const allContributionRows = useMemo(
     () =>
@@ -412,7 +363,7 @@ export default function Profile() {
     statusLabel !== t("studentProfile.na") ? statusLabel : "",
   ].filter(Boolean);
 
-  if (isLoading) {
+  if (isLoading || teacherLoading || routedUserLoading) {
     return (
       <div className="relative flex-1 bg-light-app-bg p-4 pb-8 dark:bg-dark-card-bg md:p-5">
         <div
@@ -456,11 +407,13 @@ export default function Profile() {
                   {headline || t("studentSelfProfile.header.subtitle")}
                 </p>
 
-                <Link to="/student/settings" className="mt-5 w-full">
-                  <Button type="button" variant="primary" fullWidth>
-                    {t("studentSelfProfile.actions.editProfile")}
-                  </Button>
-                </Link>
+                {isSelfProfile ? (
+                  <Link to={settingsPathForShell(shellBase)} className="mt-5 w-full">
+                    <Button type="button" variant="primary" fullWidth>
+                      {t("studentSelfProfile.actions.editProfile")}
+                    </Button>
+                  </Link>
+                ) : null}
 
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
                   <StatPill
@@ -471,7 +424,7 @@ export default function Profile() {
                     ·
                   </div>
                   <StatPill
-                    value={String(facultyProjects.length)}
+                    value={String(profileProjects.length)}
                     label={t("studentSelfProfile.stats.projects")}
                   />
                 </div>
@@ -480,7 +433,7 @@ export default function Profile() {
                   <InfoRow
                     icon={MapPin}
                     label={t("studentSelfProfile.info.location")}
-                    value={location || t("studentProfile.na")}
+                    value={personLocation || t("studentProfile.na")}
                   />
                   <InfoRow
                     icon={Globe}
@@ -567,26 +520,14 @@ export default function Profile() {
                   count: totalContributions,
                 })}
               </h2>
-              <div className="mt-4 max-w-full overflow-x-auto py-2">
-                <div className="flex min-w-max gap-1">
-                  {weeks.map((col, index) => (
-                    <div key={index} className="flex flex-col gap-1">
-                      {Array.from({ length: 7 }).map((_, rowIndex) => {
-                        const cell = col[rowIndex];
-                        const value = cell?.value ?? 0;
-                        return (
-                          <div
-                            key={rowIndex}
-                            title={`${cell?.key || ""}: ${value} ${t("studentSelfProfile.activity.minutes")}`}
-                            className="h-3 w-3 rounded-[4px] border border-white/10"
-                            style={getIntensityStyle(value)}
-                          />
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <ContributionHeatmap
+                weeks={heatmap.weeks}
+                max={heatmap.max}
+                valueLabel={t("studentSelfProfile.activity.contributions", {
+                  defaultValue: "contributions",
+                })}
+                emptyLabel={t("studentSelfProfile.activityFeed.empty")}
+              />
             </section>
 
             <section className={`${SURFACE_CARD} min-w-0 p-4 md:p-5`}>
@@ -738,9 +679,7 @@ export default function Profile() {
               </h3>
 
               <div className="mt-6 space-y-6">
-                <div
-                  className="border-s-2 border-[#e4e8ef] ps-4 dark:border-dark-divider"
-                >
+                <div className="border-s-2 border-[#e4e8ef] ps-4 dark:border-dark-divider">
                   <p className="text-sm font-semibold text-[#0a1224] dark:text-dark-text-primary">
                     May 2026
                   </p>
@@ -757,7 +696,9 @@ export default function Profile() {
                         <p className="text-sm font-semibold text-[#0a1224] dark:text-dark-text-primary">
                           {p.name}
                         </p>
-                        <p className="mt-2 text-xs text-[#5f6f87] dark:text-dark-text-secondary">{p.desc}</p>
+                        <p className="mt-2 text-xs text-[#5f6f87] dark:text-dark-text-secondary">
+                          {p.desc}
+                        </p>
                       </div>
                     ))}
                   </div>

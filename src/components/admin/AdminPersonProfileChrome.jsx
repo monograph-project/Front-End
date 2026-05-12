@@ -73,8 +73,8 @@ export function AdminPersonProfileHero({ onBack, verifiedLabel, initials }) {
           ) : null}
         </div>
       </div>
-      <div className="-mt-14 flex justify-center px-5 md:-mt-[4.75rem] md:justify-start md:px-6">
-        <div className="flex size-[7rem] shrink-0 items-center justify-center rounded-xl border-[5px] border-(--color-light-card-bg) bg-(--color-light-card-bg) text-2xl font-bold text-(--color-light-admin-profile-violet-strong) shadow-[0_12px_40px_-8px_rgba(79,70,229,0.45)] dark:border-(--color-dark-card-bg) dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-admin-profile-violet) dark:shadow-[0_14px_40px_-8px_rgba(0,0,0,0.55)]">
+      <div className="-mt-14 flex justify-center px-5 md:-mt-19 md:justify-start md:px-6">
+        <div className="flex size-28 shrink-0 items-center justify-center rounded-xl border-[5px] border-(--color-light-card-bg) bg-(--color-light-card-bg) text-2xl font-bold text-(--color-light-admin-profile-violet-strong) shadow-[0_12px_40px_-8px_rgba(79,70,229,0.45)] dark:border-(--color-dark-card-bg) dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-admin-profile-violet) dark:shadow-[0_14px_40px_-8px_rgba(0,0,0,0.55)]">
           {initials}
         </div>
       </div>

@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import {
   ArrowRight,
   CheckCircle2,
-  FileCheck2,
   Home,
   Moon,
   ShieldCheck,
@@ -18,7 +17,6 @@ import { postLoginPath } from "../lib/roles";
 import { useTheme } from "../context/themContext";
 import { useSignup } from "../services/useApi";
 import Field from "../components/Field";
-import Checkbox from "../components/Checkbox";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import { hasGoogleOAuthClientId } from "../lib/googleOAuth";
 
@@ -92,8 +90,6 @@ export default function Signup() {
       first_name: "",
       last_name: "",
       phone_number: "",
-      terms_agreed: false,
-      privacy_agreed: false,
     },
   });
   const [done, setDone] = useState(false);
@@ -183,11 +179,6 @@ export default function Signup() {
                   icon: ShieldCheck,
                   title: t("signup.securityTitle"),
                   text: t("signup.securityText"),
-                },
-                {
-                  icon: FileCheck2,
-                  title: t("signup.consentTitle"),
-                  text: t("signup.consentText"),
                 },
               ].map((item) => (
                 <div
@@ -407,42 +398,6 @@ export default function Signup() {
                         {t("signup.passwordReq.special")}
                       </Requirement>
                     </ul>
-
-                    <div className="space-y-2 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-3 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-                      <Checkbox
-                        id="terms_agreed"
-                        className="items-start"
-                        {...register("terms_agreed", {
-                          required: t("signup.validation.termsRequired"),
-                        })}
-                      >
-                        <span className="text-xs leading-5 text-secondary dark:text-dark-secondary">
-                          {t("signup.termsAgree")}
-                        </span>
-                      </Checkbox>
-                      {errors.terms_agreed ? (
-                        <p className="pl-7 text-[10px] font-medium text-error">
-                          {errors.terms_agreed.message}
-                        </p>
-                      ) : null}
-
-                      <Checkbox
-                        id="privacy_agreed"
-                        className="items-start"
-                        {...register("privacy_agreed", {
-                          required: t("signup.validation.privacyRequired"),
-                        })}
-                      >
-                        <span className="text-xs leading-5 text-secondary dark:text-dark-secondary">
-                          {t("signup.privacyAgree")}
-                        </span>
-                      </Checkbox>
-                      {errors.privacy_agreed ? (
-                        <p className="pl-7 text-[10px] font-medium text-error">
-                          {errors.privacy_agreed.message}
-                        </p>
-                      ) : null}
-                    </div>
 
                     <button
                       type="submit"

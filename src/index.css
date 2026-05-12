@@ -431,13 +431,20 @@
     background-color: var(--color-dark-card-hover);
   }
 
-  [dir=\"rtl\"] {
+  [dir="rtl"],
+  [dir="rtl"] *,
+  html[lang="prs"],
+  html[lang="prs"] *,
+  html[lang="ps"],
+  html[lang="ps"] * {
     direction: rtl;
     font-family: IRANYekanX, sans-serif;
   }
 
-  html[lang=\"fa\"],
-  html[lang=\"ar\"] {
+  html[lang="fa"],
+  html[lang="fa"] *,
+  html[lang="ar"],
+  html[lang="ar"] * {
     font-family: IRANYekanX, sans-serif;
   }
 

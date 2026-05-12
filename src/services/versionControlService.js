@@ -1,4 +1,5 @@
 import apiClient from "../api/client";
+import { saveAs } from "file-saver";
 import { tryDecodeUtf8 } from "../utils/binaryFileHandlers";
 import { parseVicCompressedObject } from "../utils/vicObjectFormat";
 import { VC } from "./RouteConfig";
@@ -93,6 +94,38 @@ export async function fetchFileContent(
         ),
       );
     }
+  }
+}
+
+export async function downloadRepositoryArchive(
+  owner,
+  repo,
+  { ref = "main", onProgress } = {},
+) {
+  try {
+    const startedAt = Date.now();
+    const { data } = await apiClient.get(
+      VC.REPO_ARCHIVE(owner, repo, { ref }),
+      {
+        responseType: "blob",
+        onDownloadProgress: (event) => {
+          const loaded = Number(event.loaded ?? 0);
+          const total = Number(event.total ?? 0);
+          onProgress?.({
+            loaded,
+            total,
+            percent: total > 0 ? Math.round((loaded / total) * 100) : null,
+            elapsedMs: Date.now() - startedAt,
+          });
+        },
+      },
+    );
+    const safeOwner = String(owner ?? "workspace").replace(/[^\w.-]+/g, "-");
+    const safeRepo = String(repo ?? "repository").replace(/[^\w.-]+/g, "-");
+    saveAs(data, `${safeOwner}-${safeRepo}.zip`);
+    return data;
+  } catch (err) {
+    throw new Error(extractApiError(err, "Failed to download repository."));
   }
 }
 

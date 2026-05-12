@@ -11,13 +11,15 @@ import {
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import FacultyFormSectionCard from "../../components/admin/FacultyFormSectionCard";
 import Button from "../../components/Button";
 import Field from "../../components/Field";
 import IC from "../../components/IC";
 import Icon from "../../components/Icon";
 import SearchableSelect from "../../components/SearchableSelect";
+import { useAuth } from "../../context/AuthContext";
+import { resolveShellBasePath } from "../../lib/roles";
 import {
   useCreateFacultyProject,
   useFacultyGroups,
@@ -207,8 +209,17 @@ export default function ProjectRegistrationPage() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const shellBase = resolveShellBasePath(location.pathname, user?.role);
+  const isTeacherShell = shellBase === "/teacher";
+  const signedInTeacherId =
+    user?.id != null && String(user.id).trim() !== ""
+      ? String(user.id).trim()
+      : "";
+  const projectsPath = `${shellBase}/projects`;
   const [step, setStep] = useState(1);
   const [teacherSearchTerm, setTeacherSearchTerm] = useState("");
   const [debouncedTeacherSearchTerm, setDebouncedTeacherSearchTerm] =
@@ -296,6 +307,7 @@ export default function ProjectRegistrationPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     trigger,
     formState: { errors },
   } = useForm({
@@ -322,12 +334,21 @@ export default function ProjectRegistrationPage() {
     });
   }, [isEdit, project, reset]);
 
+  useEffect(() => {
+    if (!isTeacherShell || isEdit || !signedInTeacherId) return;
+    setValue("teacher", signedInTeacherId, {
+      shouldDirty: false,
+      shouldTouch: false,
+      shouldValidate: false,
+    });
+  }, [isEdit, isTeacherShell, setValue, signedInTeacherId]);
+
   const createProject = useCreateFacultyProject({
     toastSuccess: "adminProjects.form.project.toast.createSuccess",
     toastError: "apiErrors.failed_to_create_faculty_project",
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["faculty-projects"] });
-      navigate("/admin/projects?tab=projects");
+      navigate(projectsPath);
     },
   });
 
@@ -339,7 +360,7 @@ export default function ProjectRegistrationPage() {
       await queryClient.invalidateQueries({
         queryKey: ["faculty-projects", "detail", id],
       });
-      navigate("/admin/projects?tab=projects");
+      navigate(projectsPath);
     },
   });
 
@@ -365,15 +386,37 @@ export default function ProjectRegistrationPage() {
         ? project.teacher
         : null) ??
       null);
+  const currentUserTeacherOption = useMemo(() => {
+    if (!signedInTeacherId) return null;
+    return {
+      value: signedInTeacherId,
+      label:
+        user?.fullName ||
+        [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() ||
+        user?.username ||
+        user?.email ||
+        signedInTeacherId,
+      description: user?.email || undefined,
+    };
+  }, [signedInTeacherId, user]);
+
   const teacherSelectOptions = useMemo(() => {
     const baseOptions =
       debouncedTeacherSearchTerm.length > 0
         ? searchedTeacherOptions
         : teacherOptions;
     const selectedOption = teacherToOption(selectedTeacherRecord);
-    return mergeOptions(selectedOption ? [selectedOption] : [], baseOptions);
+    return mergeOptions(
+      isTeacherShell && currentUserTeacherOption
+        ? [currentUserTeacherOption]
+        : [],
+      selectedOption ? [selectedOption] : [],
+      baseOptions,
+    );
   }, [
+    currentUserTeacherOption,
     debouncedTeacherSearchTerm,
+    isTeacherShell,
     searchedTeacherOptions,
     selectedTeacherRecord,
     teacherOptions,
@@ -670,7 +713,7 @@ export default function ProjectRegistrationPage() {
                         )}
                         loading={isSearchingTeachers}
                         onSearchChange={setTeacherSearchTerm}
-                        disabled={teachersLoading}
+                        disabled={teachersLoading || isTeacherShell}
                         className="min-h-8 bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)"
                       />
                       {selectedTeacher ? (
@@ -756,7 +799,7 @@ export default function ProjectRegistrationPage() {
       <div className="flex min-h-screen flex-1 flex-col items-start gap-4 bg-white p-4 dark:bg-dark-card-bg md:p-5">
         <Button
           variant="tertiary"
-          onClick={() => navigate("/admin/projects?tab=projects")}
+          onClick={() => navigate(projectsPath)}
         >
           {t("adminProjects.form.project.actions.back")}
         </Button>
@@ -773,7 +816,7 @@ export default function ProjectRegistrationPage() {
     <div className="flex min-h-screen flex-1 flex-col gap-4 overflow-y-auto bg-whitep-4 dark:bg-dark-card-bg md:p-5">
       <button
         type="button"
-        onClick={() => navigate("/admin/projects?tab=projects")}
+        onClick={() => navigate(projectsPath)}
         className="inline-flex w-fit items-center gap-2 rounded-xl border border-default bg-bg-shell px-3 py-2 text-xs font-semibold text-secondary transition-colors hover:bg-hover dark:border-dark-default dark:bg-dark-shell dark:text-dark-secondary dark:hover:bg-dark-hover"
       >
         <Icon d={IC.chevLeft} className="size-3.5 stroke-2" />
@@ -1005,7 +1048,7 @@ export default function ProjectRegistrationPage() {
                       <Button
                         type="button"
                         variant="tertiary"
-                        onClick={() => navigate("/admin/projects?tab=projects")}
+                        onClick={() => navigate(projectsPath)}
                       >
                         {t("adminProjects.form.project.actions.cancel")}
                       </Button>

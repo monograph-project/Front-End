@@ -19,41 +19,6 @@ const DESC_MAX = 350;
 /** Radix Select forbids `<Select.Item value="">` — use this sentinel then strip on submit */
 const NONE_OPTION_VALUE = "__none__";
 
-const ADJECTIVES = [
-  "supreme",
-  "bright",
-  "quiet",
-  "lucky",
-  "swift",
-  "gentle",
-  "cosmic",
-  "stellar",
-  "crisp",
-  "noble",
-  "crimson",
-];
-
-const NOUNS = [
-  "succotash",
-  "notebook",
-  "horizon",
-  "stream",
-  "orchid",
-  "harbor",
-  "ember",
-  "canvas",
-  "vector",
-  "bridge",
-  "compass",
-  "ledger",
-];
-
-function generateRepoSuggestion() {
-  const i = Math.floor(Math.random() * ADJECTIVES.length);
-  const j = Math.floor(Math.random() * NOUNS.length);
-  return `${ADJECTIVES[i]}-${NOUNS[j]}`;
-}
-
 function ownerInitials(username) {
   const u = String(username ?? "").trim();
   if (!u) return "??";
@@ -178,6 +143,10 @@ export default function StudentNewRepository() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const shellBase = resolveShellBasePath(location.pathname, user?.role);
+  const repositoryListPath =
+    shellBase === "/teacher"
+      ? `${shellBase}/repositories`
+      : `${shellBase}/workspace`;
 
   /** Auto-injected from the signed-in gateway user — never selectable */
   const owner =
@@ -186,8 +155,6 @@ export default function StudentNewRepository() {
       : typeof user?.user_name === "string"
         ? user.user_name.trim()
         : "";
-
-  const suggestedName = useMemo(() => generateRepoSuggestion(), []);
 
   /** Same listing as workspace — authoritive owner + repo for this account. */
   const vcOwnerAccountId =
@@ -210,9 +177,9 @@ export default function StudentNewRepository() {
   const [debouncedSlug, setDebouncedSlug] = useState("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState("PUBLIC");
-  const [addReadme, setAddReadme] = useState(false);
-  const [gitignore, setGitignore] = useState(NONE_OPTION_VALUE);
-  const [license, setLicense] = useState(NONE_OPTION_VALUE);
+  const [addReadme] = useState(false);
+  const [gitignore] = useState(NONE_OPTION_VALUE);
+  const [license] = useState(NONE_OPTION_VALUE);
 
   const createRepo = useVcCreateRepository({
     onSuccess: (data) => {
@@ -255,16 +222,12 @@ export default function StudentNewRepository() {
     const ownerLc = owner.toLowerCase();
     const list = Array.isArray(repoList) ? repoList : [];
     return list.some((r) => {
-      const o = String(
-        r?.ownerUsername ?? r?.owner_username ?? "",
-      ).trim();
+      const o = String(r?.ownerUsername ?? r?.owner_username ?? "").trim();
       const n = String(
         r?.repositoryName ?? r?.repository_name ?? r?.name ?? "",
       ).trim();
       if (!o || !n) return false;
-      return (
-        o.toLowerCase() === ownerLc && slugRepoName(n) === slugPreview
-      );
+      return o.toLowerCase() === ownerLc && slugRepoName(n) === slugPreview;
     });
   }, [repoList, owner, reposLoading, slugPreview, vcOwnerAccountId]);
 
@@ -301,43 +264,38 @@ export default function StudentNewRepository() {
   /** Lock input when we know this owner/repo already exists (list or search exact match). */
   const nameBlocksFurtherTyping = Boolean(
     showNameAvailability &&
-      repositoryName.length > 0 &&
-      ((!reposLoading &&
-        vcOwnerAccountId &&
-        duplicateFromMyRepos) ||
-        (searchSynced &&
-          !searchFetching &&
-          !searchError &&
-          duplicateFromSearch)),
+    repositoryName.length > 0 &&
+    ((!reposLoading && vcOwnerAccountId && duplicateFromMyRepos) ||
+      (searchSynced && !searchFetching && !searchError && duplicateFromSearch)),
   );
 
   const nameCheckBusy = Boolean(
     slugPreview &&
-      (!searchSynced ||
-        searchFetching ||
-        (Boolean(vcOwnerAccountId) && reposLoading)),
+    (!searchSynced ||
+      searchFetching ||
+      (Boolean(vcOwnerAccountId) && reposLoading)),
   );
 
   /** Green only after your repo list loaded OK — empty keyword search results do not prove availability. */
   const canConfirmNameAvailable = Boolean(
     showNameAvailability &&
-      searchSynced &&
-      !searchFetching &&
-      !searchError &&
-      !nameTaken &&
-      vcOwnerAccountId &&
-      !reposLoading &&
-      !reposLoadError,
+    searchSynced &&
+    !searchFetching &&
+    !searchError &&
+    !nameTaken &&
+    vcOwnerAccountId &&
+    !reposLoading &&
+    !reposLoadError,
   );
 
   const showNameNeutralHint = Boolean(
     showNameAvailability &&
-      searchSynced &&
-      !searchFetching &&
-      !searchError &&
-      !nameTaken &&
-      !nameCheckBusy &&
-      !canConfirmNameAvailable,
+    searchSynced &&
+    !searchFetching &&
+    !searchError &&
+    !nameTaken &&
+    !nameCheckBusy &&
+    !canConfirmNameAvailable,
   );
 
   const visOptions = [
@@ -374,7 +332,12 @@ export default function StudentNewRepository() {
       gooeyToast.error(t("studentNewRepo.nameTaken", { name: rn }));
       return;
     }
-    if (searchSynced && !searchFetching && !searchError && duplicateFromSearch) {
+    if (
+      searchSynced &&
+      !searchFetching &&
+      !searchError &&
+      duplicateFromSearch
+    ) {
       gooeyToast.error(t("studentNewRepo.nameTaken", { name: rn }));
       return;
     }
@@ -398,11 +361,11 @@ export default function StudentNewRepository() {
   };
 
   return (
-    <div className="min-h-screen flex-1 bg-white dark:bg-dark-shell p-4 ">
-      <div className="mx-auto w-full border border-default rounded-md dark:bg-dark-app-secondary dark:border-dark-default max-w-5xl px-4 py-6 md:px-6 md:py-10">
+    <div className="min-h-screen flex-1 bg-white dark:bg-dark-card-bg p-3 ">
+      <div className="mx-auto w-full border border-default rounded-md dark:bg-dark-app-secondary dark:border-dark-default max-w-6xl px-4 py-6 md:px-6 md:py-10">
         <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-light-divider pb-6 dark:border-dark-divider">
           <Link
-            to={`${shellBase}/workspace`}
+            to={repositoryListPath}
             className="text-xs font-semibold text-primary underline-offset-4 hover:underline dark:text-dark-primary"
           >
             ← {t("studentNewRepo.back")}
@@ -447,7 +410,7 @@ export default function StudentNewRepository() {
                   <div className="w-full shrink-0 sm:w-[min(42%,14rem)]">
                     <OwnerBadge username={owner} />
                   </div>
-                 
+
                   <div className="min-w-0 flex-1 space-y-1">
                     <span className="block  text-[11px] font-semibold text-transparent sm:hidden">
                       &nbsp;
@@ -461,13 +424,13 @@ export default function StudentNewRepository() {
                         readOnly={nameBlocksFurtherTyping}
                         aria-invalid={Boolean(
                           showNameAvailability &&
-                            ((!reposLoading &&
-                              vcOwnerAccountId &&
-                              duplicateFromMyRepos) ||
-                              (searchSynced &&
-                                !searchFetching &&
-                                !searchError &&
-                                duplicateFromSearch)),
+                          ((!reposLoading &&
+                            vcOwnerAccountId &&
+                            duplicateFromMyRepos) ||
+                            (searchSynced &&
+                              !searchFetching &&
+                              !searchError &&
+                              duplicateFromSearch)),
                         )}
                         placeholder={t("studentNewRepo.namePlaceholder")}
                         value={repositoryName}
@@ -611,7 +574,7 @@ export default function StudentNewRepository() {
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => navigate(`${shellBase}/workspace`)}
+                  onClick={() => navigate(repositoryListPath)}
                 >
                   {t("common.cancel")}
                 </Button>

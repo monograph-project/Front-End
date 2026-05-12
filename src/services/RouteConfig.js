@@ -115,7 +115,12 @@ export const PERMISSIONS = {
 /** Blog Service — `/api/v1/articles` */
 export const BLOG = {
   ARTICLES: (params = {}) => gw(withQuery("/api/v1/articles", params)),
+  PUBLIC_ARTICLES: (params = {}) => gw(withQuery("/api/v1/articles/public", params)),
+  ADMIN_ARTICLES: (params = {}) =>
+    gw(withQuery("/api/v1/articles/admin/all", params)),
   ARTICLE_BY_ID: (articleId) => gw(`/api/v1/articles/${articleId}`),
+  PUBLIC_ARTICLE_BY_ID: (articleId) =>
+    gw(`/api/v1/articles/public/${encodeURIComponent(articleId)}`),
   ARTICLES_BY_AUTHOR: (authorId, params = {}) =>
     gw(
       withQuery(`/api/v1/articles/authors/${encodeURIComponent(authorId)}`, {
@@ -332,6 +337,13 @@ export const VC = {
   REPO_DETAIL: (owner, repo) =>
     gw(
       `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+    ),
+  REPO_ARCHIVE: (owner, repo, params = {}) =>
+    gw(
+      withQuery(
+        `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/archive.zip`,
+        params,
+      ),
     ),
   REPO_PULLS: (owner, repo) =>
     gw(
@@ -610,7 +622,11 @@ export const REPOSITORY = {
 /** Faculty project — `/api/project` */
 export const FACULTY_PROJECT = {
   LIST: (params = {}) => gw(withQuery("/api/project", params)),
+  PUBLIC_LIST: (params = {}) => gw(withQuery("/api/project/public", params)),
   BY_ID: (id) => gw(`/api/project/${encodeURIComponent(id)}`),
+  PUBLIC_BY_ID: (id) => gw(`/api/project/public/${encodeURIComponent(id)}`),
+  PUBLIC_DOWNLOAD: (id) =>
+    gw(`/api/project/public/${encodeURIComponent(id)}/download`),
   INVITE: (id) => gw(`/api/project/${encodeURIComponent(id)}/invite`),
   BY_ID_AND_STUDENT: (id, studentId) =>
     gw(
@@ -630,6 +646,9 @@ export const FACULTY_PROJECT = {
     ),
   CREATE: gw("/api/project"),
   UPDATE: (id) => gw(`/api/project/${encodeURIComponent(id)}`),
+  COMPLETE: (id) => gw(`/api/project/${encodeURIComponent(id)}/complete`),
+  PUBLISH: (id) => gw(`/api/project/${encodeURIComponent(id)}/publish`),
+  UNPUBLISH: (id) => gw(`/api/project/${encodeURIComponent(id)}/unpublish`),
   DELETE: (id) => gw(`/api/project/${encodeURIComponent(id)}`),
 };
 
@@ -639,6 +658,10 @@ export const FACULTY_GROUP = {
   BY_ID: (id) => gw(`/api/group/${encodeURIComponent(id)}`),
   CREATE: gw("/api/group"),
   UPDATE: (id) => gw(`/api/group/${encodeURIComponent(id)}`),
+  UPDATE_LEADER: (id, leaderId) =>
+    gw(
+      `/api/group/${encodeURIComponent(id)}/leader/${encodeURIComponent(leaderId)}`,
+    ),
   DELETE: (id) => gw(`/api/group/${encodeURIComponent(id)}`),
 };
 

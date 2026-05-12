@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   CalendarRange,
@@ -14,42 +14,93 @@ import SearchableSelect from "./SearchableSelect";
 import SettingsSectionCard from "./SettingsSectionCard";
 import RepoOverviewStatCard from "./repo/RepoOverviewStatCard";
 import { REPO_OVERVIEW_STAT_PALETTES } from "./repo/repoOverviewStatPalettes";
+import {
+  useAcademicYears,
+  useFaculties,
+  useSemesters,
+} from "../services/useApi";
 
-const campusOptions = [
-  {
-    value: "main-campus",
-    label: "Main Campus",
-    description: "Central administration and registrar office",
-  },
-  {
-    value: "medical-campus",
-    label: "Medical Campus",
-    description: "Health sciences and clinical departments",
-  },
-  {
-    value: "engineering-campus",
-    label: "Engineering Campus",
-    description: "Applied sciences and laboratories",
-  },
-];
+const SYSTEM_SETTINGS_KEY = "faculty-system-settings";
+
+function loadStoredSystemSettings() {
+  try {
+    const raw = window.localStorage.getItem(SYSTEM_SETTINGS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function listFromPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.content)) return payload.content;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+}
+
+function recordLabel(record, fallback = "") {
+  return (
+    record?.name ||
+    record?.title ||
+    record?.code ||
+    record?.academicYear?.name ||
+    fallback
+  );
+}
 
 export default function SystemSettingsTab() {
   const { t } = useTranslation();
-  const [systemProfile, setSystemProfile] = useState({
-    institutionName: "Faculty Management System",
-    portalTitle: "University Faculty Portal",
-    supportEmail: "support@faculty.edu",
-    helpDeskPhone: "+93 70 000 0000",
-    academicYear: "2026 - 2027",
-    activeSemester: "fall-2026",
-    timezone: "asia-kabul",
-    campus: "main-campus",
-  });
+  const [systemProfile, setSystemProfile] = useState(() => ({
+    ...{
+      institutionName: "Faculty Management System",
+      portalTitle: "University Faculty Portal",
+      supportEmail: "support@faculty.edu",
+      helpDeskPhone: "+93 70 000 0000",
+      academicYear: "",
+      activeSemester: "",
+      timezone: "asia-kabul",
+      campus: "",
+    },
+    ...(loadStoredSystemSettings() ?? {}),
+  }));
   const [publicVisibility, setPublicVisibility] = useState([
     "Show admission announcement banner",
     "Display active semester on homepage",
     "Publish maintenance notices in portal header",
   ]);
+  const { data: facultiesPayload = [] } = useFaculties({ notifyOnError: false });
+  const { data: academicYearsPayload = [] } = useAcademicYears(
+    {},
+    { notifyOnError: false },
+  );
+  const { data: semestersPayload = [] } = useSemesters(
+    {},
+    { notifyOnError: false },
+  );
+  const faculties = useMemo(() => listFromPayload(facultiesPayload), [facultiesPayload]);
+  const academicYears = useMemo(
+    () => listFromPayload(academicYearsPayload),
+    [academicYearsPayload],
+  );
+  const semesters = useMemo(() => listFromPayload(semestersPayload), [semestersPayload]);
+
+  useEffect(() => {
+    document.title = systemProfile.portalTitle || systemProfile.institutionName;
+  }, [systemProfile.institutionName, systemProfile.portalTitle]);
+
+  const effectiveAcademicYear =
+    systemProfile.academicYear || (academicYears[0]?.id ? String(academicYears[0].id) : "");
+  const effectiveSemester =
+    systemProfile.activeSemester || (semesters[0]?.id ? String(semesters[0].id) : "");
+  const effectiveCampus =
+    systemProfile.campus || (faculties[0]?.id ? String(faculties[0].id) : "");
+  const activeAcademicYear = academicYears.find(
+    (item) => String(item?.id) === String(effectiveAcademicYear),
+  );
+  const activeSemester = semesters.find(
+    (item) => String(item?.id) === String(effectiveSemester),
+  );
 
   const summaryItems = useMemo(
     () => [
@@ -63,20 +114,14 @@ export default function SystemSettingsTab() {
       {
         icon: CalendarRange,
         label: t("settings.system.summary.academicYear"),
-        value: systemProfile.academicYear,
+        value: recordLabel(activeAcademicYear, t("settings.system.values.unknown")),
         hint: t("settings.system.academic.title"),
         paletteIndex: 1,
       },
       {
         icon: CalendarRange,
         label: t("settings.system.summary.activeTerm"),
-        value:
-          {
-            "spring-2026": t("settings.system.semesters.spring2026"),
-            "summer-2026": t("settings.system.semesters.summer2026"),
-            "fall-2026": t("settings.system.semesters.fall2026"),
-            "winter-2026": t("settings.system.semesters.winter2026"),
-          }[systemProfile.activeSemester] || t("settings.system.values.unknown"),
+        value: recordLabel(activeSemester, t("settings.system.values.unknown")),
         hint: t("settings.system.fields.activeSemester"),
         paletteIndex: 2,
       },
@@ -90,7 +135,7 @@ export default function SystemSettingsTab() {
         paletteIndex: 3,
       },
     ],
-    [publicVisibility.length, systemProfile.academicYear, systemProfile.activeSemester, t],
+    [activeAcademicYear, activeSemester, publicVisibility.length, t],
   );
 
   const handleProfileChange = (key, value) => {
@@ -104,6 +149,26 @@ export default function SystemSettingsTab() {
     setPublicVisibility((current) => current.filter((entry) => entry !== item));
   };
 
+  const saveSystemSettings = () => {
+    const nextSettings = {
+      ...systemProfile,
+      academicYear: effectiveAcademicYear,
+      activeSemester: effectiveSemester,
+      campus: effectiveCampus,
+    };
+    setSystemProfile(nextSettings);
+    window.localStorage.setItem(
+      SYSTEM_SETTINGS_KEY,
+      JSON.stringify(nextSettings),
+    );
+    window.dispatchEvent(
+      new CustomEvent("faculty-system-settings-updated", {
+        detail: nextSettings,
+      }),
+    );
+    window.GooeyToaster?.success?.(t("settings.system.actions.save"));
+  };
+
   return (
     <div className="space-y-6">
       <SettingsSectionCard
@@ -113,6 +178,7 @@ export default function SystemSettingsTab() {
         action={
           <button
             type="button"
+            onClick={saveSystemSettings}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white dark:bg-dark-primary dark:text-dark-shell"
           >
             <Save className="h-4 w-4" />
@@ -181,14 +247,12 @@ export default function SystemSettingsTab() {
                 {t("settings.system.fields.defaultCampus")}
               </span>
               <SearchableSelect
-                options={campusOptions.map((item) => ({
-                  ...item,
-                  label: t(`settings.system.campuses.${item.value}.label`),
-                  description: t(
-                    `settings.system.campuses.${item.value}.description`,
-                  ),
+                options={faculties.map((item) => ({
+                  value: String(item.id),
+                  label: recordLabel(item, String(item.id)),
+                  description: item.code || item.email || item.phone || "",
                 }))}
-                value={systemProfile.campus}
+                value={effectiveCampus}
                 onChange={(value) => handleProfileChange("campus", value)}
                 placeholder={t("settings.system.placeholders.chooseCampus")}
                 searchPlaceholder={t("settings.system.placeholders.searchCampus")}
@@ -203,39 +267,28 @@ export default function SystemSettingsTab() {
           description={t("settings.system.academic.description")}
         >
           <div className="space-y-4">
-            <Field
-              register={{}}
+            <Select
               label={t("settings.system.fields.academicYear")}
+              value={effectiveAcademicYear}
+              onChange={(value) => handleProfileChange("academicYear", value)}
               placeholder={t("settings.system.placeholders.academicYear")}
-              value={systemProfile.academicYear}
-              onChange={(e) => handleProfileChange("academicYear", e.target.value)}
+              options={academicYears.map((item) => ({
+                value: String(item.id),
+                label: recordLabel(item, String(item.id)),
+              }))}
             />
             <div>
               <span className="mb-2 block text-[11px] font-semibold text-primary dark:text-dark-primary">
                 {t("settings.system.fields.activeSemester")}
               </span>
               <Select
-                value={systemProfile.activeSemester}
+                value={effectiveSemester}
                 onChange={(value) => handleProfileChange("activeSemester", value)}
                 placeholder={t("settings.system.placeholders.selectSemester")}
-                options={[
-                  {
-                    value: "spring-2026",
-                    label: t("settings.system.semesters.spring2026"),
-                  },
-                  {
-                    value: "summer-2026",
-                    label: t("settings.system.semesters.summer2026"),
-                  },
-                  {
-                    value: "fall-2026",
-                    label: t("settings.system.semesters.fall2026"),
-                  },
-                  {
-                    value: "winter-2026",
-                    label: t("settings.system.semesters.winter2026"),
-                  },
-                ]}
+                options={semesters.map((item) => ({
+                  value: String(item.id),
+                  label: recordLabel(item, String(item.id)),
+                }))}
               />
             </div>
             <div>
