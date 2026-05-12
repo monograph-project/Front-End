@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Heart, MessageCircle, Send, Share2 } from "lucide-react";
+import { ArrowLeft, Heart, MessageCircle, Send, Share2 } from "lucide-react";
 import { getStoryById } from "../../data/mockStories";
 import ArticleBlocksReader from "../../components/ArticleBlocksReader";
 import Avatar from "../../components/Avatar";
@@ -12,8 +12,10 @@ import { normalizeArticleBlock } from "../../lib/adminArticleMap";
 import { mapArticlePreviewToStory } from "../../lib/mapArticlePreviewToStory";
 import {
   useArticleComments,
+  useArticleLikeStatus,
   useLikeArticle,
   usePostArticleComment,
+  usePostArticleCommentReply,
   usePublicArticle,
   useShareArticle,
   useUnlikeArticle,
@@ -69,21 +71,87 @@ function profilePath(author) {
     : "/writer/profile";
 }
 
-function CommentThread({ thread }) {
+function compactUserId(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  return text.length > 12 ? `${text.slice(0, 8)}...` : text;
+}
+
+function authorDisplayName(author, { preferHandle = false } = {}) {
+  const username = author?.userName || author?.username;
+  if (preferHandle && username) return `@${String(username).replace(/^@/, "")}`;
+  const emailName =
+    typeof author?.email === "string" && author.email.includes("@")
+      ? author.email.split("@")[0]
+      : author?.email;
+  return (
+    (author?.displayName && author.displayName !== "Reader"
+      ? author.displayName
+      : "") ||
+    username ||
+    author?.name ||
+    emailName ||
+    compactUserId(author?.id) ||
+    "User"
+  );
+}
+
+function parseLikedStatus(payload) {
+  if (typeof payload === "boolean") return payload;
+  if (!payload || typeof payload !== "object") return false;
+  return Boolean(
+    payload.liked ??
+      payload.isLiked ??
+      payload.hasLiked ??
+      payload.data?.liked ??
+      payload.data?.isLiked,
+  );
+}
+
+function CommentThread({
+  thread,
+  isAuthenticated,
+  onRequireLogin,
+  onReply,
+  replying,
+  articleAuthorId,
+  depth = 0,
+}) {
   const comment = thread?.comment ?? thread ?? {};
   const author = comment.author ?? {};
   const createdAt = comment.createdAt
     ? format(new Date(comment.createdAt), "MMM d, yyyy 'at' h:mm a")
     : "";
   const replies = Array.isArray(thread?.replies) ? thread.replies : [];
-  const name = author.displayName || "Reader";
+  const isStoryWriter =
+    Boolean(articleAuthorId) && String(author.id ?? "") === String(articleAuthorId);
+  const isReply = depth > 0;
+  const name = authorDisplayName(author, { preferHandle: isReply });
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyDraft, setReplyDraft] = useState("");
+
+  const submitReply = () => {
+    if (!replyDraft.trim()) return;
+    onReply?.(comment.id, replyDraft.trim(), () => {
+      setReplyDraft("");
+      setReplyOpen(false);
+    });
+  };
 
   return (
-    <li className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+    <li
+      className={`rounded-2xl border p-4 ${
+        isStoryWriter
+          ? "border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm ring-1 ring-(--color-light-btn-primary-bg)/10 dark:border-dark-divider dark:bg-dark-app-tertiary/25 dark:ring-(--color-dark-primary)/10"
+          : isReply
+            ? "border-(--color-light-card-border) bg-light-app-tertiary/35 dark:border-dark-divider dark:bg-dark-app-tertiary/20"
+            : "border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-dark-divider dark:bg-dark-app-tertiary/15"
+      }`}
+    >
       <div className="flex items-start gap-3">
         <Link to={profilePath(author)} className="shrink-0 rounded-full">
           <Avatar
-            src={author.profileImageUrl}
+            src={author.profileImageUrl || author.profile || author.avatarUrl}
             initials={initials(name)}
             alt={name}
             className="rounded-full"
@@ -98,6 +166,16 @@ function CommentThread({ thread }) {
             >
               {name}
             </Link>
+            {isStoryWriter ? (
+              <span className="rounded-full border border-(--color-light-btn-primary-bg)/20 bg-(--color-light-btn-primary-bg)/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-(--color-light-btn-primary-bg) dark:border-(--color-dark-primary)/20 dark:bg-(--color-dark-primary)/10 dark:text-(--color-dark-primary)">
+                Writer
+              </span>
+            ) : null}
+            {isReply && !isStoryWriter ? (
+              <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted dark:border-dark-divider dark:text-dark-muted">
+                Response
+              </span>
+            ) : null}
             {createdAt ? (
               <span className="text-xs text-muted dark:text-dark-muted">
                 {createdAt}
@@ -115,7 +193,51 @@ function CommentThread({ thread }) {
                 replies.length}{" "}
               replies
             </span>
+            <button
+              type="button"
+              className="font-semibold text-(--color-light-btn-primary-bg) transition-colors hover:text-(--color-light-btn-primary-hover) dark:text-(--color-dark-primary)"
+              onClick={() => {
+                if (!isAuthenticated) {
+                  onRequireLogin?.("reply to this comment");
+                  return;
+                }
+                setReplyOpen((value) => !value);
+              }}
+            >
+              Reply
+            </button>
           </div>
+          {replyOpen ? (
+            <div className="mt-4 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-dark-divider dark:bg-dark-app-tertiary/60">
+              <textarea
+                value={replyDraft}
+                onChange={(event) => setReplyDraft(event.target.value)}
+                placeholder={`Reply to ${name}...`}
+                rows={3}
+                className="w-full resize-y rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3 py-2 text-sm leading-6 text-(--color-light-text-primary) outline-none transition-colors placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder)"
+              />
+              <div className="mt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="btn-secondary h-8 px-3 text-xs"
+                  onClick={() => {
+                    setReplyDraft("");
+                    setReplyOpen(false);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary h-8 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!replyDraft.trim() || replying}
+                  onClick={submitReply}
+                >
+                  Send reply
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -125,6 +247,12 @@ function CommentThread({ thread }) {
             <CommentThread
               key={reply?.comment?.id ?? reply?.id}
               thread={reply}
+              isAuthenticated={isAuthenticated}
+              onRequireLogin={onRequireLogin}
+              onReply={onReply}
+              replying={replying}
+              articleAuthorId={articleAuthorId}
+              depth={depth + 1}
             />
           ))}
         </ul>
@@ -133,8 +261,9 @@ function CommentThread({ thread }) {
   );
 }
 
-function StoryResponses({ articleId, storyTitle, fallbackCount }) {
+function StoryResponses({ articleId, storyTitle, fallbackCount, articleAuthorId }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAuthenticated, hydrated } = useAuth();
   const [draft, setDraft] = useState("");
@@ -144,13 +273,34 @@ function StoryResponses({ articleId, storyTitle, fallbackCount }) {
     { enabled: Boolean(articleId), notifyOnError: false },
   );
   const postComment = usePostArticleComment({
+    showSuccessToast: false,
     onSuccess: () => {
+      const preview = draft.trim().slice(0, 90);
       setDraft("");
+      window.GooeyToaster?.success?.("Comment published", {
+        description: preview ? `"${preview}${preview.length === 90 ? "..." : ""}"` : undefined,
+      });
       queryClient.invalidateQueries({
         queryKey: ["articles", articleId, "comments"],
       });
       queryClient.invalidateQueries({
-        queryKey: ["articles", "public", articleId],
+        queryKey: ["articles", "public-detail", articleId],
+      });
+    },
+  });
+  const postReply = usePostArticleCommentReply({
+    showSuccessToast: false,
+    onSuccess: (_data, variables) => {
+      window.GooeyToaster?.success?.("Reply published", {
+        description: variables?.body
+          ? `"${String(variables.body).slice(0, 90)}${String(variables.body).length > 90 ? "..." : ""}"`
+          : undefined,
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["articles", articleId, "comments"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["articles", "public-detail", articleId],
       });
     },
   });
@@ -164,6 +314,19 @@ function StoryResponses({ articleId, storyTitle, fallbackCount }) {
   const submitComment = () => {
     if (!draft.trim() || !articleId) return;
     postComment.mutate({ articleId, body: draft.trim() });
+  };
+
+  const requireLogin = (action = "comment") => {
+    window.GooeyToaster?.info?.(`Please log in to ${action}.`);
+    navigate("/login", { state: { from: location } });
+  };
+
+  const submitReply = (parentCommentId, body, onDone) => {
+    if (!articleId || !parentCommentId || !body) return;
+    postReply.mutate(
+      { articleId, parentCommentId, body },
+      { onSuccess: () => onDone?.() },
+    );
   };
 
   return (
@@ -237,6 +400,11 @@ function StoryResponses({ articleId, storyTitle, fallbackCount }) {
               <CommentThread
                 key={thread?.comment?.id ?? thread?.id}
                 thread={thread}
+                isAuthenticated={isAuthenticated}
+                onRequireLogin={requireLogin}
+                onReply={submitReply}
+                replying={postReply.isPending}
+                articleAuthorId={articleAuthorId}
               />
             ))}
           </ul>
@@ -255,7 +423,7 @@ export default function StoryDetailPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hydrated } = useAuth();
   const articleQuery = usePublicArticle(id, {
     enabled: Boolean(id),
     notifyOnError: false,
@@ -273,33 +441,65 @@ export default function StoryDetailPage() {
   const [clapped, setClapped] = useState(false);
   const [progress, setProgress] = useState(0);
   const contentRef = useRef(null);
+  const likeStatusQuery = useArticleLikeStatus(story?.id, {
+    enabled: Boolean(hydrated && isAuthenticated && story?.id),
+    notifyOnError: false,
+    retry: false,
+    staleTime: 0,
+  });
 
   const likeArticle = useLikeArticle({
+    showErrorToast: false,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["articles", "public", id] });
+      queryClient.invalidateQueries({ queryKey: ["articles", story?.id, "likeStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["articles", "public-detail", id] });
     },
     onError: (error) => {
-      if (error?.response?.status === 409 || error?.status === 409) {
+      const message = String(error?.message ?? error?.response?.data?.message ?? "");
+      if (
+        error?.response?.status === 409 ||
+        error?.status === 409 ||
+        message.toLowerCase().includes("already liked")
+      ) {
         setClapped(true);
+        queryClient.invalidateQueries({ queryKey: ["articles", story?.id, "likeStatus"] });
+        return;
       }
+      setClapped(false);
+      setLocalClaps((count) => Math.max(count - 1, 0));
     },
   });
   const unlikeArticle = useUnlikeArticle({
+    showErrorToast: false,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["articles", "public", id] });
+      queryClient.invalidateQueries({ queryKey: ["articles", story?.id, "likeStatus"] });
+      queryClient.invalidateQueries({ queryKey: ["articles", "public-detail", id] });
+    },
+    onError: () => {
+      setClapped(true);
+      setLocalClaps((count) => count + 1);
     },
   });
   const shareArticle = useShareArticle({
     showSuccessToast: false,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["articles", "public", id] });
+      queryClient.invalidateQueries({ queryKey: ["articles", "public-detail", id] });
     },
   });
 
   useEffect(() => {
     setLocalClaps(Number(story?.claps_count ?? 0));
-    setClapped(false);
   }, [story?.id, story?.claps_count]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setClapped(false);
+      return;
+    }
+    if (likeStatusQuery.isSuccess) {
+      setClapped(parseLikedStatus(likeStatusQuery.data));
+    }
+  }, [isAuthenticated, likeStatusQuery.data, likeStatusQuery.isSuccess]);
 
   const requireLogin = useCallback((action = "complete this action") => {
     window.GooeyToaster?.info?.(
@@ -437,6 +637,13 @@ export default function StoryDetailPage() {
           ref={contentRef}
           className="mx-auto max-w-4xl pb-24 pt-10 sm:pt-14 lg:pb-28"
         >
+          <Link
+            to="/blogs"
+            className="mb-5 inline-flex h-9 items-center gap-2 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 text-sm font-semibold text-secondary transition-colors hover:bg-light-app-tertiary hover:text-primary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-secondary dark:hover:bg-dark-app-tertiary dark:hover:text-dark-primary"
+          >
+            <ArrowLeft className="size-4" strokeWidth={1.8} />
+            Back to blogs
+          </Link>
           <header className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) sm:p-6 lg:p-8">
             <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted dark:text-dark-muted">
               <span className="rounded-full bg-light-app-tertiary px-3 py-1 dark:bg-dark-app-tertiary">
@@ -451,11 +658,11 @@ export default function StoryDetailPage() {
               ) : null}
             </div>
 
-            <h1 className="font-blog-display mt-5 text-[2.15rem] font-bold leading-tight tracking-tight text-primary sm:text-5xl dark:text-dark-primary">
+            <h1 className="font-blog-display mt-5 text-3xl font-bold leading-tight tracking-tight text-primary sm:text-4xl dark:text-dark-primary">
               {story.title}
             </h1>
             {story.subtitle ? (
-              <p className="mt-4 text-lg leading-8 text-secondary sm:text-xl dark:text-dark-secondary">
+              <p className="mt-4 text-base leading-7 text-secondary sm:text-lg dark:text-dark-secondary">
                 {story.subtitle}
               </p>
             ) : null}
@@ -520,13 +727,21 @@ export default function StoryDetailPage() {
           </header>
 
           {story.cover_image ? (
-            <figure className="mt-8 overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-              <img
-                src={story.cover_image}
-                alt=""
-                className="max-h-[32rem] w-full object-cover"
-                loading="lazy"
-              />
+            <figure className="mt-8 overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+              <a
+                href={story.cover_image}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Open story image"
+                className="block cursor-zoom-in"
+              >
+                <img
+                  src={story.cover_image}
+                  alt=""
+                  className="aspect-[16/7] w-full object-cover"
+                  loading="lazy"
+                />
+              </a>
             </figure>
           ) : null}
 
@@ -534,11 +749,11 @@ export default function StoryDetailPage() {
             {story.blocks?.length ? (
               <ArticleBlocksReader
                 blocks={story.blocks}
-                className="mx-auto max-w-3xl text-[18px] leading-9"
+                className="mx-auto max-w-3xl text-[15px] leading-7"
               />
             ) : story.content ? (
               <div
-                className="blog-article-prose mx-auto max-w-3xl [&>*:first-child]:mt-0"
+                className="blog-article-prose mx-auto max-w-3xl text-[15px] leading-7 [&>*:first-child]:mt-0"
                 dangerouslySetInnerHTML={{ __html: story.content }}
               />
             ) : (
@@ -567,6 +782,7 @@ export default function StoryDetailPage() {
               articleId={story.id}
               storyTitle={story.title}
               fallbackCount={commentCount}
+              articleAuthorId={story.author_id}
             />
           </div>
         </article>

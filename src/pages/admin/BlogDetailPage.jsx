@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCheck,
   Clock3,
+  Eye,
   Heart,
   Loader2,
   MessageCircle,
@@ -478,6 +479,14 @@ export default function BlogDetailPage() {
                 {t("blogAdmin.detail.metrics.comments", {
                   count: blog.comments,
                 })}
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <Eye className="size-4" strokeWidth={2} aria-hidden />
+                {Number(blog.views ?? 0).toLocaleString()} views
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <BookOpen className="size-4" strokeWidth={2} aria-hidden />
+                {Number(blog.reads ?? 0).toLocaleString()} reads
               </span>
               <button
                 type="button"

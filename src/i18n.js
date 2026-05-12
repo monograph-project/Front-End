@@ -199,6 +199,9 @@ const resources = {
       "writerStory.success.draftWithId": "Draft saved (id {{id}})",
       "writerStory.error.signInRequired": "Sign in to publish or save drafts on the server.",
       "writerStory.error.titleRequired": "Add a title before saving a server draft.",
+      "writerStory.error.bodyRequired": "Add story content before publishing.",
+      "writerStory.error.imageUploadRequired":
+        "One image could not be prepared for upload. Please re-add that image and publish again.",
       "writerStory.warning.draftCoverDeferred":
         "Draft saved as JSON; the cover image will upload when you publish with “Publish”.",
       "writerStory.autosave.localSaved": "Saved",
@@ -3998,6 +4001,10 @@ const resources = {
         "د خپرو او په سرور مسودې لپاره ننوځئ.",
       "writerStory.error.titleRequired":
         "د سرور مسودې د مخه سرليک ولیکئ.",
+      "writerStory.error.bodyRequired":
+        "د خپرولو له مخه د لیکنې منځپانګه ورزیاته کړئ.",
+      "writerStory.error.imageUploadRequired":
+        "یو انځور د پورته کولو لپاره چمتو نه شو. مهرباني وکړئ هغه انځور بیا ورزیات او خپور یې کړئ.",
       "writerStory.warning.draftCoverDeferred":
         "مسوده د JSON له لارې خوندي شوه؛ سرپوښ به د «خپور کړئ» سره پورته کېږي.",
       "writerStory.autosave.localSaved": "خوندي شو",
@@ -7693,6 +7700,10 @@ const resources = {
         "برای انتشار یا ذخیرهٔ پیش‌نویس در سرور وارد شوید.",
       "writerStory.error.titleRequired":
         "قبل از ذخیرهٔ پیش‌نویس در سرور، عنوان را بنویسید.",
+      "writerStory.error.bodyRequired":
+        "قبل از انتشار، محتوای نوشته را اضافه کنید.",
+      "writerStory.error.imageUploadRequired":
+        "یکی از تصویرها برای بارگذاری آماده نشد. لطفاً آن تصویر را دوباره اضافه کنید و منتشر کنید.",
       "writerStory.warning.draftCoverDeferred":
         "پیش‌نویس به‌صورت JSON ذخیره شد؛ تصویر جلد هنگام «انتشار» بارگذاری می‌شود.",
       "writerStory.autosave.localSaved": "ذخیره شد",

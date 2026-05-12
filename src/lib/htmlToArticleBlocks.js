@@ -63,6 +63,9 @@ function serializeNode(node, orderRef) {
   }
 
   if (tag === "p") {
+    if (el.querySelector("img,figure,video,iframe")) {
+      return flattenChildren(el, orderRef);
+    }
     const text = flattenText(el);
     if (!text.trim()) return [];
     return [mkBlock(orderRef, "TEXT", { text })];
@@ -97,6 +100,7 @@ function serializeNode(node, orderRef) {
     if (img?.src) {
       return [
         mkBlock(orderRef, "IMAGE", {
+          ...(img.dataset.fileId ? { fileId: img.dataset.fileId } : {}),
           url: img.src,
           alt: img.alt ?? "",
         }),
@@ -108,6 +112,7 @@ function serializeNode(node, orderRef) {
   if (tag === "img") {
     return [
       mkBlock(orderRef, "IMAGE", {
+        ...(el.dataset.fileId ? { fileId: el.dataset.fileId } : {}),
         url: el.src,
         alt: el.alt ?? "",
       }),

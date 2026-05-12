@@ -1,392 +1,259 @@
-import { useCallback, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import AvatarDemo from "../../components/Avatar.jsx";
-import Button from "../../components/Button.jsx";
-import ContributionHeatmap from "../../components/repo/ContributionHeatmap.jsx";
+import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { format } from "date-fns";
+import {
+  BookOpen,
+  CalendarDays,
+  ChevronRight,
+  Eye,
+  Heart,
+  MessageCircle,
+} from "lucide-react";
+import Avatar from "../../components/Avatar.jsx";
+import SettingsTabs from "../../components/SettingsTabs.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { mapArticlePreviewToStory } from "../../lib/mapArticlePreviewToStory.js";
+import {
+  usePublishedArticlesByAuthor,
+  useUserAuthorProfile,
+} from "../../services/useApi.js";
 import { BlogShell } from "./BlogShell";
 
-const TABS = ["Stories", "About"];
+const TABS = [{ id: "Stories", label: "Stories", icon: BookOpen }];
 
-const makeStory = (i, owner = false) => ({
-  id: i,
-  title: `Sample story title ${i}`,
-  subtitle: `A short subtitle for story ${i} that teases the idea and tone.`,
-  cover: `https://picsum.photos/seed/story${i}/900/400`,
-  readTime: 3 + (i % 7),
-  clapCount: Math.floor(Math.random() * 500),
-  views: Math.floor(Math.random() * 5000),
-  date: new Date(Date.now() - i * 86400000).toLocaleDateString(),
-  popular: i % 5 === 0,
-  draft: owner && i % 11 === 0,
-  scheduled: owner && i % 17 === 0,
-  private: owner && i % 19 === 0,
-});
-
-function useAllStories(totalCount, generate) {
-  const [items] = useState(() =>
-    Array.from({ length: totalCount }, (_, i) => generate(i + 1)),
+function initials(name) {
+  return (
+    String(name ?? "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "A"
   );
-  const [list, setList] = useState(items);
-
-  return { items: list, setItems: setList };
 }
 
-function buildStoryHeatmap(stories) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(today);
-  start.setDate(start.getDate() - 83);
-  const counts = new Map();
+function extractList(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.content)) return payload.content;
+  return [];
+}
 
-  stories.forEach((story) => {
-    const date = new Date(story.date);
-    if (Number.isNaN(date.getTime())) return;
-    date.setHours(0, 0, 0, 0);
-    const key = date.toISOString().slice(0, 10);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  });
-
-  const weeks = [];
-  let currentWeek = [];
-  for (let i = 0; i < 84; i += 1) {
-    const date = new Date(start);
-    date.setDate(start.getDate() + i);
-    const key = date.toISOString().slice(0, 10);
-    currentWeek.push({ key, value: counts.get(key) ?? 0 });
-    if (currentWeek.length === 7) {
-      weeks.push(currentWeek);
-      currentWeek = [];
-    }
-  }
-
-  return {
-    weeks,
-    max: Math.max(1, ...weeks.flat().map((cell) => cell.value)),
-  };
+function profileValue(profile, key, fallback = "") {
+  return profile?.[key] ?? profile?.data?.[key] ?? fallback;
 }
 
 export default function Profile() {
-  const [isOwner] = useState(true);
+  const [params] = useSearchParams();
+  const { user: sessionUser } = useAuth();
   const [activeTab, setActiveTab] = useState("Stories");
 
-  const user = useMemo(
-    () => ({
-      id: "u_123",
-      name: "Maya Arman",
-      username: "maya",
-      bio: "Writer, designer, and curious human. I write about product design, learning, and the occasional longform essay.",
-      location: "Tehran · Remote",
-      website: "https://example.com",
-      followers: 2140,
-      following: 128,
-      posts: 48,
-      members: 32,
-    }),
-    [],
+  const requestedUser = params.get("user");
+  const authorId =
+    requestedUser ||
+    sessionUser?.id ||
+    sessionUser?.user_id ||
+    sessionUser?.sub ||
+    "";
+  const profileQuery = useUserAuthorProfile(authorId, {
+    enabled: Boolean(authorId),
+    notifyOnError: false,
+    retry: false,
+  });
+  const articlesQuery = usePublishedArticlesByAuthor(
+    authorId,
+    { page: 0, pageSize: 50 },
+    { enabled: Boolean(authorId), notifyOnError: false },
   );
 
-  const storyGenerator = useCallback(
-    (index) => makeStory(index, isOwner),
-    [isOwner],
+  const profile = profileQuery.data ?? {};
+  const stories = useMemo(
+    () =>
+      extractList(articlesQuery.data).map((article) =>
+        mapArticlePreviewToStory(article, { collectionLabel: "Stories" }),
+      ),
+    [articlesQuery.data],
   );
 
-  const { items: stories, setItems } = useAllStories(16, storyGenerator);
-  const storyHeatmap = useMemo(() => buildStoryHeatmap(stories), [stories]);
-
-  const [following, setFollowing] = useState(false);
-  const toggleFollow = () => setFollowing((v) => !v);
-
-  const clap = (id) => {
-    setItems((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, clapCount: s.clapCount + 1 } : s)),
-    );
-  };
+  const name =
+    profileValue(profile, "displayName") ||
+    profileValue(profile, "userName") ||
+    profileValue(profile, "username") ||
+    profileValue(profile, "name") ||
+    sessionUser?.display_name ||
+    sessionUser?.user_name ||
+    "Writer";
+  const email = profileValue(profile, "email", sessionUser?.email ?? "");
+  const avatar =
+    profileValue(profile, "profileImageUrl") ||
+    profileValue(profile, "profile") ||
+    profileValue(profile, "avatarUrl") ||
+    sessionUser?.profilePicture ||
+    "";
+  const bio = profileValue(profile, "bio") || "No biography has been added yet.";
+  const totalArticles = Number(
+    profileValue(profile, "totalArticles", stories.length) ?? stories.length,
+  );
+  const totalLikes = stories.reduce(
+    (sum, story) => sum + Number(story.claps_count ?? 0),
+    0,
+  );
+  const totalViews = stories.reduce(
+    (sum, story) => sum + Number(story.view_count ?? 0),
+    0,
+  );
 
   return (
     <BlogShell variant="feed">
       <div className="min-h-screen pb-20">
-        <header className="border-b border-default pb-12 pt-10 dark:border-dark-default sm:pb-14 sm:pt-12">
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex gap-5">
-              <AvatarDemo />
+        <header className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-5 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) sm:p-7">
+          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+            <div className="flex min-w-0 gap-5">
+              <Avatar
+                src={avatar}
+                alt={name}
+                initials={initials(name)}
+                className="rounded-full"
+                sizeClass="inline-flex size-20 select-none items-center justify-center overflow-hidden rounded-full sm:size-24"
+              />
               <div className="min-w-0 flex-1">
-                <p className="font-blog-serif text-secondary dark:text-dark-secondary">
-                  @{user.username}
+                <p className="text-sm text-muted dark:text-dark-muted">
+                  {email || "Author profile"}
                 </p>
-                <h1 className="font-blog-display mt-2 text-4xl font-bold tracking-tight text-primary md:text-[2.6rem] dark:text-dark-primary">
-                  {user.name}
+                <h1 className="font-blog-display mt-2 text-3xl font-bold tracking-tight text-primary md:text-4xl dark:text-dark-primary">
+                  {name}
                 </h1>
-                <p className="font-blog-serif mt-4 max-w-xl text-lg leading-relaxed text-secondary dark:text-dark-secondary">
-                  {user.bio}
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-secondary dark:text-dark-secondary sm:text-base">
+                  {bio}
                 </p>
-                <p className="mt-4 text-sm text-muted dark:text-dark-muted">
-                  {user.location}
-                  <span aria-hidden className="mx-2">
-                    ·
-                  </span>
-                  <a
-                    href={user.website}
-                    className="text-primary underline-offset-4 hover:underline dark:text-dark-primary"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Website
-                  </a>
-                </p>
-                <div className="mt-6 flex flex-wrap items-center gap-4">
-                  <div className="flex gap-8 text-sm">
-                    <span>
-                      <strong className="text-lg tabular-nums text-primary dark:text-dark-primary">
-                        {user.followers.toLocaleString()}
-                      </strong>
-                      <span className="ms-2 text-muted dark:text-dark-muted">
-                        Followers
-                      </span>
-                    </span>
-                    <span>
-                      <strong className="text-lg tabular-nums text-primary dark:text-dark-primary">
-                        {user.following}
-                      </strong>
-                      <span className="ms-2 text-muted dark:text-dark-muted">
-                        Following
-                      </span>
-                    </span>
-                  </div>
-                  {!isOwner && (
-                    <Button
-                      onClick={toggleFollow}
-                      variant={following ? "secondary" : "primary"}
-                      className="rounded-full px-8 text-sm"
+                <div className="mt-6 grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
+                  {[
+                    ["Stories", totalArticles, BookOpen],
+                    ["Likes", totalLikes, Heart],
+                    ["Views", totalViews, Eye],
+                  ].map(([label, value, Icon]) => (
+                    <div
+                      key={label}
+                      className="flex items-center gap-3 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"
                     >
-                      {following ? "Following" : "Follow"}
-                    </Button>
-                  )}
-                  {isOwner && (
-                    <Link
-                      to="/write"
-                      className="btn-primary inline-flex h-10 items-center rounded-full px-6 text-sm"
-                    >
-                      Write a story
-                    </Link>
-                  )}
+                      <span className="flex size-9 items-center justify-center rounded-xl bg-(--color-light-card-bg) text-(--color-light-btn-primary-bg) dark:bg-(--color-dark-card-bg) dark:text-(--color-dark-primary)">
+                        <Icon className="size-4" strokeWidth={1.8} />
+                      </span>
+                      <span>
+                        <p className="text-lg font-bold tabular-nums text-primary dark:text-dark-primary">
+                          {Number(value).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted dark:text-dark-muted">
+                          {label}
+                        </p>
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           </div>
         </header>
 
-        <nav className="sticky top-[3.25rem] z-[5] -mx-4 border-b border-default bg-shell/95 px-4 py-3 backdrop-blur-sm dark:border-dark-default dark:bg-dark-shell/95 sm:top-14 sm:-mx-6 lg:-mx-8">
-          <div className="flex gap-8">
-            {TABS.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setActiveTab(t)}
-                className={`relative pb-3 text-sm font-medium transition-colors ${
-                  activeTab === t
-                    ? "text-primary dark:text-dark-primary"
-                    : "text-muted hover:text-secondary dark:text-dark-muted dark:hover:text-dark-secondary"
-                }`}
-              >
-                {t}
-                {activeTab === t && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-primary dark:bg-dark-primary" />
-                )}
-              </button>
-            ))}
-          </div>
+        <nav className="sticky top-[3.25rem] z-[5] mt-6 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg)/95 p-1.5 shadow-sm backdrop-blur-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)/95 sm:top-14">
+          <SettingsTabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         </nav>
 
-        <main className="pt-10">
-          {activeTab === "Stories" && (
-            <section className="space-y-10">
-              {stories.length > 0 && (
-                <article className="border-b border-default pb-12 dark:border-dark-default">
-                  <Link
-                    to={`/story/${stories[0].id}`}
-                    className="group flex cursor-pointer flex-col gap-8 md:flex-row lg:gap-12"
-                  >
-                    <div className="flex-1 space-y-3">
-                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-success dark:text-success">
-                        Featured
-                      </p>
-                      <h2 className="font-blog-display text-2xl font-bold leading-snug tracking-tight text-primary group-hover:text-secondary md:text-[1.875rem] dark:text-dark-primary dark:group-hover:text-dark-secondary">
-                        {stories[0].title}
-                      </h2>
-                      <p className="font-blog-serif max-w-xl text-secondary dark:text-dark-secondary">
-                        {stories[0].subtitle}
-                      </p>
-                      <div className="flex flex-wrap gap-3 text-sm text-muted dark:text-dark-muted">
-                        <span>{stories[0].readTime} min read</span>
-                        <span>·</span>
-                        <span>{stories[0].date}</span>
-                      </div>
-                    </div>
-                    <img
-                      src={stories[0].cover}
-                      alt=""
-                      className="aspect-[16/10] w-full rounded-md object-cover md:max-w-sm lg:max-w-md"
-                    />
-                  </Link>
-                </article>
-              )}
-
-              <div>
-                <h3 className="mb-8 font-blog-display text-lg font-bold text-secondary dark:text-dark-secondary">
-                  All stories <span className="text-muted">{stories.length}</span>
-                </h3>
-                <div className="divide-y divide-default dark:divide-dark-default">
-                  {stories.slice(1).map((s) => (
-                    <article
-                      key={s.id}
-                      className="flex flex-col gap-5 py-9 first:pt-0 md:flex-row md:justify-between lg:gap-10"
+        <main className="pt-8">
+          {profileQuery.isLoading || articlesQuery.isLoading ? (
+            <div className="h-40 animate-pulse rounded-2xl bg-light-app-tertiary dark:bg-dark-app-tertiary" />
+          ) : (
+            <section>
+              {stories.length ? (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {stories.map((story) => (
+                    <Link
+                      key={story.id}
+                      to={`/story/${story.id}`}
+                      className="group flex h-full overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
                     >
-                      <div className="min-w-0 flex-1 space-y-3">
-                        <Link
-                          to={`/story/${s.id}`}
-                          className="group block space-y-3"
-                        >
-                          <h3 className="font-blog-display text-xl font-bold leading-snug text-primary group-hover:text-secondary dark:text-dark-primary dark:group-hover:text-dark-secondary md:text-[1.25rem]">
-                            {s.title}
-                          </h3>
-                          <p className="font-blog-serif line-clamp-2 max-w-xl text-secondary dark:text-dark-secondary">
-                            {s.subtitle}
-                          </p>
-                        </Link>
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted dark:text-dark-muted">
-                          <span>{s.date}</span>
-                          <span>·</span>
-                          <span>{s.readTime} min read</span>
-                          <button
-                            type="button"
-                            onClick={() => clap(s.id)}
-                            className="text-primary hover:underline dark:text-dark-primary"
-                          >
-                            👏 {s.clapCount.toLocaleString()}
-                          </button>
-                          {s.draft && (
-                            <span className="rounded-full border border-default px-2 py-0.5 text-xs dark:border-dark-default">
-                              Draft
-                            </span>
+                      <article className="flex w-full flex-col">
+                        <div className="relative aspect-[16/10] overflow-hidden bg-light-app-tertiary dark:bg-dark-app-tertiary">
+                          {story.cover_image ? (
+                            <img
+                              src={story.cover_image}
+                              alt=""
+                              className="size-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex size-full flex-col items-center justify-center gap-2 px-5 text-center">
+                              <span className="text-xs font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                                {story.collection}
+                              </span>
+                              <span className="line-clamp-2 text-lg font-bold text-primary dark:text-dark-primary">
+                                {story.title}
+                              </span>
+                            </div>
                           )}
+                          <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-2">
+                            <span className="rounded-full bg-(--color-light-card-bg)/92 px-3 py-1 text-[11px] font-semibold text-primary shadow-sm backdrop-blur dark:bg-(--color-dark-card-bg)/92 dark:text-dark-primary">
+                              {story.collection}
+                            </span>
+                            {story.reading_time ? (
+                              <span className="rounded-full bg-(--color-light-card-bg)/92 px-3 py-1 text-[11px] font-semibold text-secondary shadow-sm backdrop-blur dark:bg-(--color-dark-card-bg)/92 dark:text-dark-secondary">
+                                {story.reading_time} min
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                      <Link to={`/story/${s.id}`} className="shrink-0 md:w-48">
-                        <img
-                          src={s.cover}
-                          alt=""
-                          className="aspect-[4/3] w-full rounded-sm object-cover"
-                        />
-                      </Link>
-                    </article>
+
+                        <div className="flex flex-1 flex-col p-4 md:p-5">
+                          <p className="flex items-center gap-1.5 text-xs text-muted dark:text-dark-muted">
+                            <CalendarDays className="size-3.5" strokeWidth={1.8} />
+                            {story.created_date
+                              ? format(new Date(story.created_date), "MMM d, yyyy")
+                              : "Recently published"}
+                          </p>
+                          <h2 className="mt-4 line-clamp-2 text-xl font-bold tracking-tight text-primary transition-colors group-hover:text-(--color-light-btn-primary-bg) dark:text-dark-primary dark:group-hover:text-(--color-dark-primary)">
+                            {story.title}
+                          </h2>
+                          {story.subtitle || story.description ? (
+                            <p className="mt-3 line-clamp-3 text-sm leading-6 text-secondary dark:text-dark-secondary">
+                              {story.subtitle || story.description}
+                            </p>
+                          ) : null}
+
+                          <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-5">
+                            <div className="flex items-center gap-3 text-xs font-semibold text-muted dark:text-dark-muted">
+                              <span className="inline-flex items-center gap-1">
+                                <Heart className="size-3.5" strokeWidth={1.8} />
+                                {Number(story.claps_count ?? 0).toLocaleString()}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <MessageCircle className="size-3.5" strokeWidth={1.8} />
+                                {Number(story.comment_count ?? 0).toLocaleString()}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <Eye className="size-3.5" strokeWidth={1.8} />
+                                {Number(story.view_count ?? 0).toLocaleString()}
+                              </span>
+                            </div>
+                            <span className="inline-flex items-center gap-1 text-sm font-semibold text-(--color-light-btn-primary-bg) dark:text-(--color-dark-primary)">
+                              Read
+                              <ChevronRight className="size-4" strokeWidth={1.8} />
+                            </span>
+                          </div>
+                        </div>
+                      </article>
+                    </Link>
                   ))}
                 </div>
-              </div>
-            </section>
-          )}
-
-          {activeTab === "About" && (
-            <section className="mx-auto max-w-xl space-y-10">
-              <div>
-                <h2 className="font-blog-display text-2xl font-bold text-primary dark:text-dark-primary">
-                  About {user.name}
-                </h2>
-                <p className="font-blog-serif mt-4 text-lg leading-relaxed text-secondary dark:text-dark-secondary">
-                  {user.bio}
-                </p>
-              </div>
-              <div className="grid gap-8 md:grid-cols-2">
-                <div className="rounded-xl border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-                    Reach
-                  </h3>
-                  <dl className="mt-6 space-y-4 text-secondary dark:text-dark-secondary">
-                    <div className="flex justify-between gap-4">
-                      <dt>Followers</dt>
-                      <dd className="font-semibold text-primary dark:text-dark-primary">
-                        {user.followers.toLocaleString()}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <dt>Stories</dt>
-                      <dd className="font-semibold text-primary dark:text-dark-primary">
-                        {user.posts}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <dt>Member reads</dt>
-                      <dd className="font-semibold text-primary dark:text-dark-primary">
-                        {user.members}
-                      </dd>
-                    </div>
-                  </dl>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-(--color-light-card-border) p-10 text-center text-sm text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted">
+                  No published stories yet.
                 </div>
-                <div className="rounded-xl border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-                    Newsletter
-                  </h3>
-                  <p className="mt-4 text-secondary dark:text-dark-secondary">
-                    Writers you follow surface in your homepage feed — same idea
-                    as Medium’s following graph.
-                  </p>
-                  {!isOwner ? (
-                    <Button
-                      onClick={toggleFollow}
-                      variant="secondary"
-                      className="mt-6 rounded-full"
-                    >
-                      {following ? "Following" : "Follow"}
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-              <div className="rounded-xl border border-default bg-card p-6 dark:border-dark-default dark:bg-dark-card">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-                  Publishing activity
-                </h3>
-                <div className="mt-5">
-                  <ContributionHeatmap
-                    weeks={storyHeatmap.weeks}
-                    max={storyHeatmap.max}
-                    valueLabel="stories"
-                    emptyLabel="No stories"
-                    xAxisLabel="Weeks"
-                    yAxisLabel="Days"
-                  />
-                </div>
-              </div>
+              )}
             </section>
           )}
         </main>
-
-        <section className="mt-16 border-t border-default pt-16 dark:border-dark-default">
-          <h2 className="font-blog-display text-xl font-bold text-primary md:text-2xl dark:text-dark-primary">
-            Writers worth following
-          </h2>
-          <div className="mt-8 grid gap-6 md:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="rounded-xl border border-default bg-shell p-5 transition-colors hover:border-primary hover:shadow-md dark:border-dark-default dark:bg-dark-shell dark:hover:border-dark-primary"
-              >
-                <AvatarDemo />
-                <h4 className="mt-4 font-semibold text-primary dark:text-dark-primary">
-                  Writer {i}
-                </h4>
-                <p className="mt-2 text-sm leading-relaxed text-secondary dark:text-dark-secondary">
-                  Design, systems, and longform notes from the field.
-                </p>
-                <Button
-                  variant="secondary"
-                  fullWidth
-                  className="mt-5 rounded-full text-sm !py-2"
-                >
-                  Follow
-                </Button>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
     </BlogShell>
   );

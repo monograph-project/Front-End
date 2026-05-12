@@ -24,15 +24,16 @@ import { useAuth } from "../../context/AuthContext";
 import { htmlToArticleBlocks } from "../../lib/htmlToArticleBlocks";
 import {
   useCreateArticle,
-  useCreateArticleWithFiles,
   useCreateDraftArticle,
   useArticle,
   useUpdateArticle,
-  useUpdateArticleWithFile,
+  useUploadBlogFile,
 } from "../../services/useApi";
 
 const STORAGE_KEY_PREFIX = "draft_story_v2";
 const BLOCK_INSERT_TAGS = new Set(["DIV", "FIGURE", "HR", "VIDEO", "IFRAME"]);
+const CODE_BLOCK_CLASS =
+  "my-6 max-w-full overflow-x-auto whitespace-pre rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 font-mono text-sm leading-6 text-primary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-primary";
 
 function draftStorageKey(user) {
   const userKey =
@@ -89,6 +90,23 @@ function insertAtCaret(editorEl, node) {
   }
 }
 
+function ensureParagraphAfter(node) {
+  const next = node?.nextSibling;
+  if (next?.nodeType === Node.ELEMENT_NODE && next.tagName === "P") {
+    return next;
+  }
+  const p = document.createElement("p");
+  p.innerHTML = "<br>";
+  node.after(p);
+  return p;
+}
+
+function resizeTextArea(el) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
 function IconPlus() {
   return (
     <svg
@@ -139,19 +157,94 @@ function mapAudienceToVisibility(v) {
   return "PUBLIC";
 }
 
+function fileExtensionFromMime(type) {
+  const mime = String(type ?? "").toLowerCase();
+  if (mime.includes("jpeg")) return "jpg";
+  if (mime.includes("png")) return "png";
+  if (mime.includes("webp")) return "webp";
+  if (mime.includes("gif")) return "gif";
+  return "bin";
+}
+
+function fileFromDataUrl(dataUrl, fallbackName = "story-image") {
+  const match = String(dataUrl ?? "").match(/^data:([^;,]+)?(;base64)?,(.*)$/);
+  if (!match) return null;
+
+  const mimeType = match[1] || "application/octet-stream";
+  const isBase64 = Boolean(match[2]);
+  const payload = match[3] || "";
+  const binary = isBase64 ? window.atob(payload) : decodeURIComponent(payload);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  const safeName =
+    String(fallbackName || "story-image")
+      .replace(/\.[a-z0-9]+$/i, "")
+      .replace(/[^\w.-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "story-image";
+
+  return new File([bytes], `${safeName}.${fileExtensionFromMime(mimeType)}`, {
+    type: mimeType,
+  });
+}
+
+function makeArticleId() {
+  const bytes = new Uint8Array(12);
+  if (globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
+}
+
+function unwrapUploadResponse(response) {
+  return response?.json ?? response?.data ?? response ?? {};
+}
+
+function uploadFileId(response) {
+  const data = unwrapUploadResponse(response);
+  return data.fileId ?? data.id ?? data.file_id ?? "";
+}
+
+function uploadFileUrl(response) {
+  const data = unwrapUploadResponse(response);
+  return data.cdnUrl ?? data.url ?? data.fileUrl ?? data.downloadUrl ?? "";
+}
+
+function editorHasPublishableContent(editorEl) {
+  if (!editorEl) return false;
+  if (String(editorEl.innerText ?? "").trim()) return true;
+  return Boolean(
+    editorEl.querySelector("img,figure,video,iframe,pre,blockquote,hr"),
+  );
+}
+
 function articleBlocksToHtml(blocks = []) {
   return [...blocks]
     .sort((a, b) => (a?.order ?? 0) - (b?.order ?? 0))
     .map((block) => {
       const type = String(block?.type ?? block?.blockType ?? "").toUpperCase();
-      const data = typeof block?.data === "object" && block.data ? block.data : {};
-      const text = String(data.text ?? "").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-      if (type === "HEADING") return `<h${data.level || 2}>${text}</h${data.level || 2}>`;
+      const data =
+        typeof block?.data === "object" && block.data ? block.data : {};
+      const text = String(data.text ?? "")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+      if (type === "HEADING")
+        return `<h${data.level || 2}>${text}</h${data.level || 2}>`;
       if (type === "QUOTE") return `<blockquote>${text}</blockquote>`;
       if (type === "CODE") return `<pre>${String(data.code ?? "")}</pre>`;
       if (type === "DIVIDER") return "<hr />";
       if (type === "IMAGE" && data.url) {
-        return `<figure class="my-8 mx-auto flex aspect-video w-full max-w-3xl flex-col items-center justify-center overflow-hidden rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"><img src="${data.url}" alt="${data.alt ?? ""}" class="h-full w-full object-cover" /></figure>`;
+        const fileId = data.fileId || data.file_id || "";
+        return `<figure class="my-8 mx-auto flex aspect-video w-full flex-col items-center justify-center overflow-hidden rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary"><img src="${data.url}" alt="${data.alt ?? ""}" data-file-id="${fileId}" class="h-full w-full object-cover" /></figure>`;
       }
       return text ? `<p>${text}</p>` : "";
     })
@@ -222,6 +315,7 @@ export default function WriteStory() {
   const [savedNote, setSavedNote] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewHTML, setPreviewHTML] = useState("");
+  const [manualUploadBusy, setManualUploadBusy] = useState(false);
   const [isBodyEmpty, setIsBodyEmpty] = useState(
     !(initialDraft.body || "").trim(),
   );
@@ -265,38 +359,13 @@ export default function WriteStory() {
       clearLocalDraft();
       resetEditor();
       queryClient.invalidateQueries({ queryKey: ["articles"] });
-      const nextId = data?.id ?? data?.articleId;
-      if (nextId) navigate(`/story/${nextId}`);
-    },
-    showSuccessToast: true,
-    toastSuccess: t("writerStory.success.published"),
-  });
-
-  const createMultipart = useCreateArticleWithFiles({
-    onSuccess: (data) => {
-      clearLocalDraft();
-      resetEditor();
-      queryClient.invalidateQueries({ queryKey: ["articles"] });
-      const nextId = data?.id ?? data?.articleId;
-      if (nextId) navigate(`/story/${nextId}`);
+      navigate("/author/unpublished");
     },
     showSuccessToast: true,
     toastSuccess: t("writerStory.success.published"),
   });
 
   const updateJson = useUpdateArticle({
-    onSuccess: (data) => {
-      clearLocalDraft();
-      resetEditor();
-      queryClient.invalidateQueries({ queryKey: ["articles"] });
-      const nextId = data?.id ?? data?.articleId ?? editArticleId;
-      if (nextId) navigate(`/story/${nextId}`);
-    },
-    showSuccessToast: true,
-    toastSuccess: t("writerStory.success.published"),
-  });
-
-  const updateMultipart = useUpdateArticleWithFile({
     onSuccess: (data) => {
       clearLocalDraft();
       resetEditor();
@@ -321,16 +390,24 @@ export default function WriteStory() {
     showSuccessToast: false,
   });
 
+  const uploadBlogFile = useUploadBlogFile({
+    showSuccessToast: false,
+  });
+
   const submitBusy =
+    manualUploadBusy ||
     createJson.isPending ||
-    createMultipart.isPending ||
     updateJson.isPending ||
-    updateMultipart.isPending ||
+    uploadBlogFile.isPending ||
     saveDraft.isPending;
 
   useEffect(() => {
     titleRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    resizeTextArea(titleRef.current);
+  }, [title]);
 
   useEffect(() => {
     if (!initialDraft.restoredAt) return;
@@ -367,7 +444,10 @@ export default function WriteStory() {
     );
     if (editorRef.current) {
       editorRef.current.innerHTML =
-        articleBlocksToHtml(blocks) || article.contentHtml || article.body || "";
+        articleBlocksToHtml(blocks) ||
+        article.contentHtml ||
+        article.body ||
+        "";
       setIsBodyEmpty(!editorRef.current.innerText.trim());
     }
   }, [editArticleId, editArticleQuery.data]);
@@ -421,7 +501,16 @@ export default function WriteStory() {
     saveTimeoutRef.current = setTimeout(() => {
       setSavedNote("");
     }, 2000);
-  }, [cover, subtitle, storageKey, tags, title, visibility, writingDirection, t]);
+  }, [
+    cover,
+    subtitle,
+    storageKey,
+    tags,
+    title,
+    visibility,
+    writingDirection,
+    t,
+  ]);
 
   useEffect(() => {
     const intervalId = setInterval(autosave, 5000);
@@ -459,7 +548,7 @@ export default function WriteStory() {
       const ed = editorRef.current;
       if (!ed) return;
       insertAtCaret(ed, el);
-      setIsBodyEmpty(!ed.innerText.trim());
+      setIsBodyEmpty(!editorHasPublishableContent(ed));
       autosave();
     },
     [autosave],
@@ -475,13 +564,12 @@ export default function WriteStory() {
         if (dataUrl) inlineFileByDataUrlRef.current.set(dataUrl, file);
         const wrapper = document.createElement("figure");
         wrapper.className =
-          "my-8 mx-auto flex aspect-video w-full max-w-3xl flex-col items-center justify-center overflow-hidden rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
+          "my-8 mx-auto flex aspect-video w-full flex-col items-center justify-center overflow-hidden rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary text-center dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
 
         const img = document.createElement("img");
         img.src = dataUrl;
         img.alt = file.name || "Story image";
-        img.className =
-          "h-full w-full object-cover";
+        img.className = "h-full w-full object-cover";
 
         wrapper.appendChild(img);
         appendOrInsert(wrapper);
@@ -523,7 +611,7 @@ export default function WriteStory() {
         const input = document.createElement("input");
         input.type = "file";
         input.accept = "image/*";
-        input.multiple = type === "gallery";
+        input.multiple = true;
         input.onchange = (event) => {
           const files = Array.from(event.target.files || []);
           files.forEach(insertImageFile);
@@ -533,8 +621,15 @@ export default function WriteStory() {
       }
 
       if (type === "code") {
-        ed?.focus();
-        exec("formatBlock", "PRE");
+        if (!ed) return;
+        const pre = document.createElement("pre");
+        pre.className = CODE_BLOCK_CLASS;
+        pre.innerHTML = "<br>";
+        insertAtCaret(ed, pre);
+        ensureParagraphAfter(pre);
+        placeCaretInside(pre);
+        setIsBodyEmpty(false);
+        autosave();
         return;
       }
 
@@ -543,8 +638,38 @@ export default function WriteStory() {
         exec("formatBlock", "BLOCKQUOTE");
       }
     },
-    [appendOrInsert, exec, insertImageFile],
+    [appendOrInsert, autosave, exec, insertImageFile],
   );
+
+  const handleEditorKeyDown = (event) => {
+    const ed = editorRef.current;
+    const sel = window.getSelection();
+    const node = sel?.anchorNode;
+    const el =
+      node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+    const pre = el?.closest?.("pre");
+    if (!ed || !pre || !ed.contains(pre)) return;
+
+    if (event.key === "Tab") {
+      event.preventDefault();
+      document.execCommand("insertText", false, "  ");
+      return;
+    }
+
+    if (event.key === "Enter" && event.shiftKey) {
+      event.preventDefault();
+      document.execCommand("insertText", false, "\n");
+      return;
+    }
+
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      const p = ensureParagraphAfter(pre);
+      placeCaretInside(p);
+      setToolbarOpen(false);
+      updateBlockToolbarPosition();
+    }
+  };
 
   const handleCover = (event) => {
     const file = event.target.files?.[0];
@@ -555,12 +680,6 @@ export default function WriteStory() {
     reader.onload = (loadEvent) => setCover(loadEvent.target?.result || null);
     reader.readAsDataURL(file);
   };
-
-  const canPublish =
-    Boolean(title.trim()) &&
-    !isBodyEmpty &&
-    Boolean((editorRef.current?.innerText || "").trim()) &&
-    Boolean(user?.id);
 
   const buildArticlePayload = () => {
     const tagsArr = tags
@@ -596,9 +715,17 @@ export default function WriteStory() {
     };
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!user?.id) {
       gooeyToast.error(t("writerStory.error.signInRequired"));
+      return;
+    }
+    if (!title.trim()) {
+      gooeyToast.error(t("writerStory.error.titleRequired"));
+      return;
+    }
+    if (!editorHasPublishableContent(editorRef.current)) {
+      gooeyToast.error(t("writerStory.error.bodyRequired"));
       return;
     }
     autosave();
@@ -608,9 +735,22 @@ export default function WriteStory() {
     const blocksForSubmit = (base.blocks ?? []).map((block) => {
       const type = String(block?.type ?? "").toUpperCase();
       const url = block?.data?.url;
-      const file =
-        typeof url === "string" ? inlineFileByDataUrlRef.current.get(url) : null;
-      if ((type === "IMAGE" || type === "VIDEO") && file instanceof File) {
+      const isMediaBlock = type === "IMAGE" || type === "VIDEO";
+      const mappedFile =
+        typeof url === "string"
+          ? inlineFileByDataUrlRef.current.get(url)
+          : null;
+      const reconstructedFile =
+        !mappedFile && typeof url === "string" && url.startsWith("data:")
+          ? fileFromDataUrl(
+              url,
+              block?.data?.alt ||
+                `${type.toLowerCase()}-${block?.order ?? inlineFiles.length}`,
+            )
+          : null;
+      const file = mappedFile || reconstructedFile;
+
+      if (isMediaBlock && file instanceof File) {
         const uploadIndex = inlineFiles.length;
         inlineFiles.push(file);
         const { url: _url, ...dataWithoutUrl } = block.data ?? {};
@@ -618,50 +758,141 @@ export default function WriteStory() {
           ...block,
           data: {
             ...dataWithoutUrl,
+            alt:
+              String(dataWithoutUrl.alt ?? "").trim() ||
+              file.name ||
+              "Story image",
             uploadIndex,
+          },
+        };
+      }
+      if (type === "IMAGE") {
+        return {
+          ...block,
+          data: {
+            ...(block.data ?? {}),
+            alt: String(block?.data?.alt ?? "").trim() || "Story image",
+          },
+        };
+      }
+      if (type === "CODE") {
+        return {
+          ...block,
+          data: {
+            ...(block.data ?? {}),
+            language: String(block?.data?.language ?? "").trim() || "text",
           },
         };
       }
       return block;
     });
+    const unresolvedMediaBlock = blocksForSubmit.find((block) => {
+      const type = String(block?.type ?? "").toUpperCase();
+      if (type !== "IMAGE" && type !== "VIDEO") return false;
+      const data = block?.data ?? {};
+      return !data.fileId && data.uploadIndex == null;
+    });
+
+    if (unresolvedMediaBlock) {
+      gooeyToast.error(t("writerStory.error.imageUploadRequired"));
+      return;
+    }
 
     if (coverFile instanceof File || inlineFiles.length) {
-      const fd = new FormData();
-      fd.append("title", base.title);
-      if (base.description != null && base.description !== "")
-        fd.append("description", String(base.description));
-      fd.append("blocks", JSON.stringify(blocksForSubmit));
-      fd.append(
-        "tags",
-        Array.isArray(base.tags)
-          ? JSON.stringify(base.tags)
-          : String(base.tags ?? ""),
-      );
-      fd.append("visibility", String(base.visibility ?? "PUBLIC"));
-      fd.append(
-        "contentType",
-        base.contentType === "MONOGRAPH" ? "MONOGRAPH" : "WEBLOG",
-      );
-      if (base.subtitle) fd.append("subtitle", base.subtitle);
-      if (coverFile instanceof File) fd.append("coverImage", coverFile);
-      inlineFiles.forEach((file) => fd.append("inlineFiles", file));
-      if (editArticleId) {
-        updateMultipart.mutate({
-          articleId: editArticleId,
-          authorId: user.id,
-          formData: fd,
-        });
-      } else {
-        createMultipart.mutate({
-          authorUserId: user.id,
-          formData: fd,
-        });
+      const articleId = editArticleId || makeArticleId();
+      setManualUploadBusy(true);
+      try {
+        let coverImageFileId;
+        let coverImageUrl = base.coverImageUrl;
+
+        if (coverFile instanceof File) {
+          const uploadedCover = await uploadBlogFile.mutateAsync({
+            file: coverFile,
+            ownerId: user.id,
+            articleId,
+          });
+          coverImageFileId = uploadFileId(uploadedCover);
+          coverImageUrl = uploadFileUrl(uploadedCover);
+          if (!coverImageFileId || !coverImageUrl) {
+            gooeyToast.error(t("writerStory.error.imageUploadRequired"));
+            return;
+          }
+        }
+
+        const uploadedBlocks = [];
+        for (const block of blocksForSubmit) {
+          const type = String(block?.type ?? "").toUpperCase();
+          const uploadIndex = block?.data?.uploadIndex;
+          if ((type === "IMAGE" || type === "VIDEO") && uploadIndex != null) {
+            const file = inlineFiles[uploadIndex];
+            if (!(file instanceof File)) {
+              gooeyToast.error(t("writerStory.error.imageUploadRequired"));
+              return;
+            }
+            const uploaded = await uploadBlogFile.mutateAsync({
+              file,
+              ownerId: user.id,
+              articleId,
+            });
+            const fileId = uploadFileId(uploaded);
+            const url = uploadFileUrl(uploaded);
+            if (!fileId || !url) {
+              gooeyToast.error(t("writerStory.error.imageUploadRequired"));
+              return;
+            }
+            const { uploadIndex: _uploadIndex, ...dataWithoutUploadIndex } =
+              block.data ?? {};
+            uploadedBlocks.push({
+              ...block,
+              data: {
+                ...dataWithoutUploadIndex,
+                fileId,
+                url,
+                alt:
+                  String(dataWithoutUploadIndex.alt ?? "").trim() ||
+                  file.name ||
+                  "Story image",
+              },
+            });
+            continue;
+          }
+          uploadedBlocks.push(block);
+        }
+
+        const payload = {
+          ...base,
+          blocks: uploadedBlocks,
+          ...(coverImageFileId ? { coverImageFileId } : {}),
+          ...(coverImageUrl ? { coverImageUrl } : {}),
+        };
+
+        if (editArticleId) {
+          await updateJson.mutateAsync({
+            articleId,
+            authorId: user.id,
+            ...payload,
+          });
+        } else {
+          await createJson.mutateAsync({
+            userId: user.id,
+            id: articleId,
+            ...payload,
+          });
+        }
+      } catch {
+        // The mutation layer already shows the localized upload/create error.
+      } finally {
+        setManualUploadBusy(false);
       }
       return;
     }
 
     if (editArticleId) {
-      updateJson.mutate({ articleId: editArticleId, authorId: user.id, ...base });
+      updateJson.mutate({
+        articleId: editArticleId,
+        authorId: user.id,
+        ...base,
+      });
       return;
     }
     createJson.mutate({ userId: user.id, ...base });
@@ -701,7 +932,7 @@ export default function WriteStory() {
 
   return (
     <div className="min-h-full bg-white pb-28 text-neutral-900 dark:bg-dark-app-secondary dark:text-neutral-50">
-      <header className="sticky top-0 z-20 flex h-[56px] items-center justify-between gap-4 border-b border-neutral-200/90 bg-white/90 px-4 backdrop-blur-md dark:border-neutral-800 dark:bg-zinc-950/90 sm:px-6">
+      <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-4 border-b border-neutral-200/90 bg-white/90 px-4 backdrop-blur-md dark:border-neutral-800 dark:bg-zinc-950/90 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/"
@@ -722,11 +953,11 @@ export default function WriteStory() {
         <div className="flex shrink-0 items-center justify-between gap-1 sm:gap-2">
           <button
             type="button"
-            disabled={!canPublish || submitBusy}
+            disabled={submitBusy}
             onClick={handlePublish}
             className="rounded-xl bg-(--color-light-btn-primary-bg) px-4 py-1.5 text-sm font-medium text-(--color-light-btn-primary-text) transition-colors hover:bg-(--color-light-btn-primary-hover) disabled:cursor-not-allowed disabled:opacity-35 dark:bg-(--color-dark-btn-primary-bg) dark:text-(--color-dark-btn-primary-text) dark:hover:bg-(--color-dark-btn-primary-hover)"
           >
-            {submitBusy && (createJson.isPending || createMultipart.isPending)
+            {submitBusy && (createJson.isPending || manualUploadBusy)
               ? t("writerStory.publishing")
               : t("writerStory.publish")}
           </button>
@@ -853,8 +1084,8 @@ export default function WriteStory() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-6 sm:px-10">
-        <div className="sticky top-[56px] z-10 -mx-6 border-b border-light-divider bg-(--color-light-card-bg)/92 px-6 py-2 backdrop-blur-md dark:border-dark-divider dark:bg-(--color-dark-card-bg)/92 sm:-mx-10 sm:px-10">
+      <main className="mx-auto w-full  max-w-6xl  px-6 sm:px-8">
+        <div className="sticky top-14 z-10 -mx-6 border-b border-light-divider bg-(--color-light-card-bg)/92 px-6 py-2 backdrop-blur-md dark:border-dark-divider dark:bg-(--color-dark-card-bg)/92 sm:-mx-10 sm:px-10">
           <div className="flex flex-wrap items-center gap-2">
             <div className="me-2 flex flex-wrap items-center gap-1 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-1 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
               <FormatButton
@@ -919,13 +1150,17 @@ export default function WriteStory() {
         </div>
 
         <div className="pt-14 sm:pt-16">
-          <input
+          <textarea
             ref={titleRef}
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            rows={1}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              resizeTextArea(e.currentTarget);
+            }}
             dir={writingDirection === "auto" ? "auto" : writingDirection}
             placeholder={t("writerStory.placeholders.title")}
-            className="font-blog-display w-full border-0 bg-transparent px-0 py-2 text-[2.625rem] font-bold leading-[1.06] tracking-tight text-neutral-900 outline-none placeholder:text-neutral-400 sm:text-[2.875rem] dark:text-neutral-50 dark:placeholder:text-zinc-500"
+            className="font-blog-display block max-h-[14rem] min-h-[3.25rem] w-full resize-none overflow-hidden whitespace-pre-wrap break-words border-0 bg-transparent px-0 py-2 text-[2.625rem] font-bold leading-[1.08] tracking-tight text-neutral-900 outline-none placeholder:text-neutral-400 sm:text-[2.875rem] dark:text-neutral-50 dark:placeholder:text-zinc-500"
           />
         </div>
 
@@ -969,11 +1204,7 @@ export default function WriteStory() {
 
         {cover && (
           <figure className="mt-10 aspect-video overflow-hidden rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-            <img
-              src={cover}
-              alt=""
-              className="h-full w-full object-cover"
-            />
+            <img src={cover} alt="" className="h-full w-full object-cover" />
           </figure>
         )}
 
@@ -982,47 +1213,47 @@ export default function WriteStory() {
             className="absolute start-2 z-[3] flex items-start gap-2 transition-[top] duration-200 ease-out"
             style={{ top: activeBlockTop }}
           >
-          {toolbarOpen ? (
-            <div className="flex origin-left items-center gap-2 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-1 shadow-lg transition-all duration-200 ease-out animate-in fade-in zoom-in-95 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+            {toolbarOpen ? (
+              <div className="flex origin-left items-center gap-2 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-1 shadow-lg transition-all duration-200 ease-out animate-in fade-in zoom-in-95 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+                <ToolChip
+                  title={t("writerStory.toolbar.close")}
+                  onClick={() => setToolbarOpen(false)}
+                >
+                  <X className="size-[18px]" strokeWidth={2.2} />
+                </ToolChip>
+                <ToolChip
+                  title={t("writerStory.toolbar.image")}
+                  onClick={() => closeToolbarAnd(() => handleInsert("image"))}
+                >
+                  <ImageIcon className="size-[18px]" strokeWidth={1.85} />
+                </ToolChip>
+                <ToolChip
+                  title={t("writerStory.toolbar.code")}
+                  onClick={() => closeToolbarAnd(() => handleInsert("code"))}
+                >
+                  <Code2 className="size-[18px]" strokeWidth={1.85} />
+                </ToolChip>
+                <ToolChip
+                  title={t("writerStory.toolbar.divider")}
+                  onClick={() => closeToolbarAnd(() => handleInsert("divider"))}
+                >
+                  <Rows3 className="size-[18px]" strokeWidth={1.85} />
+                </ToolChip>
+                <ToolChip
+                  title={t("writerStory.toolbar.quote")}
+                  onClick={() => closeToolbarAnd(() => handleInsert("quote"))}
+                >
+                  <Quote className="size-[18px]" strokeWidth={1.85} />
+                </ToolChip>
+              </div>
+            ) : (
               <ToolChip
-                title={t("writerStory.toolbar.close")}
-                onClick={() => setToolbarOpen(false)}
+                title={t("writerStory.toolbar.richMedia")}
+                onClick={() => setToolbarOpen(true)}
               >
-                <X className="size-[18px]" strokeWidth={2.2} />
+                <IconPlus />
               </ToolChip>
-              <ToolChip
-                title={t("writerStory.toolbar.image")}
-                onClick={() => closeToolbarAnd(() => handleInsert("image"))}
-              >
-                <ImageIcon className="size-[18px]" strokeWidth={1.85} />
-              </ToolChip>
-              <ToolChip
-                title={t("writerStory.toolbar.code")}
-                onClick={() => closeToolbarAnd(() => handleInsert("code"))}
-              >
-                <Code2 className="size-[18px]" strokeWidth={1.85} />
-              </ToolChip>
-              <ToolChip
-                title={t("writerStory.toolbar.divider")}
-                onClick={() => closeToolbarAnd(() => handleInsert("divider"))}
-              >
-                <Rows3 className="size-[18px]" strokeWidth={1.85} />
-              </ToolChip>
-              <ToolChip
-                title={t("writerStory.toolbar.quote")}
-                onClick={() => closeToolbarAnd(() => handleInsert("quote"))}
-              >
-                <Quote className="size-[18px]" strokeWidth={1.85} />
-              </ToolChip>
-            </div>
-          ) : (
-            <ToolChip
-              title={t("writerStory.toolbar.richMedia")}
-              onClick={() => setToolbarOpen(true)}
-            >
-              <IconPlus />
-            </ToolChip>
-          )}
+            )}
           </div>
           {isBodyEmpty && (
             <div
@@ -1042,13 +1273,14 @@ export default function WriteStory() {
             dir={writingDirection === "auto" ? "auto" : writingDirection}
             onDrop={handleDrop}
             onPaste={handlePaste}
+            onKeyDown={handleEditorKeyDown}
             onClick={updateBlockToolbarPosition}
             onKeyUp={updateBlockToolbarPosition}
             onInput={(e) => {
-              setIsBodyEmpty(!e.currentTarget.innerText.trim());
+              setIsBodyEmpty(!editorHasPublishableContent(e.currentTarget));
               updateBlockToolbarPosition();
             }}
-            className="font-blog-serif relative z-[1] min-h-[50vh] w-full border-0 bg-transparent ps-14 pb-24 text-xl leading-[1.8] text-neutral-900 outline-none empty:before:text-neutral-400 focus:outline-none dark:text-neutral-100"
+            className="font-blog-serif relative z-[1] min-h-[50vh] w-full border-0 bg-transparent ps-14 pb-24 text-xl leading-[1.8] text-neutral-900 outline-none empty:before:text-neutral-400 focus:outline-none dark:text-neutral-100 [&_pre]:my-6 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-(--color-light-card-border) [&_pre]:bg-light-app-tertiary [&_pre]:p-4 [&_pre]:font-mono [&_pre]:text-sm [&_pre]:leading-6 [&_pre]:text-primary dark:[&_pre]:border-(--color-dark-card-border) dark:[&_pre]:bg-dark-app-tertiary dark:[&_pre]:text-dark-primary"
             style={{
               textAlign:
                 writingDirection === "rtl"

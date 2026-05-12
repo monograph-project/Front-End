@@ -24,6 +24,7 @@ export function mapArticlePreviewToStory(article, { collectionLabel = "" } = {})
     author_name:
       author.displayName ??
       author.userName ??
+      author.username ??
       author.name ??
       "—",
     author_id: author.id ?? a.authorId ?? "",

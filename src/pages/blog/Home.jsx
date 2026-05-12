@@ -470,11 +470,9 @@ function PublicStoryCard({ story, featured = false }) {
   return (
     <Link
       to={href}
-      className={`group flex h-full overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) ${
-        featured ? "md:col-span-2" : ""
-      }`}
+      className="group flex h-full overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
     >
-      <article className={`flex w-full flex-col ${featured ? "md:grid md:grid-cols-[1.05fr_1fr]" : ""}`}>
+      <article className="flex w-full flex-col">
         <div className="relative aspect-[16/10] overflow-hidden bg-light-app-tertiary dark:bg-dark-app-tertiary">
           {story.cover_image ? (
             <img
@@ -691,10 +689,9 @@ export default function Home() {
                           <motion.div
                             key={story.id}
                             layout="position"
-                            className={idx === 0 ? "md:col-span-2" : ""}
                             transition={{ duration: 0.22, ease: "easeOut" }}
                           >
-                            <PublicStoryCard story={story} featured={idx === 0} />
+                            <PublicStoryCard story={story} />
                           </motion.div>
                         ))}
                       </motion.div>

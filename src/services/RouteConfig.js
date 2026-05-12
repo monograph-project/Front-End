@@ -177,6 +177,8 @@ export const BLOG = {
     gw(`/api/v1/articles/comments/${encodeURIComponent(commentId)}`),
   LIKES: (articleId) =>
     gw(`/api/v1/articles/${encodeURIComponent(articleId)}/likes`),
+  LIKE_STATUS: (articleId) =>
+    gw(`/api/v1/articles/${encodeURIComponent(articleId)}/likes/me`),
   SHARES: (articleId) =>
     gw(`/api/v1/articles/${encodeURIComponent(articleId)}/shares`),
 };

@@ -3543,6 +3543,19 @@ export async function unlikeArticle(articleId) {
   }
 }
 
+export async function getArticleLikeStatus(articleId) {
+  try {
+    const { data } = await axiosInstance.get(BLOG.LIKE_STATUS(articleId));
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to load like status.",
+      "apiErrors.failed_to_load_article",
+    );
+  }
+}
+
 export async function shareArticle(articleId, body) {
   try {
     const { data } = await axiosInstance.post(BLOG.SHARES(articleId), body);

@@ -44,7 +44,7 @@ export default function ArticleBlocksReader({ blocks, className }) {
             return (
               <p
                 key={key}
-                className="whitespace-pre-wrap text-secondary dark:text-dark-secondary"
+                className="whitespace-pre-wrap font-normal text-secondary dark:text-dark-secondary"
               >
                 {d.text ?? ""}
               </p>
@@ -58,12 +58,12 @@ export default function ArticleBlocksReader({ blocks, className }) {
               {
                 key,
                 className: cn(
-                  "font-semibold tracking-tight text-primary dark:text-dark-primary",
+                  "tracking-tight text-primary dark:text-dark-primary",
                   lvl === 1 &&
-                    "text-3xl md:text-4xl mt-12 first:mt-0",
+                    "text-3xl font-bold md:text-4xl mt-12 first:mt-0",
                   lvl === 2 &&
-                    "text-2xl md:text-3xl mt-10 first:mt-0",
-                  lvl >= 3 && "text-xl mt-8 first:mt-0",
+                    "text-2xl font-bold md:text-3xl mt-10 first:mt-0",
+                  lvl >= 3 && "text-xl font-semibold mt-8 first:mt-0",
                 ),
               },
               d.text ?? "",
@@ -74,7 +74,7 @@ export default function ArticleBlocksReader({ blocks, className }) {
             return (
               <blockquote
                 key={key}
-                className="border-l-4 border-(--color-light-input-border-focus) py-1 pl-5 text-xl font-medium italic text-secondary dark:border-(--color-dark-input-border-focus) dark:text-dark-secondary"
+                className="border-l-4 border-(--color-light-input-border-focus) py-1 pl-5 text-xl italic text-secondary dark:border-(--color-dark-input-border-focus) dark:text-dark-secondary"
               >
                 {d.text ?? ""}
               </blockquote>
@@ -101,28 +101,24 @@ export default function ArticleBlocksReader({ blocks, className }) {
           case "IMAGE":
             if (d.url) {
               return (
-                <figure key={key} className="my-8 space-y-2">
-                  <img
-                    src={d.url}
-                    alt={d.alt ?? ""}
-                    className="aspect-video w-full rounded-xl border border-(--color-light-card-border) object-cover dark:border-(--color-dark-card-border)"
-                  />
-                  {d.alt ? (
-                    <figcaption className="text-center text-sm text-muted dark:text-dark-muted">
-                      {d.alt}
-                    </figcaption>
-                  ) : null}
+                <figure key={key} className="my-8">
+                  <a
+                    href={d.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Open article image"
+                    className="block cursor-zoom-in"
+                  >
+                    <img
+                      src={d.url}
+                      alt={d.alt ?? ""}
+                      className="aspect-video w-full rounded-xl border border-(--color-light-card-border) object-cover dark:border-(--color-dark-card-border)"
+                    />
+                  </a>
                 </figure>
               );
             }
-            return (
-              <p
-                key={key}
-                className="rounded-xl border border-dashed border-(--color-light-card-border) p-6 text-center text-sm text-muted dark:border-(--color-dark-card-border) dark:text-dark-muted"
-              >
-                {d.alt || "Image"}
-              </p>
-            );
+            return null;
 
           case "VIDEO":
             if (d.url) {

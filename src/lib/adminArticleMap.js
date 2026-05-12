@@ -167,7 +167,15 @@ export function mapArticleToAdminBlog(article) {
     _rawStatus: (article.status || "").toUpperCase(),
     raw: article,
     claps: stats.likes ?? stats.totalLikes ?? stats.claps ?? 0,
-    comments: stats.comments ?? stats.totalComments ?? 0,
+    comments:
+      stats.commentCount ??
+      stats.comments ??
+      stats.totalComments ??
+      stats.comment_count ??
+      0,
+    views: stats.views ?? stats.viewCount ?? stats.totalViews ?? 0,
+    reads: stats.reads ?? stats.readCount ?? stats.totalReads ?? 0,
+    shares: stats.shareCount ?? stats.shares ?? stats.totalShares ?? 0,
   };
 }
 

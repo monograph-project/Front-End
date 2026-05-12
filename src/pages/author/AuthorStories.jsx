@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpenCheck,
   Eye,
@@ -54,7 +54,16 @@ function statusClass(status) {
 export default function AuthorStories() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [filter, setFilter] = useState("all");
+  const location = useLocation();
+  const initialFilter = location.pathname.includes("/unpublished")
+    ? "unpublished"
+    : location.pathname.includes("/published")
+      ? "published"
+      : "all";
+  const [filter, setFilter] = useState(initialFilter);
+  useEffect(() => {
+    setFilter(initialFilter);
+  }, [initialFilter]);
   const authorId = String(user?.id ?? "").trim();
   const { data, isLoading } = useArticlesByAuthor(
     authorId,

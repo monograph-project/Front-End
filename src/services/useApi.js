@@ -1245,6 +1245,18 @@ export function useUserByEmail(email, queryOptions = {}) {
   return q;
 }
 
+export function useUserAuthorProfile(id, queryOptions = {}) {
+  const { notifyOnError = true, enabled = Boolean(id), ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["users", "author-profile", id],
+    queryFn: () => Api.getUserAuthorProfile(id),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_author_profile");
+  return q;
+}
+
 export function useSuspendUser(options) {
   return useApiMutation({
     mutationFn: Api.suspendUser,
@@ -1660,6 +1672,19 @@ export function useUnlikeArticle(options) {
     showSuccessToast: false,
     ...options,
   });
+}
+
+export function useArticleLikeStatus(articleId, queryOptions = {}) {
+  const { enabled = Boolean(articleId), notifyOnError = false, ...rest } =
+    queryOptions;
+  const q = useQuery({
+    queryKey: ["articles", articleId, "likeStatus"],
+    queryFn: () => Api.getArticleLikeStatus(articleId),
+    enabled,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_article");
+  return q;
 }
 
 export function useShareArticle(options) {

@@ -39,9 +39,8 @@ export default function BlogOverviewPanel({ blog, formattedDate }) {
             })}
           </p>
           <p className="mt-1 text-sm text-secondary dark:text-dark-secondary">
-            {blog.featured
-              ? t("blogAdmin.detail.overview.featured")
-              : t("blogAdmin.detail.overview.notFeatured")}
+            {Number(blog.views ?? 0).toLocaleString()} views •{" "}
+            {Number(blog.reads ?? 0).toLocaleString()} reads
           </p>
         </div>
       </div>
