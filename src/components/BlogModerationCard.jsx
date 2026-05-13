@@ -64,7 +64,7 @@ export default function BlogModerationCard({
   };
 
   return (
-    <article className="relative overflow-hidden rounded-md border border-default bg-shell p-5 transition-transform duration-200 hover:-translate-y-1 dark:border-dark-default dark:bg-dark-shell md:p-6">
+    <article className="relative overflow-hidden rounded-md border border-default bg-shell p-5 transition-transform duration-200 hover:-translate-y-1 dark:border-dark-divider dark:bg-dark-card- bg md:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted dark:text-dark-muted">
           <span className="inline-flex items-center gap-2 font-medium text-primary dark:text-dark-primary">

@@ -78,9 +78,13 @@ function resolveActionTarget(metadata, basePath) {
   }
 
   const owner =
-    typeof metadata?.repositoryOwner === "string" ? metadata.repositoryOwner.trim() : "";
+    typeof metadata?.repositoryOwner === "string"
+      ? metadata.repositoryOwner.trim()
+      : "";
   const repo =
-    typeof metadata?.repositoryName === "string" ? metadata.repositoryName.trim() : "";
+    typeof metadata?.repositoryName === "string"
+      ? metadata.repositoryName.trim()
+      : "";
   const taskNumber =
     metadata?.taskNumber != null && String(metadata.taskNumber).trim()
       ? String(metadata.taskNumber).trim()
@@ -96,7 +100,8 @@ function resolveActionTarget(metadata, basePath) {
   const absolute =
     typeof metadata?.actionUrl === "string" && metadata.actionUrl.trim()
       ? metadata.actionUrl.trim()
-      : typeof metadata?.viewEndpoint === "string" && metadata.viewEndpoint.trim()
+      : typeof metadata?.viewEndpoint === "string" &&
+          metadata.viewEndpoint.trim()
         ? metadata.viewEndpoint.trim()
         : "";
   if (!absolute) return null;
@@ -104,7 +109,10 @@ function resolveActionTarget(metadata, basePath) {
   try {
     const parsed = new URL(absolute, window.location.href);
     if (parsed.origin === window.location.origin) {
-      return { kind: "ui", value: `${parsed.pathname}${parsed.search}${parsed.hash}` };
+      return {
+        kind: "ui",
+        value: `${parsed.pathname}${parsed.search}${parsed.hash}`,
+      };
     }
   } catch {
     /* ignore parse failure */
@@ -239,16 +247,15 @@ export default function UserNotificationDetailScreen({ basePath }) {
     data?.createdAt ?? data?.sentAt ?? data?.created_at,
   );
   const senderName = metadata?.senderName ?? metadata?.actorName ?? "";
-  const receiverName =
-    metadata?.receiverName ?? metadata?.recipientName ?? "";
+  const receiverName = metadata?.receiverName ?? metadata?.recipientName ?? "";
 
   const inboxPath = basePath.replace(/\/$/, "");
 
   if (!notificationId) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-gradient-to-br from-light-app-bg via-white to-light-app-tertiary p-6 dark:from-dark-app-bg dark:via-dark-shell dark:to-dark-app-tertiary">
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-white dark:bg-dark-card-bg ">
         <div className="animate-fade-in">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-light-app-tertiary dark:bg-dark-app-tertiary">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-light-app-tertiary dark:bg-dark-card-bg">
             <Icon
               d={IC.bell}
               className="h-8 w-8 text-light-text-muted dark:text-dark-text-muted"
@@ -326,7 +333,7 @@ export default function UserNotificationDetailScreen({ basePath }) {
   };
 
   return (
-    <div className="flex w-full  flex-col gap-0 overflow-y-auto bg-gradient-to-br from-light-app-bg via-light-app-secondary to-white p-4 dark:from-dark-app-bg dark:via-dark-shell dark:to-dark-app-secondary md:p-6">
+    <div className="flex w-full  flex-col gap-0 overflow-y-auto  bg-white  dark:bg-dark-card-bg md:p-6">
       {/* Header Navigation */}
       <div className="mb-6 flex items-center justify-between">
         <button
@@ -496,7 +503,11 @@ export default function UserNotificationDetailScreen({ basePath }) {
 
               {actionTarget ? (
                 <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-light-card-border pt-6 dark:border-dark-card-border">
-                  <Button type="button" variant="secondary" onClick={openRelatedItem}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={openRelatedItem}
+                  >
                     Open related item
                   </Button>
                 </div>
@@ -507,7 +518,9 @@ export default function UserNotificationDetailScreen({ basePath }) {
                   <Button
                     type="button"
                     loading={acceptInvitation.isPending}
-                    disabled={acceptInvitation.isPending || rejectInvitation.isPending}
+                    disabled={
+                      acceptInvitation.isPending || rejectInvitation.isPending
+                    }
                     onClick={() =>
                       acceptInvitation.mutate({
                         invitationId,
@@ -521,7 +534,9 @@ export default function UserNotificationDetailScreen({ basePath }) {
                     type="button"
                     variant="secondary"
                     loading={rejectInvitation.isPending}
-                    disabled={acceptInvitation.isPending || rejectInvitation.isPending}
+                    disabled={
+                      acceptInvitation.isPending || rejectInvitation.isPending
+                    }
                     onClick={() =>
                       rejectInvitation.mutate({
                         invitationId,

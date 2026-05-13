@@ -149,8 +149,13 @@ export default function StudentDashboard() {
     enabled: Boolean(user) && isTeacherShell,
   });
   const linkedRecord = isTeacherShell ? teacher : student;
-  const { data: semester } = useSemester(student?.semesterId, {
-    enabled: Boolean(!isTeacherShell && student?.semesterId),
+  const semesterId =
+    linkedRecord?.semesterId ||
+    linkedRecord?.semester?.id ||
+    linkedRecord?.currentSemesterId ||
+    null;
+  const { data: semester } = useSemester(semesterId, {
+    enabled: Boolean(!isTeacherShell && semesterId),
     notifyOnError: false,
   });
   const { data: studentProjectsPayload } = useFacultyProjectsByStudent(student?.id, {
@@ -238,13 +243,15 @@ export default function StudentDashboard() {
     const startRaw =
       semester?.startDate ||
       semester?.academicYear?.startDate ||
-      student?.semester?.startDate ||
-      student?.academicYear?.startDate;
+      linkedRecord?.semester?.startDate ||
+      linkedRecord?.semester?.academicYear?.startDate ||
+      linkedRecord?.academicYear?.startDate;
     const endRaw =
       semester?.endDate ||
       semester?.academicYear?.endDate ||
-      student?.semester?.endDate ||
-      student?.academicYear?.endDate;
+      linkedRecord?.semester?.endDate ||
+      linkedRecord?.semester?.academicYear?.endDate ||
+      linkedRecord?.academicYear?.endDate;
     const start = startRaw ? new Date(startRaw) : null;
     const end = endRaw ? new Date(endRaw) : null;
     if (
@@ -257,7 +264,7 @@ export default function StudentDashboard() {
       return null;
     }
     return { start, end };
-  }, [semester, student]);
+  }, [semester, linkedRecord]);
   const semesterProgress = useMemo(() => {
     if (!semesterDates) {
       return { percent: 0, daysRemaining: null, label: "" };

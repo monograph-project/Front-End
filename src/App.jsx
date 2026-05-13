@@ -78,6 +78,7 @@ import PublicProjects from "./pages/public/Projects";
 import AuthorDashboard from "./pages/author/AuthorDashboard";
 import AuthorPublished from "./pages/author/AuthorPublished";
 import AuthorUnpublished from "./pages/author/AuthorUnpublished";
+import AuthorStoryDetail from "./pages/author/AuthorStoryDetail";
 import AuthorNotifications from "./pages/author/AuthorNotifications";
 import AuthorNotificationDetail from "./pages/author/AuthorNotificationDetail";
 import TeacherNotifications from "./pages/teacher/TeacherNotifications";
@@ -90,12 +91,12 @@ import { PUBLIC_SITE_MEMBER_ROLES } from "./auth/appRoles";
 
 function AuthorPublishedStoryRoute() {
   const { id } = useParams();
-  return <Navigate to={`/story/${encodeURIComponent(id ?? "")}`} replace />;
+  return <Navigate to={`/author/stories/${encodeURIComponent(id ?? "")}`} replace />;
 }
 
 function AuthorDraftStoryRoute() {
   const { id } = useParams();
-  return <Navigate to={`/author/writing?articleId=${encodeURIComponent(id ?? "")}`} replace />;
+  return <Navigate to={`/author/stories/${encodeURIComponent(id ?? "")}`} replace />;
 }
 
 export default function App() {
@@ -446,6 +447,7 @@ export default function App() {
               <Route path="dashboard" element={<AuthorDashboard />} />
               <Route path="writing" element={<WriteStory />} />
               <Route path="stories" element={<AuthorPublished />} />
+              <Route path="stories/:id" element={<AuthorStoryDetail />} />
               <Route path="unpublished" element={<AuthorUnpublished />} />
               <Route path="published" element={<AuthorPublished />} />
               <Route path="publish/:id" element={<AuthorPublishedStoryRoute />} />

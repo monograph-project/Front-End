@@ -540,7 +540,7 @@ const resources = {
       "studentRepo.actions.fork": "Fork",
       "studentRepo.actions.star": "Star",
 
-      "studentRepo.tabs.code": "Code",
+      "studentRepo.tabs.code": "Files",
       "studentRepo.tabs.pulls": "Pull requests",
       "studentRepo.tabs.tasks": "Tasks",
       "studentRepo.tabs.contributors": "Contributors",
@@ -593,6 +593,7 @@ const resources = {
       "studentRepo.browser.missingSha":
         "This entry has no blob id — tree rows should include a SHA for reliable previews.",
       "studentRepo.browser.raw": "Raw",
+      "studentRepo.browser.currentVersion": "Current version",
       "studentRepo.browser.history": "History",
       "studentRepo.browser.downloadHint": "Preparing download…",
       "studentRepo.browser.downloadFailed": "Download failed.",
@@ -830,6 +831,9 @@ const resources = {
         "Tasks already reviewed and completed.",
       "studentRepo.tasks.actions.newMilestone": "New milestone",
       "studentRepo.tasks.actions.newTask": "New issue",
+      "studentRepo.tasks.actions.complete": "Complete",
+      "studentRepo.tasks.toasts.completeSuccess": "Task #{{number}} completed",
+      "studentRepo.tasks.toasts.completeError": "Task could not be completed",
       "studentRepo.tasks.milestones.title": "Milestones",
       "studentRepo.tasks.milestones.subtitle":
         "Collections of related repository tasks with progress and due dates.",
@@ -4381,6 +4385,7 @@ const resources = {
       "studentRepo.browser.missingSha":
         "دې قلم کې blob SHA نشته — د ښودلو لپاره SHA پکار دی.",
       "studentRepo.browser.raw": "خام",
+      "studentRepo.browser.currentVersion": "خام",
       "studentRepo.browser.history": "تاریخ",
       "studentRepo.browser.downloadHint": "ډاونلوډ چمتو کېږي…",
       "studentRepo.browser.downloadFailed": "ډاونلوډ نشو.",
@@ -4558,6 +4563,9 @@ const resources = {
         "هغه دندې چې بیاکتل شوې او بشپړې شوې دي.",
       "studentRepo.tasks.actions.newMilestone": "نوی پړاو",
       "studentRepo.tasks.actions.newTask": "نوې دنده",
+      "studentRepo.tasks.actions.complete": "بشپړول",
+      "studentRepo.tasks.toasts.completeSuccess": "دنده #{{number}} بشپړه شوه",
+      "studentRepo.tasks.toasts.completeError": "دنده بشپړېدای نه شي",
       "studentRepo.tasks.milestones.title": "پړاوونه",
       "studentRepo.tasks.milestones.subtitle":
         "اړوند دندې د پرمختګ او نېټې له مخې په پړاوونو کې تنظیم کړئ.",
@@ -8082,6 +8090,7 @@ const resources = {
       "studentRepo.browser.missingSha":
         "برای این مورد blob SHA نیست — ردیف درخت باید SHA داشته باشد.",
       "studentRepo.browser.raw": "خام",
+      "studentRepo.browser.currentVersion": "خام",
       "studentRepo.browser.history": "تاریخچه",
       "studentRepo.browser.downloadHint": "آماده‌سازی برای دانلود…",
       "studentRepo.browser.downloadFailed": "دانلود ناموفق بود.",
@@ -8259,6 +8268,9 @@ const resources = {
         "کارهایی که بازبینی و تکمیل شده‌اند.",
       "studentRepo.tasks.actions.newMilestone": "مایلستون جدید",
       "studentRepo.tasks.actions.newTask": "Issue جدید",
+      "studentRepo.tasks.actions.complete": "تکمیل",
+      "studentRepo.tasks.toasts.completeSuccess": "وظیفهٔ #{{number}} تکمیل شد",
+      "studentRepo.tasks.toasts.completeError": "وظیفه تکمیل نشد",
       "studentRepo.tasks.milestones.title": "مایلستون‌ها",
       "studentRepo.tasks.milestones.subtitle":
         "کارهای مرتبط را با پیشرفت و تاریخ سررسید در مایلستون‌ها دنبال کنید.",

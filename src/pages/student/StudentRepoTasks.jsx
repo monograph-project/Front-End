@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -38,6 +38,7 @@ import {
 import {
   useVcCreateRepoMilestone,
   useVcCreateRepoTask,
+  useVcCompleteRepoTask,
   useVcRepoMilestones,
   useVcRepoTaskDashboard,
   useVcRepoTasks,
@@ -117,10 +118,7 @@ function taskAssigneeUsername(task) {
 }
 
 function taskBelongsToUser(task, username) {
-  return (
-    usernamesLikelySame(taskAssigneeUsername(task), username) ||
-    usernamesLikelySame(task?.createdBy, username)
-  );
+  return usernamesLikelySame(taskAssigneeUsername(task), username);
 }
 
 function countTasksByStatus(list) {
@@ -472,7 +470,7 @@ function TaskListItem({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onComplete && onComplete(task?.number, task?.linkedPrId);
+                onComplete && onComplete(task?.number, task?.linkedPrId, task);
               }}
             >
               {t("studentRepo.tasks.actions.complete")}
@@ -593,8 +591,16 @@ export default function StudentRepoTasks() {
   const { owner: ownerParam, repo: repoParam } = useParams();
   const owner = outletCtx.owner ?? decodeRouteSegment(ownerParam);
   const repo = outletCtx.repo ?? decodeRouteSegment(repoParam);
+  const repoBasePath = String(outletCtx.repoBase ?? "");
+  const isAdminOrTeacherRoute =
+    repoBasePath.startsWith("/admin/") ||
+    repoBasePath === "/admin" ||
+    repoBasePath.startsWith("/teacher/") ||
+    repoBasePath === "/teacher";
 
-  const [milestoneState, setMilestoneState] = useState("open");
+  const [milestoneState, setMilestoneState] = useState(() =>
+    isAdminOrTeacherRoute ? "all" : "open",
+  );
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [milestoneFilter, setMilestoneFilter] = useState("all");
@@ -624,6 +630,14 @@ export default function StudentRepoTasks() {
     estimatedHours: "",
     maxScore: "",
   });
+  const [reviewDraft, setReviewDraft] = useState({
+    open: false,
+    taskNumber: null,
+    pullRequestId: "",
+    score: "",
+    feedback: "",
+    maxScore: null,
+  });
   const deferredSearch = useDeferredValue(search);
   const [completing, setCompleting] = useState(() => new Set());
 
@@ -640,14 +654,28 @@ export default function StudentRepoTasks() {
     );
 
   const currentUsername = repoViewerUsername(user);
+  const isRepoOwner =
+    currentUsername && usernamesLikelySame(currentUsername, owner);
   const canViewAllTasks =
+    isAdminOrTeacherRoute ||
+    isRepoOwner ||
     (typeof isTeacher === "function" && isTeacher()) ||
     (typeof isAdmin === "function" && isAdmin());
   const canManageRepoTasks =
-    (currentUsername && usernamesLikelySame(currentUsername, owner)) ||
+    isRepoOwner ||
     (typeof isTeacher === "function" && isTeacher()) ||
     (typeof isAdmin === "function" && isAdmin());
   const effectiveScopeFilter = canViewAllTasks ? scopeFilter : "mine";
+
+  useEffect(() => {
+    if (!canViewAllTasks) {
+      setScopeFilter("mine");
+      setMilestoneState((current) => (current === "all" ? "open" : current));
+      return;
+    }
+    setScopeFilter("all");
+    setMilestoneState("all");
+  }, [canViewAllTasks]);
 
   const invalidateTaskDomain = async () => {
     await Promise.all([
@@ -666,7 +694,48 @@ export default function StudentRepoTasks() {
     ]);
   };
 
-  async function handleCompleteTask(taskNumber, pullRequestId) {
+  const completeTaskMutation = useVcCompleteRepoTask({
+    onSuccess: async (_data, variables) => {
+      gooeyToast.success(
+        t("studentRepo.tasks.toasts.completeSuccess", {
+          number: variables?.taskNumber,
+        }),
+      );
+      await invalidateTaskDomain();
+      setReviewDraft({
+        open: false,
+        taskNumber: null,
+        pullRequestId: "",
+        score: "",
+        feedback: "",
+        maxScore: null,
+      });
+    },
+    onError: (err) => {
+      console.error("Failed to complete task", err);
+      gooeyToast.error(
+        err?.message || t("studentRepo.tasks.toasts.completeError"),
+      );
+    },
+  });
+
+  function handleCompleteTask(taskNumber, pullRequestId, task) {
+    setReviewDraft({
+      open: true,
+      taskNumber,
+      pullRequestId: pullRequestId || "",
+      score:
+        task?.maxScore != null && Number.isFinite(Number(task.maxScore))
+          ? String(task.maxScore)
+          : "",
+      feedback: "",
+      maxScore: task?.maxScore ?? null,
+    });
+  }
+
+  async function submitCompleteTaskReview() {
+    const taskNumber = reviewDraft.taskNumber;
+    if (taskNumber == null || taskNumber === "") return;
     const key = String(taskNumber);
     setCompleting((prev) => {
       const s = new Set(prev);
@@ -675,29 +744,14 @@ export default function StudentRepoTasks() {
     });
     addCompleting(key);
     try {
-      const res = await fetch(
-        `/api/v1/task/repos/${owner}/${repo}/tasks/${taskNumber}/complete`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pullRequestId }),
-        },
-      );
-      if (!res.ok) {
-        const text = await res.text().catch(() => null);
-        throw new Error(text || res.statusText || "Failed to complete task");
-      }
-      gooeyToast.success(
-        t("studentRepo.tasks.toasts.completeSuccess", { number: taskNumber }) ||
-          "Task completed",
-      );
-      await invalidateTaskDomain();
-    } catch (err) {
-      console.error("Failed to complete task", err);
-      gooeyToast.error(
-        t("studentRepo.tasks.toasts.completeError") ||
-          String(err?.message || err),
-      );
+      await completeTaskMutation.mutateAsync({
+        owner,
+        repo,
+        taskNumber,
+        pullRequestId: reviewDraft.pullRequestId || null,
+        score: intOrNull(reviewDraft.score),
+        feedback: reviewDraft.feedback.trim() || null,
+      });
     } finally {
       setCompleting((prev) => {
         const s = new Set(prev);
@@ -811,11 +865,12 @@ export default function StudentRepoTasks() {
     () =>
       milestones
         .map((item) => withDerivedMilestoneProgress(item, taskScopeForProgress))
-        .filter((item) =>
-          milestoneState === "closed"
+        .filter((item) => {
+          if (milestoneState === "all") return true;
+          return milestoneState === "closed"
             ? String(item?.status ?? "").toLowerCase() === "closed"
-            : String(item?.status ?? "open").toLowerCase() !== "closed",
-        ),
+            : String(item?.status ?? "open").toLowerCase() !== "closed";
+        }),
     [milestoneState, milestones, taskScopeForProgress],
   );
 
@@ -1031,9 +1086,16 @@ export default function StudentRepoTasks() {
         action={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <div className="inline-flex rounded-full border border-(--color-light-card-border) bg-light-app-tertiary p-1 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-              {["open", "closed"].map((value) => {
+              {(canViewAllTasks
+                ? ["all", "open", "closed"]
+                : ["open", "closed"]
+              ).map((value) => {
                 const active = milestoneState === value;
-                const count = milestoneCounts[value] ?? 0;
+                const count =
+                  value === "all"
+                    ? (milestoneCounts.open ?? 0) +
+                      (milestoneCounts.closed ?? 0)
+                    : milestoneCounts[value] ?? 0;
                 return (
                   <button
                     key={value}
@@ -1046,7 +1108,10 @@ export default function StudentRepoTasks() {
                         : "text-muted hover:text-secondary dark:text-dark-muted dark:hover:text-dark-secondary",
                     )}
                   >
-                    {t(`studentRepo.tasks.milestones.${value}`)} ({count})
+                    {value === "all"
+                      ? t("studentRepo.tasks.filters.statusAll")
+                      : t(`studentRepo.tasks.milestones.${value}`)}{" "}
+                    ({count})
                   </button>
                 );
               })}
@@ -1145,13 +1210,82 @@ export default function StudentRepoTasks() {
                 onComplete={handleCompleteTask}
                 canComplete={
                   canEditGradingForms ||
-                  (currentUsername && currentUsername === String(owner))
+                  isRepoOwner
                 }
+                isCompleting={completing.has(String(task.number))}
               />
             ))}
           </div>
         )}
       </SettingsSectionCard>
+
+      <GlobalModal
+        open={reviewDraft.open}
+        setOpen={(open) =>
+          setReviewDraft((prev) => ({
+            ...prev,
+            open,
+          }))
+        }
+        isClose
+        title={t("studentRepo.tasks.taskDetail.reviewModalTitle")}
+        subtitle={t("studentRepo.tasks.taskDetail.reviewHint")}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() =>
+                setReviewDraft((prev) => ({
+                  ...prev,
+                  open: false,
+                }))
+              }
+              disabled={completeTaskMutation.isPending}
+            >
+              {t("studentRepo.pulls.actions.cancel")}
+            </Button>
+            <Button
+              onClick={submitCompleteTaskReview}
+              loading={completeTaskMutation.isPending}
+              disabled={reviewDraft.taskNumber == null}
+            >
+              {t("studentRepo.tasks.taskDetail.reviewConfirm")}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Field
+            register={{}}
+            type="number"
+            label={t("studentRepo.tasks.detail.scoreLabel")}
+            value={reviewDraft.score}
+            onChange={(e) =>
+              setReviewDraft((prev) => ({
+                ...prev,
+                score: e.target.value,
+              }))
+            }
+            placeholder={
+              reviewDraft.maxScore != null ? String(reviewDraft.maxScore) : "100"
+            }
+          />
+          <Field label={t("studentRepo.tasks.taskDetail.fieldDescription")}>
+            <textarea
+              value={reviewDraft.feedback}
+              onChange={(e) =>
+                setReviewDraft((prev) => ({
+                  ...prev,
+                  feedback: e.target.value,
+                }))
+              }
+              rows={5}
+              className={MODAL_TEXTAREA}
+              placeholder={t("studentRepo.tasks.taskDetail.reviewHint")}
+            />
+          </Field>
+        </div>
+      </GlobalModal>
 
       <GlobalModal
         open={createMilestoneOpen}

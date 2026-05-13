@@ -378,6 +378,10 @@ export const VC = {
     gw(
       `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks/${encodeURIComponent(taskNumber)}/review`,
     ),
+  REPO_TASK_COMPLETE: (owner, repo, taskNumber) =>
+    gw(
+      `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks/${encodeURIComponent(taskNumber)}/complete`,
+    ),
   REPO_TASK_ASSIGN: (owner, repo, taskNumber, user, assignee) =>
     gw(
       `/api/v1/task/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tasks/${encodeURIComponent(taskNumber)}/assign/${encodeURIComponent(user)}/${encodeURIComponent(assignee)}`,

@@ -221,6 +221,7 @@ export default function StudentRepoMilestoneDetail() {
   const owner = outletCtx.owner ?? decodeRouteSegment(ownerParam);
   const repo = outletCtx.repo ?? decodeRouteSegment(repoParam);
   const repoBase = outletCtx.repoBase ?? "";
+  const repoBasePath = String(repoBase);
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
@@ -283,12 +284,22 @@ export default function StudentRepoMilestoneDetail() {
     milestone?.createdBy,
   );
   const currentUsername = repoViewerUsername(user);
+  const isAdminOrTeacherRoute =
+    repoBasePath.startsWith("/admin/") ||
+    repoBasePath === "/admin" ||
+    repoBasePath.startsWith("/teacher/") ||
+    repoBasePath === "/teacher";
+  const isRepoOwner =
+    currentUsername && usernamesLikelySame(currentUsername, owner);
   const canViewAllTasks =
+    isAdminOrTeacherRoute ||
+    isRepoOwner ||
     (typeof isTeacher === "function" && isTeacher()) ||
     (typeof isAdmin === "function" && isAdmin());
   const canManageMilestone =
-    Boolean(milestone?.createdBy) &&
-    usernamesLikelySame(currentUsername, milestone.createdBy);
+    canViewAllTasks ||
+    (Boolean(milestone?.createdBy) &&
+      usernamesLikelySame(currentUsername, milestone.createdBy));
 
   const tasks = useMemo(() => {
     if (msKey == null) return [];

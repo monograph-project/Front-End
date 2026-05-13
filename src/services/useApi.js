@@ -2820,6 +2820,16 @@ export function useVcReviewRepoTask(options = {}) {
   });
 }
 
+export function useVcCompleteRepoTask(options = {}) {
+  return useApiMutation({
+    mutationFn: ({ owner, repo, taskNumber, ...body }) =>
+      Api.vcCompleteRepoTask(owner, repo, taskNumber, body),
+    mutationKey: ["vc", "repos", "tasks", "complete"],
+    toastSuccess: false,
+    ...options,
+  });
+}
+
 export function useVcRepoStatistics(owner, repo, queryOptions = {}) {
   const {
     notifyOnError = false,

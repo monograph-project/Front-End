@@ -560,7 +560,8 @@ export default function Home() {
   const isBlogPage = location.pathname === "/blogs";
   const [criteria, setCriteria] = useState(() => ({ ...DEFAULT_SEARCH }));
   const [page, setPage] = useState(0);
-  const pageSize = 9;
+  const pageSize = 6;
+  const searchTerm = criteria.query.trim();
 
   const {
     data: articlePayload,
@@ -568,7 +569,13 @@ export default function Home() {
     isError,
     refetch,
   } = usePublicArticles(
-    { page, pageSize, contentType: "WEBLOG" },
+    {
+      page,
+      pageSize,
+      contentType: "WEBLOG",
+      q: searchTerm || undefined,
+      search: searchTerm || undefined,
+    },
     {
       notifyOnError: false,
       enabled: isBlogPage,

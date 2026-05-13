@@ -91,7 +91,13 @@ export default function PublicProjects() {
     requestConfig: publicRequestConfig,
   });
   const { data, isLoading, isError } = usePublishedFacultyProjects(
-    { page: 0, pageSize: 48, q: query.trim() || undefined },
+    {
+      page: 0,
+      pageSize: 48,
+      q: query.trim() || undefined,
+      search: query.trim() || undefined,
+      keyword: query.trim() || undefined,
+    },
     {
       enabled: !projectId,
       notifyOnError: false,

@@ -1375,7 +1375,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                 <div className="overflow-hidden rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
                   <div className="border-b border-(--color-light-card-border) px-3 py-2.5 dark:border-(--color-dark-card-border)">
                     <p className="text-base font-semibold text-primary dark:text-dark-primary">
-                      Files
+                      {t("studentRepo.tabs.code")}
                     </p>
                   </div>
                   <nav
@@ -1563,7 +1563,7 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                           setActiveView("code");
                         }}
                       >
-                        {t("studentRepo.tabs.code")}
+                        {t("studentRepo.browser.currentVersion")}
                       </button>
                       <button
                         type="button"

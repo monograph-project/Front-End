@@ -711,6 +711,7 @@ function unwrapListPayload(payload) {
   if (payload == null) return [];
   if (Array.isArray(payload)) return payload;
   const nested =
+    payload.json ??
     payload.content ??
     payload.data ??
     payload.items ??
@@ -719,7 +720,11 @@ function unwrapListPayload(payload) {
     payload.repositories ??
     payload.repos ??
     [];
-  return Array.isArray(nested) ? nested : [];
+  if (Array.isArray(nested)) return nested;
+  if (nested && typeof nested === "object" && nested !== payload) {
+    return unwrapListPayload(nested);
+  }
+  return [];
 }
 
 function repoSlugsFromActivityEvents(events) {
@@ -996,7 +1001,7 @@ export async function vcGetRepoTaskDashboard(owner, repo) {
     throwClientApiError("Owner and repository are required.");
   try {
     const { data } = await axiosInstance.get(VC.REPO_TASK_DASHBOARD(owner, repo));
-    return data ?? {};
+    return data?.json ?? data?.data ?? data ?? {};
   } catch (err) {
     if (err?.response?.status === 404) return {};
     throwApiError(err, "Failed to load task dashboard.");
@@ -1024,7 +1029,7 @@ export async function vcGetRepoTasks(owner, repo, params = {}) {
     throwClientApiError("Owner and repository are required.");
   try {
     const { data } = await axiosInstance.get(VC.REPO_TASKS(owner, repo, params));
-    return Array.isArray(data) ? data : [];
+    return unwrapListPayload(data);
   } catch (err) {
     if (err?.response?.status === 404) return [];
     throwApiError(err, "Failed to load repository tasks.");
@@ -1255,6 +1260,22 @@ export async function vcReviewRepoTask(owner, repo, taskNumber, body) {
     return data;
   } catch (err) {
     throwApiError(err, "Failed to review repository task.");
+  }
+}
+
+export async function vcCompleteRepoTask(owner, repo, taskNumber, body) {
+  if (!owner || !repo || taskNumber == null || taskNumber === "") {
+    throwClientApiError("Owner, repository, and task number are required.");
+  }
+  const payload = body && typeof body === "object" ? body : {};
+  try {
+    const { data } = await axiosInstance.post(
+      VC.REPO_TASK_COMPLETE(owner, repo, taskNumber),
+      payload,
+    );
+    return data;
+  } catch (err) {
+    throwApiError(err, "Failed to complete repository task.");
   }
 }
 

@@ -2,20 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpenCheck,
+  CalendarDays,
+  ChevronRight,
   Eye,
-  MoreHorizontal,
+  Heart,
+  MessageCircle,
   NotebookPen,
   PenLine,
 } from "lucide-react";
 import Button from "../../components/Button";
-import {
-  DropdownContent,
-  DropdownItem,
-  DropdownMenuRoot,
-  DropdownTrigger,
-} from "../../components/DropdownMenu";
 import { useAuth } from "../../context/AuthContext";
 import { mapArticleToAdminBlog } from "../../lib/adminArticleMap";
+import { mapArticlePreviewToStory } from "../../lib/mapArticlePreviewToStory";
 import { useArticlesByAuthor } from "../../services/useApi";
 
 function normalizeAuthorArticles(raw) {
@@ -49,6 +47,140 @@ function statusClass(status) {
     return "border-(--color-light-success-border) bg-(--color-light-success-bg) text-(--color-light-success-text) dark:border-(--color-dark-success-border) dark:bg-(--color-dark-success-bg) dark:text-(--color-dark-success-text)";
   }
   return "border-(--color-light-warning-border) bg-(--color-light-warning-bg) text-(--color-light-warning-text) dark:border-(--color-dark-warning-border) dark:bg-(--color-dark-warning-bg) dark:text-(--color-dark-warning-text)";
+}
+
+function storyInitials(name) {
+  return String(name || "A")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+function AuthorStoryCard({ article, navigate }) {
+  const published = article._rawStatus === "PUBLISHED";
+  const story = mapArticlePreviewToStory(article.raw ?? article, {
+    collectionLabel: "Story",
+  });
+  const date = article.date ? new Date(article.date).toLocaleDateString() : "";
+
+  return (
+    <Link
+      to={`/author/stories/${encodeURIComponent(article.id)}`}
+      className="group flex h-full overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
+    >
+      <article className="flex w-full flex-col">
+        <div className="relative aspect-[16/10] overflow-hidden bg-light-app-tertiary dark:bg-dark-app-tertiary">
+          {article.coverImageUrl || story.cover_image ? (
+            <img
+              src={article.coverImageUrl || story.cover_image}
+              alt=""
+              className="size-full object-cover transition duration-300 group-hover:scale-[1.03]"
+              loading="lazy"
+            />
+          ) : (
+            <ArticleThumbnail article={article} />
+          )}
+          <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-2">
+            <span
+              className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-sm backdrop-blur ${statusClass(article._rawStatus)}`}
+            >
+              {published ? "Published" : "Draft"}
+            </span>
+            {article.readTime && article.readTime !== "—" ? (
+              <span className="rounded-full bg-(--color-light-card-bg)/92 px-3 py-1 text-[11px] font-semibold text-secondary shadow-sm backdrop-blur dark:bg-(--color-dark-card-bg)/92 dark:text-dark-secondary">
+                {article.readTime} min
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-1 flex-col p-4 md:p-5">
+          <div className="flex items-center gap-3">
+            {story.author_profile ? (
+              <img
+                src={story.author_profile}
+                alt=""
+                className="size-9 rounded-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <span className="flex size-9 items-center justify-center rounded-full bg-light-app-tertiary text-[11px] font-bold text-primary dark:bg-dark-app-tertiary dark:text-dark-primary">
+                {storyInitials(article.author)}
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
+                {article.author || "You"}
+              </p>
+              <p className="flex items-center gap-1.5 text-xs text-muted dark:text-dark-muted">
+                <CalendarDays className="size-3.5" strokeWidth={1.8} />
+                {date || "Recently updated"}
+              </p>
+            </div>
+          </div>
+
+          <h2 className="mt-4 line-clamp-2 text-xl font-bold tracking-tight text-primary transition-colors group-hover:text-(--color-light-btn-primary-bg) dark:text-dark-primary dark:group-hover:text-(--color-dark-primary)">
+            {article.title}
+          </h2>
+          {article.excerpt ? (
+            <p className="mt-3 line-clamp-3 text-sm leading-6 text-secondary dark:text-dark-secondary">
+              {article.excerpt}
+            </p>
+          ) : null}
+
+          <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-5">
+            <div className="flex items-center gap-3 text-xs font-semibold text-muted dark:text-dark-muted">
+              <span className="inline-flex items-center gap-1">
+                <Heart className="size-3.5" strokeWidth={1.8} />
+                {article.claps ?? 0}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <MessageCircle className="size-3.5" strokeWidth={1.8} />
+                {article.comments ?? 0}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Eye className="size-3.5" strokeWidth={1.8} />
+                {article.views ?? 0}
+              </span>
+            </div>
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-(--color-light-btn-primary-bg) dark:text-(--color-dark-primary)">
+              Open
+              <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" strokeWidth={1.8} />
+            </span>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between border-t border-light-divider pt-3 dark:border-dark-divider">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                navigate(`/author/writing?articleId=${encodeURIComponent(article.id)}`);
+              }}
+              className="inline-flex h-8 items-center gap-2 rounded-xl px-2.5 text-xs font-semibold text-secondary transition-colors hover:bg-light-app-tertiary hover:text-primary dark:text-dark-secondary dark:hover:bg-dark-app-tertiary dark:hover:text-dark-primary"
+            >
+              <PenLine className="size-3.5" strokeWidth={1.8} />
+              Edit
+            </button>
+            {published ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigate(`/story/${encodeURIComponent(article.id)}`);
+                }}
+                className="inline-flex h-8 items-center gap-2 rounded-xl px-2.5 text-xs font-semibold text-secondary transition-colors hover:bg-light-app-tertiary hover:text-primary dark:text-dark-secondary dark:hover:bg-dark-app-tertiary dark:hover:text-dark-primary"
+              >
+                <Eye className="size-3.5" strokeWidth={1.8} />
+                Public
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </article>
+    </Link>
+  );
 }
 
 export default function AuthorStories() {
@@ -152,78 +284,14 @@ export default function AuthorStories() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {articles.map((article) => {
-              const published = article._rawStatus === "PUBLISHED";
-              return (
-                <article
-                  key={article.id}
-                  className="overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm transition-colors hover:border-(--color-light-input-border-focus) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:border-(--color-dark-input-border-focus)"
-                >
-                  <div className="grid min-h-56 sm:grid-cols-[11rem_minmax(0,1fr)]">
-                    <div className="aspect-video sm:aspect-auto">
-                      <ArticleThumbnail article={article} />
-                    </div>
-                    <div className="flex min-w-0 flex-col p-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-lg font-semibold text-primary dark:text-dark-primary">
-                            {article.title}
-                          </p>
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-                            <span className={`rounded-full border px-2 py-0.5 font-semibold uppercase tracking-wide ${statusClass(article._rawStatus)}`}>
-                              {article._rawStatus || "DRAFT"}
-                            </span>
-                            {article.date ? (
-                              <span className="text-muted dark:text-dark-muted">
-                                {new Date(article.date).toLocaleDateString()}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                        <DropdownMenuRoot modal={false}>
-                          <DropdownTrigger compactIcon showArrow={false} aria-label="Story actions">
-                            <MoreHorizontal className="h-4 w-4 text-secondary dark:text-dark-secondary" />
-                          </DropdownTrigger>
-                          <DropdownContent align="end">
-                            <DropdownItem
-                              icon={<PenLine className="h-4 w-4" />}
-                              onSelect={() =>
-                                navigate(`/author/writing?articleId=${encodeURIComponent(article.id)}`)
-                              }
-                            >
-                              Edit
-                            </DropdownItem>
-                            <DropdownItem
-                              icon={<Eye className="h-4 w-4" />}
-                              disabled={!published}
-                              onSelect={() => {
-                                if (published) navigate(`/story/${encodeURIComponent(article.id)}`);
-                              }}
-                            >
-                              {published ? "Visit public page" : "Visit after publish"}
-                            </DropdownItem>
-                          </DropdownContent>
-                        </DropdownMenuRoot>
-                      </div>
-
-                      {article.excerpt ? (
-                        <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-secondary dark:text-dark-secondary">
-                          {article.excerpt}
-                        </p>
-                      ) : null}
-
-                      <div className="mt-auto flex flex-wrap items-center gap-2 pt-5 text-xs text-muted dark:text-dark-muted">
-                        <span>{article.category || "Story"}</span>
-                        {article.readTime && article.readTime !== "—" ? (
-                          <span>• {article.readTime} min read</span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {articles.map((article) => (
+              <AuthorStoryCard
+                key={article.id}
+                article={article}
+                navigate={navigate}
+              />
+            ))}
           </div>
         )}
       </div>

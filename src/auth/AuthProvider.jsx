@@ -19,6 +19,7 @@ import {
   clearAuthStorage,
   getStoredAccessToken,
 } from "./storageBridge";
+import { enqueueBackendRefresh } from "./refreshCoordinator";
 
 export const AuthReactContext = createContext(null);
 
@@ -65,6 +66,23 @@ export function AuthProvider({ children }) {
     const mem = Boolean(getStoredAccessToken());
     const cookieBootstrap = authUsesCookieRefresh();
     if (!mem && !cookieBootstrap) setUser(null);
+  }, [hydrated, user]);
+
+  useEffect(() => {
+    if (!hydrated || !user) return undefined;
+    let cancelled = false;
+    const refresh = async () => {
+      const token = await enqueueBackendRefresh();
+      if (!cancelled && token) {
+        const next = await fetchCurrentGatewayUser().catch(() => null);
+        if (!cancelled && next && typeof next === "object") setUser(next);
+      }
+    };
+    const interval = window.setInterval(refresh, 4 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
   }, [hydrated, user]);
 
   const login = useCallback((next) => {
