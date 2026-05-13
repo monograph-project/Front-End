@@ -632,8 +632,12 @@ export default function StudentRepoMilestoneDetail() {
                   return (
                     <li key={task.id ?? task.number}>
                       <Link
-                        to={`../issue/${encodeURIComponent(String(task.number))}`}
-                        relative="path"
+                        to={
+                          repoBasePath
+                            ? `${repoBasePath}/tasks/issue/${encodeURIComponent(String(task.number))}`
+                            : `../../issue/${encodeURIComponent(String(task.number))}`
+                        }
+                        relative={repoBasePath ? undefined : "path"}
                         className="flex items-center justify-between gap-3 rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 transition-colors hover:border-(--color-light-input-border-focus) hover:bg-white dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-dark-card-hover"
                       >
                         <div className="min-w-0">

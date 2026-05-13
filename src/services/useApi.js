@@ -639,6 +639,17 @@ export function useFaculties(queryOptions = {}) {
   return q;
 }
 
+export function useUniversities(queryOptions = {}) {
+  const { notifyOnError = false, ...rest } = queryOptions;
+  const q = useQuery({
+    queryKey: ["universities"],
+    queryFn: Api.getUniversities,
+    ...rest,
+  });
+  useQueryErrorToast(q, notifyOnError, "apiErrors.failed_to_load_universities");
+  return q;
+}
+
 export function useFaculty(id, queryOptions = {}) {
   const { enabled = Boolean(id), notifyOnError = false, ...rest } = queryOptions;
   const q = useQuery({

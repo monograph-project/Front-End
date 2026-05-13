@@ -4,6 +4,7 @@ import {
   Briefcase,
   CalendarRange,
   CheckCircle2,
+  IdCard,
   KeyRound,
   Mail,
   MapPin,
@@ -31,11 +32,35 @@ import {
 
 const MotionDiv = motion.div;
 
-const USERNAME_PATTERN = /^[a-zA-Z0-9._]+$/;
+const USERNAME_PATTERN =
+  /^(?!.*[._]{2})[A-Za-z][A-Za-z0-9._]{1,48}[A-Za-z0-9]$/;
 const PASSWORD_PATTERN =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
 /** Backend EmployeeRequest phone pattern */
-const EMPLOYEE_PHONE_PATTERN = /^[0-9+\-() ]{7,20}$/;
+const EMPLOYEE_PHONE_PATTERN = /^07\d{8}$/;
+const PERSON_NAME_PATTERN = /^[\p{L}]{2,50}$/u;
+const TEXT_PATTERN = /^[\p{L}][\p{L}\s.'-]{1,79}$/u;
+const ADDRESS_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N}\s,.-]{4,149}$/u;
+const POSTAL_CODE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 -]{2,19}$/;
+const MIN_BIRTH_AGE_YEARS = 10;
+
+function parseDateOnly(value) {
+  if (!value || typeof value !== "string") return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isAtLeastAge(value, years) {
+  const date = parseDateOnly(value);
+  if (!date) return false;
+  const latestAllowed = new Date();
+  latestAllowed.setFullYear(latestAllowed.getFullYear() - years);
+  latestAllowed.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return date <= latestAllowed;
+}
 
 const EDUCATION_RANK_VALUES = [
   "HIGH_SCHOOL",
@@ -261,6 +286,7 @@ export default function EmployeeRegistrationWizard({
       lastName: "",
       fatherName: "",
       grandFatherName: "",
+      dateOfBirth: "",
       email: "",
       phone: "",
       addressStreet: "",
@@ -298,6 +324,7 @@ export default function EmployeeRegistrationWizard({
       lastName: existingEmployee.lastName ?? "",
       fatherName: existingEmployee.fatherName ?? "",
       grandFatherName: existingEmployee.grandFatherName ?? "",
+      dateOfBirth: existingEmployee.dateOfBirth ?? "",
       email: existingEmployee.email ?? "",
       phone: existingEmployee.phone ?? "",
       addressStreet: existingEmployee.addressStreet ?? "",
@@ -336,6 +363,7 @@ export default function EmployeeRegistrationWizard({
         lastName: values.lastName.trim(),
         fatherName: values.fatherName.trim(),
         grandFatherName: values.grandFatherName.trim(),
+        dateOfBirth: values.dateOfBirth,
         email: values.email.trim(),
         phone: values.phone.trim(),
         hireDate: values.hireDate,
@@ -435,6 +463,7 @@ export default function EmployeeRegistrationWizard({
               watched?.lastName,
               watched?.fatherName,
               watched?.grandFatherName,
+              watched?.dateOfBirth,
             ]
               .filter(Boolean)
               .join(" · ") || "—"
@@ -464,6 +493,7 @@ export default function EmployeeRegistrationWizard({
       watched?.lastName,
       watched?.fatherName,
       watched?.grandFatherName,
+      watched?.dateOfBirth,
       watched?.email,
       watched?.phone,
       watched?.addressCity,
@@ -612,6 +642,10 @@ export default function EmployeeRegistrationWizard({
                       value: 50,
                       message: t("studentForm.validation.nameLength"),
                     },
+                    pattern: {
+                      value: PERSON_NAME_PATTERN,
+                      message: t("studentForm.validation.namePattern"),
+                    },
                   })}
                   error={errors.firstName?.message}
                 />
@@ -629,6 +663,10 @@ export default function EmployeeRegistrationWizard({
                       value: 50,
                       message: t("studentForm.validation.nameLength"),
                     },
+                    pattern: {
+                      value: PERSON_NAME_PATTERN,
+                      message: t("studentForm.validation.namePattern"),
+                    },
                   })}
                   error={errors.lastName?.message}
                 />
@@ -639,6 +677,18 @@ export default function EmployeeRegistrationWizard({
                   placeholder={t("studentForm.fields.fatherName.placeholder")}
                   register={register("fatherName", {
                     required: t("studentForm.validation.fatherNameRequired"),
+                    minLength: {
+                      value: 2,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                    maxLength: {
+                      value: 50,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                    pattern: {
+                      value: PERSON_NAME_PATTERN,
+                      message: t("studentForm.validation.namePattern"),
+                    },
                   })}
                   error={errors.fatherName?.message}
                 />
@@ -657,10 +707,38 @@ export default function EmployeeRegistrationWizard({
                       value: 50,
                       message: t("studentForm.validation.nameLength"),
                     },
+                    pattern: {
+                      value: PERSON_NAME_PATTERN,
+                      message: t("studentForm.validation.namePattern"),
+                    },
                   })}
                   error={errors.grandFatherName?.message}
                 />
               </div>
+            </FormSectionCard>
+            <FormSectionCard
+              icon={IdCard}
+              tint="indigo"
+              title={t("studentForm.section.identity")}
+              subtitle={t("studentForm.section.identitySub")}
+            >
+              <Field
+                iconD={IC.calendar}
+                label={`${t("studentForm.fields.dateOfBirth.label")} *`}
+                type="date"
+                register={register("dateOfBirth", {
+                  required: t("studentForm.validation.dateOfBirthRequired"),
+                  validate: (v) => {
+                    if (!v) return true;
+                    return isAtLeastAge(v, MIN_BIRTH_AGE_YEARS)
+                      ? true
+                      : t("studentForm.validation.dateOfBirthMinimumAge", {
+                          years: MIN_BIRTH_AGE_YEARS,
+                        });
+                  },
+                })}
+                error={errors.dateOfBirth?.message}
+              />
             </FormSectionCard>
           </MotionDiv>
         );
@@ -735,6 +813,18 @@ export default function EmployeeRegistrationWizard({
                 placeholder={t("studentForm.fields.addressStreet.placeholder")}
                 register={register("addressStreet", {
                   required: t("studentForm.validation.addressStreetRequired"),
+                  minLength: {
+                    value: 2,
+                    message: t("studentForm.validation.addressPattern"),
+                  },
+                  maxLength: {
+                    value: 120,
+                    message: t("studentForm.validation.addressPattern"),
+                  },
+                  pattern: {
+                    value: ADDRESS_PATTERN,
+                    message: t("studentForm.validation.addressPattern"),
+                  },
                 })}
                 error={errors.addressStreet?.message}
               />
@@ -745,6 +835,18 @@ export default function EmployeeRegistrationWizard({
                   placeholder={t("studentForm.fields.addressCity.placeholder")}
                   register={register("addressCity", {
                     required: t("studentForm.validation.addressCityRequired"),
+                    minLength: {
+                      value: 2,
+                      message: t("studentForm.validation.textLength"),
+                    },
+                    maxLength: {
+                      value: 80,
+                      message: t("studentForm.validation.textLength"),
+                    },
+                    pattern: {
+                      value: TEXT_PATTERN,
+                      message: t("studentForm.validation.textPattern"),
+                    },
                   })}
                   error={errors.addressCity?.message}
                 />
@@ -755,6 +857,10 @@ export default function EmployeeRegistrationWizard({
                   )}
                   register={register("addressPostalCode", {
                     required: t("studentForm.validation.addressPostalRequired"),
+                    pattern: {
+                      value: POSTAL_CODE_PATTERN,
+                      message: t("studentForm.validation.postalPattern"),
+                    },
                   })}
                   error={errors.addressPostalCode?.message}
                 />
@@ -764,7 +870,18 @@ export default function EmployeeRegistrationWizard({
                 placeholder={t(
                   "teacherForm.fields.addressProvince.placeholder",
                 )}
-                register={register("addressProvince")}
+                register={register("addressProvince", {
+                  validate: (value) => {
+                    const v = String(value ?? "").trim();
+                    if (!v) return true;
+                    if (v.length < 2 || v.length > 80)
+                      return t("studentForm.validation.textLength");
+                    return TEXT_PATTERN.test(v)
+                      ? true
+                      : t("studentForm.validation.textPattern");
+                  },
+                })}
+                error={errors.addressProvince?.message}
               />
             </FormSectionCard>
           </MotionDiv>
@@ -803,7 +920,7 @@ export default function EmployeeRegistrationWizard({
                       disabled={facultySelectDisabled}
                     />
                     {fieldState.error?.message ? (
-                      <p className="text-[11px] text-error dark:text-red-400">
+                      <p className="text-[11px] font-medium text-error">
                         {fieldState.error.message}
                       </p>
                     ) : null}
@@ -847,7 +964,7 @@ export default function EmployeeRegistrationWizard({
                       onValueChange={field.onChange}
                     />
                     {fieldState.error?.message ? (
-                      <p className="text-[11px] text-error dark:text-red-400">
+                      <p className="text-[11px] font-medium text-error">
                         {fieldState.error.message}
                       </p>
                     ) : null}
@@ -925,6 +1042,10 @@ export default function EmployeeRegistrationWizard({
                 <FacultyReviewRow
                   k={t("studentForm.fields.grandFatherName.label")}
                   v={watched?.grandFatherName}
+                />
+                <FacultyReviewRow
+                  k={t("studentForm.fields.dateOfBirth.label")}
+                  v={watched?.dateOfBirth}
                 />
                 <FacultyReviewRow
                   k={t("studentForm.fields.email.label")}
@@ -1028,7 +1149,13 @@ export default function EmployeeRegistrationWizard({
     if (step === 1 && fieldsStep1.length === 0) return true;
     const fieldsByStep = {
       1: fieldsStep1,
-      2: ["firstName", "lastName", "fatherName", "grandFatherName"],
+      2: [
+        "firstName",
+        "lastName",
+        "fatherName",
+        "grandFatherName",
+        "dateOfBirth",
+      ],
       3: ["email", "phone"],
       4: ["addressStreet", "addressCity", "addressPostalCode"],
       5: ["faculty", "educationRank", "facultyPosition", "hireDate"],
@@ -1057,7 +1184,7 @@ export default function EmployeeRegistrationWizard({
         <AnimatePresence mode="wait">{stepContent()}</AnimatePresence>
       }
       summaryLines={summaryLines}
-      continueDisabled={false}
+      continueDisabled={step === 5 && facultySelectDisabled}
       actionPending={pending}
       goPrev={goPrev}
       goNext={async () => {

@@ -20,7 +20,9 @@ import Field from "../components/Field";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import { hasGoogleOAuthClientId } from "../lib/googleOAuth";
 
-const USERNAME_RE = /^[a-zA-Z0-9._]+$/;
+const USERNAME_RE = /^[A-Za-z0-9]{3,50}$/;
+const PERSON_NAME_RE = /^[\p{L}]{2,50}$/u;
+const AFGHAN_PHONE_RE = /^07\d{8}$/;
 const PASSWORD_RE =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
 const AUTH_BACKGROUND =
@@ -115,17 +117,27 @@ export default function Signup() {
 
   const submit = (data) => {
     setServerError("");
-    signupMutate(data, {
-      onSuccess: (createdUser) => {
-        login(createdUser);
-        setDone(true);
-        const dest = postLoginPath(createdUser);
-        setTimeout(() => navigate(dest, { replace: true }), 1200);
+    signupMutate(
+      {
+        ...data,
+        username: String(data.username ?? "").trim(),
+        email: String(data.email ?? "").trim(),
+        first_name: String(data.first_name ?? "").trim(),
+        last_name: String(data.last_name ?? "").trim(),
+        phone_number: String(data.phone_number ?? "").trim(),
       },
-      onError: (err) => {
-        setServerError(err.message || "Could not create account.");
+      {
+        onSuccess: (createdUser) => {
+          login(createdUser);
+          setDone(true);
+          const dest = postLoginPath(createdUser);
+          setTimeout(() => navigate(dest, { replace: true }), 1200);
+        },
+        onError: (err) => {
+          setServerError(err.message || "Could not create account.");
+        },
       },
-    });
+    );
   };
 
   return (
@@ -280,10 +292,19 @@ export default function Signup() {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field
                         register={register("first_name", {
+                          setValueAs: (value) => String(value ?? "").trim(),
                           required: t("signup.validation.firstNameRequired"),
+                          minLength: {
+                            value: 2,
+                            message: t("signup.validation.nameMin"),
+                          },
                           maxLength: {
                             value: 50,
                             message: t("signup.validation.firstNameMax"),
+                          },
+                          pattern: {
+                            value: PERSON_NAME_RE,
+                            message: t("signup.validation.namePattern"),
                           },
                         })}
                         label={t("signup.firstName")}
@@ -294,10 +315,19 @@ export default function Signup() {
                       />
                       <Field
                         register={register("last_name", {
+                          setValueAs: (value) => String(value ?? "").trim(),
                           required: t("signup.validation.lastNameRequired"),
+                          minLength: {
+                            value: 2,
+                            message: t("signup.validation.nameMin"),
+                          },
                           maxLength: {
                             value: 50,
                             message: t("signup.validation.lastNameMax"),
+                          },
+                          pattern: {
+                            value: PERSON_NAME_RE,
+                            message: t("signup.validation.namePattern"),
                           },
                         })}
                         label={t("signup.lastName")}
@@ -310,6 +340,7 @@ export default function Signup() {
 
                     <Field
                       register={register("username", {
+                        setValueAs: (value) => String(value ?? "").trim(),
                         required: t("signup.validation.usernameRequired"),
                         minLength: {
                           value: 3,
@@ -348,9 +379,16 @@ export default function Signup() {
                         iconD={ICON_PATHS.mail}
                       />
                       <Field
-                        register={register("phone_number")}
+                        register={register("phone_number", {
+                          setValueAs: (value) => String(value ?? "").trim(),
+                          required: t("signup.validation.phoneRequired"),
+                          pattern: {
+                            value: AFGHAN_PHONE_RE,
+                            message: t("signup.validation.phonePattern"),
+                          },
+                        })}
                         label={t("signup.phoneNumber")}
-                        placeholder="+1234567890"
+                        placeholder="0791234567"
                         error={errors.phone_number?.message}
                         autoComplete="tel"
                         iconD={ICON_PATHS.phone}

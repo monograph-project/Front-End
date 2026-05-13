@@ -155,7 +155,7 @@ export default function StudentDashboard() {
     linkedRecord?.currentSemesterId ||
     null;
   const { data: semester } = useSemester(semesterId, {
-    enabled: Boolean(!isTeacherShell && semesterId),
+    enabled: Boolean(semesterId),
     notifyOnError: false,
   });
   const { data: studentProjectsPayload } = useFacultyProjectsByStudent(student?.id, {
@@ -168,9 +168,9 @@ export default function StudentDashboard() {
   });
   const activityUsername =
     linkedRecord?.username ||
-    user?.username ||
     user?.user_name ||
     user?.preferred_username ||
+    user?.username ||
     "";
   const ownerKey =
     linkedRecord?.linkedApplicationUserId ||

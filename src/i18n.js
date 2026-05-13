@@ -737,6 +737,10 @@ const resources = {
       "studentRepo.pulls.card.status": "Status",
       "studentRepo.pulls.card.sourceHash": "Source hash: {{sha}}",
       "studentRepo.pulls.card.targetHash": "Target hash: {{sha}}",
+      "studentRepo.pulls.mergePreview.title": "Review changes before merge",
+      "studentRepo.pulls.mergePreview.description":
+        "Check the added and deleted lines below, then merge only when the submitted work completes the task.",
+      "studentRepo.pulls.mergePreview.confirm": "Merge after review",
       "studentRepo.pulls.toast.created": "Pull request created",
       "studentRepo.pulls.toast.createFailed": "Failed to create pull request.",
       "studentRepo.pulls.conflicts.detected":
@@ -1058,6 +1062,13 @@ const resources = {
       "studentRepo.tasks.taskDetail.filesCommaHint":
         "Separate file paths with commas (for example src/App.jsx, README.md).",
       "studentRepo.tasks.taskDetail.fieldFeedback": "Feedback",
+      "studentRepo.tasks.taskDetail.fieldReviewDecision": "Review decision",
+      "studentRepo.tasks.taskDetail.requestChanges": "Request changes",
+      "studentRepo.tasks.taskDetail.requestChangesHint":
+        "Send the task back to progress with this feedback so the assignee can redo it.",
+      "studentRepo.tasks.taskDetail.approveTask": "Approve and complete",
+      "studentRepo.tasks.taskDetail.approveTaskHint":
+        "Mark the task as completed and save the review score.",
       "studentRepo.tasks.taskDetail.fieldScore": "Score",
       "studentRepo.tasks.taskDetail.fieldApproved": "Approved",
       "studentRepo.tasks.taskDetail.fieldCheckedReq": "Checked requirements",
@@ -2382,9 +2393,16 @@ const resources = {
       "studentForm.validation.firstNameRequired": "First name is required",
       "studentForm.validation.lastNameRequired": "Last name is required",
       "studentForm.validation.nameLength": "2–50 characters",
+      "studentForm.validation.namePattern":
+        "Use letters only. Numbers, spaces, and symbols are not allowed",
+      "studentForm.validation.textLength": "2–80 characters",
+      "studentForm.validation.textPattern":
+        "Use letters, spaces, apostrophes, dots, or hyphens only",
       "studentForm.validation.fatherNameRequired": "Father name is required",
       "studentForm.validation.nationalityRequired": "Nationality is required",
       "studentForm.validation.dateOfBirthPast": "Date of birth must be in the past",
+      "studentForm.validation.dateOfBirthMinimumAge":
+        "Date of birth must be at least {{years}} years ago.",
       "studentForm.validation.usernameRequired": "Username is required",
       "studentForm.validation.usernameLength": "3–50 characters",
       "studentForm.validation.usernamePattern":
@@ -2395,12 +2413,21 @@ const resources = {
         "Include upper, lower, number, and one of @$!%*?&",
       "studentForm.validation.phoneRequired": "Phone is required",
       "studentForm.validation.phoneInvalid":
-        "7–15 characters: digits, + and - allowed",
+        "Enter a 10-digit Afghan mobile number starting with 07",
       "studentForm.validation.addressStreetRequired":
         "Street address is required",
       "studentForm.validation.addressCityRequired": "City is required",
       "studentForm.validation.addressPostalRequired":
         "Postal code is required",
+      "studentForm.validation.addressPattern":
+        "Use 5–150 letters, numbers, spaces, commas, hyphens, or periods",
+      "studentForm.validation.postalPattern":
+        "Use 3–20 letters, numbers, spaces, or hyphens",
+      "studentForm.validation.codePattern":
+        "Use letters, numbers, underscores, or hyphens",
+      "studentForm.validation.kankorIdRequired": "Kankor ID is required",
+      "studentForm.validation.kankorIdPattern":
+        "Use one uppercase letter followed by 7 digits, for example N3300323",
       "studentForm.validation.batchRequired": "Batch is required",
       "studentForm.validation.profileUrlInvalid":
         "Enter a valid URL (http/https)",
@@ -2417,6 +2444,8 @@ const resources = {
       "studentForm.validation.genderRequired": "Please select a gender",
       "studentForm.validation.enrollmentDateRequired":
         "Enrollment date is required",
+      "studentForm.validation.enrollmentDateFuture":
+        "Enrollment date cannot be in the future",
       "studentForm.validation.relativeTypeRequired":
         "Please select a relation",
       "studentForm.validation.relativeNameRequired":
@@ -3183,11 +3212,30 @@ const resources = {
       "adminRegistry.form.facultyName": "Faculty name",
       "adminRegistry.form.facultyCode": "Faculty code",
       "adminRegistry.form.facultyDean": "Dean / lead",
+      "adminRegistry.form.facultyEstablishDate": "Establish date",
+      "adminRegistry.form.facultyUniversity": "University",
+      "adminRegistry.form.facultyEmail": "Faculty email",
+      "adminRegistry.form.facultyPhone": "Faculty phone",
+      "adminRegistry.form.facultyShortName": "Short name",
       "adminRegistry.form.facultyNamePlaceholder": "Enter faculty name",
       "adminRegistry.form.facultyCodePlaceholder": "Enter faculty code",
-      "adminRegistry.form.facultyDeanPlaceholder": "Enter dean or faculty lead",
+      "adminRegistry.form.facultyDeanPlaceholder": "Select dean or faculty lead",
+      "adminRegistry.form.facultyDeanSearch": "Search teachers or employees...",
+      "adminRegistry.form.facultyUniversityPlaceholder": "Enter university name",
+      "adminRegistry.form.facultyUniversitySearch": "Search universities...",
+      "adminRegistry.form.facultyEmailPlaceholder": "faculty@example.edu",
+      "adminRegistry.form.facultyPhonePlaceholder": "+93 70 000 0000",
+      "adminRegistry.form.facultyShortNamePlaceholder": "ENG",
       "adminRegistry.form.facultyDescriptionPlaceholder": "Add a short faculty description",
       "adminRegistry.validation.generic": "Please complete the required fields.",
+      "adminRegistry.validation.facultyNameInvalid": "Use 5-120 letters, spaces, or common punctuation.",
+      "adminRegistry.validation.facultyTextInvalid": "Use 5-120 letters, spaces, or common punctuation.",
+      "adminRegistry.validation.facultyDateInvalid": "Establish date must be a real date and cannot be in the future.",
+      "adminRegistry.validation.facultyCodeInvalid": "Use 2-30 letters, numbers, underscores, or hyphens.",
+      "adminRegistry.validation.facultyEmailInvalid": "Enter a valid email address.",
+      "adminRegistry.validation.facultyPhoneInvalid": "Enter 7-20 digits or + - ( ) spaces.",
+      "adminRegistry.validation.facultyShortNameInvalid": "Use 2-10 letters or digits, starting with a letter.",
+      "adminRegistry.validation.facultyDescriptionInvalid": "Description must be 500 characters or fewer.",
       "adminRegistry.validation.semesterNameRequired":
         "Please enter a semester name.",
       "adminRegistry.validation.semesterAcademicYearRequired":
@@ -3774,6 +3822,9 @@ const resources = {
       "signup.passwordReq.number": "Number",
       "signup.passwordReq.special": "Special character @$!%*?&",
       "signup.validation.firstNameRequired": "First name is required",
+      "signup.validation.nameMin": "Name must be at least 2 letters",
+      "signup.validation.namePattern":
+        "Use letters only. Numbers, spaces, and symbols are not allowed",
       "signup.validation.firstNameMax":
         "First name must not exceed 50 characters",
       "signup.validation.lastNameRequired": "Last name is required",
@@ -3785,7 +3836,10 @@ const resources = {
       "signup.validation.usernameMax":
         "Username must not exceed 50 characters",
       "signup.validation.usernamePattern":
-        "Use only letters, numbers, dots, and underscores",
+        "Use letters and numbers only",
+      "signup.validation.phoneRequired": "Phone number is required",
+      "signup.validation.phonePattern":
+        "Enter a 10-digit Afghan mobile number starting with 07",
       "signup.validation.emailRequired": "Email is required",
       "signup.validation.emailInvalid": "Enter a valid email address",
       "signup.validation.passwordRequired": "Password is required",
@@ -4529,6 +4583,11 @@ const resources = {
       "studentRepo.pulls.card.status": "حالت",
       "studentRepo.pulls.card.sourceHash": "د سرچینې هش: {{sha}}",
       "studentRepo.pulls.card.targetHash": "د موخې هش: {{sha}}",
+      "studentRepo.pulls.mergePreview.title":
+        "له ادغام مخکې بدلونونه وګورئ",
+      "studentRepo.pulls.mergePreview.description":
+        "لاندې اضافه او حذف شوې کرښې وګورئ، بیا یوازې هغه وخت ادغام وکړئ چې سپارل شوی کار دنده بشپړه کړي.",
+      "studentRepo.pulls.mergePreview.confirm": "له بیاکتنې وروسته ادغام",
       "studentRepo.pulls.toast.created": "ادغام غوښتنه جوړه شوه",
       "studentRepo.pulls.toast.createFailed": "د ادغام غوښتنې جوړول ناکام شول.",
       "studentRepo.pulls.conflicts.detected":
@@ -4789,6 +4848,13 @@ const resources = {
       "studentRepo.tasks.taskDetail.filesCommaHint":
         "د فایل لارې د کاما سره جلا کړئ.",
       "studentRepo.tasks.taskDetail.fieldFeedback": "نظر",
+      "studentRepo.tasks.taskDetail.fieldReviewDecision": "د بیاکتنې پرېکړه",
+      "studentRepo.tasks.taskDetail.requestChanges": "بدلونونه وغواړئ",
+      "studentRepo.tasks.taskDetail.requestChangesHint":
+        "د دې نظر سره دنده بېرته پرمختګ ته واستوئ، څو مسئول کس یې بیا ترسره کړي.",
+      "studentRepo.tasks.taskDetail.approveTask": "ومنئ او بشپړه کړئ",
+      "studentRepo.tasks.taskDetail.approveTaskHint":
+        "دنده بشپړه نښه کړئ او د بیاکتنې نمره خوندي کړئ.",
       "studentRepo.tasks.taskDetail.fieldScore": "نمره",
       "studentRepo.tasks.taskDetail.fieldApproved": "تصویب شوی",
       "studentRepo.tasks.taskDetail.fieldCheckedReq": "تایید شوې اړتیاوې",
@@ -6116,9 +6182,16 @@ const resources = {
       "studentForm.validation.firstNameRequired": "نوم ضروري دی",
       "studentForm.validation.lastNameRequired": "تخلص ضروري دی",
       "studentForm.validation.nameLength": "۲–۵۰ توری",
+      "studentForm.validation.namePattern":
+        "یوازې توري وکاروئ. شمېرې، تشې او نښې مه کاروئ",
+      "studentForm.validation.textLength": "۲–۸۰ توري",
+      "studentForm.validation.textPattern":
+        "یوازې توري، تشې، اپاستروف، نقطه یا هایفن وکاروئ",
       "studentForm.validation.fatherNameRequired": "د پلار نوم ضروري دی",
       "studentForm.validation.nationalityRequired": "ملیت ضروري دی",
       "studentForm.validation.dateOfBirthPast": "د زیږون نېټه باید مخکینۍ وی",
+      "studentForm.validation.dateOfBirthMinimumAge":
+        "د زیږون نېټه باید لږترلږه {{years}} کاله پخوانۍ وي.",
       "studentForm.validation.usernameRequired": "کارن نوم ضروري دی",
       "studentForm.validation.usernameLength": "۳–۵۰ توری",
       "studentForm.validation.usernamePattern": "توري، عددونه، نقطې او خط تیرې",
@@ -6126,10 +6199,20 @@ const resources = {
       "studentForm.validation.passwordLength": "۸–۱۲۸ توری",
       "studentForm.validation.passwordPattern": "لوی، وړوکی، عدد او @$!%*?&",
       "studentForm.validation.phoneRequired": "تلیفون ضروري دی",
-      "studentForm.validation.phoneInvalid": "۷–۱۵: عددونه، + او -",
+      "studentForm.validation.phoneInvalid":
+        "۱۰ عددي افغان موبایل شمېره ولیکئ چې له 07 څخه پیلېږي",
       "studentForm.validation.addressStreetRequired": "پته ضروري ده",
       "studentForm.validation.addressCityRequired": "ښار ضروري دی",
       "studentForm.validation.addressPostalRequired": "پوست کوډ ضروري دی",
+      "studentForm.validation.addressPattern":
+        "۵–۱۵۰ توري، شمېرې، تشې، کامې، هایفن یا نقطې وکاروئ",
+      "studentForm.validation.postalPattern":
+        "۳–۲۰ توري، شمېرې، تشې یا هایفن وکاروئ",
+      "studentForm.validation.codePattern":
+        "توري، شمېرې، انډرسکور یا هایفن وکاروئ",
+      "studentForm.validation.kankorIdRequired": "کانکور ID ضروري دی",
+      "studentForm.validation.kankorIdPattern":
+        "یو لوی توری او ۷ عددونه وکاروئ، لکه N3300323",
       "studentForm.validation.batchRequired": "بیچ ضروري دی",
       "studentForm.validation.profileUrlInvalid": "اعتبار لرونکی URL ولیکئ",
       "studentForm.validation.emailRequired": "ایمیل ضروري دی",
@@ -6144,6 +6227,8 @@ const resources = {
       "studentForm.validation.genderRequired": "مهرباني وکړئ جنس وټاکئ",
       "studentForm.validation.enrollmentDateRequired":
         "د شاملېدو نېټه ضروري ده",
+      "studentForm.validation.enrollmentDateFuture":
+        "د شاملېدو نېټه راتلونکې نه شي کېدای",
       "studentForm.validation.relativeTypeRequired":
         "مهرباني وکړئ رابطه وټاکئ",
       "studentForm.validation.relativeNameRequired": "د خپلوان نوم ضروري دی",
@@ -6893,11 +6978,30 @@ const resources = {
       "adminRegistry.form.facultyName": "د پوهنځي نوم",
       "adminRegistry.form.facultyCode": "د پوهنځي کوډ",
       "adminRegistry.form.facultyDean": "رئیس / مسئول",
+      "adminRegistry.form.facultyEstablishDate": "د جوړېدو نېټه",
+      "adminRegistry.form.facultyUniversity": "پوهنتون",
+      "adminRegistry.form.facultyEmail": "د پوهنځي ایمیل",
+      "adminRegistry.form.facultyPhone": "د پوهنځي تلیفون",
+      "adminRegistry.form.facultyShortName": "لنډ نوم",
       "adminRegistry.form.facultyNamePlaceholder": "د پوهنځي نوم ولیکئ",
       "adminRegistry.form.facultyCodePlaceholder": "د پوهنځي کوډ ولیکئ",
-      "adminRegistry.form.facultyDeanPlaceholder": "د رئیس یا مسئول نوم ولیکئ",
+      "adminRegistry.form.facultyDeanPlaceholder": "رئیس یا مسئول وټاکئ",
+      "adminRegistry.form.facultyDeanSearch": "ښوونکي یا کارکوونکي ولټوئ...",
+      "adminRegistry.form.facultyUniversityPlaceholder": "د پوهنتون نوم ولیکئ",
+      "adminRegistry.form.facultyUniversitySearch": "پوهنتونونه ولټوئ...",
+      "adminRegistry.form.facultyEmailPlaceholder": "faculty@example.edu",
+      "adminRegistry.form.facultyPhonePlaceholder": "+93 70 000 0000",
+      "adminRegistry.form.facultyShortNamePlaceholder": "ENG",
       "adminRegistry.form.facultyDescriptionPlaceholder": "د پوهنځي لپاره لنډ تشریح ولیکئ",
       "adminRegistry.validation.generic": "مهرباني وکړئ اړین فیلډونه بشپړ کړئ.",
+      "adminRegistry.validation.facultyNameInvalid": "۵-۱۲۰ توري، تشې یا عامې نښې وکاروئ.",
+      "adminRegistry.validation.facultyTextInvalid": "۵-۱۲۰ توري، تشې یا عامې نښې وکاروئ.",
+      "adminRegistry.validation.facultyDateInvalid": "د جوړېدو نېټه باید سمه وي او راتلونکې نه وي.",
+      "adminRegistry.validation.facultyCodeInvalid": "۲-۳۰ توري، عددونه، انډرسکور یا هایفن وکاروئ.",
+      "adminRegistry.validation.facultyEmailInvalid": "سم ایمیل ولیکئ.",
+      "adminRegistry.validation.facultyPhoneInvalid": "۷-۲۰ عددونه یا + - ( ) تشې ولیکئ.",
+      "adminRegistry.validation.facultyShortNameInvalid": "۲-۱۰ توري یا شمېرې وکاروئ او له توري یې پیل کړئ.",
+      "adminRegistry.validation.facultyDescriptionInvalid": "تشریح باید تر ۵۰۰ تورو زیاته نه وي.",
       "adminRegistry.validation.semesterNameRequired":
         "مهرباني وکړئ د سمستر نوم ولیکئ.",
       "adminRegistry.validation.semesterAcademicYearRequired":
@@ -7482,6 +7586,9 @@ const resources = {
       "signup.passwordReq.number": "شمېره",
       "signup.passwordReq.special": "ځانګړی توری @$!%*?&",
       "signup.validation.firstNameRequired": "نوم اړین دی",
+      "signup.validation.nameMin": "نوم باید لږ تر لږه ۲ توري وي",
+      "signup.validation.namePattern":
+        "یوازې توري وکاروئ. شمېرې، تشې او نښې مه کاروئ",
       "signup.validation.firstNameMax": "نوم باید له ۵۰ تورو زیات نه وي",
       "signup.validation.lastNameRequired": "تخلص اړین دی",
       "signup.validation.lastNameMax": "تخلص باید له ۵۰ تورو زیات نه وي",
@@ -7489,7 +7596,10 @@ const resources = {
       "signup.validation.usernameMin": "کارن نوم باید لږ تر لږه ۳ توري وي",
       "signup.validation.usernameMax": "کارن نوم باید له ۵۰ تورو زیات نه وي",
       "signup.validation.usernamePattern":
-        "یوازې توري، شمېرې، ټکی او لاندې کرښه وکاروئ",
+        "یوازې توري او شمېرې وکاروئ",
+      "signup.validation.phoneRequired": "د ټیلیفون شمېره اړینه ده",
+      "signup.validation.phonePattern":
+        "۱۰ عددي افغان موبایل شمېره ولیکئ چې له 07 څخه پیلېږي",
       "signup.validation.emailRequired": "ایمیل اړین دی",
       "signup.validation.emailInvalid": "سم ایمیل ولیکئ",
       "signup.validation.passwordRequired": "پټنوم اړین دی",
@@ -8234,6 +8344,11 @@ const resources = {
       "studentRepo.pulls.card.status": "وضعیت",
       "studentRepo.pulls.card.sourceHash": "هش مبدأ: {{sha}}",
       "studentRepo.pulls.card.targetHash": "هش مقصد: {{sha}}",
+      "studentRepo.pulls.mergePreview.title":
+        "بازبینی تغییرات پیش از ادغام",
+      "studentRepo.pulls.mergePreview.description":
+        "خط‌های اضافه‌شده و حذف‌شده را در پایین بررسی کنید، سپس فقط وقتی کار ارسال‌شده وظیفه را کامل می‌کند ادغام کنید.",
+      "studentRepo.pulls.mergePreview.confirm": "ادغام پس از بازبینی",
       "studentRepo.pulls.toast.created": "درخواست ادغام ایجاد شد",
       "studentRepo.pulls.toast.createFailed": "ایجاد درخواست ادغام ناموفق بود.",
       "studentRepo.pulls.conflicts.detected":
@@ -8496,6 +8611,13 @@ const resources = {
       "studentRepo.tasks.taskDetail.filesCommaHint":
         "مسیر فایل‌ها را با ویرگول جدا کنید.",
       "studentRepo.tasks.taskDetail.fieldFeedback": "بازخورد",
+      "studentRepo.tasks.taskDetail.fieldReviewDecision": "تصمیم بازبینی",
+      "studentRepo.tasks.taskDetail.requestChanges": "درخواست تغییرات",
+      "studentRepo.tasks.taskDetail.requestChangesHint":
+        "وظیفه را با این بازخورد به وضعیت در حال انجام برگردانید تا مسئول دوباره انجام دهد.",
+      "studentRepo.tasks.taskDetail.approveTask": "تأیید و تکمیل",
+      "studentRepo.tasks.taskDetail.approveTaskHint":
+        "وظیفه را تکمیل‌شده کنید و نمرهٔ بازبینی را ذخیره کنید.",
       "studentRepo.tasks.taskDetail.fieldScore": "نمره",
       "studentRepo.tasks.taskDetail.fieldApproved": "تأییدشده",
       "studentRepo.tasks.taskDetail.fieldCheckedReq": "نیازمندی‌های تأییدشده",
@@ -9840,9 +9962,16 @@ const resources = {
       "studentForm.validation.firstNameRequired": "نام ضروری است",
       "studentForm.validation.lastNameRequired": "تخلص ضروری است",
       "studentForm.validation.nameLength": "۲ تا ۵۰ نویسه",
+      "studentForm.validation.namePattern":
+        "فقط حروف مجاز است. عدد، فاصله و نشانه مجاز نیست",
+      "studentForm.validation.textLength": "۲ تا ۸۰ نویسه",
+      "studentForm.validation.textPattern":
+        "فقط حروف، فاصله، اپاستروف، نقطه یا خط فاصله وارد کنید",
       "studentForm.validation.fatherNameRequired": "نام پدر ضروری است",
       "studentForm.validation.nationalityRequired": "تابعیت ضروری است",
       "studentForm.validation.dateOfBirthPast": "تاریخ تولد باید گذشته باشد",
+      "studentForm.validation.dateOfBirthMinimumAge":
+        "تاریخ تولد باید حداقل {{years}} سال قبل باشد.",
       "studentForm.validation.usernameRequired": "نام کاربری ضروری است",
       "studentForm.validation.usernameLength": "۳ تا ۵۰ نویسه",
       "studentForm.validation.usernamePattern": "فقط حروف، عدد، نقطه و زیرخط",
@@ -9851,10 +9980,20 @@ const resources = {
       "studentForm.validation.passwordPattern":
         "حروف بزرگ و کوچک، عدد و یکی از @$!%*?&",
       "studentForm.validation.phoneRequired": "تلفن ضروری است",
-      "studentForm.validation.phoneInvalid": "۷–۱۵ نویسه: عدد، + و -",
+      "studentForm.validation.phoneInvalid":
+        "شماره موبایل افغانستان را با ۱۰ رقم و شروع 07 وارد کنید",
       "studentForm.validation.addressStreetRequired": "آدرس خیابان ضروری است",
       "studentForm.validation.addressCityRequired": "شهر ضروری است",
       "studentForm.validation.addressPostalRequired": "کد پستی ضروری است",
+      "studentForm.validation.addressPattern":
+        "۵ تا ۱۵۰ حرف، عدد، فاصله، ویرگول، خط فاصله یا نقطه وارد کنید",
+      "studentForm.validation.postalPattern":
+        "۳ تا ۲۰ حرف، عدد، فاصله یا خط فاصله وارد کنید",
+      "studentForm.validation.codePattern":
+        "حروف، عدد، زیرخط یا خط فاصله وارد کنید",
+      "studentForm.validation.kankorIdRequired": "آی‌دی کانکور ضروری است",
+      "studentForm.validation.kankorIdPattern":
+        "یک حرف بزرگ و سپس ۷ رقم وارد کنید، مانند N3300323",
       "studentForm.validation.batchRequired": "نسخه / بچ ضروری است",
       "studentForm.validation.profileUrlInvalid": "یک URL معتبر (http/https) وارد کنید",
       "studentForm.validation.emailRequired": "ایمیل ضروری است",
@@ -9870,6 +10009,8 @@ const resources = {
       "studentForm.validation.genderRequired": "لطفاً جنسیت را انتخاب کنید",
       "studentForm.validation.enrollmentDateRequired":
         "تاریخ ثبت‌نام ضروری است",
+      "studentForm.validation.enrollmentDateFuture":
+        "تاریخ ثبت‌نام نمی‌تواند در آینده باشد",
       "studentForm.validation.relativeTypeRequired":
         "لطفاً رابطه را انتخاب کنید",
       "studentForm.validation.relativeNameRequired":
@@ -10622,11 +10763,30 @@ const resources = {
       "adminRegistry.form.facultyName": "نام پوهنځی",
       "adminRegistry.form.facultyCode": "کد پوهنځی",
       "adminRegistry.form.facultyDean": "رئیس / مسئول",
+      "adminRegistry.form.facultyEstablishDate": "تاریخ تأسیس",
+      "adminRegistry.form.facultyUniversity": "پوهنتون",
+      "adminRegistry.form.facultyEmail": "ایمیل پوهنځی",
+      "adminRegistry.form.facultyPhone": "تلفن پوهنځی",
+      "adminRegistry.form.facultyShortName": "نام کوتاه",
       "adminRegistry.form.facultyNamePlaceholder": "نام پوهنځی را وارد کنید",
       "adminRegistry.form.facultyCodePlaceholder": "کد پوهنځی را وارد کنید",
-      "adminRegistry.form.facultyDeanPlaceholder": "نام رئیس یا مسئول را وارد کنید",
+      "adminRegistry.form.facultyDeanPlaceholder": "رئیس یا مسئول را انتخاب کنید",
+      "adminRegistry.form.facultyDeanSearch": "استادان یا کارمندان را جستجو کنید...",
+      "adminRegistry.form.facultyUniversityPlaceholder": "نام پوهنتون را وارد کنید",
+      "adminRegistry.form.facultyUniversitySearch": "پوهنتون‌ها را جستجو کنید...",
+      "adminRegistry.form.facultyEmailPlaceholder": "faculty@example.edu",
+      "adminRegistry.form.facultyPhonePlaceholder": "+93 70 000 0000",
+      "adminRegistry.form.facultyShortNamePlaceholder": "ENG",
       "adminRegistry.form.facultyDescriptionPlaceholder": "یک توضیح کوتاه برای پوهنځی بنویسید",
       "adminRegistry.validation.generic": "لطفاً فیلدهای ضروری را تکمیل کنید.",
+      "adminRegistry.validation.facultyNameInvalid": "۵ تا ۱۲۰ حرف، فاصله یا نشانه‌های رایج وارد کنید.",
+      "adminRegistry.validation.facultyTextInvalid": "۵ تا ۱۲۰ حرف، فاصله یا نشانه‌های رایج وارد کنید.",
+      "adminRegistry.validation.facultyDateInvalid": "تاریخ تأسیس باید معتبر باشد و در آینده نباشد.",
+      "adminRegistry.validation.facultyCodeInvalid": "۲ تا ۳۰ حرف، عدد، زیرخط یا خط تیره وارد کنید.",
+      "adminRegistry.validation.facultyEmailInvalid": "ایمیل معتبر وارد کنید.",
+      "adminRegistry.validation.facultyPhoneInvalid": "۷ تا ۲۰ رقم یا + - ( ) فاصله وارد کنید.",
+      "adminRegistry.validation.facultyShortNameInvalid": "۲ تا ۱۰ حرف یا عدد وارد کنید و با حرف شروع شود.",
+      "adminRegistry.validation.facultyDescriptionInvalid": "توضیح باید ۵۰۰ نویسه یا کمتر باشد.",
       "adminRegistry.validation.semesterNameRequired":
         "لطفاً نام سمستر را وارد کنید.",
       "adminRegistry.validation.semesterAcademicYearRequired":
@@ -11212,6 +11372,9 @@ const resources = {
       "signup.passwordReq.number": "عدد",
       "signup.passwordReq.special": "نویسه خاص @$!%*?&",
       "signup.validation.firstNameRequired": "نام الزامی است",
+      "signup.validation.nameMin": "نام باید حداقل ۲ حرف باشد",
+      "signup.validation.namePattern":
+        "فقط حروف مجاز است. عدد، فاصله و نشانه مجاز نیست",
       "signup.validation.firstNameMax": "نام نباید بیش از ۵۰ نویسه باشد",
       "signup.validation.lastNameRequired": "تخلص الزامی است",
       "signup.validation.lastNameMax": "تخلص نباید بیش از ۵۰ نویسه باشد",
@@ -11221,7 +11384,10 @@ const resources = {
       "signup.validation.usernameMax":
         "نام کاربری نباید بیش از ۵۰ نویسه باشد",
       "signup.validation.usernamePattern":
-        "فقط از حروف، اعداد، نقطه و زیرخط استفاده کنید",
+        "فقط از حروف و اعداد استفاده کنید",
+      "signup.validation.phoneRequired": "شماره تلفن الزامی است",
+      "signup.validation.phonePattern":
+        "شماره موبایل افغانستان را با ۱۰ رقم و شروع 07 وارد کنید",
       "signup.validation.emailRequired": "ایمیل الزامی است",
       "signup.validation.emailInvalid": "یک ایمیل معتبر وارد کنید",
       "signup.validation.passwordRequired": "رمز عبور الزامی است",

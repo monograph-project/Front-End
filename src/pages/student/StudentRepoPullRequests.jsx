@@ -20,6 +20,7 @@ import {
 import { gooeyToast } from "goey-toast";
 import Button from "../../components/Button";
 import ConflictResolver from "../../components/MergeConflict/ConflictResolver";
+import PRFilesDiff from "../../components/PullRequest/PRFilesDiff";
 import Select from "../../components/Select";
 import SettingsSectionCard from "../../components/SettingsSectionCard";
 import { cn } from "../../lib/utils";
@@ -625,6 +626,7 @@ function PullRequestCard({
   refetch,
 }) {
   const { t } = useTranslation();
+  const [mergePreviewOpen, setMergePreviewOpen] = useState(false);
   const prId = String(pr.id ?? pr.number ?? pr.uuid ?? "");
   const active = activePrId === prId;
   const sourceBranch = readableSourceBranch(pr);
@@ -742,7 +744,10 @@ function PullRequestCard({
             type="button"
             loading={mergeBusy && mergePr.isPending}
             disabled={mergePr.isPending && !mergeBusy}
-            onClick={() => onMerge(prId)}
+            onClick={() => {
+              setActivePrId(prId);
+              setMergePreviewOpen(true);
+            }}
           >
             {t("studentRepo.pulls.card.merge")}
           </Button>
@@ -813,6 +818,40 @@ function PullRequestCard({
                 await refetch();
               }}
             />
+          ) : null}
+
+          {mergePreviewOpen && isOpenish && !isConflicting ? (
+            <div className="space-y-3 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                    {t("studentRepo.pulls.mergePreview.title")}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-secondary dark:text-dark-secondary">
+                    {t("studentRepo.pulls.mergePreview.description")}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setMergePreviewOpen(false)}
+                    disabled={mergeBusy && mergePr.isPending}
+                  >
+                    {t("studentRepo.pulls.actions.cancel")}
+                  </Button>
+                  <Button
+                    type="button"
+                    loading={mergeBusy && mergePr.isPending}
+                    disabled={mergePr.isPending && !mergeBusy}
+                    onClick={() => onMerge(prId)}
+                  >
+                    {t("studentRepo.pulls.mergePreview.confirm")}
+                  </Button>
+                </div>
+              </div>
+              <PRFilesDiff owner={owner} repo={repo} prNumber={prId} />
+            </div>
           ) : null}
         </div>
       ) : null}

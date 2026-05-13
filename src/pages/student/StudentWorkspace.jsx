@@ -494,7 +494,7 @@ function RepoGridCard({ item, t, shellBase }) {
           </div>
         </div>
 
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           {visibility === "private" ? (
             <Lock className="h-4 w-4 text-[#98a2b3] dark:text-dark-text-muted" />
           ) : (

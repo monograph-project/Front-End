@@ -269,7 +269,7 @@ export default function StudentRepoTaskDetail() {
   const [reviewDraft, setReviewDraft] = useState({
     feedback: "",
     score: "",
-    approved: true,
+    approved: false,
     checkedRequirements: "",
   });
 
@@ -345,7 +345,7 @@ export default function StudentRepoTaskDetail() {
       setReviewDraft({
         feedback: "",
         score: "",
-        approved: true,
+        approved: false,
         checkedRequirements: "",
       });
     },
@@ -466,12 +466,10 @@ export default function StudentRepoTaskDetail() {
   const reviewBlockedExplainer =
     task && reviewerRole && !canReviewPrSubmission
       ? assigneeTrim &&
-          viewerHandle &&
-          usernamesLikelySame(viewerHandle, assigneeTrim)
+        viewerHandle &&
+        usernamesLikelySame(viewerHandle, assigneeTrim)
         ? t("studentRepo.tasks.taskDetail.reviewBlockedAssignee")
-        : !taskVcHasSubmissionSignals(task)
-          ? t("studentRepo.tasks.taskDetail.reviewBlockedNeedsSubmission")
-          : null
+        : null
       : null;
 
   const showReviewExplainer = Boolean(reviewBlockedExplainer);
@@ -1059,6 +1057,49 @@ export default function StudentRepoTaskDetail() {
               className="min-h-28 w-full resize-y rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3.5 py-2 text-sm text-(--color-light-text-primary) outline-none transition placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
             />
           </Field>
+          <Field label={t("studentRepo.tasks.taskDetail.fieldReviewDecision")}>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                {
+                  value: false,
+                  label: t("studentRepo.tasks.taskDetail.requestChanges"),
+                  hint: t("studentRepo.tasks.taskDetail.requestChangesHint"),
+                },
+                {
+                  value: true,
+                  label: t("studentRepo.tasks.taskDetail.approveTask"),
+                  hint: t("studentRepo.tasks.taskDetail.approveTaskHint"),
+                },
+              ].map((option) => {
+                const active = reviewDraft.approved === option.value;
+                return (
+                  <button
+                    key={String(option.value)}
+                    type="button"
+                    onClick={() =>
+                      setReviewDraft((p) => ({
+                        ...p,
+                        approved: option.value,
+                      }))
+                    }
+                    className={cx(
+                      "rounded-2xl border p-3 text-start transition-colors",
+                      active
+                        ? "border-(--color-light-input-border-focus) bg-blue-50 text-primary dark:border-(--color-dark-input-border-focus) dark:bg-blue-500/10 dark:text-dark-primary"
+                        : "border-(--color-light-card-border) bg-light-app-tertiary text-secondary hover:border-(--color-light-input-border) dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary dark:hover:border-(--color-dark-input-border-focus)",
+                    )}
+                  >
+                    <span className="block text-sm font-semibold">
+                      {option.label}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-muted dark:text-dark-muted">
+                      {option.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
           {canEditGradingForms ? (
             <Field
               register={{}}
@@ -1084,17 +1125,6 @@ export default function StudentRepoTaskDetail() {
           <p className="text-xs text-secondary dark:text-dark-secondary">
             {t("studentRepo.tasks.taskDetail.checkedReqHint")}
           </p>
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-primary dark:text-dark-primary">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-(--color-light-input-border) text-(--color-light-input-border-focus) focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:border-dark-input-border dark:text-(--color-dark-input-border-focus)"
-              checked={reviewDraft.approved}
-              onChange={(e) =>
-                setReviewDraft((p) => ({ ...p, approved: e.target.checked }))
-              }
-            />
-            {t("studentRepo.tasks.taskDetail.fieldApproved")}
-          </label>
         </div>
       </GlobalModal>
     </div>

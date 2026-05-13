@@ -38,11 +38,35 @@ import {
 } from "../services/useApi";
 const MotionDiv = motion.div;
 
-const USERNAME_PATTERN = /^[a-zA-Z0-9._]+$/;
+const USERNAME_PATTERN =
+  /^(?!.*[._]{2})[A-Za-z][A-Za-z0-9._]{1,48}[A-Za-z0-9]$/;
 const PASSWORD_PATTERN =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
 /** Backend TeacherRequest phone pattern */
-const TEACHER_PHONE_PATTERN = /^[0-9+\-]{7,15}$/;
+const TEACHER_PHONE_PATTERN = /^07\d{8}$/;
+const PERSON_NAME_PATTERN = /^[\p{L}]{2,50}$/u;
+const TEXT_PATTERN = /^[\p{L}][\p{L}\s.'-]{1,79}$/u;
+const ADDRESS_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N}\s,.-]{4,149}$/u;
+const POSTAL_CODE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 -]{2,19}$/;
+const MIN_BIRTH_AGE_YEARS = 10;
+
+function parseDateOnly(value) {
+  if (!value || typeof value !== "string") return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isAtLeastAge(value, years) {
+  const date = parseDateOnly(value);
+  if (!date) return false;
+  const latestAllowed = new Date();
+  latestAllowed.setFullYear(latestAllowed.getFullYear() - years);
+  latestAllowed.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return date <= latestAllowed;
+}
 const EDUCATION_RANK_VALUES = [
   "HIGH_SCHOOL",
   "DIPLOMA",
@@ -563,6 +587,10 @@ export default function TeacherRegistrationWizard({
                       value: 50,
                       message: t("studentForm.validation.nameLength"),
                     },
+                    pattern: {
+                      value: PERSON_NAME_PATTERN,
+                      message: t("studentForm.validation.namePattern"),
+                    },
                   })}
                   error={errors.firstName?.message}
                 />
@@ -572,6 +600,18 @@ export default function TeacherRegistrationWizard({
                   placeholder={t("studentForm.fields.lastName.placeholder")}
                   register={register("lastName", {
                     required: t("studentForm.validation.lastNameRequired"),
+                    minLength: {
+                      value: 2,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                    maxLength: {
+                      value: 50,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                    pattern: {
+                      value: PERSON_NAME_PATTERN,
+                      message: t("studentForm.validation.namePattern"),
+                    },
                   })}
                   error={errors.lastName?.message}
                 />
@@ -582,6 +622,18 @@ export default function TeacherRegistrationWizard({
                   placeholder={t("studentForm.fields.fatherName.placeholder")}
                   register={register("fatherName", {
                     required: t("studentForm.validation.fatherNameRequired"),
+                    minLength: {
+                      value: 2,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                    maxLength: {
+                      value: 50,
+                      message: t("studentForm.validation.nameLength"),
+                    },
+                    pattern: {
+                      value: PERSON_NAME_PATTERN,
+                      message: t("studentForm.validation.namePattern"),
+                    },
                   })}
                   error={errors.fatherName?.message}
                 />
@@ -590,7 +642,17 @@ export default function TeacherRegistrationWizard({
                   placeholder={t(
                     "studentForm.fields.grandFatherName.placeholder",
                   )}
-                  register={register("grandFatherName")}
+                  register={register("grandFatherName", {
+                    validate: (value) => {
+                      const v = String(value ?? "").trim();
+                      if (!v) return true;
+                      if (v.length < 2 || v.length > 50)
+                        return t("studentForm.validation.nameLength");
+                      return PERSON_NAME_PATTERN.test(v)
+                        ? true
+                        : t("studentForm.validation.namePattern");
+                    },
+                  })}
                   error={errors.grandFatherName?.message}
                 />
               </div>
@@ -610,13 +672,11 @@ export default function TeacherRegistrationWizard({
                   required: t("studentForm.validation.dateOfBirthRequired"),
                   validate: (v) => {
                     if (!v) return true;
-                    const d = new Date(v);
-                    const today = new Date();
-                    d.setHours(0, 0, 0, 0);
-                    today.setHours(0, 0, 0, 0);
-                    return (
-                      d < today || t("studentForm.validation.dateOfBirthPast")
-                    );
+                    return isAtLeastAge(v, MIN_BIRTH_AGE_YEARS)
+                      ? true
+                      : t("studentForm.validation.dateOfBirthMinimumAge", {
+                          years: MIN_BIRTH_AGE_YEARS,
+                        });
                   },
                 })}
                 error={errors.dateOfBirth?.message}
@@ -695,6 +755,18 @@ export default function TeacherRegistrationWizard({
                 placeholder={t("studentForm.fields.addressStreet.placeholder")}
                 register={register("addressStreet", {
                   required: t("studentForm.validation.addressStreetRequired"),
+                  minLength: {
+                    value: 2,
+                    message: t("studentForm.validation.addressPattern"),
+                  },
+                  maxLength: {
+                    value: 120,
+                    message: t("studentForm.validation.addressPattern"),
+                  },
+                  pattern: {
+                    value: ADDRESS_PATTERN,
+                    message: t("studentForm.validation.addressPattern"),
+                  },
                 })}
                 error={errors.addressStreet?.message}
               />
@@ -705,6 +777,18 @@ export default function TeacherRegistrationWizard({
                   placeholder={t("studentForm.fields.addressCity.placeholder")}
                   register={register("addressCity", {
                     required: t("studentForm.validation.addressCityRequired"),
+                    minLength: {
+                      value: 2,
+                      message: t("studentForm.validation.textLength"),
+                    },
+                    maxLength: {
+                      value: 80,
+                      message: t("studentForm.validation.textLength"),
+                    },
+                    pattern: {
+                      value: TEXT_PATTERN,
+                      message: t("studentForm.validation.textPattern"),
+                    },
                   })}
                   error={errors.addressCity?.message}
                 />
@@ -715,6 +799,10 @@ export default function TeacherRegistrationWizard({
                   )}
                   register={register("addressPostalCode", {
                     required: t("studentForm.validation.addressPostalRequired"),
+                    pattern: {
+                      value: POSTAL_CODE_PATTERN,
+                      message: t("studentForm.validation.postalPattern"),
+                    },
                   })}
                   error={errors.addressPostalCode?.message}
                 />
@@ -724,7 +812,18 @@ export default function TeacherRegistrationWizard({
                 placeholder={t(
                   "teacherForm.fields.addressProvince.placeholder",
                 )}
-                register={register("addressProvince")}
+                register={register("addressProvince", {
+                  validate: (value) => {
+                    const v = String(value ?? "").trim();
+                    if (!v) return true;
+                    if (v.length < 2 || v.length > 80)
+                      return t("studentForm.validation.textLength");
+                    return TEXT_PATTERN.test(v)
+                      ? true
+                      : t("studentForm.validation.textPattern");
+                  },
+                })}
+                error={errors.addressProvince?.message}
               />
             </FormSectionCard>
           </MotionDiv>
@@ -821,6 +920,17 @@ export default function TeacherRegistrationWizard({
                 type="date"
                 register={register("enrollmentDate", {
                   required: t("teacherForm.validation.enrollmentDateRequired"),
+                  validate: (v) => {
+                    if (!v) return true;
+                    const d = new Date(v);
+                    const today = new Date();
+                    d.setHours(0, 0, 0, 0);
+                    today.setHours(0, 0, 0, 0);
+                    return (
+                      d <= today ||
+                      t("studentForm.validation.enrollmentDateFuture")
+                    );
+                  },
                 })}
                 error={errors.enrollmentDate?.message}
               />

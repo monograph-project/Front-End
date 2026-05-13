@@ -110,7 +110,6 @@ export function canPerformVcTaskPullSubmissionReview(user, task, reviewerRoleFns
     (typeof isTeacher === "function" && isTeacher()) ||
     (typeof isAdmin === "function" && isAdmin());
   if (!isReviewerRole || !task || typeof task !== "object") return false;
-  if (!taskVcHasSubmissionSignals(task)) return false;
   const me = repoViewerUsername(user);
   const assignee = taskAssigneeUsername(task);
   if (assignee && usernamesLikelySame(me, assignee)) return false;

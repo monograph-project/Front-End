@@ -15,6 +15,7 @@ import {
   STUDENT,
   DEPARTMENT,
   FACULTY,
+  UNIVERSITY,
   BATCH,
   ACADEMIC_YEAR,
   SEMESTER,
@@ -780,9 +781,7 @@ export async function vcListRepositoriesWithFallback(
         limit: options.activityLimit ?? 120,
       }),
     );
-    return repoSlugsFromActivityEvents(
-      Array.isArray(data) ? data : [],
-    ).map((slug) =>
+    return repoSlugsFromActivityEvents(unwrapListPayload(data)).map((slug) =>
       normalizeVcRepoListItem({
         ownerUsername: slug.ownerUsername,
         repositoryName: slug.repositoryName,
@@ -979,13 +978,7 @@ export async function vcGetUserActivity(username, params = {}) {
   if (!u) return [];
   try {
     const { data } = await axiosInstance.get(VC.USER_ACTIVITY(u, params));
-    if (Array.isArray(data)) return data;
-    if (data && typeof data === "object") {
-      if (Array.isArray(data.events)) return data.events;
-      if (Array.isArray(data.items)) return data.items;
-      if (Array.isArray(data.content)) return data.content;
-    }
-    return [];
+    return unwrapListPayload(data);
   } catch (err) {
     if ([404, 422].includes(err?.response?.status)) return [];
     throwApiError(
@@ -1767,6 +1760,7 @@ function normalizeEmployeeRecord(raw) {
     username: raw.userName ?? raw.username ?? raw.user_name ?? "",
     fatherName: raw.fatherName ?? raw.father_name ?? "",
     grandFatherName: raw.grandFatherName ?? raw.grand_father_name ?? "",
+    dateOfBirth: toDateInputValue(raw.dateOfBirth ?? raw.date_of_birth),
     email: raw.email ?? "",
     phone: raw.phone ?? "",
     facultyId: facultyId != null ? String(facultyId) : "",
@@ -2058,11 +2052,59 @@ function normalizeFacultyRecord(raw) {
     id,
     name: String(name || id || ""),
     code: raw.code ?? raw.facultyCode ?? raw.faculty_code ?? "",
+    establishDate: toDateInputValue(
+      raw.establishDate ?? raw.establishedDate ?? raw.establish_date,
+    ),
+    description: raw.description ?? raw.summary ?? "",
+    university: raw.university ?? raw.universityName ?? raw.university_name ?? "",
+    deanOfFaculty:
+      raw.deanOfFaculty ??
+      raw.dean_of_faculty ??
+      raw.dean ??
+      raw.head ??
+      "",
+    email: raw.email ?? "",
+    phone: raw.phone ?? "",
+    shortName:
+      raw.shortName ??
+      raw.short_name ??
+      raw.abbreviation ??
+      raw.alias ??
+      "",
   };
 }
 
 function normalizeFacultiesList(payload) {
   return facultyListItems(payload).map(normalizeFacultyRecord).filter(Boolean);
+}
+
+function normalizeUniversityRecord(raw) {
+  if (raw == null) return null;
+  if (typeof raw === "string") {
+    const name = raw.trim();
+    return name ? { id: name, name } : null;
+  }
+  if (typeof raw !== "object") return null;
+  const id = raw.id ?? raw.universityId ?? raw.uuid ?? raw.code ?? raw.name ?? "";
+  const name =
+    raw.name ??
+    raw.title ??
+    raw.universityName ??
+    raw.university_name ??
+    raw.displayName ??
+    "";
+  const label = String(name || id || "").trim();
+  if (!label) return null;
+  return {
+    ...raw,
+    id,
+    name: label,
+    code: raw.code ?? raw.universityCode ?? raw.university_code ?? "",
+  };
+}
+
+function normalizeUniversitiesList(payload) {
+  return facultyListItems(payload).map(normalizeUniversityRecord).filter(Boolean);
 }
 
 export async function getFaculties() {
@@ -2423,6 +2465,20 @@ export async function getFacultyProjects(query = {}, requestConfig = {}) {
       err,
       "Failed to load projects.",
       "apiErrors.failed_to_load_faculty_projects",
+    );
+  }
+}
+
+export async function getUniversities() {
+  try {
+    const { data } = await axiosInstance.get(UNIVERSITY.GETALL);
+    return normalizeUniversitiesList(data);
+  } catch (err) {
+    if ([404, 501].includes(err?.response?.status)) return [];
+    throwApiError(
+      err,
+      "Failed to load universities.",
+      "apiErrors.failed_to_load_universities",
     );
   }
 }

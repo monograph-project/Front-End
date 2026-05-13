@@ -52,6 +52,7 @@ import TableColumn from "../../components/TableColumn";
 import TableHeader from "../../components/TableHeader";
 import TableRow from "../../components/TableRow";
 import TableToolbar from "../../components/TableToolbar";
+import TextArea from "../../components/TextArea";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import {
   useCreateAcademicYear,
@@ -67,10 +68,13 @@ import {
   useDeleteFacultyGroup,
   useDeleteSemester,
   useDepartments,
+  useEmployees,
   useFaculties,
   useFacultyGroups,
   useStudentsPage,
   useSemesters,
+  useTeachers,
+  useUniversities,
   useUpdateAcademicYear,
   useUpdateBatch,
   useUpdateFaculty,
@@ -86,6 +90,11 @@ const STATUS_ALL = "all";
 const SEMESTER_TYPE_OPTIONS = ["FALL", "SUMMER", "SPRING"];
 /** Minimum calendar span between batch start / end dates (inclusive boundary check). */
 const BATCH_MIN_SPAN_MONTHS = 4;
+const FACULTY_TEXT_PATTERN = /^[\p{L}][\p{L}\s.'’&()/-]{4,119}$/u;
+const FACULTY_CODE_PATTERN = /^[A-Za-z0-9_-]{2,30}$/;
+const FACULTY_PHONE_PATTERN = /^[0-9+\-() ]{7,20}$/;
+const FACULTY_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const FACULTY_SHORT_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9]{1,9}$/;
 
 function parseDateInputOnly(isoDate) {
   if (!isoDate || typeof isoDate !== "string") return null;
@@ -200,7 +209,7 @@ function getDepartmentMetaLine(record, t) {
 function getFacultyMetaLine(record) {
   const parts = [
     record?.code ? `Code: ${record.code}` : "",
-    record?.dean ?? record?.head ?? "",
+    record?.deanOfFaculty ?? record?.dean ?? record?.head ?? "",
   ].filter(Boolean);
   return parts.join(" • ");
 }
@@ -286,6 +295,33 @@ function studentToOption(student) {
   };
 }
 
+function personToOption(person, fallbackRole = "") {
+  const id =
+    person?.id ??
+    person?.teacherId ??
+    person?.employeeId ??
+    person?.uuid ??
+    person?.email ??
+    "";
+  if (id == null || String(id).trim() === "") return null;
+  const label = displayName(person, String(id));
+  const description = [
+    person?.email,
+    person?.facultyPosition ?? person?.educationRank ?? fallbackRole,
+  ]
+    .filter(Boolean)
+    .join(" • ");
+  return {
+    value: label,
+    label,
+    description: description || undefined,
+    searchText: [label, id, person?.email, person?.username, fallbackRole]
+      .filter(Boolean)
+      .join(" "),
+    raw: person,
+  };
+}
+
 function buildGroupUpdatePayload(group, nextMembers, nextLeader) {
   const leader = String(nextLeader ?? "").trim();
   const members = Array.from(
@@ -359,8 +395,13 @@ function getDefaultFormValues(tabId) {
     case "faculties":
       return {
         name: "",
+        establishDate: "",
+        university: "",
         code: "",
-        dean: "",
+        deanOfFaculty: "",
+        email: "",
+        phone: "",
+        shortName: "",
         description: "",
       };
     default:
@@ -406,8 +447,17 @@ function getEditFormValues(tabId, record) {
     case "faculties":
       return {
         name: String(record?.name ?? ""),
+        establishDate: String(
+          record?.establishDate ?? record?.establishedDate ?? "",
+        ),
+        university: String(record?.university ?? ""),
         code: String(record?.code ?? ""),
-        dean: String(record?.dean ?? record?.head ?? ""),
+        deanOfFaculty: String(
+          record?.deanOfFaculty ?? record?.dean ?? record?.head ?? "",
+        ),
+        email: String(record?.email ?? ""),
+        phone: String(record?.phone ?? ""),
+        shortName: String(record?.shortName ?? ""),
         description: String(record?.description ?? ""),
       };
     default:
@@ -454,9 +504,14 @@ function buildPayload(tabId, values) {
     case "faculties":
       return {
         name: values.name.trim(),
-        code: values.code.trim() || undefined,
-        dean: values.dean.trim() || undefined,
-        description: values.description.trim() || undefined,
+        establishDate: values.establishDate,
+        description: values.description.trim(),
+        university: values.university.trim(),
+        code: values.code.trim(),
+        deanOfFaculty: values.deanOfFaculty.trim(),
+        email: values.email.trim(),
+        phone: values.phone.trim(),
+        shortName: values.shortName.trim(),
       };
     default:
       return values;
@@ -572,6 +627,37 @@ function getRegistryFieldErrors(tabId, values, academicYears = [], t) {
 
   if (tabId === "faculties") {
     if (!values.name?.trim()) err.name = req();
+    else if (!FACULTY_TEXT_PATTERN.test(values.name.trim()))
+      err.name = tr("adminRegistry.validation.facultyNameInvalid");
+    if (!values.establishDate) {
+      err.establishDate = req();
+    } else {
+      const established = parseDateInputOnly(values.establishDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (!established || established > today) {
+        err.establishDate = tr("adminRegistry.validation.facultyDateInvalid");
+      }
+    }
+    if (!values.university?.trim()) err.university = req();
+    else if (!FACULTY_TEXT_PATTERN.test(values.university.trim()))
+      err.university = tr("adminRegistry.validation.facultyTextInvalid");
+    if (!values.code?.trim()) err.code = req();
+    else if (!FACULTY_CODE_PATTERN.test(values.code.trim()))
+      err.code = tr("adminRegistry.validation.facultyCodeInvalid");
+    if (!values.deanOfFaculty?.trim()) err.deanOfFaculty = req();
+    if (!values.email?.trim()) err.email = req();
+    else if (!FACULTY_EMAIL_PATTERN.test(values.email.trim()))
+      err.email = tr("adminRegistry.validation.facultyEmailInvalid");
+    if (!values.phone?.trim()) err.phone = req();
+    else if (!FACULTY_PHONE_PATTERN.test(values.phone.trim()))
+      err.phone = tr("adminRegistry.validation.facultyPhoneInvalid");
+    if (!values.shortName?.trim()) err.shortName = req();
+    else if (!FACULTY_SHORT_NAME_PATTERN.test(values.shortName.trim()))
+      err.shortName = tr("adminRegistry.validation.facultyShortNameInvalid");
+    if (!values.description?.trim()) err.description = req();
+    else if (values.description.trim().length > 500)
+      err.description = tr("adminRegistry.validation.facultyDescriptionInvalid");
     return err;
   }
 
@@ -583,6 +669,8 @@ function RegistryFields({
   values,
   setValues,
   academicYearOptions,
+  deanOptions = EMPTY,
+  universityOptions = EMPTY,
   t,
   fieldErrors = {},
 }) {
@@ -788,20 +876,18 @@ function RegistryFields({
           }
         />
         <div className="md:col-span-2">
-          <Field label={t("settings.academic.batch.fieldDesc")} register={{}}>
-            <textarea
-              placeholder={t("settings.academic.batch.placeholderDesc")}
-              value={values.description}
-              onChange={(event) =>
-                setValues((current) => ({
-                  ...current,
-                  description: event.target.value,
-                }))
-              }
-              rows={4}
-              className="w-full rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3.5 py-2 text-xs text-(--color-light-text-primary) outline-none transition-colors focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
-            />
-          </Field>
+          <TextArea
+            label={t("settings.academic.batch.fieldDesc")}
+            placeholder={t("settings.academic.batch.placeholderDesc")}
+            value={values.description}
+            onChange={(event) =>
+              setValues((current) => ({
+                ...current,
+                description: event.target.value,
+              }))
+            }
+            rows={4}
+          />
         </div>
         <div className="md:col-span-2">
           <Checkbox
@@ -821,52 +907,157 @@ function RegistryFields({
   }
 
   return (
-    <div className="grid gap-4">
-      <Field
-        register={{}}
-        label={t("adminRegistry.form.facultyName")}
-        placeholder={t("adminRegistry.form.facultyNamePlaceholder")}
-        value={values.name}
-        error={fe.name}
-        onChange={(event) =>
-          setValues((current) => ({ ...current, name: event.target.value }))
-        }
-      />
-      <Field
-        register={{}}
-        label={t("adminRegistry.form.facultyCode")}
-        placeholder={t("adminRegistry.form.facultyCodePlaceholder")}
-        value={values.code}
-        onChange={(event) =>
-          setValues((current) => ({ ...current, code: event.target.value }))
-        }
-      />
-      <Field
-        register={{}}
-        label={t("adminRegistry.form.facultyDean")}
-        placeholder={t("adminRegistry.form.facultyDeanPlaceholder")}
-        value={values.dean}
-        onChange={(event) =>
-          setValues((current) => ({ ...current, dean: event.target.value }))
-        }
-      />
-      <Field
-        register={{}}
-        label={t("adminDepartments.form.fields.description")}
-      >
-        <textarea
-          placeholder={t("adminRegistry.form.facultyDescriptionPlaceholder")}
-          value={values.description}
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+      <div className="md:col-span-6">
+        <Field
+          register={{}}
+          label={`${t("adminRegistry.form.facultyName")} *`}
+          placeholder={t("adminRegistry.form.facultyNamePlaceholder")}
+          value={values.name}
+          error={fe.name}
+          onChange={(event) =>
+            setValues((current) => ({ ...current, name: event.target.value }))
+          }
+        />
+      </div>
+      <div className="md:col-span-3">
+        <Field
+          register={{}}
+          label={`${t("adminRegistry.form.facultyShortName")} *`}
+          placeholder={t("adminRegistry.form.facultyShortNamePlaceholder")}
+          value={values.shortName}
+          error={fe.shortName}
           onChange={(event) =>
             setValues((current) => ({
               ...current,
-              description: event.target.value,
+              shortName: event.target.value,
             }))
           }
-          rows={4}
-          className="w-full rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3.5 py-2 text-xs text-(--color-light-text-primary) outline-none transition-colors focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
         />
-      </Field>
+      </div>
+      <div className="md:col-span-3">
+        <Field
+          register={{}}
+          label={`${t("adminRegistry.form.facultyCode")} *`}
+          placeholder={t("adminRegistry.form.facultyCodePlaceholder")}
+          value={values.code}
+          error={fe.code}
+          onChange={(event) =>
+            setValues((current) => ({ ...current, code: event.target.value }))
+          }
+        />
+      </div>
+      <div className="flex flex-col gap-1 md:col-span-6">
+        <span className="text-[11px] font-semibold text-primary dark:text-dark-primary">
+          {t("adminRegistry.form.facultyUniversity")} *
+        </span>
+        <SearchableSelect
+          value={values.university}
+          onValueChange={(value) =>
+            setValues((current) => ({
+              ...current,
+              university: value ?? "",
+            }))
+          }
+          options={universityOptions}
+          placeholder={t("adminRegistry.form.facultyUniversityPlaceholder")}
+          searchPlaceholder={t("adminRegistry.form.facultyUniversitySearch")}
+          disabled={universityOptions.length === 0}
+          className={
+            fe.university
+              ? "border-(--color-light-error-border) dark:border-(--color-dark-error-border)"
+              : ""
+          }
+        />
+        {fe.university ? (
+          <p className="text-[11px] font-medium text-error">
+            {fe.university}
+          </p>
+        ) : null}
+      </div>
+      <div className="md:col-span-6">
+        <Field
+          register={{}}
+          type="date"
+          label={`${t("adminRegistry.form.facultyEstablishDate")} *`}
+          value={values.establishDate}
+          error={fe.establishDate}
+          onChange={(event) =>
+            setValues((current) => ({
+              ...current,
+              establishDate: event.target.value,
+            }))
+          }
+        />
+      </div>
+      <div className="md:col-span-6">
+        <Field
+          register={{}}
+          type="email"
+          label={`${t("adminRegistry.form.facultyEmail")} *`}
+          placeholder={t("adminRegistry.form.facultyEmailPlaceholder")}
+          value={values.email}
+          error={fe.email}
+          onChange={(event) =>
+            setValues((current) => ({ ...current, email: event.target.value }))
+          }
+        />
+      </div>
+      <div className="md:col-span-6">
+        <Field
+          register={{}}
+          type="tel"
+          label={`${t("adminRegistry.form.facultyPhone")} *`}
+          placeholder={t("adminRegistry.form.facultyPhonePlaceholder")}
+          value={values.phone}
+          error={fe.phone}
+          onChange={(event) =>
+            setValues((current) => ({ ...current, phone: event.target.value }))
+          }
+        />
+      </div>
+      <div className="flex flex-col gap-1 md:col-span-12">
+        <span className="text-[11px] font-semibold text-primary dark:text-dark-primary">
+          {t("adminRegistry.form.facultyDean")} *
+        </span>
+        <SearchableSelect
+          value={values.deanOfFaculty}
+          onValueChange={(value) =>
+            setValues((current) => ({
+              ...current,
+              deanOfFaculty: value ?? "",
+            }))
+          }
+          options={deanOptions}
+          placeholder={t("adminRegistry.form.facultyDeanPlaceholder")}
+          searchPlaceholder={t("adminRegistry.form.facultyDeanSearch")}
+          disabled={deanOptions.length === 0}
+          className={
+            fe.deanOfFaculty
+              ? "border-(--color-light-error-border) dark:border-(--color-dark-error-border)"
+              : ""
+          }
+        />
+        {fe.deanOfFaculty ? (
+          <p className="text-[11px] font-medium text-error">
+            {fe.deanOfFaculty}
+          </p>
+        ) : null}
+      </div>
+      <TextArea
+        className="md:col-span-12"
+        label={`${t("adminDepartments.form.fields.description")} *`}
+        placeholder={t("adminRegistry.form.facultyDescriptionPlaceholder")}
+        value={values.description}
+        onChange={(event) =>
+          setValues((current) => ({
+            ...current,
+            description: event.target.value,
+          }))
+        }
+        rows={5}
+        error={fe.description}
+      />
     </div>
   );
 }
@@ -918,6 +1109,11 @@ export default function Departments() {
   const { data: semesters = EMPTY } = useSemesters({}, { notifyOnError: true });
   const { data: batches = EMPTY } = useBatches({ notifyOnError: true });
   const { data: faculties = EMPTY } = useFaculties({ notifyOnError: true });
+  const { data: universities = EMPTY } = useUniversities({
+    notifyOnError: false,
+  });
+  const { data: teachers = EMPTY } = useTeachers({ notifyOnError: false });
+  const { data: employees = EMPTY } = useEmployees({ notifyOnError: false });
   const { data: groups = EMPTY } = useFacultyGroups(
     {},
     { notifyOnError: true },
@@ -990,6 +1186,60 @@ export default function Departments() {
         .filter(Boolean),
     [studentPage],
   );
+  const deanOptions = useMemo(() => {
+    const seen = new Set();
+    return [
+      ...(Array.isArray(teachers) ? teachers : [])
+        .map((person) => personToOption(person, t("teacherForm.roles.TEACHER")))
+        .filter(Boolean),
+      ...(Array.isArray(employees) ? employees : [])
+        .map((person) =>
+          personToOption(person, t("employeeForm.roles.EMPLOYEE")),
+        )
+        .filter(Boolean),
+    ].filter((option) => {
+      if (seen.has(option.value)) return false;
+      seen.add(option.value);
+      return true;
+    });
+  }, [employees, t, teachers]);
+  const universityOptions = useMemo(() => {
+    const seen = new Set();
+    const fromApi = (Array.isArray(universities) ? universities : []).map(
+      (record) => {
+        const label = String(
+          record?.name ??
+            record?.title ??
+            record?.universityName ??
+            record?.id ??
+            "",
+        ).trim();
+        if (!label) return null;
+        return {
+          value: label,
+          label,
+          description: record?.code ? String(record.code) : undefined,
+          searchText: [label, record?.code, record?.id].filter(Boolean).join(" "),
+        };
+      },
+    );
+    const fromFaculties = (Array.isArray(faculties) ? faculties : []).map(
+      (record) => {
+        const label = String(record?.university ?? "").trim();
+        return label ? { value: label, label } : null;
+      },
+    );
+    const merged = [...fromApi, ...fromFaculties].filter((option) => {
+      if (!option) return false;
+      const key = option.value.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return merged.length
+      ? merged
+      : [{ value: "Kandahar University", label: "Kandahar University" }];
+  }, [faculties, universities]);
   const groupOperationMemberIds = useMemo(
     () => groupMemberIds(groupOperation?.record),
     [groupOperation],
@@ -1095,7 +1345,10 @@ export default function Departments() {
           record?.id,
           record?.name,
           record?.code,
-          record?.dean,
+          record?.deanOfFaculty,
+          record?.email,
+          record?.phone,
+          record?.shortName,
           record?.description,
         ];
       }
@@ -1512,7 +1765,7 @@ export default function Departments() {
         normalizeId(record?.id),
         record?.name ?? "",
         record?.code ?? "",
-        record?.dean ?? record?.head ?? "",
+        record?.deanOfFaculty ?? record?.dean ?? record?.head ?? "",
       ];
     });
 
@@ -2204,7 +2457,7 @@ export default function Departments() {
                     </TableColumn>
                     <TableColumn nowrap={false}>
                       <span className="line-clamp-2 text-sm text-secondary dark:text-dark-secondary">
-                        {record?.description || record?.dean || "-"}
+                        {record?.description || record?.deanOfFaculty || "-"}
                       </span>
                     </TableColumn>
                   </>
@@ -2534,6 +2787,8 @@ export default function Departments() {
               values={formValues}
               setValues={registrySetValues}
               academicYearOptions={academicYearOptions}
+              deanOptions={deanOptions}
+              universityOptions={universityOptions}
               fieldErrors={registryFieldErrors}
               t={t}
             />
@@ -2577,6 +2832,8 @@ export default function Departments() {
               values={formValues}
               setValues={registrySetValues}
               academicYearOptions={academicYearOptions}
+              deanOptions={deanOptions}
+              universityOptions={universityOptions}
               fieldErrors={registryFieldErrors}
               t={t}
             />

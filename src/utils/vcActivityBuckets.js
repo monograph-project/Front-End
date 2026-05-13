@@ -28,6 +28,23 @@ function repoFromEvent(v) {
     const name = r.name ?? "";
     if (owner && name) return `${owner}/${String(name).trim()}`;
   }
+  const owner =
+    v.ownerUsername ??
+    v.owner_username ??
+    v.repoOwnerUsername ??
+    v.repo_owner_username ??
+    v.repoOwner ??
+    v.owner ??
+    "";
+  const name = v.repoName ?? v.repo_name ?? v.repositoryName ?? "";
+  if (
+    typeof owner === "string" &&
+    typeof name === "string" &&
+    owner.trim() &&
+    name.trim()
+  ) {
+    return `${owner.trim()}/${name.trim()}`;
+  }
   return "";
 }
 
@@ -65,11 +82,14 @@ export function bucketVcActivityEvents(events) {
     const typeRaw = String(
       ev.type ?? ev.kind ?? ev.eventType ?? ev.action ?? ev.verb ?? "",
     ).toLowerCase();
+    const actionRaw = String(
+      ev.action ?? ev.status ?? ev.state ?? ev.verb ?? "",
+    ).toLowerCase();
     const branch = String(ev.branch ?? ev.ref ?? ev.branchName ?? "").toLowerCase();
     const title = String(
       ev.title ?? ev.message ?? ev.summary ?? ev.description ?? "",
     );
-    const hay = `${typeRaw} ${branch} ${title} ${JSON.stringify(ev)}`.toLowerCase();
+    const hay = `${typeRaw} ${actionRaw} ${branch} ${title} ${JSON.stringify(ev)}`.toLowerCase();
 
     const label =
       title.trim() ||
@@ -87,6 +107,7 @@ export function bucketVcActivityEvents(events) {
 
     const isMerge =
       typeRaw.includes("merge") ||
+      actionRaw.includes("merge") ||
       hay.includes(" merged ") ||
       hay.includes("merge pull") ||
       hay.includes("pr merged");

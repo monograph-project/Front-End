@@ -589,6 +589,12 @@ export const FACULTY = {
   DELETE: (id) => gw(`/api/faculty/${encodeURIComponent(id)}`),
 };
 
+/** Universities on the gateway (`/api/university`) when the faculty service exposes them. */
+export const UNIVERSITY = {
+  GETALL: gw("/api/university"),
+  LIST: (params = {}) => gw(withQuery("/api/university", params)),
+};
+
 /** Batches (intake cohorts) — faculty service `/api/batch`. */
 export const BATCH = {
   LIST: (params = {}) => gw(withQuery("/api/batch", params)),

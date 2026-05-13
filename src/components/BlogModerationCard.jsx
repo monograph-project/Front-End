@@ -88,7 +88,7 @@ export default function BlogModerationCard({
             className={cn(
               "inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) text-primary transition-colors hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-primary dark:hover:bg-dark-app-tertiary",
               blog.featured &&
-                "border-(--color-light-success-border) bg-(--color-light-success-bg) text-(--color-light-success-text) dark:border-(--color-dark-success-border) dark:bg-(--color-dark-success-bg) dark:text-(--color-dark-success-text)",
+                "border-(--color-light-success-border) bg-light-success-bg text-light-success-text dark:border-dark-success-border dark:bg-dark-success-bg dark:text-(--color-dark-success-text)",
             )}
             aria-label={
               blog.featured
@@ -115,7 +115,7 @@ export default function BlogModerationCard({
           </span>
         </div>
 
-        <h3 className="mt-4 max-w-[28rem] text-2xl font-semibold leading-tight text-primary dark:text-dark-primary">
+        <h3 className="mt-4 max-w-md text-2xl font-semibold leading-tight text-primary dark:text-dark-primary">
           {linkTo ? (
             <Link
               to={linkTo}
@@ -127,7 +127,7 @@ export default function BlogModerationCard({
             blog.title
           )}
         </h3>
-        <p className="mt-4 max-w-[34rem] text-base leading-8 text-secondary dark:text-dark-secondary">
+        <p className="mt-4 max-w-136 text-base leading-8 text-secondary dark:text-dark-secondary">
           {blog.excerpt}
         </p>
       </div>
