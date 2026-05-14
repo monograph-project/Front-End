@@ -48,6 +48,10 @@ import GlobalModal from "../../components/GlobalModal";
 import SensitiveActionModal from "../../components/SensitiveActionModal";
 import TableToolbar from "../../components/TableToolbar";
 import StatusPill, { statusToPillVariant } from "../../components/StatusPill";
+import {
+  AdminRecordsBoard,
+  AdminTableToolDropdowns,
+} from "../../components/admin/AdminTableControls";
 import { normalizeUserPayload } from "../../lib/roles";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import {
@@ -253,6 +257,11 @@ export default function Users() {
   const debouncedSearch = useDebouncedValue(searchInput, 400);
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewTab, setViewTab] = useState("list");
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [hiddenColumns, setHiddenColumns] = useState(() => new Set());
+  const [compactRows, setCompactRows] = useState(false);
+  const [sortKey, setSortKey] = useState("name");
+  const [sortDirection, setSortDirection] = useState("asc");
   const [deleteUserId, setDeleteUserId] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [roleDialog, setRoleDialog] = useState(null);
@@ -395,16 +404,39 @@ export default function Users() {
     setPage(1);
   }, [debouncedSearch, statusFilter]);
 
-  const totalElements = filteredUsers.length;
+  const sortOptions = [
+    { value: "name", label: t("adminUsers.table.user") },
+    { value: "role", label: t("adminUsers.table.role") },
+    { value: "status", label: t("adminUsers.table.status") },
+    { value: "registered", label: t("adminUsers.table.registered") },
+  ];
+  const sortedUsers = useMemo(() => {
+    const accessors = {
+      name: (user) => user.displayName ?? user.email ?? user.username ?? "",
+      role: (user) => user.roleKey ?? "",
+      status: (user) => user.status ?? "",
+      registered: (user) => user.registered ?? "",
+    };
+    const getValue = accessors[sortKey] ?? accessors.name;
+    return [...filteredUsers].sort((a, b) => {
+      const result = String(getValue(a)).localeCompare(String(getValue(b)), undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      return sortDirection === "desc" ? -result : result;
+    });
+  }, [filteredUsers, sortDirection, sortKey]);
+
+  const totalElements = sortedUsers.length;
   const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
   const start = (page - 1) * pageSize;
-  const pageUsers = filteredUsers.slice(start, start + pageSize);
+  const pageUsers = sortedUsers.slice(start, start + pageSize);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  const deletingUser = filteredUsers.find(
+  const deletingUser = sortedUsers.find(
     (row) => String(row.id) === String(deleteUserId),
   );
   const roleDialogUser = roleDialog?.user ?? null;
@@ -452,10 +484,12 @@ export default function Users() {
     lockUserMutation.isPending ||
     verifyEmailMutation.isPending;
 
-  const headerData = useMemo(
+  const columnDefs = useMemo(
     () => [
       {
+        id: "select",
         title: "",
+        required: true,
         tooltip: t("adminShared.tableHints.bulkSelection"),
         icon: (
           <ListChecks
@@ -466,6 +500,7 @@ export default function Users() {
         ),
       },
       {
+        id: "id",
         title: t("adminUsers.table.id"),
         tooltip: t("adminShared.tableHints.recordId"),
         icon: (
@@ -473,6 +508,7 @@ export default function Users() {
         ),
       },
       {
+        id: "user",
         title: t("adminUsers.table.user"),
         tooltip: t("adminShared.tableHints.displayName"),
         icon: (
@@ -484,6 +520,7 @@ export default function Users() {
         ),
       },
       {
+        id: "role",
         title: t("adminUsers.table.role"),
         tooltip: t("adminShared.tableHints.roleAssignment"),
         icon: (
@@ -495,6 +532,7 @@ export default function Users() {
         ),
       },
       {
+        id: "status",
         title: t("adminUsers.table.status"),
         tooltip: t("adminShared.tableHints.columnStatus"),
         icon: (
@@ -506,6 +544,7 @@ export default function Users() {
         ),
       },
       {
+        id: "registered",
         title: t("adminUsers.table.registered"),
         tooltip: t("adminShared.tableHints.dateRegistered"),
         icon: (
@@ -517,6 +556,8 @@ export default function Users() {
         ),
       },
       {
+        id: "actions",
+        required: true,
         title: t("adminUsers.table.actions"),
         align: "center",
         tooltip: t("adminShared.tableHints.rowActions"),
@@ -531,6 +572,22 @@ export default function Users() {
     ],
     [t],
   );
+  const visibleColumnDefs = useMemo(
+    () => columnDefs.filter((column) => !hiddenColumns.has(column.id)),
+    [columnDefs, hiddenColumns],
+  );
+  const headerData = useMemo(
+    () =>
+      visibleColumnDefs.map((column) => ({
+        title: column.title,
+        tooltip: column.tooltip,
+        icon: column.icon,
+        align: column.align,
+        className: column.className,
+      })),
+    [visibleColumnDefs],
+  );
+  const isColumnVisible = (id) => !hiddenColumns.has(id);
 
   const locale =
     i18n.language === "ps"
@@ -546,6 +603,24 @@ export default function Users() {
     { value: "rejected", label: t("adminShared.status.rejected") },
     { value: "suspended", label: t("adminShared.status.suspended") },
   ];
+
+  const toggleSelected = (id) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleColumn = (id) => {
+    setHiddenColumns((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const confirmDeleteUser = async () => {
     if (deleteUserId == null || deleteSubmitting) return;
@@ -648,6 +723,87 @@ export default function Users() {
     }
   };
 
+  const renderUserActions = (user) => (
+    <DropdownMenuRoot>
+      <DropdownTrigger showArrow={false}>
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 15 15"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
+            fill="currentColor"
+            fillRule="evenodd"
+            clipRule="evenodd"
+          />
+        </svg>
+      </DropdownTrigger>
+      <DropdownContent align="end">
+        <DropdownItem onClick={() => navigate(adminEntityProfilePath(user))}>
+          <span>{t("adminShared.actions.viewProfile")}</span>
+        </DropdownItem>
+        <DropdownSub>
+          <DropdownSubTrigger icon={<ShieldCheck className="size-4" />}>
+            {t("adminUsers.operations.roleMenu")}
+          </DropdownSubTrigger>
+          <DropdownSubContent>
+            <DropdownItem
+              onClick={() => openRoleDialog(USER_ROLE_ACTIONS.assignRole, user)}
+              icon={<CheckCheck className="size-4" />}
+            >
+              <span>{t("adminUsers.operations.assignRole")}</span>
+            </DropdownItem>
+            <DropdownItem
+              onClick={() => openRoleDialog(USER_ROLE_ACTIONS.removeRole, user)}
+              icon={<ShieldCheck className="size-4" />}
+            >
+              <span>{t("adminUsers.operations.removeRole")}</span>
+            </DropdownItem>
+          </DropdownSubContent>
+        </DropdownSub>
+        <DropdownSub>
+          <DropdownSubTrigger icon={<Lock className="size-4" />}>
+            {t("adminUsers.operations.accountMenu")}
+          </DropdownSubTrigger>
+          <DropdownSubContent>
+            {userIsSuspended(user) ? (
+              <DropdownItem
+                onClick={() => openAccountDialog(USER_ACCOUNT_ACTIONS.activate, user)}
+                icon={<PlayCircle className="size-4" />}
+              >
+                <span>{t("adminUsers.operations.activateUser")}</span>
+              </DropdownItem>
+            ) : (
+              <DropdownItem
+                onClick={() => openAccountDialog(USER_ACCOUNT_ACTIONS.suspend, user)}
+                icon={<PauseCircle className="size-4" />}
+              >
+                <span>{t("adminUsers.operations.suspendUser")}</span>
+              </DropdownItem>
+            )}
+            {!userEmailIsVerified(user) ? (
+              <DropdownItem
+                onClick={() =>
+                  openAccountDialog(USER_ACCOUNT_ACTIONS.verifyEmail, user)
+                }
+                icon={<MailCheck className="size-4" />}
+              >
+                <span>{t("adminUsers.operations.verifyEmail")}</span>
+              </DropdownItem>
+            ) : null}
+          </DropdownSubContent>
+        </DropdownSub>
+        <DropdownSeparator />
+        <DropdownItem variant="danger" onClick={() => setDeleteUserId(user.id)}>
+          <span>{t("adminShared.actions.delete")}</span>
+        </DropdownItem>
+      </DropdownContent>
+    </DropdownMenuRoot>
+  );
+
   if (isError) {
     return (
       <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto bg-white p-4 md:p-5 dark:bg-dark-app-secondary">
@@ -697,14 +853,7 @@ export default function Users() {
               >
                 <TableToolbar.ViewTabs
                   value={viewTab}
-                  onValueChange={(id) => {
-                    setViewTab(id);
-                    if (id === "board") {
-                      window.GooeyToaster?.info?.(
-                        t("adminUsers.toolbar.boardPending"),
-                      );
-                    }
-                  }}
+                  onValueChange={setViewTab}
                   tabs={[
                     {
                       id: "list",
@@ -748,83 +897,73 @@ export default function Users() {
                     onValueChange={setStatusFilter}
                   />
                 </div>
-                <TableToolbar.Section className="w-full shrink-0 justify-start sm:ml-auto sm:w-auto md:justify-end">
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminUsers.toolbar.filter")}
-                    icon={
-                      <Filter className="size-3.5 shrink-0" strokeWidth={2} />
-                    }
-                    onClick={() =>
-                      window.GooeyToaster?.info?.(
-                        t("adminUsers.toolbar.filtersPending"),
-                      )
-                    }
-                  >
-                    {t("adminUsers.toolbar.filter")}
-                  </TableToolbar.IconButton>
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminUsers.toolbar.sort")}
-                    icon={
-                      <ArrowUpDown
-                        className="size-3.5 shrink-0"
-                        strokeWidth={2}
-                      />
-                    }
-                    onClick={() =>
-                      window.GooeyToaster?.info?.(
-                        t("adminUsers.toolbar.sortPending"),
-                      )
-                    }
-                  >
-                    {t("adminUsers.toolbar.sort")}
-                  </TableToolbar.IconButton>
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminUsers.toolbar.columns")}
-                    icon={
-                      <Columns3 className="size-3.5 shrink-0" strokeWidth={2} />
-                    }
-                    onClick={() =>
-                      window.GooeyToaster?.info?.(
-                        t("adminUsers.toolbar.columnsPending"),
-                      )
-                    }
-                  >
-                    {t("adminUsers.toolbar.columns")}
-                  </TableToolbar.IconButton>
-                  <TableToolbar.IconButton
-                    type="button"
-                    aria-label={t("adminUsers.toolbar.hide")}
-                    icon={
-                      <EyeOff className="size-3.5 shrink-0" strokeWidth={2} />
-                    }
-                    onClick={() =>
-                      window.GooeyToaster?.info?.(
-                        t("adminUsers.toolbar.densityPending"),
-                      )
-                    }
-                  >
-                    {t("adminUsers.toolbar.hide")}
-                  </TableToolbar.IconButton>
-                </TableToolbar.Section>
+                <AdminTableToolDropdowns
+                  labels={{
+                    filter: t("adminUsers.toolbar.filter"),
+                    sort: t("adminUsers.toolbar.sort"),
+                    columns: t("adminUsers.toolbar.columns"),
+                    hide: t("adminUsers.toolbar.hide"),
+                  }}
+                  icons={{
+                    filter: <Filter className="size-3.5 shrink-0" strokeWidth={2} />,
+                    sort: <ArrowUpDown className="size-3.5 shrink-0" strokeWidth={2} />,
+                    columns: <Columns3 className="size-3.5 shrink-0" strokeWidth={2} />,
+                    hide: <EyeOff className="size-3.5 shrink-0" strokeWidth={2} />,
+                  }}
+                  statusOptions={statusOptions}
+                  statusFilter={statusFilter}
+                  onStatusFilterChange={(next) => {
+                    setStatusFilter(next);
+                    setPage(1);
+                  }}
+                  sortOptions={sortOptions}
+                  sortKey={sortKey}
+                  sortDirection={sortDirection}
+                  onSortChange={(nextKey, nextDirection) => {
+                    setSortKey(nextKey);
+                    setSortDirection(nextDirection);
+                    setPage(1);
+                  }}
+                  columns={columnDefs.map((column) => ({
+                    id: column.id,
+                    label: column.title || t("adminShared.tableHints.bulkSelection"),
+                    required: column.required,
+                  }))}
+                  hiddenColumns={[...hiddenColumns]}
+                  onToggleColumn={toggleColumn}
+                  onResetColumns={() => setHiddenColumns(new Set())}
+                  compactRows={compactRows}
+                  onToggleCompactRows={() => setCompactRows((value) => !value)}
+                />
               </TableToolbar.Row>
             </TableToolbar>
           }
         >
+          {viewTab === "list" ? (
+            <>
           <TableHeader headerData={headerData} />
           <TableBody>
             {pageUsers.map((user, index) => (
-              <TableRow key={user.id}>
+              <TableRow
+                key={user.id}
+                className={compactRows ? "[&_td]:py-2" : undefined}
+              >
+                {isColumnVisible("select") ? (
                 <TableColumn className="w-10">
-                  <Checkbox />
+                  <Checkbox
+                    checked={selectedIds.has(String(user.id))}
+                    onChange={() => toggleSelected(String(user.id))}
+                  />
                 </TableColumn>
+                ) : null}
 
+                {isColumnVisible("id") ? (
                 <TableColumn className="font-mono text-xs">
-                  #{index + 1}
+                  #{start + index + 1}
                 </TableColumn>
+                ) : null}
 
+                {isColumnVisible("user") ? (
                 <TableColumn>
                   <div className="flex items-center gap-3">
                     <PersonAvatar person={user} />
@@ -838,19 +977,25 @@ export default function Users() {
                     </div>
                   </div>
                 </TableColumn>
+                ) : null}
 
+                {isColumnVisible("role") ? (
                 <TableColumn nowrap={false}>
                   <span className="inline-flex max-w-[14rem] rounded-full border border-default bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold capitalize text-secondary dark:border-dark-default dark:bg-dark-app-tertiary dark:text-dark-secondary">
                     {t(`adminShared.roles.${user.roleKey}`)}
                   </span>
                 </TableColumn>
+                ) : null}
 
+                {isColumnVisible("status") ? (
                 <TableColumn>
                   <StatusPill variant={statusToPillVariant(user.status)}>
                     {t(`adminShared.status.${user.status}`)}
                   </StatusPill>
                 </TableColumn>
+                ) : null}
 
+                {isColumnVisible("registered") ? (
                 <TableColumn className="whitespace-nowrap text-xs">
                   {user.registered
                     ? new Date(user.registered).toLocaleDateString(locale, {
@@ -860,107 +1005,17 @@ export default function Users() {
                       })
                     : "—"}
                 </TableColumn>
+                ) : null}
 
+                {isColumnVisible("actions") ? (
                 <TableColumn className="text-center">
-                  <DropdownMenuRoot>
-                    <DropdownTrigger showArrow={false}>
-                      <svg
-                        width="15"
-                        height="15"
-                        viewBox="0 0 15 15"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM12.5 8.625C13.1213 8.625 13.625 8.12132 13.625 7.5C13.625 6.87868 13.1213 6.375 12.5 6.375C11.8787 6.375 11.375 6.87868 11.375 7.5C11.375 8.12132 11.8787 8.625 12.5 8.625Z"
-                          fill="currentColor"
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </DropdownTrigger>
-                    <DropdownContent align="end">
-                      <DropdownItem
-                        onClick={() => navigate(adminEntityProfilePath(user))}
-                      >
-                        <span>{t("adminShared.actions.viewProfile")}</span>
-                      </DropdownItem>
-                      <DropdownSub>
-                        <DropdownSubTrigger icon={<ShieldCheck className="size-4" />}>
-                          {t("adminUsers.operations.roleMenu")}
-                        </DropdownSubTrigger>
-                        <DropdownSubContent>
-                          <DropdownItem
-                            onClick={() =>
-                              openRoleDialog(USER_ROLE_ACTIONS.assignRole, user)
-                            }
-                            icon={<CheckCheck className="size-4" />}
-                          >
-                            <span>{t("adminUsers.operations.assignRole")}</span>
-                          </DropdownItem>
-                          <DropdownItem
-                            onClick={() =>
-                              openRoleDialog(USER_ROLE_ACTIONS.removeRole, user)
-                            }
-                            icon={<ShieldCheck className="size-4" />}
-                          >
-                            <span>{t("adminUsers.operations.removeRole")}</span>
-                          </DropdownItem>
-                        </DropdownSubContent>
-                      </DropdownSub>
-                      <DropdownSub>
-                        <DropdownSubTrigger icon={<Lock className="size-4" />}>
-                          {t("adminUsers.operations.accountMenu")}
-                        </DropdownSubTrigger>
-                        <DropdownSubContent>
-                          {userIsSuspended(user) ? (
-                            <DropdownItem
-                              onClick={() =>
-                                openAccountDialog(USER_ACCOUNT_ACTIONS.activate, user)
-                              }
-                              icon={<PlayCircle className="size-4" />}
-                            >
-                              <span>{t("adminUsers.operations.activateUser")}</span>
-                            </DropdownItem>
-                          ) : (
-                            <DropdownItem
-                              onClick={() =>
-                                openAccountDialog(USER_ACCOUNT_ACTIONS.suspend, user)
-                              }
-                              icon={<PauseCircle className="size-4" />}
-                            >
-                              <span>{t("adminUsers.operations.suspendUser")}</span>
-                            </DropdownItem>
-                          )}
-                          {!userEmailIsVerified(user) ? (
-                            <DropdownItem
-                              onClick={() =>
-                                openAccountDialog(
-                                  USER_ACCOUNT_ACTIONS.verifyEmail,
-                                  user,
-                                )
-                              }
-                              icon={<MailCheck className="size-4" />}
-                            >
-                              <span>{t("adminUsers.operations.verifyEmail")}</span>
-                            </DropdownItem>
-                          ) : null}
-                        </DropdownSubContent>
-                      </DropdownSub>
-                      <DropdownSeparator />
-                      <DropdownItem
-                        variant="danger"
-                        onClick={() => setDeleteUserId(user.id)}
-                      >
-                        <span>{t("adminShared.actions.delete")}</span>
-                      </DropdownItem>
-                    </DropdownContent>
-                  </DropdownMenuRoot>
+                  {renderUserActions(user)}
                 </TableColumn>
+                ) : null}
               </TableRow>
             ))}
 
-            {pageUsers.length === 0 && (
+            {sortedUsers.length === 0 && (
               <TableRow className="table-advanced-tr--empty cursor-default">
                 <TableColumn
                   colSpan={headerData.length}
@@ -983,7 +1038,39 @@ export default function Users() {
               </TableRow>
             )}
           </TableBody>
+            </>
+          ) : null}
         </Table>
+        {viewTab === "board" ? (
+          <div className="mt-4">
+            <AdminRecordsBoard
+              rows={sortedUsers}
+              getKey={(user) => user.id}
+              selectedIds={selectedIds}
+              onToggleSelected={toggleSelected}
+              renderTitle={(user) => user.displayName || user.email || user.id}
+              renderSubtitle={(user) => user.email || user.username || user.user_name || "—"}
+              renderStatus={(user) => (
+                <StatusPill variant={statusToPillVariant(user.status)}>
+                  {t(`adminShared.status.${user.status}`)}
+                </StatusPill>
+              )}
+              renderMeta={(user) => (
+                <>
+                  <span>{t(`adminShared.roles.${user.roleKey}`)}</span>
+                  <span>
+                    {user.registered
+                      ? new Date(user.registered).toLocaleDateString(locale)
+                      : "—"}
+                  </span>
+                </>
+              )}
+              renderActions={renderUserActions}
+              emptyTitle={t("adminUsers.empty")}
+              emptyDescription={t("adminUsers.emptyHint")}
+            />
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
           <Pagination
             currentPage={page}

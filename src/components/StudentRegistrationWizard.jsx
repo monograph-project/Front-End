@@ -439,7 +439,11 @@ export default function StudentRegistrationWizard({
     const batchSel = matchBatchSelection(existingStudent, batchOptions);
 
     reset({
-      username: existingStudent.username ?? "",
+      username:
+        existingStudent.username ??
+        existingStudent.userName ??
+        existingStudent.user_name ??
+        "",
       password: "",
       role: existingStudent.role ?? "STUDENT_USER",
       firstName: existingStudent.firstName ?? "",
@@ -454,7 +458,8 @@ export default function StudentRegistrationWizard({
       addressStreet: existingStudent.addressStreet ?? "",
       addressCity: existingStudent.addressCity ?? "",
       addressPostalCode: existingStudent.addressPostalCode ?? "",
-      department: deptSel,
+      department:
+        deptSel || existingStudent.departmentId || existingStudent.department || "",
       academicYearId: existingStudent.academicYearId
         ? String(existingStudent.academicYearId)
         : "",
@@ -469,7 +474,7 @@ export default function StudentRegistrationWizard({
               String(existingStudent.semesterId).trim() !== ""
             ? String(existingStudent.semesterId)
             : "",
-      batchId: batchSel,
+      batchId: batchSel || existingStudent.batchId || "",
       status: existingStudent.status || "ACTIVE",
     });
     prevAcademicYearIdRef.current = existingStudent.academicYearId
@@ -729,7 +734,7 @@ export default function StudentRegistrationWizard({
                   label={t("studentForm.fields.username.label")}
                   autoComplete="username"
                   disabled
-                  register={register("username")}
+                  value={watched?.username ?? ""}
                 />
               ) : (
                 <Field
@@ -825,6 +830,7 @@ export default function StudentRegistrationWizard({
                   iconD={IC.contact}
                   label={`${t("studentForm.fields.firstName.label")} *`}
                   placeholder={t("studentForm.fields.firstName.placeholder")}
+                  readOnly={isEdit}
                   register={register("firstName", {
                     required: t("studentForm.validation.firstNameRequired"),
                     minLength: {
@@ -846,6 +852,7 @@ export default function StudentRegistrationWizard({
                   iconD={IC.contact}
                   label={`${t("studentForm.fields.lastName.label")} *`}
                   placeholder={t("studentForm.fields.lastName.placeholder")}
+                  readOnly={isEdit}
                   register={register("lastName", {
                     required: t("studentForm.validation.lastNameRequired"),
                     minLength: {
@@ -868,6 +875,7 @@ export default function StudentRegistrationWizard({
                 <Field
                   label={`${t("studentForm.fields.fatherName.label")} *`}
                   placeholder={t("studentForm.fields.fatherName.placeholder")}
+                  readOnly={isEdit}
                   register={register("fatherName", {
                     required: t("studentForm.validation.fatherNameRequired"),
                     minLength: {
@@ -890,6 +898,7 @@ export default function StudentRegistrationWizard({
                   placeholder={t(
                     "studentForm.fields.grandFatherName.placeholder",
                   )}
+                  readOnly={isEdit}
                   register={register("grandFatherName", {
                     validate: (value) => {
                       const v = String(value ?? "").trim();
@@ -916,6 +925,7 @@ export default function StudentRegistrationWizard({
                 iconD={IC.globe}
                 label={`${t("studentForm.fields.nationality.label")} *`}
                 placeholder={t("studentForm.fields.nationality.placeholder")}
+                readOnly={isEdit}
                 register={register("nationality", {
                   required: t("studentForm.validation.nationalityRequired"),
                   minLength: {
@@ -947,6 +957,7 @@ export default function StudentRegistrationWizard({
                       options={genderOptions}
                       value={field.value}
                       onValueChange={field.onChange}
+                      disabled={isEdit}
                     />
                   )}
                 />
@@ -954,6 +965,7 @@ export default function StudentRegistrationWizard({
                   iconD={IC.calendar}
                   label={`${t("studentForm.fields.dateOfBirth.label")} *`}
                   type="date"
+                  readOnly={isEdit}
                   register={register("dateOfBirth", {
                     required: t("studentForm.validation.dateOfBirthRequired"),
                     validate: (v) => {
@@ -999,6 +1011,7 @@ export default function StudentRegistrationWizard({
                 label={`${t("studentForm.fields.email.label")} *`}
                 type="email"
                 placeholder={t("studentForm.fields.email.placeholder")}
+                readOnly={isEdit}
                 register={register("email", {
                   required: t("studentForm.validation.emailRequired"),
                   pattern: {
@@ -1013,6 +1026,7 @@ export default function StudentRegistrationWizard({
                 label={`${t("studentForm.fields.phone.label")} *`}
                 type="tel"
                 placeholder={t("studentForm.fields.phone.placeholder")}
+                readOnly={isEdit}
                 register={register("phone", {
                   required: t("studentForm.validation.phoneRequired"),
                   pattern: {
@@ -1047,6 +1061,7 @@ export default function StudentRegistrationWizard({
                 iconD={IC.contact}
                 label={`${t("studentForm.fields.addressStreet.label")} *`}
                 placeholder={t("studentForm.fields.addressStreet.placeholder")}
+                readOnly={isEdit}
                 register={register("addressStreet", {
                   required: t("studentForm.validation.addressStreetRequired"),
                   minLength: {
@@ -1069,6 +1084,7 @@ export default function StudentRegistrationWizard({
                   iconD={IC.globe}
                   label={`${t("studentForm.fields.addressCity.label")} *`}
                   placeholder={t("studentForm.fields.addressCity.placeholder")}
+                  readOnly={isEdit}
                   register={register("addressCity", {
                     required: t("studentForm.validation.addressCityRequired"),
                     minLength: {

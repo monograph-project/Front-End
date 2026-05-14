@@ -60,6 +60,8 @@ function taskAssigneeUsername(task) {
 export function taskVcSubmissionPullNumber(task) {
   if (!task || typeof task !== "object") return null;
   const keys = [
+    "linkedPrId",
+    "linked_pr_id",
     "pullRequestId",
     "pull_request_id",
     "submissionPullRequestId",
@@ -68,8 +70,8 @@ export function taskVcSubmissionPullNumber(task) {
   for (const k of keys) {
     const raw = task[k];
     if (raw == null || raw === "") continue;
-    const n = Number(raw);
-    if (Number.isFinite(n) && n > 0 && Number.isInteger(n)) return n;
+    const value = String(raw).trim();
+    if (value) return value;
   }
   return null;
 }
@@ -109,11 +111,14 @@ export function canPerformVcTaskPullSubmissionReview(user, task, reviewerRoleFns
   const isReviewerRole =
     (typeof isTeacher === "function" && isTeacher()) ||
     (typeof isAdmin === "function" && isAdmin());
-  if (!isReviewerRole || !task || typeof task !== "object") return false;
+  if (!task || typeof task !== "object") return false;
   const me = repoViewerUsername(user);
   const assignee = taskAssigneeUsername(task);
   if (assignee && usernamesLikelySame(me, assignee)) return false;
-  return true;
+  return (
+    isReviewerRole ||
+    (me && task.createdBy && usernamesLikelySame(me, task.createdBy))
+  );
 }
 
 /**
@@ -122,6 +127,8 @@ export function canPerformVcTaskPullSubmissionReview(user, task, reviewerRoleFns
 export function canManageVcTaskAssignment(user, task, gradingRoleFns = {}) {
   const { isTeacher, isAdmin } = gradingRoleFns;
   if (!task || typeof task !== "object") return false;
+  const status = String(task.status ?? "").trim().toLowerCase();
+  if (status === "completed" || status === "done") return false;
   if (
     (typeof isTeacher === "function" && isTeacher()) ||
     (typeof isAdmin === "function" && isAdmin())

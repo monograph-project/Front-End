@@ -46,6 +46,7 @@ import { useAuth } from "../../context/AuthContext";
 import { resolveShellBasePath } from "../../lib/roles";
 import {
   useDeleteFacultyGroup,
+  useDeleteFacultyProject,
   useFacultyProjects,
   useFacultyProjectsByTeacher,
   useFacultyGroups,
@@ -474,6 +475,10 @@ export default function Projects() {
     showSuccessToast: false,
     showErrorToast: false,
   });
+  const deleteFacultyProject = useDeleteFacultyProject({
+    showSuccessToast: false,
+    showErrorToast: false,
+  });
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("projects");
   const [viewMode, setViewMode] = useState("list");
@@ -489,6 +494,7 @@ export default function Projects() {
     studentId: "",
   });
   const [deleteGroup, setDeleteGroup] = useState(null);
+  const [archiveProject, setArchiveProject] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   useEffect(() => {
@@ -650,6 +656,20 @@ export default function Projects() {
   const openWorkspace = (p) => {
     if (!p?.id) return;
     navigate(`${shellBase}/projects/workspace/${encodeURIComponent(p.id)}`);
+  };
+
+  const openProjectEdit = (project) => {
+    if (!project?.id) return;
+    navigate(`${shellBase}/projects/register/${encodeURIComponent(project.id)}`);
+  };
+
+  const openProjectArchive = (project) => {
+    if (!project?.id) return;
+    setArchiveProject({
+      id: project.id,
+      name: project.repositoryName?.replace(/-/g, " ") || project.id,
+      meta: `${project.ownerUsername || "—"}/${project.repositoryName || "—"}`,
+    });
   };
 
   const projectHeaderData = useMemo(
@@ -859,6 +879,25 @@ export default function Projects() {
       setDeleteGroup(null);
     } catch (e) {
       gooeyToast.error(e?.message || t("adminProjects.delete.error"));
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
+  const confirmArchiveProject = async () => {
+    if (!archiveProject || deleteSubmitting) return;
+    setDeleteSubmitting(true);
+    try {
+      await deleteFacultyProject.mutateAsync(archiveProject.id);
+      await queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          query.queryKey[0] === "faculty-projects",
+      });
+      gooeyToast.success(t("adminProjects.archive.success"));
+      setArchiveProject(null);
+    } catch (e) {
+      gooeyToast.error(e?.message || t("adminProjects.archive.error"));
     } finally {
       setDeleteSubmitting(false);
     }
@@ -1157,11 +1196,14 @@ export default function Projects() {
                             >
                               {t("adminProjects.actions.openWorkspace")}
                             </DropdownItem>
-                            <DropdownItem>
+                            <DropdownItem onClick={() => openProjectEdit(project)}>
                               {t("adminProjects.actions.edit")}
                             </DropdownItem>
                             <DropdownSeparator />
-                            <DropdownItem variant="danger">
+                            <DropdownItem
+                              variant="danger"
+                              onClick={() => openProjectArchive(project)}
+                            >
                               {t("adminShared.actions.archive")}
                             </DropdownItem>
                           </DropdownContent>
@@ -1573,6 +1615,35 @@ export default function Projects() {
               : t("adminShared.actions.delete")
           }
           onConfirm={confirmDeleteGroup}
+          submitting={deleteSubmitting}
+        />
+      ) : null}
+
+      {archiveProject ? (
+        <SensitiveActionModal
+          open={true}
+          setOpen={(open) => {
+            if (!open && !deleteSubmitting) setArchiveProject(null);
+          }}
+          title={t("adminProjects.archive.title")}
+          subtitle={t("adminProjects.archive.description", {
+            name: archiveProject.name,
+          })}
+          summaryItems={[
+            {
+              label: t("adminProjects.delete.meta"),
+              value: archiveProject.meta || "—",
+              mono: true,
+            },
+          ]}
+          warning={t("adminProjects.archive.warning")}
+          cancelLabel={t("adminProjects.form.group.actions.cancel")}
+          confirmLabel={
+            deleteSubmitting
+              ? t("adminProjects.form.group.actions.submitting")
+              : t("adminShared.actions.archive")
+          }
+          onConfirm={confirmArchiveProject}
           submitting={deleteSubmitting}
         />
       ) : null}

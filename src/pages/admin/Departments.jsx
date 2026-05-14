@@ -10,6 +10,7 @@ import {
   Filter,
   GraduationCap,
   Hash,
+  ImageUp,
   Layers,
   LayoutGrid,
   LayoutList,
@@ -18,7 +19,7 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { gooeyToast } from "goey-toast";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -79,6 +80,7 @@ import {
   useUpdateFacultyGroup,
   useUpdateFacultyGroupLeader,
   useUpdateSemester,
+  useUploadDepartmentLogo,
 } from "../../services/useApi";
 import AddDepartmentForm from "./AddDepartmentForm";
 import EditDepartmentForm from "./EditDepartmentForm";
@@ -1013,6 +1015,8 @@ export default function Departments() {
   const [groupOperationDraft, setGroupOperationDraft] = useState({
     studentId: "",
   });
+  const [logoUploadRecord, setLogoUploadRecord] = useState(null);
+  const logoFileInputRef = useRef(null);
   const debouncedSearch = useDebouncedValue(searchInput, 400);
 
   const [formValues, setFormValues] = useState(
@@ -1082,6 +1086,10 @@ export default function Departments() {
   const deleteDepartmentMutation = useDeleteDepartment({
     showSuccessToast: false,
     showErrorToast: false,
+  });
+  const uploadDepartmentLogo = useUploadDepartmentLogo({
+    showSuccessToast: false,
+    toastError: "apiErrors.failed_to_upload_department_logo",
   });
 
   const tabs = useMemo(() => getRegistryTabs(t), [t]);
@@ -1932,6 +1940,36 @@ export default function Departments() {
     });
   };
 
+  const openDepartmentLogoUpload = (record) => {
+    if (!record?.id) return;
+    setLogoUploadRecord(record);
+    window.setTimeout(() => logoFileInputRef.current?.click?.(), 0);
+  };
+
+  const handleDepartmentLogoFile = async (event) => {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!file || !logoUploadRecord?.id) return;
+
+    try {
+      await uploadDepartmentLogo.mutateAsync({
+        id: logoUploadRecord.id,
+        file,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["departments"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["departments", logoUploadRecord.id],
+      });
+      gooeyToast.success(t("adminDepartments.form.toast.logoUploadSuccess"));
+    } catch (e) {
+      gooeyToast.error(
+        e?.message || t("apiErrors.failed_to_upload_department_logo"),
+      );
+    } finally {
+      setLogoUploadRecord(null);
+    }
+  };
+
   const renderRegistryActions = (record) => (
     <DropdownMenuRoot>
       <DropdownTrigger showArrow={false}>
@@ -1956,6 +1994,14 @@ export default function Departments() {
             onClick={() => navigate(`/admin/department/${record.id}`)}
           >
             <span>{t("adminShared.actions.viewProfile")}</span>
+          </DropdownItem>
+        ) : null}
+        {activeTab === "departments" ? (
+          <DropdownItem
+            icon={<ImageUp className="size-3.5" />}
+            onClick={() => openDepartmentLogoUpload(record)}
+          >
+            <span>{t("adminDepartments.form.fields.logo")}</span>
           </DropdownItem>
         ) : null}
         <DropdownItem onClick={() => openEditModal(record)}>
@@ -2026,6 +2072,13 @@ export default function Departments() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-white  p-4 md:p-5 min-h-screen dark:bg-dark-card-bg">
+      <input
+        ref={logoFileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleDepartmentLogoFile}
+      />
       <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-muted">

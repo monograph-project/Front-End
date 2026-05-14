@@ -2115,6 +2115,8 @@ const resources = {
         "Department created successfully",
       "adminDepartments.form.toast.updateSuccess":
         "Department updated successfully",
+      "adminDepartments.form.toast.logoUploadSuccess":
+        "Department logo uploaded successfully",
       "adminDepartments.delete.title": "Delete Department",
       "adminDepartments.delete.descriptionPrefix":
         "Are you sure you want to delete",
@@ -2363,8 +2365,8 @@ const resources = {
       "studentForm.fields.addressStreet.placeholder": "Street, building, etc.",
       "studentForm.fields.addressCity.label": "City",
       "studentForm.fields.addressCity.placeholder": "City",
-      "studentForm.fields.addressPostalCode.label": "Postal code",
-      "studentForm.fields.addressPostalCode.placeholder": "Postal / ZIP code",
+      "studentForm.fields.addressPostalCode.label": "Zip",
+      "studentForm.fields.addressPostalCode.placeholder": "Zip",
       "studentForm.fields.profilePicture.label": "Profile picture URL",
       "studentForm.fields.profilePicture.placeholder": "https://…",
       "studentForm.fields.code.label": "Student Code",
@@ -2424,8 +2426,7 @@ const resources = {
       "studentForm.validation.addressStreetRequired":
         "Street address is required",
       "studentForm.validation.addressCityRequired": "City is required",
-      "studentForm.validation.addressPostalRequired":
-        "Postal code is required",
+      "studentForm.validation.addressPostalRequired": "Zip is required",
       "studentForm.validation.addressPattern":
         "Use 5–150 letters, numbers, spaces, commas, hyphens, or periods",
       "studentForm.validation.postalPattern":
@@ -3352,6 +3353,11 @@ const resources = {
       "adminProjects.delete.warning": "This action cannot be undone.",
       "adminProjects.delete.success": "Item removed successfully.",
       "adminProjects.delete.error": "The item could not be removed.",
+      "adminProjects.archive.title": "Archive project",
+      "adminProjects.archive.description": "This project will be archived: {{name}}",
+      "adminProjects.archive.warning": "Archived projects are hidden from the active project list.",
+      "adminProjects.archive.success": "Project archived successfully.",
+      "adminProjects.archive.error": "The project could not be archived.",
       "adminProjects.form.project.createTitle": "Register project",
       "adminProjects.form.project.editTitle": "Edit project",
       "adminProjects.form.project.subtitle":
@@ -5944,6 +5950,8 @@ const resources = {
         "دیپارټمنټ په بریالیتوب جوړ شو",
       "adminDepartments.form.toast.updateSuccess":
         "دیپارټمنټ په بریالیتوب تازه شو",
+      "adminDepartments.form.toast.logoUploadSuccess":
+        "د دیپارټمنټ لوګو په بریالیتوب پورته شو",
       "adminDepartments.delete.title": "دیپارټمنټ حذف کړئ",
       "adminDepartments.delete.descriptionPrefix":
         "ایا تاسو ډاډه یاست چې دا دیپارټمنټ حذف کړئ",
@@ -6191,8 +6199,8 @@ const resources = {
       "studentForm.fields.addressStreet.placeholder": "سړک،ودانۍ او نور",
       "studentForm.fields.addressCity.label": "ښار",
       "studentForm.fields.addressCity.placeholder": "ښار",
-      "studentForm.fields.addressPostalCode.label": "پوست کوډ",
-      "studentForm.fields.addressPostalCode.placeholder": "پوست / ZIP کوډ",
+      "studentForm.fields.addressPostalCode.label": "ZIP",
+      "studentForm.fields.addressPostalCode.placeholder": "ZIP",
       "studentForm.fields.profilePicture.label": "پروفایل انځور URL",
       "studentForm.fields.profilePicture.placeholder": "https://…",
       "studentForm.fields.code.label": "کوډ",
@@ -6249,7 +6257,7 @@ const resources = {
         "۱۰ عددي افغان موبایل شمېره ولیکئ چې له 07 څخه پیلېږي",
       "studentForm.validation.addressStreetRequired": "پته ضروري ده",
       "studentForm.validation.addressCityRequired": "ښار ضروري دی",
-      "studentForm.validation.addressPostalRequired": "پوست کوډ ضروري دی",
+      "studentForm.validation.addressPostalRequired": "ZIP ضروري دی",
       "studentForm.validation.addressPattern":
         "۵–۱۵۰ توري، شمېرې، تشې، کامې، هایفن یا نقطې وکاروئ",
       "studentForm.validation.postalPattern":
@@ -7156,6 +7164,11 @@ const resources = {
       "adminProjects.delete.warning": "دا عمل بېرته نه راګرځي.",
       "adminProjects.delete.success": "مورد په بریالیتوب ړنګ شو.",
       "adminProjects.delete.error": "مورد ونه ړنګېد.",
+      "adminProjects.archive.title": "پروژه آرشیف کړئ",
+      "adminProjects.archive.description": "دا پروژه به آرشیف شي: {{name}}",
+      "adminProjects.archive.warning": "آرشیف شوې پروژې د فعالو پروژو له لېست څخه پټېږي.",
+      "adminProjects.archive.success": "پروژه په بریالیتوب آرشیف شوه.",
+      "adminProjects.archive.error": "پروژه آرشیف نه شوه.",
       "adminProjects.form.project.createTitle": "د پروژې ثبت",
       "adminProjects.form.project.editTitle": "د پروژې سمون",
       "adminProjects.form.project.subtitle":
@@ -9762,6 +9775,8 @@ const resources = {
         "دیپارتمنت با موفقیت ایجاد شد",
       "adminDepartments.form.toast.updateSuccess":
         "دیپارتمنت با موفقیت به‌روزرسانی شد",
+      "adminDepartments.form.toast.logoUploadSuccess":
+        "لوگوی دیپارتمنت با موفقیت بارگذاری شد",
       "adminDepartments.delete.title": "حذف دیپارتمنت",
       "adminDepartments.delete.descriptionPrefix":
         "آیا مطمئن هستید که این دیپارتمنت حذف شود",
@@ -10010,8 +10025,8 @@ const resources = {
       "studentForm.fields.addressStreet.placeholder": "خیابان، ساختمان و ...",
       "studentForm.fields.addressCity.label": "شهر",
       "studentForm.fields.addressCity.placeholder": "شهر",
-      "studentForm.fields.addressPostalCode.label": "کد پستی",
-      "studentForm.fields.addressPostalCode.placeholder": "کد پستی / ZIP",
+      "studentForm.fields.addressPostalCode.label": "ZIP",
+      "studentForm.fields.addressPostalCode.placeholder": "ZIP",
       "studentForm.fields.profilePicture.label": "آدرس تصویر پروفایل",
       "studentForm.fields.profilePicture.placeholder": "https://…",
       "studentForm.fields.code.label": "کود محصل",
@@ -10069,7 +10084,7 @@ const resources = {
         "شماره موبایل افغانستان را با ۱۰ رقم و شروع 07 وارد کنید",
       "studentForm.validation.addressStreetRequired": "آدرس خیابان ضروری است",
       "studentForm.validation.addressCityRequired": "شهر ضروری است",
-      "studentForm.validation.addressPostalRequired": "کد پستی ضروری است",
+      "studentForm.validation.addressPostalRequired": "ZIP ضروری است",
       "studentForm.validation.addressPattern":
         "۵ تا ۱۵۰ حرف، عدد، فاصله، ویرگول، خط فاصله یا نقطه وارد کنید",
       "studentForm.validation.postalPattern":
@@ -10980,6 +10995,11 @@ const resources = {
       "adminProjects.delete.warning": "این عمل قابل برگشت نیست.",
       "adminProjects.delete.success": "مورد با موفقیت حذف شد.",
       "adminProjects.delete.error": "حذف مورد انجام نشد.",
+      "adminProjects.archive.title": "آرشیف پروژه",
+      "adminProjects.archive.description": "این پروژه آرشیف می‌شود: {{name}}",
+      "adminProjects.archive.warning": "پروژه‌های آرشیف‌شده از فهرست پروژه‌های فعال پنهان می‌شوند.",
+      "adminProjects.archive.success": "پروژه با موفقیت آرشیف شد.",
+      "adminProjects.archive.error": "پروژه آرشیف نشد.",
       "adminProjects.form.project.createTitle": "ثبت پروژه",
       "adminProjects.form.project.editTitle": "ویرایش پروژه",
       "adminProjects.form.project.subtitle":

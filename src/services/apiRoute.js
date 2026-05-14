@@ -2410,11 +2410,25 @@ export async function getSemesterById(id) {
 export async function getSemestersByAcademicYearId(academicYearId) {
   if (academicYearId == null || String(academicYearId).trim() === "")
     return [];
+  const id = String(academicYearId).trim();
   try {
     const { data } = await axiosInstance.get(
-      SEMESTER.BY_ACADEMIC_YEAR(academicYearId),
+      SEMESTER.BY_ACADEMIC_YEAR(id),
     );
-    return facultyListItems(data);
+    const list = facultyListItems(data);
+    if (list.length) return list;
+
+    const allSemesters = await getSemesters();
+    return allSemesters.filter((semester) => {
+      const academicYear = semester?.academicYear;
+      const candidate =
+        semester?.academicYearId ??
+        semester?.academic_year_id ??
+        academicYear?.id ??
+        academicYear?.academicYearId ??
+        "";
+      return String(candidate).trim() === id;
+    });
   } catch (err) {
     if (err?.response?.status === 404) return [];
     throwApiError(
@@ -4014,7 +4028,7 @@ export async function uploadVicExecutable(file) {
     const { data } = await axiosInstance.post(
       FILE.CLI_APPLICATION.POST_VIC_EXE(),
       fd,
-      { headers: { "Content-Type": "multipart/form-data" } },
+      { timeout: 180_000 },
     );
     return data;
   } catch (err) {

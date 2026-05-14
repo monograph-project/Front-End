@@ -482,6 +482,12 @@ export default function StudentRepoTaskDetail() {
 
   const showReviewExplainer = Boolean(reviewBlockedExplainer);
   const reviewRequiresChanges = Boolean(canReviewPrSubmission && storedPrNumber != null);
+  const canInspectSubmittedChanges = Boolean(
+    storedPrNumber != null &&
+      (canReviewPrSubmission ||
+        canViewRepoIssueGradingContext(isStudent, user, task?.createdBy) ||
+        usernamesLikelySame(viewerHandle, assigneeTrim)),
+  );
 
   const eligiblePullRequestOptions = useMemo(
     () =>
@@ -787,11 +793,25 @@ export default function StudentRepoTaskDetail() {
                   {t("studentRepo.tasks.detail.reviewPanel")}
                 </p>
                 {storedPrNumber != null ? (
-                  <DetailRow
-                    icon={ClipboardList}
-                    label={t("studentRepo.tasks.detail.submissionPullIdLabel")}
-                    value={String(storedPrNumber)}
-                  />
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+                    <DetailRow
+                      icon={ClipboardList}
+                      label={t("studentRepo.tasks.detail.submissionPullIdLabel")}
+                      value={String(storedPrNumber)}
+                    />
+                    {canInspectSubmittedChanges ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setReviewChangesOpen(true)}
+                      >
+                        {t(
+                          "studentRepo.tasks.taskDetail.viewCurrentPullChanges",
+                          "View current PR changes",
+                        )}
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : null}
                 {canViewGrading && task.reviewedBy ? (
                   <DetailRow

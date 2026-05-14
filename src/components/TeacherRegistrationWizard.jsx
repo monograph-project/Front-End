@@ -279,7 +279,11 @@ export default function TeacherRegistrationWizard({
     );
 
     reset({
-      username: existingTeacher.username ?? "",
+      username:
+        existingTeacher.username ??
+        existingTeacher.userName ??
+        existingTeacher.user_name ??
+        "",
       password: "",
       role: existingTeacher.role ?? "TEACHER_USER",
       firstName: existingTeacher.firstName ?? "",
@@ -293,7 +297,11 @@ export default function TeacherRegistrationWizard({
       addressCity: existingTeacher.addressCity ?? "",
       addressPostalCode: existingTeacher.addressPostalCode ?? "",
       addressProvince: existingTeacher.addressProvince ?? "",
-      department: deptSel || existingTeacher.department || "",
+      department:
+        deptSel ||
+        existingTeacher.departmentId ||
+        existingTeacher.department ||
+        "",
       educationRank:
         existingTeacher.educationRank &&
         EDUCATION_RANK_VALUES.includes(existingTeacher.educationRank)
@@ -483,7 +491,7 @@ export default function TeacherRegistrationWizard({
                   label={t("studentForm.fields.username.label")}
                   autoComplete="username"
                   disabled
-                  register={register("username")}
+                  value={watched?.username ?? ""}
                 />
               ) : (
                 <Field
@@ -577,6 +585,7 @@ export default function TeacherRegistrationWizard({
                   iconD={IC.contact}
                   label={`${t("studentForm.fields.firstName.label")} *`}
                   placeholder={t("studentForm.fields.firstName.placeholder")}
+                  readOnly={isEdit}
                   register={register("firstName", {
                     required: t("studentForm.validation.firstNameRequired"),
                     minLength: {
@@ -598,6 +607,7 @@ export default function TeacherRegistrationWizard({
                   iconD={IC.contact}
                   label={`${t("studentForm.fields.lastName.label")} *`}
                   placeholder={t("studentForm.fields.lastName.placeholder")}
+                  readOnly={isEdit}
                   register={register("lastName", {
                     required: t("studentForm.validation.lastNameRequired"),
                     minLength: {
@@ -620,6 +630,7 @@ export default function TeacherRegistrationWizard({
                 <Field
                   label={`${t("studentForm.fields.fatherName.label")} *`}
                   placeholder={t("studentForm.fields.fatherName.placeholder")}
+                  readOnly={isEdit}
                   register={register("fatherName", {
                     required: t("studentForm.validation.fatherNameRequired"),
                     minLength: {
@@ -642,6 +653,7 @@ export default function TeacherRegistrationWizard({
                   placeholder={t(
                     "studentForm.fields.grandFatherName.placeholder",
                   )}
+                  readOnly={isEdit}
                   register={register("grandFatherName", {
                     validate: (value) => {
                       const v = String(value ?? "").trim();
@@ -668,6 +680,7 @@ export default function TeacherRegistrationWizard({
                 iconD={IC.calendar}
                 label={`${t("studentForm.fields.dateOfBirth.label")} *`}
                 type="date"
+                readOnly={isEdit}
                 register={register("dateOfBirth", {
                   required: t("studentForm.validation.dateOfBirthRequired"),
                   validate: (v) => {
@@ -706,6 +719,7 @@ export default function TeacherRegistrationWizard({
                 label={`${t("studentForm.fields.email.label")} *`}
                 type="email"
                 placeholder={t("studentForm.fields.email.placeholder")}
+                readOnly={isEdit}
                 register={register("email", {
                   required: t("studentForm.validation.emailRequired"),
                   pattern: {
@@ -720,6 +734,7 @@ export default function TeacherRegistrationWizard({
                 label={`${t("studentForm.fields.phone.label")} *`}
                 type="tel"
                 placeholder={t("studentForm.fields.phone.placeholder")}
+                readOnly={isEdit}
                 register={register("phone", {
                   required: t("studentForm.validation.phoneRequired"),
                   pattern: {
@@ -753,6 +768,7 @@ export default function TeacherRegistrationWizard({
                 iconD={IC.contact}
                 label={`${t("studentForm.fields.addressStreet.label")} *`}
                 placeholder={t("studentForm.fields.addressStreet.placeholder")}
+                readOnly={isEdit}
                 register={register("addressStreet", {
                   required: t("studentForm.validation.addressStreetRequired"),
                   minLength: {
@@ -775,6 +791,7 @@ export default function TeacherRegistrationWizard({
                   iconD={IC.globe}
                   label={`${t("studentForm.fields.addressCity.label")} *`}
                   placeholder={t("studentForm.fields.addressCity.placeholder")}
+                  readOnly={isEdit}
                   register={register("addressCity", {
                     required: t("studentForm.validation.addressCityRequired"),
                     minLength: {
@@ -797,6 +814,7 @@ export default function TeacherRegistrationWizard({
                   placeholder={t(
                     "studentForm.fields.addressPostalCode.placeholder",
                   )}
+                  readOnly={isEdit}
                   register={register("addressPostalCode", {
                     required: t("studentForm.validation.addressPostalRequired"),
                     pattern: {
@@ -812,6 +830,7 @@ export default function TeacherRegistrationWizard({
                 placeholder={t(
                   "teacherForm.fields.addressProvince.placeholder",
                 )}
+                readOnly={isEdit}
                 register={register("addressProvince", {
                   validate: (value) => {
                     const v = String(value ?? "").trim();
