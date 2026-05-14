@@ -32,10 +32,6 @@ import {
   useVcRepositoryRefs,
   useSessionProfile,
 } from "../../services/useApi";
-import {
-  fetchRepositoryCommitDiff,
-  fetchRepositoryCompare,
-} from "../../services/versionControlService";
 
 function prTitle(pr) {
   return pr.title ?? pr.name ?? pr.subject ?? `#${pr.id ?? pr.number ?? ""}`;
@@ -426,129 +422,6 @@ function branchOptionsFromRefsPayload(payload) {
   return opts;
 }
 
-function normalizeCompareFiles(raw) {
-  const files = raw?.files ?? raw?.changedFiles ?? raw?.changed_files ?? [];
-  return Array.isArray(files) ? files : [];
-}
-
-function normalizePatchFilePath(raw) {
-  const text = String(raw ?? "").trim();
-  return text.replace(/^a\//, "").replace(/^b\//, "");
-}
-
-function splitUnifiedDiffByFile(diffText) {
-  const text = String(diffText ?? "");
-  if (!text.trim()) return new Map();
-
-  const sections = text.split(/^diff --git /m).filter(Boolean);
-  const map = new Map();
-
-  sections.forEach((section) => {
-    const chunk = section.startsWith("a/") ? `diff --git ${section}` : section;
-    const lines = chunk.split("\n");
-    let path = "";
-    for (const line of lines) {
-      if (line.startsWith("+++ ")) {
-        path = normalizePatchFilePath(line.slice(4));
-        if (path === "/dev/null") path = "";
-      } else if (!path && line.startsWith("--- ")) {
-        const candidate = normalizePatchFilePath(line.slice(4));
-        if (candidate !== "/dev/null") path = candidate;
-      }
-    }
-    if (!path) {
-      const header = /^diff --git a\/(.+?) b\/(.+)$/.exec(lines[0] ?? "");
-      path = normalizePatchFilePath(header?.[2] ?? header?.[1] ?? "");
-    }
-    if (path) map.set(path, chunk);
-  });
-
-  return map;
-}
-
-function normalizePatchRows(patchText) {
-  const patch = String(patchText ?? "");
-  if (!patch.trim()) return [];
-
-  const lines = patch.split("\n");
-  const rows = [];
-  let oldLine = 0;
-  let newLine = 0;
-
-  for (const line of lines) {
-    if (line.startsWith("@@")) {
-      const match = /@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
-      if (match) {
-        oldLine = Number(match[1]);
-        newLine = Number(match[2]);
-      }
-      continue;
-    }
-    if (
-      line.startsWith("diff ") ||
-      line.startsWith("index ") ||
-      line.startsWith("--- ") ||
-      line.startsWith("+++ ") ||
-      line.startsWith("\\ No newline")
-    ) {
-      continue;
-    }
-
-    if (line.startsWith("+")) {
-      rows.push({
-        type: "added",
-        oldLine: null,
-        newLine,
-        content: line.slice(1),
-      });
-      newLine += 1;
-      continue;
-    }
-    if (line.startsWith("-")) {
-      rows.push({
-        type: "removed",
-        oldLine,
-        newLine: null,
-        content: line.slice(1),
-      });
-      oldLine += 1;
-      continue;
-    }
-
-    const content = line.startsWith(" ") ? line.slice(1) : line;
-    rows.push({
-      type: "context",
-      oldLine,
-      newLine,
-      content,
-    });
-    oldLine += 1;
-    newLine += 1;
-  }
-
-  return rows;
-}
-
-function summarizePatchRows(rows) {
-  return rows.reduce(
-    (acc, row) => {
-      if (row.type === "added") acc.additions += 1;
-      if (row.type === "removed") acc.deletions += 1;
-      return acc;
-    },
-    { additions: 0, deletions: 0 },
-  );
-}
-
-function fileChangeCount(row, kind) {
-  const raw =
-    kind === "add"
-      ? (row?.additions ?? row?.linesAdded ?? row?.insertions)
-      : (row?.deletions ?? row?.linesDeleted ?? row?.removals);
-  const value = Number(raw);
-  return Number.isFinite(value) ? value : null;
-}
-
 function PullRequestConflictPanel({ owner, repo, prId, active, onResolved }) {
   const { t } = useTranslation();
   const { data: conflicts = [], isLoading } = useVcMergeConflicts(
@@ -907,13 +780,6 @@ export default function StudentRepoPullRequests() {
   );
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [compareState, setCompareState] = useState({
-    loading: false,
-    error: "",
-    files: [],
-    patchMap: new Map(),
-  });
-  const [expandedFile, setExpandedFile] = useState("");
   const [activePrId, setActivePrId] = useState(params.get("pr") || "");
   const [mergingPrId, setMergingPrId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -954,108 +820,11 @@ export default function StudentRepoPullRequests() {
   }, [createMode, params]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function run() {
-      if (
-        !createMode ||
-        !owner ||
-        !repo ||
-        !baseRef ||
-        !headRef ||
-        baseRef === headRef
-      ) {
-        setCompareState({
-          loading: false,
-          error: "",
-          files: [],
-          patchMap: new Map(),
-        });
-        return;
-      }
-      setCompareState((current) => ({
-        ...current,
-        loading: true,
-        error: "",
-      }));
-      try {
-        const [compare, rawDiff] = await Promise.all([
-          fetchRepositoryCompare(owner, repo, baseRef, headRef),
-          fetchRepositoryCommitDiff(owner, repo, baseRef, headRef),
-        ]);
-        if (cancelled) return;
-        const diffText =
-          typeof rawDiff === "string"
-            ? rawDiff
-            : typeof rawDiff?.diff === "string"
-              ? rawDiff.diff
-              : typeof rawDiff?.patch === "string"
-                ? rawDiff.patch
-                : "";
-        const patchMap = splitUnifiedDiffByFile(diffText);
-        const files = normalizeCompareFiles(compare).map((row, index) => ({
-          key: `${row?.path ?? index}`,
-          path: String(row?.path ?? `file-${index}`),
-          status: String(row?.status ?? "modified"),
-          additions: fileChangeCount(row, "add"),
-          deletions: fileChangeCount(row, "delete"),
-          patch: patchMap.get(String(row?.path ?? "")) || "",
-        }));
-        if (!cancelled) {
-          setCompareState({
-            loading: false,
-            error: "",
-            files,
-            patchMap,
-          });
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setCompareState({
-            loading: false,
-            error: String(
-              error?.message ?? "Failed to load branch comparison.",
-            ),
-            files: [],
-            patchMap: new Map(),
-          });
-        }
-      }
-    }
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [baseRef, createMode, headRef, owner, repo]);
-
-  useEffect(() => {
     if (!createMode) return;
     if (title.trim()) return;
     if (!headRef || !baseRef) return;
     setTitle(`Merge ${headRef} into ${baseRef}`);
   }, [baseRef, createMode, headRef, title]);
-
-  useEffect(() => {
-    if (!compareState.files.length) {
-      setExpandedFile("");
-      return;
-    }
-    if (compareState.files.some((file) => file.key === expandedFile)) return;
-    setExpandedFile(compareState.files[0].key);
-  }, [compareState.files, expandedFile]);
-
-  const changeSummary = useMemo(() => {
-    return compareState.files.reduce(
-      (acc, file) => {
-        const rows = normalizePatchRows(file.patch);
-        const rowSummary = summarizePatchRows(rows);
-        acc.files += 1;
-        acc.additions += file.additions ?? rowSummary.additions;
-        acc.deletions += file.deletions ?? rowSummary.deletions;
-        return acc;
-      },
-      { files: 0, additions: 0, deletions: 0 },
-    );
-  }, [compareState.files]);
 
   const prSummary = useMemo(() => {
     return (data ?? []).reduce(
@@ -1241,7 +1010,7 @@ export default function StudentRepoPullRequests() {
               />
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
+            <div className="grid gap-4">
               <div className="rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary px-4 py-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
                 <div className="flex flex-wrap items-center gap-2 text-sm text-primary dark:text-dark-primary">
                   <GitCompareArrows
@@ -1265,33 +1034,6 @@ export default function StudentRepoPullRequests() {
                     {t("studentRepo.pulls.form.branchConflict")}
                   </p>
                 ) : null}
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-                <PullRequestSummaryCard
-                  label={t("studentRepo.pulls.summary.filesChanged")}
-                  value={changeSummary.files}
-                  hint={
-                    compareState.loading
-                      ? t("studentRepo.pulls.summary.refreshing")
-                      : t("studentRepo.pulls.summary.filesHint")
-                  }
-                  icon={GitPullRequest}
-                />
-                <PullRequestSummaryCard
-                  label={t("studentRepo.pulls.summary.additions")}
-                  value={`+${changeSummary.additions}`}
-                  hint={t("studentRepo.pulls.summary.additionsHint")}
-                  icon={CheckCircle2}
-                  tone="open"
-                />
-                <PullRequestSummaryCard
-                  label={t("studentRepo.pulls.summary.deletions")}
-                  value={`-${changeSummary.deletions}`}
-                  hint={t("studentRepo.pulls.summary.deletionsHint")}
-                  icon={XCircle}
-                  tone="closed"
-                />
               </div>
             </div>
 
@@ -1320,126 +1062,6 @@ export default function StudentRepoPullRequests() {
                   placeholder={t("studentRepo.pulls.form.descriptionPlaceholder")}
                 />
               </div>
-            </div>
-
-            <div className="rounded-xl border border-(--color-light-card-border) dark:border-(--color-dark-card-border)">
-              <div className="border-b border-(--color-light-card-border) px-4 py-3 dark:border-(--color-dark-card-border)">
-                <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-primary dark:text-dark-primary">
-                  <span>{t("studentRepo.pulls.form.changes")}</span>
-                  <span className="rounded-full border border-(--color-light-card-border) px-2 py-0.5 text-[10px] dark:border-(--color-dark-card-border)">
-                    {t("studentRepo.pulls.form.filesCount", {
-                      count: changeSummary.files,
-                    })}
-                  </span>
-                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
-                    +{changeSummary.additions}
-                  </span>
-                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] text-red-700 dark:bg-red-500/12 dark:text-red-300">
-                    -{changeSummary.deletions}
-                  </span>
-                </div>
-              </div>
-
-              {compareState.loading ? (
-                <p className="px-4 py-4 text-sm text-muted dark:text-dark-muted">
-                  {t("studentRepo.pulls.form.loadingDiff")}
-                </p>
-              ) : compareState.error ? (
-                <p className="px-4 py-4 text-sm text-(--color-light-error-text) dark:text-(--color-dark-error-text)">
-                  {compareState.error}
-                </p>
-              ) : !compareState.files.length ? (
-                <p className="px-4 py-4 text-sm text-muted dark:text-dark-muted">
-                  {t("studentRepo.pulls.form.noDiff")}
-                </p>
-              ) : (
-                <div className="space-y-3 p-4">
-                  {compareState.files.map((file) => {
-                    const rows = normalizePatchRows(file.patch);
-                    const rowSummary = summarizePatchRows(rows);
-                    const additions = file.additions ?? rowSummary.additions;
-                    const deletions = file.deletions ?? rowSummary.deletions;
-                    return (
-                      <section
-                        key={file.key}
-                        className="overflow-hidden rounded-lg border border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
-                      >
-                        <button
-                          type="button"
-                          className="flex w-full items-center justify-between gap-3 bg-light-app-tertiary px-4 py-3 text-left dark:bg-dark-app-tertiary"
-                          onClick={() =>
-                            setExpandedFile((current) =>
-                              current === file.key ? "" : file.key,
-                            )
-                          }
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
-                              {file.path}
-                            </p>
-                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
-                              <span className="uppercase tracking-wide text-muted dark:text-dark-muted">
-                                {file.status}
-                              </span>
-                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
-                                +{additions}
-                              </span>
-                              <span className="rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-700 dark:bg-red-500/12 dark:text-red-300">
-                                -{deletions}
-                              </span>
-                            </div>
-                          </div>
-                          <span className="text-xs text-muted dark:text-dark-muted">
-                            {expandedFile === file.key
-                              ? t("studentRepo.pulls.form.hide")
-                              : t("studentRepo.pulls.form.show")}
-                          </span>
-                        </button>
-                        {expandedFile === file.key ? (
-                          <div className="overflow-auto border-t border-(--color-light-card-border) dark:border-(--color-dark-card-border)">
-                            <div className="grid grid-cols-[48px_48px_24px_minmax(0,1fr)] bg-light-app-tertiary px-0 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted dark:bg-dark-app-tertiary dark:text-dark-muted">
-                              <span className="px-2 text-right">{t("studentRepo.pulls.form.old")}</span>
-                              <span className="px-2 text-right">{t("studentRepo.pulls.form.new")}</span>
-                              <span className="px-1 text-center"></span>
-                              <span className="px-2">{t("studentRepo.pulls.form.content")}</span>
-                            </div>
-                            {rows.map((row, index) => {
-                              const isAdded = row.type === "added";
-                              const isRemoved = row.type === "removed";
-                              return (
-                                <div
-                                  key={`${file.key}-${index}`}
-                                  className={cn(
-                                    "grid grid-cols-[48px_48px_24px_minmax(0,1fr)] border-t border-(--color-light-card-border) font-mono text-[10px] leading-6 dark:border-(--color-dark-card-border)",
-                                    isAdded
-                                      ? "bg-green-500/12 text-green-800 dark:text-green-200"
-                                      : isRemoved
-                                        ? "bg-red-500/12 text-red-800 dark:text-red-200"
-                                        : "text-secondary dark:text-dark-secondary",
-                                  )}
-                                >
-                                  <span className="px-2 text-right opacity-70">
-                                    {row.oldLine ?? ""}
-                                  </span>
-                                  <span className="px-2 text-right opacity-70">
-                                    {row.newLine ?? ""}
-                                  </span>
-                                  <span className="px-1 text-center">
-                                    {isAdded ? "+" : isRemoved ? "-" : " "}
-                                  </span>
-                                  <pre className="m-0 px-2">
-                                    <code>{row.content || " "}</code>
-                                  </pre>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : null}
-                      </section>
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-2">

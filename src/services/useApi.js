@@ -2451,7 +2451,7 @@ export function useVcMergeConflicts(owner, repo, prNumber, queryOptions = {}) {
 
 export function useVcMergePullRequest(options = {}) {
   const queryClient = useQueryClient();
-  const { onSuccess: userOnSuccess, ...rest } = options;
+  const { onSuccess: userOnSuccess, onError: userOnError, ...rest } = options;
 
   return useApiMutation({
     mutationFn: ({ owner, repo, prNumber }) =>
@@ -2471,9 +2471,31 @@ export function useVcMergePullRequest(options = {}) {
           queryClient.invalidateQueries({
             queryKey: ["vc", "repos", "pulls", owner, repo, prNumber, "conflicts"],
           }),
+          queryClient.invalidateQueries({
+            queryKey: ["vcPullRequestFiles", owner, repo, prNumber],
+          }),
         ]);
       }
       userOnSuccess?.(data, variables, context);
+    },
+    onError: async (error, variables, context) => {
+      const owner = variables?.owner;
+      const repo = variables?.repo;
+      const prNumber = variables?.prNumber;
+      if (owner && repo) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["vc", "repos", "pulls", owner, repo],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["vc", "repos", "pulls", owner, repo, prNumber, "conflicts"],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["vcPullRequestFiles", owner, repo, prNumber],
+          }),
+        ]);
+      }
+      userOnError?.(error, variables, context);
     },
   });
 }

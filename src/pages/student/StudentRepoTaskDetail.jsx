@@ -1,4 +1,4 @@
-import { createElement, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useOutletContext, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import Button from "../../components/Button";
 import Field from "../../components/Field";
 import GlobalModal from "../../components/GlobalModal";
+import PRFilesDiff from "../../components/PullRequest/PRFilesDiff";
 import SearchableSelect from "../../components/SearchableSelect";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -262,6 +263,8 @@ export default function StudentRepoTaskDetail() {
 
   const [submitOpen, setSubmitOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewChangesOpen, setReviewChangesOpen] = useState(false);
+  const [changesReviewed, setChangesReviewed] = useState(false);
   const [submitDraft, setSubmitDraft] = useState({
     pullRequestId: "",
     description: "",
@@ -422,6 +425,11 @@ export default function StudentRepoTaskDetail() {
   const assigneeTrim = String(assigneeName ?? "").trim();
   const storedPrNumber = task ? taskVcSubmissionPullNumber(task) : null;
 
+  useEffect(() => {
+    setChangesReviewed(false);
+    setReviewChangesOpen(false);
+  }, [storedPrNumber, taskNumber]);
+
   const canManageAssign =
     Boolean(task) &&
     canManageVcTaskAssignment(user, task, { isTeacher, isAdmin });
@@ -473,6 +481,7 @@ export default function StudentRepoTaskDetail() {
       : null;
 
   const showReviewExplainer = Boolean(reviewBlockedExplainer);
+  const reviewRequiresChanges = Boolean(canReviewPrSubmission && storedPrNumber != null);
 
   const eligiblePullRequestOptions = useMemo(
     () =>
@@ -896,17 +905,47 @@ export default function StudentRepoTaskDetail() {
                     <p className="mt-2 text-xs text-secondary dark:text-dark-secondary">
                       {t("studentRepo.tasks.taskDetail.reviewHint")}
                     </p>
+                    {storedPrNumber != null ? (
+                      <Button
+                        className="mt-3"
+                        type="button"
+                        variant={changesReviewed ? "secondary" : "primary"}
+                        icon={<ShieldCheck className="h-4 w-4" />}
+                        onClick={() => setReviewChangesOpen(true)}
+                      >
+                        {changesReviewed
+                          ? t(
+                              "studentRepo.tasks.taskDetail.reviewChangesAgain",
+                              "Review changes again",
+                            )
+                          : t(
+                              "studentRepo.tasks.taskDetail.reviewChangesAction",
+                              "Review task changes",
+                            )}
+                      </Button>
+                    ) : null}
                     <Button
                       className="mt-3"
                       type="button"
                       variant="secondary"
                       icon={<ShieldCheck className="h-4 w-4" />}
                       loading={reviewMutation.isPending}
-                      disabled={reviewMutation.isPending}
+                      disabled={
+                        reviewMutation.isPending ||
+                        (reviewRequiresChanges && !changesReviewed)
+                      }
                       onClick={() => setReviewOpen(true)}
                     >
                       {t("studentRepo.tasks.taskDetail.reviewAction")}
                     </Button>
+                    {reviewRequiresChanges && !changesReviewed ? (
+                      <p className="mt-2 text-[11px] text-muted dark:text-dark-muted">
+                        {t(
+                          "studentRepo.tasks.taskDetail.reviewChangesRequired",
+                          "Review the submitted pull request changes before completing this task review.",
+                        )}
+                      </p>
+                    ) : null}
                   </div>
                 ) : showReviewExplainer ? (
                   <div className="rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary p-4 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
@@ -1017,6 +1056,62 @@ export default function StudentRepoTaskDetail() {
             }
           />
         </div>
+      </GlobalModal>
+
+      <GlobalModal
+        open={reviewChangesOpen}
+        setOpen={setReviewChangesOpen}
+        isClose
+        title={t(
+          "studentRepo.tasks.taskDetail.reviewChangesTitle",
+          "Review submitted changes",
+        )}
+        subtitle={
+          storedPrNumber != null
+            ? t(
+                "studentRepo.tasks.taskDetail.reviewChangesSubtitle",
+                {
+                  defaultValue:
+                    "Inspect pull request #{{id}} before approving or requesting changes.",
+                  id: storedPrNumber,
+                },
+              )
+            : t(
+                "studentRepo.tasks.taskDetail.reviewModalSubtitleNoPr",
+              )
+        }
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => setReviewChangesOpen(false)}
+            >
+              {t("studentRepo.pulls.actions.cancel")}
+            </Button>
+            <Button
+              onClick={() => {
+                setChangesReviewed(true);
+                setReviewChangesOpen(false);
+                setReviewOpen(true);
+              }}
+              disabled={storedPrNumber == null}
+            >
+              {t(
+                "studentRepo.tasks.taskDetail.continueToReview",
+                "Continue to task review",
+              )}
+            </Button>
+          </>
+        }
+        className="max-w-6xl"
+      >
+        {storedPrNumber != null ? (
+          <PRFilesDiff owner={owner} repo={repo} prNumber={storedPrNumber} />
+        ) : (
+          <p className="text-sm text-muted dark:text-dark-muted">
+            {t("studentRepo.tasks.taskDetail.reviewModalSubtitleNoPr")}
+          </p>
+        )}
       </GlobalModal>
 
       <GlobalModal
