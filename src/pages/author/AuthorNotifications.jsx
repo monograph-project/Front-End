@@ -1,5 +1,5 @@
-import UserNotificationInbox from "../../components/notifications/UserNotificationInbox";
+import AdminNotificationInboxTable from "../../components/admin/AdminNotificationInboxTable";
 
 export default function AuthorNotifications() {
-  return <UserNotificationInbox basePath="/author/notifications" />;
+  return <AdminNotificationInboxTable basePath="/author/notifications" />;
 }

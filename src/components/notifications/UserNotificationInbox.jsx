@@ -3,13 +3,21 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import {
+  useDeleteNotification,
   useMarkNotificationRead,
   useUserNotificationUnreadCount,
   useUserNotifications,
 } from "../../services/useApi";
+import {
+  DropdownContent,
+  DropdownItem,
+  DropdownMenuRoot,
+  DropdownTrigger,
+} from "../DropdownMenu";
 import Field from "../Field";
 import IC from "../IC";
 import StatusPill from "../StatusPill";
@@ -71,6 +79,27 @@ export default function UserNotificationInbox({ basePath }) {
       });
     },
   });
+  const deleteMutation = useDeleteNotification({
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["notifications", "user", userId],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["notifications", "unread", userId],
+      });
+    },
+  });
+
+  const requestDelete = (event, item) => {
+    event.stopPropagation();
+    const confirmed = window.confirm(
+      t("notificationInbox.deleteConfirm", {
+        defaultValue: "Delete this notification?",
+      }),
+    );
+    if (!confirmed) return;
+    deleteMutation.mutate(String(item.id));
+  };
 
   const unreadTotal =
     typeof unreadRaw === "number"
@@ -147,7 +176,7 @@ export default function UserNotificationInbox({ basePath }) {
           <h1 className="text-xl font-bold text-primary dark:text-dark-primary md:text-2xl">
             {t("notificationInbox.title")}
           </h1>
-          <p className="mt-1 text-sm text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
+          <p className="mt-1 text-sm text-light-text-secondary dark:text-(--color-dark-text-secondary)">
             {t("notificationInbox.subtitle")}
           </p>
           <p className="mt-1 text-[11px] font-medium text-(--color-light-text-muted) dark:text-dark-text-muted">
@@ -205,8 +234,7 @@ export default function UserNotificationInbox({ basePath }) {
           <ul className="divide-y divide-light-divider dark:divide-dark-divider">
             {filtered.map((item) => (
               <li key={item.id}>
-                <button
-                  type="button"
+                <div
                   onClick={() => {
                     if (item.unread) {
                       optimisticallyMarkNotificationRead(queryClient, userId, item.id);
@@ -216,8 +244,16 @@ export default function UserNotificationInbox({ basePath }) {
                       `${basePath.replace(/\/$/, "")}/${encodeURIComponent(item.id)}`,
                     );
                   }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      event.currentTarget.click();
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
                   className={[
-                    "flex w-full gap-3 border-l-4 py-3 ps-3 pe-4 text-left transition-colors md:ps-4",
+                    "flex w-full cursor-pointer gap-3 border-l-4 py-3 ps-3 pe-4 text-left transition-colors md:ps-4",
                     notificationChannelStripeClass(item.channelRaw),
                     "hover:bg-(--color-light-nav-hover-bg) dark:hover:bg-(--color-dark-card-hover)",
                     item.unread
@@ -301,7 +337,32 @@ export default function UserNotificationInbox({ basePath }) {
                       </p>
                     ) : null}
                   </div>
-                </button>
+                  <div
+                    role="presentation"
+                    className="ms-2 flex shrink-0 items-start pt-1"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <DropdownMenuRoot>
+                      <DropdownTrigger
+                        showArrow={false}
+                        aria-label={t("adminStudents.table.actions")}
+                        className="size-8 rounded-lg"
+                      >
+                        <MoreHorizontal className="size-4" strokeWidth={2} />
+                      </DropdownTrigger>
+                      <DropdownContent align="end">
+                        <DropdownItem
+                          variant="danger"
+                          icon={<Trash2 className="size-4" strokeWidth={2} />}
+                          disabled={deleteMutation.isPending}
+                          onClick={(event) => requestDelete(event, item)}
+                        >
+                          {t("adminShared.actions.delete")}
+                        </DropdownItem>
+                      </DropdownContent>
+                    </DropdownMenuRoot>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>

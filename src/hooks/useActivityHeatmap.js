@@ -19,14 +19,29 @@ function isoDay(date) {
   return date.toISOString().slice(0, 10);
 }
 
+function eventKind(event) {
+  const hay = JSON.stringify(event ?? {}).toLowerCase();
+  if (hay.includes("task") && (hay.includes("completed") || hay.includes("complete"))) {
+    return "tasks";
+  }
+  if (hay.includes("push")) return "pushes";
+  if (hay.includes("commit")) return "commits";
+  if (hay.includes("pull_request") || hay.includes("pull request")) return "pushes";
+  return "commits";
+}
+
 export default function useActivityHeatmap(events) {
   return useMemo(() => {
     const counts = {};
+    const details = {};
     for (const event of Array.isArray(events) ? events : []) {
       const time = eventTimestamp(event);
       if (!time) continue;
       const key = isoDay(new Date(time));
       counts[key] = (counts[key] ?? 0) + 1;
+      const kind = eventKind(event);
+      details[key] = details[key] ?? { commits: 0, pushes: 0, tasks: 0 };
+      details[key][kind] = (details[key][kind] ?? 0) + 1;
     }
 
     const end = new Date();
@@ -37,7 +52,12 @@ export default function useActivityHeatmap(events) {
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const key = isoDay(d);
-      days.push({ key, date: new Date(d), value: counts[key] ?? 0 });
+      days.push({
+        key,
+        date: new Date(d),
+        value: counts[key] ?? 0,
+        details: details[key] ?? { commits: 0, pushes: 0, tasks: 0 },
+      });
     }
 
     const weeks = [];

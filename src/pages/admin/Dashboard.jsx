@@ -350,14 +350,14 @@ function ProjectStatusPanel({ projects, chart }) {
   );
 }
 
-function FacultyDistributionPanel({ students, chart }) {
-  const data = countBy(students, facultyName, 6);
+function DepartmentDistributionPanel({ students, chart }) {
+  const data = countBy(students, departmentName, 6);
 
   return (
     <Panel
       icon={UsersRound}
       title="Student Distribution"
-      subtitle="Largest faculties by registered students"
+      subtitle="Largest departments by registered students"
       className="min-h-[290px]"
     >
       {data.length ? (
@@ -414,6 +414,50 @@ function FacultyDistributionPanel({ students, chart }) {
       )}
     </Panel>
   );
+}
+
+function projectStatusMeta(project) {
+  const status = normalizedStatus(project, "active");
+  if (status.includes("completed")) {
+    return {
+      label: "Completed",
+      className:
+        "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200",
+    };
+  }
+  if (status.includes("review")) {
+    return {
+      label: "Review",
+      className:
+        "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-400/20 dark:bg-violet-500/10 dark:text-violet-200",
+    };
+  }
+  if (status.includes("pending")) {
+    return {
+      label: "Pending",
+      className:
+        "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-200",
+    };
+  }
+  if (status.includes("cancelled") || status.includes("rejected")) {
+    return {
+      label: "Cancelled",
+      className:
+        "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200",
+    };
+  }
+  if (status.includes("progress") || status.includes("ongoing")) {
+    return {
+      label: "In progress",
+      className:
+        "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-200",
+    };
+  }
+  return {
+    label: status || "Active",
+    className:
+      "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-400/20 dark:bg-slate-500/10 dark:text-slate-200",
+  };
 }
 
 function DepartmentPanel({ departments, teachers }) {
@@ -474,28 +518,33 @@ function RecentProjectsPanel({ projects, onOpenProject }) {
     >
       <div className="space-y-2">
         {rows.length ? (
-          rows.map((project) => (
-            <button
-              type="button"
-              key={project?.id ?? titleOf(project)}
-              onClick={() => onOpenProject(project)}
-              className="w-full rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 text-left transition-colors hover:bg-light-app-tertiary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-light-input-border-focus) focus-visible:ring-offset-2 focus-visible:ring-offset-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:hover:bg-dark-app-tertiary/80 dark:focus-visible:ring-(--color-dark-input-border-focus) dark:focus-visible:ring-offset-(--color-dark-card-bg)"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
-                    {titleOf(project)}
-                  </p>
-                  <p className="mt-1 truncate text-xs text-muted dark:text-dark-muted">
-                    {fullName(project?.teacher)} · {fullName(project?.student)}
-                  </p>
+          rows.map((project) => {
+            const status = projectStatusMeta(project);
+            return (
+              <button
+                type="button"
+                key={project?.id ?? titleOf(project)}
+                onClick={() => onOpenProject(project)}
+                className="w-full rounded-2xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 text-left transition-colors hover:bg-light-app-tertiary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-light-input-border-focus) focus-visible:ring-offset-2 focus-visible:ring-offset-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:hover:bg-dark-app-tertiary/80 dark:focus-visible:ring-(--color-dark-input-border-focus) dark:focus-visible:ring-offset-(--color-dark-card-bg)"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
+                      {titleOf(project)}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-muted dark:text-dark-muted">
+                      {fullName(project?.teacher)} · {fullName(project?.student)}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${status.className}`}
+                  >
+                    {status.label}
+                  </span>
                 </div>
-                <span className="shrink-0 rounded-full border border-(--color-light-card-border) bg-(--color-light-card-bg) px-2 py-1 text-[10px] font-semibold capitalize text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-card-bg dark:text-dark-secondary">
-                  {normalizedStatus(project, "active")}
-                </span>
-              </div>
-            </button>
-          ))
+              </button>
+            );
+          })
         ) : (
           <EmptyState text="No project records returned yet." />
         )}
@@ -693,7 +742,7 @@ export default function Dashboard() {
 
       <div className="grid gap-5 lg:gap-6 xl:grid-cols-3">
         <ProjectStatusPanel projects={projects} chart={chart} />
-        <FacultyDistributionPanel students={students} chart={chart} />
+        <DepartmentDistributionPanel students={students} chart={chart} />
       </div>
 
       <div className="grid gap-5 lg:gap-6 xl:grid-cols-3">

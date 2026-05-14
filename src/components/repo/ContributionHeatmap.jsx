@@ -12,17 +12,17 @@ export default function ContributionHeatmap({
   const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const light = [
     "var(--color-light-app-tertiary)",
-    "var(--color-light-badge-bg)",
-    "var(--color-blue-200)",
-    "var(--color-blue-400)",
-    "var(--color-blue-600)",
+    "#dcfce7",
+    "#86efac",
+    "#22c55e",
+    "#15803d",
   ];
   const dark = [
     "var(--color-dark-app-tertiary)",
-    "var(--color-dark-badge-bg)",
-    "var(--color-dark-btn-tertiary-border)",
-    "var(--color-chart-blue-secondary)",
-    "var(--color-dark-badge-text)",
+    "rgba(34,197,94,0.18)",
+    "rgba(34,197,94,0.38)",
+    "rgba(34,197,94,0.68)",
+    "rgba(21,128,61,0.95)",
   ];
   const palette = theme === "dark" ? dark : light;
 
@@ -51,6 +51,7 @@ export default function ContributionHeatmap({
                   const label = cell?.key
                     ? `${cell.key}: ${value} ${valueLabel}`
                     : emptyLabel;
+                  const details = cell?.details ?? {};
                   return (
                     <span
                       key={rowIndex}
@@ -61,7 +62,10 @@ export default function ContributionHeatmap({
                       }}
                     >
                       <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden min-w-36 -translate-x-1/2 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-2 py-1 text-center text-[10px] font-semibold text-primary shadow-md group-hover:block dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-primary">
-                        {label}
+                        <span className="block">{label}</span>
+                        <span className="mt-1 block font-medium text-secondary dark:text-dark-secondary">
+                          {details.commits ?? 0} commits · {details.pushes ?? 0} pushes · {details.tasks ?? 0} tasks
+                        </span>
                       </span>
                     </span>
                   );

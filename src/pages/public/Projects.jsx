@@ -44,7 +44,8 @@ function projectTitle(project) {
 
 function projectAbstract(project, fallback) {
   const text = String(
-    project?.abstract ??
+    project?.abstractText ??
+      project?.abstract ??
       project?.summary ??
       project?.description ??
       project?.projectRepository?.description ??
@@ -55,6 +56,16 @@ function projectAbstract(project, fallback) {
   return firstParagraph.length > 520
     ? `${firstParagraph.slice(0, 517).trim()}...`
     : firstParagraph;
+}
+
+function finalProjectDownloadUrl(project) {
+  const direct = String(
+    project?.finalFileDownloadUrl ??
+      project?.finalDownloadUrl ??
+      project?.finalFileUrl ??
+      "",
+  ).trim();
+  return direct || getPublishedFacultyProjectDownloadUrl(project.id);
 }
 
 function collectSearchText(value, seen = new WeakSet()) {
@@ -214,10 +225,11 @@ export default function PublicProjects() {
                     {t("publicProjects.detail.readMoreTitle")}
                   </p>
                   <p className="mt-2 text-xs leading-5 text-secondary dark:text-dark-secondary">
-                    {t("publicProjects.detail.readMoreDescription")}
+                    {project?.finalFileName ||
+                      t("publicProjects.detail.readMoreDescription")}
                   </p>
                   <a
-                    href={getPublishedFacultyProjectDownloadUrl(project.id)}
+                    href={finalProjectDownloadUrl(project)}
                     className="mt-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-light-btn-primary-bg px-4 text-sm font-semibold text-white transition-colors hover:opacity-95 dark:bg-dark-primary dark:text-dark-shell"
                   >
                     <Download className="size-4" strokeWidth={1.8} />
@@ -320,7 +332,7 @@ export default function PublicProjects() {
                     </span>
                   </div>
                   <p className="mt-3 line-clamp-3 text-sm leading-6 text-secondary dark:text-dark-secondary">
-                    {project?.description || t("publicProjects.noDescription")}
+                    {projectAbstract(project, t("publicProjects.noDescription"))}
                   </p>
                   <div className="mt-5 grid gap-3 text-xs text-secondary dark:text-dark-secondary sm:grid-cols-2">
                     <span>

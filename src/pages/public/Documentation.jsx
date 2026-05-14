@@ -9,6 +9,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BlogShell } from "../blog/BlogShell";
+import { FILE } from "../../services/RouteConfig";
 
 const SECTIONS = ["overview", "windows", "quick", "commands", "workflows"];
 
@@ -214,6 +215,8 @@ export default function Documentation() {
   const { t } = useTranslation();
   const [active, setActive] = useState("overview");
   const [query, setQuery] = useState("");
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const sectionLabels = useMemo(
     () =>
@@ -257,6 +260,32 @@ export default function Documentation() {
         .includes(q),
     );
   }, [query, t]);
+
+  const startVicDownload = () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    setDownloadProgress(8);
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const next = Math.min(92, 8 + Math.round(elapsed / 18));
+      setDownloadProgress(next);
+    }, 120);
+    window.setTimeout(() => {
+      window.clearInterval(timer);
+      setDownloadProgress(100);
+      const link = document.createElement("a");
+      link.href = FILE.CLI_APPLICATION.DOWNLOAD_RAW("vic.exe");
+      link.download = "vic.exe";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => {
+        setIsDownloading(false);
+        setDownloadProgress(0);
+      }, 900);
+    }, 1400);
+  };
 
   return (
     <BlogShell variant="feed">
@@ -313,6 +342,20 @@ export default function Documentation() {
                   <div className="mt-4 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-3 text-xs font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-secondary">
                     vic-windows-amd64.exe
                   </div>
+                  <button
+                    type="button"
+                    onClick={startVicDownload}
+                    className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-light-btn-primary-bg px-4 text-sm font-semibold text-white transition-colors hover:opacity-95 dark:bg-dark-primary dark:text-dark-shell"
+                  >
+                    <Download className="size-4" strokeWidth={1.8} />
+                    {isDownloading ? "Preparing download" : "Download vic.exe"}
+                  </button>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-(--color-light-card-bg) dark:bg-(--color-dark-card-bg)">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
+                      style={{ width: `${downloadProgress}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </section>
@@ -327,6 +370,32 @@ export default function Documentation() {
                 title={t("publicDocs.windows.title")}
                 description={t("publicDocs.windows.description")}
               />
+              <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                      vic.exe
+                    </p>
+                    <p className="mt-1 text-xs text-secondary dark:text-dark-secondary">
+                      Download the latest Windows executable from file-service.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={startVicDownload}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-light-btn-primary-bg px-4 text-sm font-semibold text-white transition-colors hover:opacity-95 dark:bg-dark-primary dark:text-dark-shell"
+                  >
+                    <Download className="size-4" strokeWidth={1.8} />
+                    {isDownloading ? "Downloading" : "Download"}
+                  </button>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/80 dark:bg-dark-card-bg">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
+                    style={{ width: `${downloadProgress}%` }}
+                  />
+                </div>
+              </div>
               <CodeBlock label="PowerShell" code={WINDOWS_SETUP} />
             </section>
 

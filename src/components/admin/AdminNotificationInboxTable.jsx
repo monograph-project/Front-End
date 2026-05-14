@@ -8,8 +8,10 @@ import {
   LayoutList,
   MoreHorizontal,
   Search as SearchIcon,
+  Trash2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   DropdownContent,
   DropdownItem,
@@ -45,13 +47,14 @@ import {
   notificationTypePillClasses,
 } from "../../utils/notificationVisuals";
 import { useAuth } from "../../context/AuthContext";
-import { useUserNotifications } from "../../services/useApi";
+import { useDeleteNotification, useUserNotifications } from "../../services/useApi";
 
 export default function AdminNotificationInboxTable({
   basePath = "/admin/notification",
 }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId = resolveNotificationRecipientId(user);
 
@@ -77,6 +80,26 @@ export default function AdminNotificationInboxTable({
       notifyOnError: true,
     },
   );
+  const deleteMutation = useDeleteNotification({
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["notifications", "user", userId],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["notifications", "unread", userId],
+      });
+    },
+  });
+
+  const requestDelete = (row) => {
+    const confirmed = window.confirm(
+      t("notificationInbox.deleteConfirm", {
+        defaultValue: "Delete this notification?",
+      }),
+    );
+    if (!confirmed) return;
+    deleteMutation.mutate(String(row.id));
+  };
 
   const rowsRaw = Array.isArray(pagePayload?.content)
     ? pagePayload.content
@@ -404,6 +427,14 @@ export default function AdminNotificationInboxTable({
                             }
                           >
                             {t("adminShared.actions.viewDetails")}
+                          </DropdownItem>
+                          <DropdownItem
+                            variant="danger"
+                            icon={<Trash2 className="size-4" strokeWidth={2} />}
+                            disabled={deleteMutation.isPending}
+                            onClick={() => requestDelete(row)}
+                          >
+                            {t("adminShared.actions.delete")}
                           </DropdownItem>
                         </DropdownContent>
                       </DropdownMenuRoot>

@@ -116,6 +116,19 @@ export function articleCoverImageUrl(article) {
 export function mapArticleToAdminBlog(article) {
   const author = article.author || {};
   const authorId = author.id ?? article.authorId ?? author.userId;
+  const authorName =
+    author.displayName ||
+    author.userName ||
+    author.username ||
+    author.name ||
+    article.authorName ||
+    "—";
+  const authorUsername =
+    author.userName ||
+    author.username ||
+    article.authorUserName ||
+    article.authorUsername ||
+    "";
   const readMin = normalizeReadMinutes(article);
   const stats = article.stats || {};
   const meta = article.metadata || {};
@@ -142,10 +155,36 @@ export function mapArticleToAdminBlog(article) {
       article.subtitle ||
       article.teaser ||
       "",
-    author:
-      author.displayName || author.userName || author.name || "—",
+    author: authorName,
     authorId,
     authorRole: author.userType || article.authorRole || "—",
+    authorEmail: author.email || article.authorEmail || "",
+    authorUsername,
+    authorProfile: {
+      id: authorId,
+      fullName: authorName,
+      displayName: authorName,
+      userName: authorUsername,
+      username: authorUsername,
+      email: author.email || article.authorEmail || "",
+      profilePicture:
+        author.profilePicture ||
+        author.profile_picture ||
+        author.profileImageUrl ||
+        author.profile ||
+        author.avatarUrl ||
+        author.photoUrl ||
+        article.authorProfileImageUrl ||
+        article.authorProfileUrl ||
+        "",
+      profilePhotoUrl:
+        author.profilePhotoUrl ||
+        author.profileImageUrl ||
+        author.avatarUrl ||
+        author.photoUrl ||
+        "",
+      userType: author.userType || article.authorRole || "",
+    },
     date: article.updatedAt || article.createdAt || article.publishedAt,
     category:
       meta.category ??

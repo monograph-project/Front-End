@@ -62,7 +62,6 @@ export default function Login() {
   const { theme, toggleTheme } = useTheme();
   const [remember, setRemember] = useState(false);
   const [done, setDone] = useState(false);
-  const [serverError, setServerError] = useState("");
   const [routeStage, setRouteStage] = useState("idle");
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -85,16 +84,12 @@ export default function Login() {
   }, [isAuthenticated, user, navigate]);
 
   const submit = (data) => {
-    setServerError("");
     apiLogin(data, {
       onSuccess: (sessionUser) => {
         login(sessionUser);
         setDone(true);
         const dest = postLoginPath(sessionUser);
         setTimeout(() => navigate(dest, { replace: true }), 1200);
-      },
-      onError: (err) => {
-        setServerError(err?.message || t("login.toast.signInFailed"));
       },
     });
   };
@@ -192,7 +187,6 @@ export default function Login() {
                           const fallback = t("login.toast.signInFailed");
                           const title = msg?.trim?.() ? msg.trim() : fallback;
                           gooeyToast.error(title);
-                          setServerError(title);
                         }}
                       />
                       <div className="my-5 flex items-center gap-3">
@@ -203,15 +197,6 @@ export default function Login() {
                         <div className="h-px flex-1 bg-light-divider dark:bg-dark-divider" />
                       </div>
                     </>
-                  ) : null}
-
-                  {serverError ? (
-                    <p
-                      className="mb-4 rounded-xl border border-(--color-light-error-border) bg-(--color-light-error-bg) px-3 py-2 text-xs font-medium text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)"
-                      role="alert"
-                    >
-                      {serverError}
-                    </p>
                   ) : null}
 
                   <form

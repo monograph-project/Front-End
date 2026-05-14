@@ -24,6 +24,7 @@ import {
   useAcademicYears,
   useCreateFacultyGroup,
   useFacultyGroup,
+  useFacultyGroups,
   useStudentSearch,
   useStudentsPage,
   useUpdateFacultyGroup,
@@ -175,6 +176,59 @@ function normalizeGroupMembers(value) {
     .filter(Boolean);
 }
 
+function groupIdValue(group) {
+  const value = group?.id ?? group?.groupId ?? group?.group_id ?? group?.uuid ?? "";
+  return value != null && value !== "" ? String(value) : "";
+}
+
+function studentIdentityValues(student) {
+  if (student == null) return [];
+  if (typeof student === "string" || typeof student === "number") {
+    const value = String(student).trim();
+    return value ? [value] : [];
+  }
+  return [studentIdValue(student), ...studentAlternateIds(student)]
+    .map((value) =>
+      value != null && String(value).trim() !== "" ? String(value) : "",
+    )
+    .filter(Boolean);
+}
+
+function collectAssignedStudentIds(groups, currentGroupId = "") {
+  const assigned = new Set();
+  const currentId = String(currentGroupId ?? "").trim();
+
+  for (const item of Array.isArray(groups) ? groups : []) {
+    if (currentId && groupIdValue(item) === currentId) continue;
+
+    for (const value of studentIdentityValues(item?.groupLeader)) {
+      assigned.add(value);
+    }
+
+    const members =
+      item?.groupMembers ??
+      item?.members ??
+      item?.students ??
+      item?.studentResponses ??
+      [];
+
+    for (const member of Array.isArray(members) ? members : []) {
+      for (const value of studentIdentityValues(member)) {
+        assigned.add(value);
+      }
+    }
+  }
+
+  return assigned;
+}
+
+function filterUnassignedOptions(options, assignedStudentIds) {
+  if (!assignedStudentIds?.size) return Array.isArray(options) ? options : [];
+  return (Array.isArray(options) ? options : []).filter(
+    (option) => option?.value && !assignedStudentIds.has(option.value),
+  );
+}
+
 function initialsFromName(person) {
   const label = displayName(person, "");
   return String(label ?? "")
@@ -250,6 +304,10 @@ export default function GroupRegistrationPage() {
     enabled: isEdit,
     notifyOnError: true,
   });
+  const { data: groups = [] } = useFacultyGroups(
+    {},
+    { notifyOnError: false, staleTime: 60_000 },
+  );
   const { data: studentPage, isLoading: studentsLoading } = useStudentsPage(
     { page: 0, pageSize: 500, notifyOnError: false },
     { staleTime: 60_000 },
@@ -298,6 +356,22 @@ export default function GroupRegistrationPage() {
   const memberSearchOptions = useMemo(
     () => memberSearchHits.map(studentToOption).filter(Boolean),
     [memberSearchHits],
+  );
+  const assignedStudentIds = useMemo(
+    () => collectAssignedStudentIds(groups, id),
+    [groups, id],
+  );
+  const availableStudentOptions = useMemo(
+    () => filterUnassignedOptions(studentOptions, assignedStudentIds),
+    [assignedStudentIds, studentOptions],
+  );
+  const availableSearchedStudentOptions = useMemo(
+    () => filterUnassignedOptions(searchedStudentOptions, assignedStudentIds),
+    [assignedStudentIds, searchedStudentOptions],
+  );
+  const availableMemberSearchOptions = useMemo(
+    () => filterUnassignedOptions(memberSearchOptions, assignedStudentIds),
+    [assignedStudentIds, memberSearchOptions],
   );
   const knownStudentRecords = useMemo(
     () =>
@@ -428,15 +502,18 @@ export default function GroupRegistrationPage() {
   const leaderOptions = useMemo(() => {
     const baseOptions =
       debouncedLeaderSearchTerm.length > 0
-        ? searchedStudentOptions
-        : studentOptions;
+        ? availableSearchedStudentOptions
+        : availableStudentOptions;
     const selectedOption = studentToOption(selectedLeaderRecord);
-    return mergeOptions(selectedOption ? [selectedOption] : [], baseOptions);
+    const keepSelected =
+      selectedOption && !assignedStudentIds.has(selectedOption.value);
+    return mergeOptions(keepSelected ? [selectedOption] : [], baseOptions);
   }, [
+    assignedStudentIds,
+    availableSearchedStudentOptions,
+    availableStudentOptions,
     debouncedLeaderSearchTerm,
-    searchedStudentOptions,
     selectedLeaderRecord,
-    studentOptions,
   ]);
   const selectedLeader = leaderOptions.find(
     (item) => item.value === values.groupLeader,
@@ -451,24 +528,47 @@ export default function GroupRegistrationPage() {
   const memberPickerOptions = useMemo(() => {
     const baseOptions =
       debouncedMemberSearchTerm.length > 0
-        ? memberSearchOptions
-        : studentOptions;
+        ? availableMemberSearchOptions
+        : availableStudentOptions;
     const forSelected = memberIds
       .map((mid) =>
         studentToOption(resolveMemberRecord(mid, pageStudents, group)),
       )
+      .filter((option) => option && !assignedStudentIds.has(option.value))
       .filter(Boolean);
     return mergeOptions(forSelected, baseOptions);
   }, [
+    assignedStudentIds,
+    availableMemberSearchOptions,
+    availableStudentOptions,
     debouncedMemberSearchTerm,
-    memberSearchOptions,
     memberIds,
     pageStudents,
     group,
-    studentOptions,
   ]);
   const progressPct = Math.round((step / steps.length) * 100);
   const motionEase = [0.22, 1, 0.36, 1];
+
+  useEffect(() => {
+    if (!assignedStudentIds.size) return;
+
+    if (leaderId && assignedStudentIds.has(leaderId)) {
+      setValue("groupLeader", "", {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+
+    const nextMembers = memberIds.filter(
+      (memberId) => !assignedStudentIds.has(String(memberId)),
+    );
+    if (nextMembers.length !== memberIds.length) {
+      setValue("groupMembers", nextMembers, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+  }, [assignedStudentIds, leaderId, memberIds, setValue]);
 
   useEffect(() => {
     const lid = values?.groupLeader;

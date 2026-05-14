@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   Bell,
+  FileArchive,
   Globe2,
   KeyRound,
   Lock,
@@ -21,6 +22,7 @@ import LanguageSettingsTab from "../../components/LanguageSettingsTab";
 import ThemeSettingsTab from "../../components/ThemeSettingsTab";
 import SecuritySettingsTab from "../../components/SecuritySettingsTab";
 import UserAccountSettingsTab from "../../components/UserAccountSettingsTab";
+import CliApplicationSettingsTab from "../../components/CliApplicationSettingsTab";
 
 const SURFACE_CARD =
   "rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
@@ -55,6 +57,11 @@ function Setting() {
             id: "notifications",
             label: t("settings.tabs.notifications"),
             icon: Bell,
+          },
+          {
+            id: "application",
+            label: "Application",
+            icon: FileArchive,
           },
         ]
       : [];
@@ -109,6 +116,9 @@ function Setting() {
           {activeTab === "roles" && showOrgAdminPanels && <RoleSettingsTab />}
           {activeTab === "notifications" && showOrgAdminPanels && (
             <NotificationSettingsTab />
+          )}
+          {activeTab === "application" && showOrgAdminPanels && (
+            <CliApplicationSettingsTab />
           )}
           {activeTab === "language" && <LanguageSettingsTab />}
           {activeTab === "theme" && <ThemeSettingsTab />}

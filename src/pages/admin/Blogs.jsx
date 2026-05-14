@@ -402,7 +402,6 @@ function Blogs() {
                     <BlogModerationCard
                       key={blog.id}
                       blog={blog}
-                      showActions
                       onStatusChange={handleStatusChange}
                       linkTo={`/admin/blogs/${blog.id}`}
                     />

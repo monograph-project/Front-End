@@ -86,6 +86,14 @@ export default function PublicWebsiteHeader() {
       : typeof user?.email === "string"
         ? user.email
         : t("publicHeader.signedInFallback");
+  const accountInitials = signedInLabel
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+  const accountPhoto =
+    user?.photoUrl || user?.photo_url || user?.profilePicture || "";
 
   const closeMobile = () => setMobileOpen(false);
 
@@ -143,7 +151,13 @@ export default function PublicWebsiteHeader() {
                   compactIcon
                   aria-label={t("publicHeader.accountMenu")}
                   className="size-10! shrink-0 rounded-xl border border-(--color-light-card-border) shadow-sm dark:border-(--color-dark-card-border)"
-                  icon={<AvatarDemo />}
+                  icon={
+                    <AvatarDemo
+                      src={accountPhoto}
+                      initials={accountInitials}
+                      alt={signedInLabel}
+                    />
+                  }
                 />
                 <DropdownContent align="end" className="w-52">
                   <DropdownLabel>
@@ -278,7 +292,11 @@ export default function PublicWebsiteHeader() {
               ) : isAuthenticated ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-3 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
-                    <AvatarDemo />
+                    <AvatarDemo
+                      src={accountPhoto}
+                      initials={accountInitials}
+                      alt={signedInLabel}
+                    />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
                         {signedInLabel}

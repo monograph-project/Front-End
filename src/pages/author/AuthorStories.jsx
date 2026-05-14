@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   BookOpenCheck,
   CalendarDays,
   ChevronRight,
   Eye,
   Heart,
+  LayoutGrid,
   MessageCircle,
   NotebookPen,
-  PenLine,
+  Search,
 } from "lucide-react";
 import Button from "../../components/Button";
+import SettingsTabs from "../../components/SettingsTabs";
+import RepoOverviewStatCard from "../../components/repo/RepoOverviewStatCard";
+import { REPO_OVERVIEW_STAT_PALETTES } from "../../components/repo/repoOverviewStatPalettes";
 import { useAuth } from "../../context/AuthContext";
 import { mapArticleToAdminBlog } from "../../lib/adminArticleMap";
 import { mapArticlePreviewToStory } from "../../lib/mapArticlePreviewToStory";
@@ -58,10 +62,10 @@ function storyInitials(name) {
     .join("");
 }
 
-function AuthorStoryCard({ article, navigate }) {
+function AuthorStoryCard({ article }) {
   const published = article._rawStatus === "PUBLISHED";
   const story = mapArticlePreviewToStory(article.raw ?? article, {
-    collectionLabel: "Story",
+    collectionLabel: published ? "Published" : "Draft",
   });
   const date = article.date ? new Date(article.date).toLocaleDateString() : "";
 
@@ -86,7 +90,7 @@ function AuthorStoryCard({ article, navigate }) {
             <span
               className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-sm backdrop-blur ${statusClass(article._rawStatus)}`}
             >
-              {published ? "Published" : "Draft"}
+              {story.collection}
             </span>
             {article.readTime && article.readTime !== "—" ? (
               <span className="rounded-full bg-(--color-light-card-bg)/92 px-3 py-1 text-[11px] font-semibold text-secondary shadow-sm backdrop-blur dark:bg-(--color-dark-card-bg)/92 dark:text-dark-secondary">
@@ -146,36 +150,9 @@ function AuthorStoryCard({ article, navigate }) {
               </span>
             </div>
             <span className="inline-flex items-center gap-1 text-sm font-semibold text-(--color-light-btn-primary-bg) dark:text-(--color-dark-primary)">
-              Open
+              Open story
               <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" strokeWidth={1.8} />
             </span>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between border-t border-light-divider pt-3 dark:border-dark-divider">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                navigate(`/author/writing?articleId=${encodeURIComponent(article.id)}`);
-              }}
-              className="inline-flex h-8 items-center gap-2 rounded-xl px-2.5 text-xs font-semibold text-secondary transition-colors hover:bg-light-app-tertiary hover:text-primary dark:text-dark-secondary dark:hover:bg-dark-app-tertiary dark:hover:text-dark-primary"
-            >
-              <PenLine className="size-3.5" strokeWidth={1.8} />
-              Edit
-            </button>
-            {published ? (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigate(`/story/${encodeURIComponent(article.id)}`);
-                }}
-                className="inline-flex h-8 items-center gap-2 rounded-xl px-2.5 text-xs font-semibold text-secondary transition-colors hover:bg-light-app-tertiary hover:text-primary dark:text-dark-secondary dark:hover:bg-dark-app-tertiary dark:hover:text-dark-primary"
-              >
-                <Eye className="size-3.5" strokeWidth={1.8} />
-                Public
-              </button>
-            ) : null}
           </div>
         </div>
       </article>
@@ -185,7 +162,6 @@ function AuthorStoryCard({ article, navigate }) {
 
 export default function AuthorStories() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
   const initialFilter = location.pathname.includes("/unpublished")
     ? "unpublished"
@@ -193,6 +169,7 @@ export default function AuthorStories() {
       ? "published"
       : "all";
   const [filter, setFilter] = useState(initialFilter);
+  const [query, setQuery] = useState("");
   useEffect(() => {
     setFilter(initialFilter);
   }, [initialFilter]);
@@ -207,14 +184,21 @@ export default function AuthorStories() {
     const mapped = normalizeAuthorArticles(data).map((article) =>
       mapArticleToAdminBlog(article),
     );
-    if (filter === "published") {
-      return mapped.filter((article) => article._rawStatus === "PUBLISHED");
-    }
-    if (filter === "unpublished") {
-      return mapped.filter((article) => article._rawStatus !== "PUBLISHED");
-    }
-    return mapped;
-  }, [data, filter]);
+    const byStatus =
+      filter === "published"
+        ? mapped.filter((article) => article._rawStatus === "PUBLISHED")
+        : filter === "unpublished"
+          ? mapped.filter((article) => article._rawStatus !== "PUBLISHED")
+          : mapped;
+    const needle = query.trim().toLowerCase();
+    if (!needle) return byStatus;
+    return byStatus.filter((article) =>
+      [article.title, article.excerpt, article.category, article.author]
+        .join(" ")
+        .toLowerCase()
+        .includes(needle),
+    );
+  }, [data, filter, query]);
 
   const counts = useMemo(() => {
     const all = normalizeAuthorArticles(data).map((article) =>
@@ -227,19 +211,62 @@ export default function AuthorStories() {
     };
   }, [data]);
 
+  const tabs = useMemo(
+    () => [
+      { id: "all", label: `All (${counts.all})`, icon: LayoutGrid },
+      {
+        id: "published",
+        label: `Published (${counts.published})`,
+        icon: BookOpenCheck,
+      },
+      {
+        id: "unpublished",
+        label: `Unpublished (${counts.unpublished})`,
+        icon: NotebookPen,
+      },
+    ],
+    [counts.all, counts.published, counts.unpublished],
+  );
+
+  const summaryCards = [
+    {
+      icon: LayoutGrid,
+      label: "Total stories",
+      value: counts.all,
+      hint: "All stories in your writing workspace",
+      paletteIndex: 0,
+    },
+    {
+      icon: BookOpenCheck,
+      label: "Published",
+      value: counts.published,
+      hint: "Visible on the public site",
+      paletteIndex: 2,
+    },
+    {
+      icon: NotebookPen,
+      label: "Unpublished",
+      value: counts.unpublished,
+      hint: "Drafts and stories still in progress",
+      paletteIndex: 1,
+    },
+  ];
+
   return (
     <div className="min-h-screen w-full bg-light-app-bg p-4 dark:bg-dark-card-bg md:p-5">
-      <div className="mx-auto max-w-6xl space-y-5">
-        <div className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-6 py-6 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="overflow-hidden rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+          <div className="border-b border-light-divider px-5 py-6 dark:border-dark-divider md:px-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
+              <p className="inline-flex items-center gap-2 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-muted">
+                <BookOpenCheck className="size-3.5" strokeWidth={1.8} />
                 Author workspace
               </p>
-              <h1 className="mt-2 text-2xl font-semibold text-primary dark:text-dark-primary">
+              <h1 className="mt-4 text-2xl font-semibold tracking-tight text-primary dark:text-dark-primary md:text-3xl">
                 My stories
               </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-secondary dark:text-dark-secondary">
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-secondary dark:text-dark-secondary sm:text-base">
                 Manage drafts, submitted stories, and published articles from one place.
               </p>
             </div>
@@ -247,25 +274,43 @@ export default function AuthorStories() {
               <Button type="button">New story</Button>
             </Link>
           </div>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {[
-              ["all", `All (${counts.all})`],
-              ["published", `Published (${counts.published})`],
-              ["unpublished", `Unpublished (${counts.unpublished})`],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setFilter(value)}
-                className={`h-9 rounded-xl border px-3 text-sm font-semibold transition-colors ${
-                  filter === value
-                    ? "border-(--color-light-input-border-focus) bg-light-app-tertiary text-primary dark:border-(--color-dark-input-border-focus) dark:bg-dark-app-tertiary dark:text-dark-primary"
-                    : "border-(--color-light-card-border) text-secondary hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:text-dark-secondary dark:hover:bg-dark-app-tertiary"
-                }`}
-              >
-                {label}
-              </button>
+          </div>
+
+          <div className="grid gap-3 px-5 py-5 md:grid-cols-3 md:px-6">
+            {summaryCards.map((item) => (
+              <RepoOverviewStatCard
+                key={item.label}
+                icon={item.icon}
+                label={item.label}
+                value={item.value}
+                hint={item.hint}
+                palette={
+                  REPO_OVERVIEW_STAT_PALETTES[
+                    item.paletteIndex % REPO_OVERVIEW_STAT_PALETTES.length
+                  ]
+                }
+              />
             ))}
+          </div>
+
+          <div className="border-t border-light-divider px-5 py-4 dark:border-dark-divider md:px-6">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-center">
+              <SettingsTabs tabs={tabs} activeTab={filter} onChange={setFilter} />
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted dark:text-dark-muted"
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search your stories"
+                  className="h-11 w-full rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) pe-3 ps-10 text-sm text-(--color-light-text-primary) outline-none transition-colors placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus) dark:focus:ring-blue-400/15"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -289,7 +334,6 @@ export default function AuthorStories() {
               <AuthorStoryCard
                 key={article.id}
                 article={article}
-                navigate={navigate}
               />
             ))}
           </div>

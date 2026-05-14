@@ -240,6 +240,15 @@ export const FILE = {
     POST: (id) => gw(`/file/student/profile/${encodeURIComponent(id)}`),
     GET: (id) => gw(`/file/student/profile/${encodeURIComponent(id)}`),
   },
+  CLI_APPLICATION: {
+    POST: () => gw("/file/cli-application"),
+    POST_VIC_EXE: () => gw("/file/cli-application/vic.exe"),
+    DOWNLOAD_LATEST: () => gw("/file/cli-application/latest/download"),
+    DOWNLOAD_BY_NAME: (fileName) =>
+      gw(`/file/cli-application/download/${encodeURIComponent(fileName)}`),
+    DOWNLOAD_RAW: (fileName) =>
+      gw(`/file/cli-application/raw/${encodeURIComponent(fileName)}`),
+  },
 };
 
 /** Notifications — `/api/v1/notifications` */

@@ -194,7 +194,7 @@ export function useSignup(options) {
   return useApiMutation({
     mutationFn: Api.signup,
     mutationKey: ["auth", "signup"],
-    toastSuccess: "Account created successfully",
+    toastSuccess: "Verification code sent to your email",
     ...options,
   });
 }
@@ -1828,6 +1828,15 @@ export function useUploadBlogFile(options) {
   });
 }
 
+export function useUploadVicExecutable(options = {}) {
+  return useApiMutation({
+    mutationFn: ({ file }) => Api.uploadVicExecutable(file),
+    mutationKey: ["files", "cli-application", "vic.exe", "upload"],
+    toastSuccess: "VIC executable uploaded",
+    ...options,
+  });
+}
+
 /* ─── Notifications ───────────────────────────────────────────────────────── */
 
 export function useCreateNotification(options) {
@@ -1987,6 +1996,16 @@ export function useMarkNotificationRead(options) {
     showSuccessToast: false,
     toastSuccess: false,
     toastError: "apiErrors.failed_to_mark_notification_read",
+    ...options,
+  });
+}
+
+export function useDeleteNotification(options) {
+  return useApiMutation({
+    mutationFn: Api.deleteNotification,
+    mutationKey: ["notifications", "delete"],
+    toastSuccess: "Notification deleted",
+    toastError: "apiErrors.failed_to_delete_notification",
     ...options,
   });
 }
@@ -2519,12 +2538,17 @@ export function useVcRejectRepositoryInvitation(options = {}) {
 }
 
 /**
- * @param {string | null | undefined} username VC login shown in repos paths
+ * @param {string | string[] | null | undefined} username VC login shown in repos paths
  * @param {{ notifyOnError?: boolean; enabled?: boolean; limit?: number } & Omit<import("@tanstack/react-query").UseQueryOptions, "queryKey"|"queryFn">} queryOptions
  */
 export function useVcUserActivity(username, queryOptions = {}) {
-  const u =
-    typeof username === "string" ? username.trim() : `${username ?? ""}`.trim();
+  const candidates = [
+    ...new Set(
+      (Array.isArray(username) ? username : [username])
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean),
+    ),
+  ];
   const {
     notifyOnError = false,
     enabled: enabledOverride,
@@ -2532,11 +2556,13 @@ export function useVcUserActivity(username, queryOptions = {}) {
     ...rest
   } = queryOptions;
   const enabled =
-    typeof enabledOverride === "boolean" ? enabledOverride : Boolean(u.length);
+    typeof enabledOverride === "boolean"
+      ? enabledOverride
+      : candidates.length > 0;
 
   const q = useQuery({
-    queryKey: ["vc", "user-activity", u, limit],
-    queryFn: () => Api.vcGetUserActivity(u, { limit }),
+    queryKey: ["vc", "user-activity", candidates, limit],
+    queryFn: () => Api.vcGetUserActivityForCandidates(candidates, { limit }),
     enabled,
     staleTime: 30_000,
     ...rest,

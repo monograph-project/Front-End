@@ -142,6 +142,7 @@ export default function App() {
                 </GuestRoute>
               }
             />
+            <Route path="/reset-password" element={<ForgotPassword />} />
 
             <Route
               path="/admin"

@@ -172,7 +172,7 @@ export async function signup(formData) {
       terms_accepted: true,
       policy_accepted: true,
     });
-    return ingestGatewayLoginPayload(data);
+    return data;
   } catch (err) {
     throwApiError(err, "Signup failed.", "apiErrors.signup_failed");
   }
@@ -328,10 +328,24 @@ function normalizeStudentRecord(raw) {
     kankorId: raw.kankorId ?? raw.kankor_id ?? "",
     /** Semester identifier for selects (prefer API id when present). */
     semester: semesterStored,
+    semesterDetails: semesterObj,
     semesterId:
       semesterIdExplicit != null && `${semesterIdExplicit}`.trim() !== ""
         ? String(semesterIdExplicit)
         : semesterStored,
+    semesterStartDate:
+      semesterObj?.startDate ??
+      semesterObj?.start_date ??
+      raw.semesterStartDate ??
+      raw.semester_start_date ??
+      "",
+    semesterEndDate:
+      semesterObj?.endDate ??
+      semesterObj?.end_date ??
+      raw.semesterEndDate ??
+      raw.semester_end_date ??
+      "",
+    semesterAcademicYear: semesterObj?.academicYear ?? raw.academicYear ?? null,
     academicYearId:
       academicYearId != null ? String(academicYearId) : "",
     department: departmentLabel ? String(departmentLabel) : "",
@@ -987,6 +1001,21 @@ export async function vcGetUserActivity(username, params = {}) {
       "apiErrors.failed_to_load_repository",
     );
   }
+}
+
+export async function vcGetUserActivityForCandidates(usernames, params = {}) {
+  const candidates = [
+    ...new Set(
+      (Array.isArray(usernames) ? usernames : [usernames])
+        .map((value) => String(value ?? "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  for (const username of candidates) {
+    const rows = await vcGetUserActivity(username, params);
+    if (rows.length) return rows;
+  }
+  return [];
 }
 
 export async function vcGetRepoTaskDashboard(owner, repo) {
@@ -2868,18 +2897,20 @@ export async function resetPassword(formData) {
   }
 }
 
-export async function verifyEmail(verification_token) {
-  if (!verification_token) {
+export async function verifyEmail(payload) {
+  const email = normalizeEmail(payload?.email);
+  const otp_code = String(payload?.otp_code ?? payload?.otpCode ?? "").trim();
+  const verification_token = String(payload?.verification_token ?? "").trim();
+  if (!verification_token && (!email || !otp_code)) {
     throwClientApiError(
-      "Verification token is required.",
+      "Email and verification code are required.",
       "apiErrors.validation.verificationTokenRequired",
     );
   }
 
   try {
-    const { data } = await axiosInstance.post(AUTH.VERIFY_EMAIL, {
-      verification_token,
-    });
+    const body = verification_token ? { verification_token } : { email, otp_code };
+    const { data } = await axiosInstance.post(AUTH.VERIFY_EMAIL, body);
     return data;
   } catch (err) {
     throwApiError(
@@ -3976,6 +4007,25 @@ export async function uploadBlogFileMultipart(file, ownerId, articleId) {
   }
 }
 
+export async function uploadVicExecutable(file) {
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const { data } = await axiosInstance.post(
+      FILE.CLI_APPLICATION.POST_VIC_EXE(),
+      fd,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to upload VIC executable.",
+      "apiErrors.failed_to_upload_file",
+    );
+  }
+}
+
 export async function getBlogFileMeta(fileId, ownerId) {
   try {
     const { data } = await axiosInstance.get(FILE.BLOG_META(fileId, ownerId));
@@ -4054,6 +4104,19 @@ export async function markNotificationAsRead(id) {
       err,
       "Failed to update notification.",
       "apiErrors.failed_to_mark_notification_read",
+    );
+  }
+}
+
+export async function deleteNotification(id) {
+  try {
+    await axiosInstance.delete(NOTIFICATIONS.BY_ID(id));
+    return { id };
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to delete notification.",
+      "apiErrors.failed_to_delete_notification",
     );
   }
 }

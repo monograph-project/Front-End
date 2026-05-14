@@ -142,6 +142,12 @@ function studentIdValue(student) {
   return value != null && value !== "" ? String(value) : "";
 }
 
+function groupLeaderId(group) {
+  return studentIdValue(
+    group?.groupLeader ?? group?.leader ?? group?.group_leader,
+  );
+}
+
 function studentToOption(student) {
   const id = studentIdValue(student);
   if (!id) return null;
@@ -490,14 +496,15 @@ function AxisActivityChart({
 }
 
 function PersonCard({ person, selected, onClick }) {
+  const BadgeIcon = person.badgeIcon ?? UserCheck;
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-2xl border p-4 text-left transition-colors",
+        "rounded-2xl border p-4 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-light-input-border-focus) focus-visible:ring-offset-2 focus-visible:ring-offset-(--color-light-card-bg) dark:focus-visible:ring-(--color-dark-input-border-focus) dark:focus-visible:ring-offset-(--color-dark-card-bg)",
         selected
-          ? "border-(--color-light-input-border-focus) bg-light-app-tertiary ring-2 ring-blue-500/15 dark:border-(--color-dark-input-border-focus) dark:bg-dark-app-tertiary dark:ring-blue-400/15"
+          ? "border-sky-300 bg-sky-50 shadow-md ring-2 ring-sky-200/70 dark:border-(--color-dark-input-border-focus) dark:bg-dark-app-tertiary dark:ring-blue-400/15"
           : "border-(--color-light-card-border) bg-(--color-light-card-bg) hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:bg-dark-app-tertiary",
       )}
     >
@@ -508,12 +515,32 @@ function PersonCard({ person, selected, onClick }) {
           className="bg-light-btn-primary-bg text-xs font-bold text-white dark:bg-dark-primary dark:text-dark-shell"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
-            {person.name}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="min-w-0 truncate text-sm font-semibold text-primary dark:text-dark-primary">
+              {person.name}
+            </p>
+            <span
+              className={cn(
+                "inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+                person.badgeClass,
+              )}
+            >
+              {createElement(BadgeIcon, {
+                className: "size-3",
+                strokeWidth: 1.9,
+                "aria-hidden": true,
+              })}
+              {person.badgeLabel}
+            </span>
+          </div>
           <p className="mt-0.5 truncate text-xs text-muted dark:text-dark-muted">
             {person.role}
           </p>
+          {person.academicLabel ? (
+            <p className="mt-1 truncate text-[11px] text-secondary dark:text-dark-secondary">
+              {person.academicLabel}
+            </p>
+          ) : null}
           {person.email ? (
             <p className="mt-1 truncate text-[11px] text-muted dark:text-dark-muted">
               {person.email}
@@ -793,6 +820,7 @@ export default function ProjectWorkspace() {
     rawContributors.forEach((row) => {
       contributorKeys(row).forEach((key) => byKey.set(key, row));
     });
+    const leaderId = groupLeaderId(project?.group);
 
     const supervisorName = displayName(project?.teacher, "Supervisor");
     const supervisorStats = firstContributorMatch(byKey, project?.teacher) ?? {};
@@ -800,6 +828,10 @@ export default function ProjectWorkspace() {
       id: `teacher-${project?.teacher?.id ?? supervisorName}`,
       name: supervisorName,
       role: "Lead supervisor",
+      badgeLabel: "Teacher",
+      badgeIcon: ShieldCheck,
+      badgeClass:
+        "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300",
       email: project?.teacher?.email ?? supervisorStats?.email ?? "",
       profilePicture:
         project?.teacher?.profilePicture ??
@@ -822,13 +854,22 @@ export default function ProjectWorkspace() {
     const students = projectMembers.map((member, index) => {
       const vc = firstContributorMatch(byKey, member) ?? {};
       const name = displayName(member, `Student ${index + 1}`);
+      const isLeader = Boolean(
+        leaderId && studentIdValue(member) === String(leaderId),
+      );
       return {
         id: studentIdValue(member) || `student-${index}`,
         name,
         email: member?.email ?? vc?.email ?? "",
         profilePicture:
           member?.profilePicture ?? vc?.profile ?? vc?.profilePicture ?? "",
-        role:
+        role: isLeader ? "Group leader" : "Project member",
+        badgeLabel: isLeader ? "Leader" : "Member",
+        badgeIcon: isLeader ? UserCheck : Users,
+        badgeClass: isLeader
+          ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"
+          : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300",
+        academicLabel:
           member?.department?.name ??
           member?.batch?.name ??
           "Project contributor",
@@ -843,7 +884,7 @@ export default function ProjectWorkspace() {
     });
 
     return [supervisor, ...students];
-  }, [project?.teacher, projectMembers, rawContributors]);
+  }, [project?.group, project?.teacher, projectMembers, rawContributors]);
 
   const selectedPerson =
     people.find((person) => person.id === selectedPersonId) ?? people[0];
@@ -1435,16 +1476,35 @@ export default function ProjectWorkspace() {
               </div>
               <aside className={`${SURFACE_INSET} p-4`}>
                 <div className="flex items-center gap-3">
-                  <span className="flex size-12 items-center justify-center rounded-full bg-light-btn-primary-bg text-sm font-bold text-white dark:bg-dark-primary dark:text-dark-shell">
-                    {selectedPerson?.initials}
-                  </span>
+                  <PersonAvatar
+                    person={selectedPerson}
+                    sizeClass="inline-flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                    className="bg-light-btn-primary-bg text-sm font-bold text-white dark:bg-dark-primary dark:text-dark-shell"
+                  />
                   <div className="min-w-0">
                     <p className="truncate text-base font-semibold text-primary dark:text-dark-primary">
                       {selectedPerson?.name}
                     </p>
-                    <p className="text-xs text-muted dark:text-dark-muted">
-                      {selectedPerson?.role}
-                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-muted dark:text-dark-muted">
+                        {selectedPerson?.role}
+                      </p>
+                      {selectedPerson?.badgeLabel ? (
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+                            selectedPerson.badgeClass,
+                          )}
+                        >
+                          {createElement(selectedPerson.badgeIcon ?? UserCheck, {
+                            className: "size-3",
+                            strokeWidth: 1.9,
+                            "aria-hidden": true,
+                          })}
+                          {selectedPerson.badgeLabel}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
                 <p className="mt-4 text-sm leading-6 text-secondary dark:text-dark-secondary">

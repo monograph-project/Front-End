@@ -1,4 +1,15 @@
-import { CalendarDays, ChevronRight, Clock3, Star } from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  Heart,
+  MessageCircle,
+  Send,
+  Star,
+  Undo2,
+  XCircle,
+} from "lucide-react";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -19,7 +30,21 @@ const STATUS_STYLES = {
 
 function formatBlogDate(date) {
   if (!date) return null;
-  return format(new Date(date), "yyyy-MM-dd");
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return format(parsed, "MMM d, yyyy");
+}
+
+function storyInitials(name) {
+  return (
+    String(name ?? "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "A"
+  );
 }
 
 function ActionButton({ children, tone = "default", className, ...props }) {
@@ -36,7 +61,7 @@ function ActionButton({ children, tone = "default", className, ...props }) {
     <button
       type="button"
       className={cn(
-        "inline-flex items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition-colors",
+        "inline-flex items-center justify-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition-colors",
         toneClass,
         className,
       )}
@@ -62,64 +87,107 @@ export default function BlogModerationCard({
     rejected: t("blogAdmin.status.rejected"),
     draft: t("blogAdmin.status.draft"),
   };
+  const authorImage =
+    blog.authorProfile?.profilePicture ||
+    blog.authorProfile?.profilePhotoUrl ||
+    blog.authorProfile?.photoUrl ||
+    "";
+  const formattedDate = formatBlogDate(blog.date);
+  const readTime =
+    typeof blog.readTime === "number"
+      ? t("blogAdmin.common.readMinutes", { count: blog.readTime })
+      : blog.readTime;
 
   return (
-    <article className="relative overflow-hidden rounded-md border border-default bg-shell p-5 transition-transform duration-200 hover:-translate-y-1 dark:border-dark-divider dark:bg-dark-card- bg md:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3 text-sm text-muted dark:text-dark-muted">
-          <span className="inline-flex items-center gap-2 font-medium text-primary dark:text-dark-primary">
-            <CalendarDays className="h-4 w-4" />
-            {formatBlogDate(blog.date) || t("blogAdmin.common.noDate")}
-          </span>
-          <span
-            className={cn(
-              "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
-              STATUS_STYLES[blog.status],
-            )}
-          >
-            {statusLabels[blog.status]}
-          </span>
+    <article className="group flex h-full overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+      <div className="flex w-full flex-col">
+        <div className="relative aspect-[16/10] overflow-hidden bg-light-app-tertiary dark:bg-dark-app-tertiary">
+          {blog.coverImageUrl ? (
+            <img
+              src={blog.coverImageUrl}
+              alt=""
+              className="size-full object-cover transition duration-300 group-hover:scale-[1.03]"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center px-5 text-center text-sm font-semibold text-muted dark:text-dark-muted">
+              {blog.category || t("blogAdmin.common.noThumbnail")}
+            </div>
+          )}
+          <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-2">
+            <span
+              className={cn(
+                "rounded-full px-3 py-1 text-[11px] font-semibold shadow-sm backdrop-blur",
+                STATUS_STYLES[blog.status],
+              )}
+            >
+              {statusLabels[blog.status]}
+            </span>
+            {readTime && readTime !== "—" ? (
+              <span className="rounded-full bg-(--color-light-card-bg)/92 px-3 py-1 text-[11px] font-semibold text-secondary shadow-sm backdrop-blur dark:bg-(--color-dark-card-bg)/92 dark:text-dark-secondary">
+                {readTime}
+              </span>
+            ) : null}
+          </div>
         </div>
 
-        {onToggleFeatured ? (
-          <button
-            type="button"
-            onClick={() => onToggleFeatured(blog.id)}
-            className={cn(
-              "inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) text-primary transition-colors hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-primary dark:hover:bg-dark-app-tertiary",
-              blog.featured &&
-                "border-(--color-light-success-border) bg-light-success-bg text-light-success-text dark:border-dark-success-border dark:bg-dark-success-bg dark:text-(--color-dark-success-text)",
-            )}
-            aria-label={
-              blog.featured
-                ? t("blogAdmin.actions.removeFeatured")
-                : t("blogAdmin.actions.markFeatured")
-            }
-          >
-            <Star className={cn("h-5 w-5", blog.featured && "fill-current")} />
-          </button>
-        ) : null}
-      </div>
+        <div className="flex flex-1 flex-col p-4 md:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              {authorImage ? (
+                <img
+                  src={authorImage}
+                  alt=""
+                  className="size-9 rounded-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="flex size-9 items-center justify-center rounded-full bg-light-app-tertiary text-[11px] font-bold text-primary dark:bg-dark-app-tertiary dark:text-dark-primary">
+                  {storyInitials(blog.author)}
+                </span>
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-primary dark:text-dark-primary">
+                  {blog.author}
+                </p>
+                <p className="flex items-center gap-1.5 text-xs text-muted dark:text-dark-muted">
+                  <CalendarDays className="size-3.5" strokeWidth={1.8} />
+                  {formattedDate || t("blogAdmin.common.noDate")}
+                </p>
+              </div>
+            </div>
 
-      <div className="mt-5">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted dark:text-dark-muted">
-          <span className="rounded-full bg-white/80 px-2.5 py-1 font-medium dark:bg-dark-shell">
-            {blog.category}
-          </span>
-          <span>{t("blogAdmin.common.by", { author: blog.author })}</span>
-          <span className="inline-flex items-center gap-1">
-            <Clock3 className="h-3.5 w-3.5" />
-            {typeof blog.readTime === "number"
-              ? t("blogAdmin.common.readMinutes", { count: blog.readTime })
-              : blog.readTime}
-          </span>
-        </div>
+            {blog.category ? (
+              <span className="max-w-28 truncate rounded-full bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold text-secondary dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                {blog.category}
+              </span>
+            ) : null}
 
-        <h3 className="mt-4 max-w-md text-2xl font-semibold leading-tight text-primary dark:text-dark-primary">
+            {onToggleFeatured ? (
+              <button
+                type="button"
+                onClick={() => onToggleFeatured(blog.id)}
+                className={cn(
+                  "inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) text-primary transition-colors hover:bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-primary dark:hover:bg-dark-app-tertiary",
+                  blog.featured &&
+                    "border-(--color-light-success-border) bg-light-success-bg text-light-success-text dark:border-dark-success-border dark:bg-dark-success-bg dark:text-(--color-dark-success-text)",
+                )}
+                aria-label={
+                  blog.featured
+                    ? t("blogAdmin.actions.removeFeatured")
+                    : t("blogAdmin.actions.markFeatured")
+                }
+              >
+                <Star className={cn("h-5 w-5", blog.featured && "fill-current")} />
+              </button>
+            ) : null}
+          </div>
+
+        <h3 className="mt-4 line-clamp-2 text-xl font-bold tracking-tight text-primary transition-colors group-hover:text-(--color-light-btn-primary-bg) dark:text-dark-primary dark:group-hover:text-(--color-dark-primary)">
           {linkTo ? (
             <Link
               to={linkTo}
-              className="transition-colors hover:text-secondary dark:hover:text-dark-secondary"
+              className="transition-colors"
             >
               {blog.title}
             </Link>
@@ -127,41 +195,56 @@ export default function BlogModerationCard({
             blog.title
           )}
         </h3>
-        <p className="mt-4 max-w-136 text-base leading-8 text-secondary dark:text-dark-secondary">
+        <p className="mt-3 line-clamp-2 text-sm leading-6 text-secondary dark:text-dark-secondary">
           {blog.excerpt}
         </p>
-      </div>
 
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap gap-2">
-          {blog.tags?.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full border border-default bg-white/70 px-3 py-1 text-xs font-medium text-secondary dark:border-dark-default dark:bg-dark-shell dark:text-dark-secondary"
-            >
-              #{tag}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-5">
+        <div className="flex items-center gap-3 text-xs font-semibold text-muted dark:text-dark-muted">
+          <span className="inline-flex items-center gap-1">
+            <Heart className="size-3.5" strokeWidth={1.8} />
+            {blog.claps ?? 0}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <MessageCircle className="size-3.5" strokeWidth={1.8} />
+            {blog.comments ?? 0}
+          </span>
+          {readTime && readTime !== "—" ? (
+            <span className="inline-flex items-center gap-1">
+              <Clock3 className="size-3.5" strokeWidth={1.8} />
+              {readTime}
             </span>
-          ))}
+          ) : null}
         </div>
 
         {linkTo ? (
           <Link
             to={linkTo}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:text-secondary dark:text-dark-primary dark:hover:text-dark-secondary"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-(--color-light-btn-primary-bg) dark:text-(--color-dark-primary)"
           >
             {t("blogAdmin.actions.reviewArticle")}
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" strokeWidth={1.8} />
           </Link>
         ) : (
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-primary transition-colors hover:text-secondary dark:text-dark-primary dark:hover:text-dark-secondary"
-          >
+          <span className="inline-flex items-center gap-1 text-sm font-semibold text-(--color-light-btn-primary-bg) dark:text-(--color-dark-primary)">
             {t("blogAdmin.actions.reviewArticle")}
-            <ChevronRight className="h-4 w-4" />
-          </button>
+            <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" strokeWidth={1.8} />
+          </span>
         )}
       </div>
+
+      {blog.tags?.length ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {blog.tags?.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary"
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       {showActions && (
         <div className="mt-6 flex flex-wrap gap-2 border-t border-default/70 pt-5 dark:border-dark-default">
@@ -171,12 +254,14 @@ export default function BlogModerationCard({
                 tone="success"
                 onClick={() => onStatusChange?.(blog.id, "accepted")}
               >
+                <CheckCircle2 className="size-4" strokeWidth={1.9} />
                 {t("blogAdmin.actions.accept")}
               </ActionButton>
               <ActionButton
                 tone="danger"
                 onClick={() => onStatusChange?.(blog.id, "rejected")}
               >
+                <XCircle className="size-4" strokeWidth={1.9} />
                 {t("blogAdmin.actions.reject")}
               </ActionButton>
             </>
@@ -188,11 +273,13 @@ export default function BlogModerationCard({
                 tone="primary"
                 onClick={() => onStatusChange?.(blog.id, "published")}
               >
+                <Send className="size-4" strokeWidth={1.9} />
                 {t("blogAdmin.actions.publishNow")}
               </ActionButton>
               <ActionButton
                 onClick={() => onStatusChange?.(blog.id, "pending")}
               >
+                <Undo2 className="size-4" strokeWidth={1.9} />
                 {t("blogAdmin.actions.backToWaiting")}
               </ActionButton>
             </>
@@ -203,9 +290,11 @@ export default function BlogModerationCard({
               <ActionButton
                 onClick={() => onStatusChange?.(blog.id, "accepted")}
               >
+                <Undo2 className="size-4" strokeWidth={1.9} />
                 {t("blogAdmin.actions.unpublish")}
               </ActionButton>
               <ActionButton onClick={() => onStatusChange?.(blog.id, "draft")}>
+                <Undo2 className="size-4" strokeWidth={1.9} />
                 {t("blogAdmin.actions.moveToDraft")}
               </ActionButton>
             </>
@@ -216,6 +305,7 @@ export default function BlogModerationCard({
               tone="success"
               onClick={() => onStatusChange?.(blog.id, "accepted")}
             >
+              <CheckCircle2 className="size-4" strokeWidth={1.9} />
               {t("blogAdmin.actions.restoreAndAccept")}
             </ActionButton>
           )}
@@ -225,11 +315,14 @@ export default function BlogModerationCard({
               tone="primary"
               onClick={() => onStatusChange?.(blog.id, "pending")}
             >
+              <Send className="size-4" strokeWidth={1.9} />
               {t("blogAdmin.actions.sendForApproval")}
             </ActionButton>
           )}
         </div>
       )}
+        </div>
+      </div>
     </article>
   );
 }

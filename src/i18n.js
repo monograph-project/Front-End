@@ -361,6 +361,7 @@ const resources = {
       "studentDashboard.progress.subtitle": "A compact progress ring for the current study cycle.",
       "studentDashboard.progress.complete": "Complete",
       "studentDashboard.progress.remaining": "Remaining",
+      "studentDashboard.progress.daysRemaining": "{{count}} days left",
       "studentDashboard.actions.eyebrow": "Quick actions",
       "studentDashboard.actions.title": "Open a student tool",
       "studentDashboard.actions.notificationsTitle": "Notifications & updates",
@@ -1307,6 +1308,11 @@ const resources = {
       "publicProjects.detail.readMoreDescription":
         "The public page shows the abstract first. Download the published project package to continue reading the full result.",
       "publicProjects.detail.download": "Download project",
+      "publicDownload.eyebrow": "Download",
+      "publicDownload.title": "Reader & offline access",
+      "publicDownload.description":
+        "Download the latest CLI application package. The file is served from the dedicated cli-applications bucket in file-service.",
+      "publicDownload.action": "Download latest CLI",
 
       "authorDashboard.eyebrow": "Author workspace",
       "authorDashboard.title": "Your writing hub",
@@ -1384,6 +1390,7 @@ const resources = {
       "adminShared.actions.duplicate": "Duplicate",
       "adminShared.actions.share": "Share",
       "adminShared.status.active": "Active",
+      "adminShared.status.inactive": "Inactive",
       "adminShared.status.pending": "Pending",
       "adminShared.status.rejected": "Rejected",
       "adminShared.status.suspended": "Suspended",
@@ -3636,6 +3643,7 @@ const resources = {
       "settings.security.protections.items.3.description":
         "Keep a permanent record of role changes, result publishing and fee approvals.",
       "blogAdmin.common.noDate": "No date",
+      "blogAdmin.common.noThumbnail": "No thumbnail",
       "blogAdmin.common.readMinutes": "{{count}} min read",
       "blogAdmin.common.by": "By {{author}}",
       "blogAdmin.status.pendingShort": "Waiting",
@@ -3728,6 +3736,8 @@ const resources = {
       "blogAdmin.detail.actions.unpublishToAccepted": "Unpublish to accepted",
       "blogAdmin.detail.metrics.claps": "{{count}} claps",
       "blogAdmin.detail.metrics.comments": "{{count}} comments",
+      "blogAdmin.detail.metrics.views": "{{count}} views",
+      "blogAdmin.detail.metrics.reads": "{{count}} reads",
       "blogAdmin.detail.share": "Share",
       "blogAdmin.detail.overview.writer": "Writer",
       "blogAdmin.detail.overview.category": "Category",
@@ -3739,11 +3749,12 @@ const resources = {
       "blogAdmin.detail.writer.posts": "Posts",
       "blogAdmin.detail.writer.published": "Published",
       "blogAdmin.detail.writer.pending": "Pending",
+      "blogAdmin.detail.writer.noEmail": "No email available",
       "blogAdmin.detail.writer.description":
-        "د لیکوال پېژندپاڼه دلته د لیکنې تر تایید مخکې وڅېړئ. دا ټب د باور نښو، د لیکنو مخینې، او د خپرونې د کیفیت لپاره تر اصلي متن ښه ځای دی.",
+        "Review the writer profile before making a publishing decision.",
       "blogAdmin.detail.writerPosts.title": "Other posts by {{author}}",
       "blogAdmin.detail.writerPosts.description":
-        "دا د خپرولو تر مخه د کیفیت او ثبات د پرتله کولو لپاره وکاروئ.",
+        "Published, pending, and draft posts from this writer.",
       "blogAdmin.detail.writerPosts.empty":
         "له دې لیکواله نورې لیکنې تر اوسه نشته.",
       "blogAdmin.detail.review.currentState": "Current state",
@@ -3855,6 +3866,16 @@ const resources = {
       "signup.createAccount": "Create account",
       "signup.accountCreated": "Account created!",
       "signup.redirecting": "Redirecting to your dashboard…",
+      "signup.otp.title": "Check your email",
+      "signup.otp.description":
+        "We sent a 6-digit verification code to {{email}}. It expires in 15 minutes.",
+      "signup.otp.label": "Verification code",
+      "signup.otp.verify": "Verify and continue",
+      "signup.otp.verifying": "Verifying…",
+      "signup.otp.resend": "Resend code",
+      "signup.otp.sending": "Sending…",
+      "signup.otp.changeEmail": "Use another email",
+      "signup.otp.validation": "Enter the 6-digit code from your email.",
       "signup.haveAccount": "Already have an account?",
       "signup.signIn": "Sign in",
       "signup.termsPrivacy":
@@ -3862,10 +3883,28 @@ const resources = {
       "forgotPassword.title": "Reset your password",
       "forgotPassword.subtext":
         "If an account exists for this email, we will send a reset link.",
+      "forgotPassword.resetTitle": "Create a new password",
+      "forgotPassword.resetSubtext":
+        "Enter a new password for your account. This reset link expires after 15 minutes.",
+      "forgotPassword.emailPlaceholder": "you@school.edu",
+      "forgotPassword.newPassword": "New password",
+      "forgotPassword.newPasswordPlaceholder": "Enter a strong password",
+      "forgotPassword.confirmPassword": "Confirm password",
+      "forgotPassword.confirmPasswordPlaceholder": "Re-enter the new password",
+      "forgotPassword.updatePassword": "Update password",
+      "forgotPassword.updating": "Updating…",
+      "forgotPassword.resetDoneTitle": "Password updated",
+      "forgotPassword.resetDoneText":
+        "Your password has been reset. You can sign in with the new password now.",
       "forgotPassword.validation.emailRequired": "Email is required.",
+      "forgotPassword.validation.passwordRequired": "New password is required.",
+      "forgotPassword.validation.confirmPasswordRequired":
+        "Password confirmation is required.",
+      "forgotPassword.validation.passwordMismatch": "Passwords do not match.",
       "forgotPassword.sending": "Sending…",
       "forgotPassword.toast.success":
         "If that email is registered, check your inbox for a reset link.",
+      "forgotPassword.toast.resetSuccess": "Password reset successfully.",
     },
   },
   ps: {
@@ -4224,6 +4263,7 @@ const resources = {
       "studentDashboard.progress.subtitle": "د اوسنۍ مطالعې دورې لپاره لنډه کړۍ.",
       "studentDashboard.progress.complete": "بشپړ شوی",
       "studentDashboard.progress.remaining": "پاتې",
+      "studentDashboard.progress.daysRemaining": "{{count}} ورځې پاتې",
       "studentDashboard.actions.eyebrow": "چټک کارونه",
       "studentDashboard.actions.title": "د محصل وسیله پرانیزئ",
       "studentDashboard.actions.notificationsTitle": "خبرتیاوې او بدلونونه",
@@ -5121,6 +5161,11 @@ const resources = {
       "publicProjects.detail.readMoreDescription":
         "عامه مخ لومړی لنډیز ښيي. د بشپړې پایلې لوستلو لپاره خپره شوې پروژه ښکته کړئ.",
       "publicProjects.detail.download": "پروژه ښکته کړئ",
+      "publicDownload.eyebrow": "ښکته کول",
+      "publicDownload.title": "لوستونکی او offline لاسرسی",
+      "publicDownload.description":
+        "د CLI اپلیکیشن وروستۍ بسته ښکته کړئ. دا فایل په file-service کې له ځانګړي cli-applications bucket څخه وړاندې کېږي.",
+      "publicDownload.action": "وروستی CLI ښکته کړئ",
 
       "authorDashboard.eyebrow": "د لیکوال کار ساحه",
       "authorDashboard.title": "ستاسو د لیکلو مرکز",
@@ -5198,6 +5243,7 @@ const resources = {
       "adminShared.actions.duplicate": "کاپي",
       "adminShared.actions.share": "شریکول",
       "adminShared.status.active": "فعال",
+      "adminShared.status.inactive": "غیرفعال",
       "adminShared.status.pending": "په تمه",
       "adminShared.status.rejected": "رد شوی",
       "adminShared.status.suspended": "ځنډول شوی",
@@ -7400,6 +7446,7 @@ const resources = {
       "settings.security.protections.items.3.description":
         "د رول بدلونونو، د پایلو خپرولو او د فیس تاییدونو دایمي ریکارډ وساتئ.",
       "blogAdmin.common.noDate": "نېټه نشته",
+      "blogAdmin.common.noThumbnail": "انځور نشته",
       "blogAdmin.common.readMinutes": "{{count}} دقیقې لوستل",
       "blogAdmin.common.by": "لیکوال: {{author}}",
       "blogAdmin.status.pendingShort": "په تمه",
@@ -7492,6 +7539,8 @@ const resources = {
       "blogAdmin.detail.actions.unpublishToAccepted": "له خپرېدو څخه تایید شوې ته واړوئ",
       "blogAdmin.detail.metrics.claps": "{{count}} ستاینې",
       "blogAdmin.detail.metrics.comments": "{{count}} تبصرې",
+      "blogAdmin.detail.metrics.views": "{{count}} کتنې",
+      "blogAdmin.detail.metrics.reads": "{{count}} لوستنې",
       "blogAdmin.detail.share": "شریکول",
       "blogAdmin.detail.overview.writer": "لیکوال",
       "blogAdmin.detail.overview.category": "کټګوري",
@@ -7503,11 +7552,12 @@ const resources = {
       "blogAdmin.detail.writer.posts": "لیکنې",
       "blogAdmin.detail.writer.published": "خپرې شوې",
       "blogAdmin.detail.writer.pending": "په انتظار کې",
+      "blogAdmin.detail.writer.noEmail": "برېښناليک نشته",
       "blogAdmin.detail.writer.description":
-        "د لیکنې له تایید مخکې د لیکوال پروفایل دلته وڅېړئ. دا ټب د باور نښو، د لیکنو تاریخچې او د خپرېدو د کیفیت لپاره د اصلي مقالې له بدنې ښه ځای دی.",
+        "د خپرولو له پرېکړې مخکې د لیکوال پروفایل وڅېړئ.",
       "blogAdmin.detail.writerPosts.title": "د {{author}} نورې لیکنې",
       "blogAdmin.detail.writerPosts.description":
-        "له خپرېدو مخکې د کیفیت او یووالي د پرتله کولو لپاره دا برخه وکاروئ.",
+        "د دې لیکوال خپرې شوې، په انتظار او مسودې لیکنې.",
       "blogAdmin.detail.writerPosts.empty":
         "د دې لیکوال بله لیکنه لا نشته.",
       "blogAdmin.detail.review.currentState": "اوسنی حالت",
@@ -7612,6 +7662,16 @@ const resources = {
       "signup.createAccount": "حساب جوړول",
       "signup.accountCreated": "حساب جوړ شو!",
       "signup.redirecting": "ډشیبورډ ته لیږدول کیږي…",
+      "signup.otp.title": "خپل ایمیل وګورئ",
+      "signup.otp.description":
+        "موږ {{email}} ته ۶ عددي تایید کوډ ولېږه. دا کوډ په ۱۵ دقیقو کې پای ته رسېږي.",
+      "signup.otp.label": "د تایید کوډ",
+      "signup.otp.verify": "تایید او دوام",
+      "signup.otp.verifying": "تاییدېږي…",
+      "signup.otp.resend": "کوډ بیا ولېږئ",
+      "signup.otp.sending": "لېږل کېږي…",
+      "signup.otp.changeEmail": "بل ایمیل وکاروئ",
+      "signup.otp.validation": "له خپل ایمیل څخه ۶ عددي کوډ ولیکئ.",
       "signup.haveAccount": "لومړي حساب لرئ؟",
       "signup.signIn": "ننوتل",
       "signup.termsPrivacy":
@@ -7619,10 +7679,28 @@ const resources = {
       "forgotPassword.title": "خپل پټنوم بېرته تنظیم کړئ",
       "forgotPassword.subtext":
         "که ستاسو د ایمیل سره حساب وي، موږ به بیا تنظیم لینک واستوو.",
+      "forgotPassword.resetTitle": "نوی پټنوم جوړ کړئ",
+      "forgotPassword.resetSubtext":
+        "د خپل حساب لپاره نوی پټنوم ولیکئ. دا لینک له ۱۵ دقیقو وروسته پای ته رسېږي.",
+      "forgotPassword.emailPlaceholder": "you@school.edu",
+      "forgotPassword.newPassword": "نوی پټنوم",
+      "forgotPassword.newPasswordPlaceholder": "قوي پټنوم ولیکئ",
+      "forgotPassword.confirmPassword": "پټنوم تایید کړئ",
+      "forgotPassword.confirmPasswordPlaceholder": "نوی پټنوم بیا ولیکئ",
+      "forgotPassword.updatePassword": "پټنوم تازه کړئ",
+      "forgotPassword.updating": "تازه کېږي…",
+      "forgotPassword.resetDoneTitle": "پټنوم تازه شو",
+      "forgotPassword.resetDoneText":
+        "ستاسو پټنوم بیا تنظیم شو. اوس د نوي پټنوم سره ننوتلی شئ.",
       "forgotPassword.validation.emailRequired": "ایمیل اړین دی.",
+      "forgotPassword.validation.passwordRequired": "نوی پټنوم اړین دی.",
+      "forgotPassword.validation.confirmPasswordRequired":
+        "د پټنوم تایید اړین دی.",
+      "forgotPassword.validation.passwordMismatch": "پټنومونه سره برابر نه دي.",
       "forgotPassword.sending": "لیږد روان دی…",
       "forgotPassword.toast.success":
         "که ستاسو ایمیل ثبت وي، انباکس وګورئ.",
+      "forgotPassword.toast.resetSuccess": "پټنوم په بریالیتوب بیا تنظیم شو.",
     },
   },
   prs: {
@@ -7983,6 +8061,7 @@ const resources = {
       "studentDashboard.progress.subtitle": "یک حلقهٔ فشرده برای چرخهٔ فعلی مطالعه.",
       "studentDashboard.progress.complete": "تکمیل‌شده",
       "studentDashboard.progress.remaining": "باقی‌مانده",
+      "studentDashboard.progress.daysRemaining": "{{count}} روز باقی‌مانده",
       "studentDashboard.actions.eyebrow": "اقدام‌های سریع",
       "studentDashboard.actions.title": "یک ابزار دانشجویی باز کنید",
       "studentDashboard.actions.notificationsTitle": "اطلاعیه‌ها و به‌روزرسانی‌ها",
@@ -8884,6 +8963,11 @@ const resources = {
       "publicProjects.detail.readMoreDescription":
         "صفحه عمومی ابتدا چکیده را نشان می‌دهد. برای ادامه خواندن نتیجه کامل، بسته پروژه منتشرشده را دانلود کنید.",
       "publicProjects.detail.download": "دانلود پروژه",
+      "publicDownload.eyebrow": "دانلود",
+      "publicDownload.title": "خواندن و دسترسی آفلاین",
+      "publicDownload.description":
+        "آخرین بسته برنامه CLI را دانلود کنید. این فایل از bucket اختصاصی cli-applications در file-service ارائه می‌شود.",
+      "publicDownload.action": "دانلود آخرین CLI",
 
       "authorDashboard.eyebrow": "فضای نویسنده",
       "authorDashboard.title": "مرکز نوشتن شما",
@@ -8962,6 +9046,7 @@ const resources = {
       "adminShared.actions.duplicate": "کپی",
       "adminShared.actions.share": "اشتراک‌گذاری",
       "adminShared.status.active": "فعال",
+      "adminShared.status.inactive": "غیرفعال",
       "adminShared.status.pending": "در انتظار",
       "adminShared.status.rejected": "رد شده",
       "adminShared.status.suspended": "تعلیق شده",
@@ -11185,6 +11270,7 @@ const resources = {
       "settings.security.protections.items.3.description":
         "ثبت دائمی تغییر نقش‌ها، نشر نتایج و تایید فیس‌ها را نگهداری کنید.",
       "blogAdmin.common.noDate": "بدون تاریخ",
+      "blogAdmin.common.noThumbnail": "بدون تصویر",
       "blogAdmin.common.readMinutes": "{{count}} دقیقه مطالعه",
       "blogAdmin.common.by": "نویسنده: {{author}}",
       "blogAdmin.status.pendingShort": "در انتظار",
@@ -11278,6 +11364,8 @@ const resources = {
       "blogAdmin.detail.actions.unpublishToAccepted": "لغو نشر به تایید شده",
       "blogAdmin.detail.metrics.claps": "{{count}} کف‌زدن",
       "blogAdmin.detail.metrics.comments": "{{count}} نظر",
+      "blogAdmin.detail.metrics.views": "{{count}} بازدید",
+      "blogAdmin.detail.metrics.reads": "{{count}} خواندن",
       "blogAdmin.detail.share": "اشتراک‌گذاری",
       "blogAdmin.detail.overview.writer": "نویسنده",
       "blogAdmin.detail.overview.category": "دسته‌بندی",
@@ -11289,11 +11377,12 @@ const resources = {
       "blogAdmin.detail.writer.posts": "نوشته‌ها",
       "blogAdmin.detail.writer.published": "منتشر شده",
       "blogAdmin.detail.writer.pending": "در انتظار",
+      "blogAdmin.detail.writer.noEmail": "ایمیل موجود نیست",
       "blogAdmin.detail.writer.description":
-        "پیش از تایید نوشته، پروفایل نویسنده را در اینجا بررسی کنید. این زبانه برای نشانه‌های اعتماد، سابقه نشر و کیفیت نوشته جای مناسب‌تری از متن اصلی مقاله است.",
+        "پیش از تصمیم نشر، پروفایل نویسنده را بررسی کنید.",
       "blogAdmin.detail.writerPosts.title": "نوشته‌های دیگر {{author}}",
       "blogAdmin.detail.writerPosts.description":
-        "از این بخش برای مقایسه کیفیت و یکسانی پیش از نشر استفاده کنید.",
+        "نوشته‌های منتشرشده، در انتظار و مسوده از این نویسنده.",
       "blogAdmin.detail.writerPosts.empty":
         "هنوز نوشته دیگری از این نویسنده موجود نیست.",
       "blogAdmin.detail.review.currentState": "وضعیت فعلی",
@@ -11403,6 +11492,16 @@ const resources = {
       "signup.createAccount": "ایجاد حساب",
       "signup.accountCreated": "حساب ایجاد شد!",
       "signup.redirecting": "در حال هدایت به داشبورد…",
+      "signup.otp.title": "ایمیل خود را بررسی کنید",
+      "signup.otp.description":
+        "ما یک کد تایید ۶ رقمی به {{email}} فرستادیم. این کد پس از ۱۵ دقیقه منقضی می‌شود.",
+      "signup.otp.label": "کد تایید",
+      "signup.otp.verify": "تایید و ادامه",
+      "signup.otp.verifying": "در حال تایید…",
+      "signup.otp.resend": "ارسال دوباره کد",
+      "signup.otp.sending": "در حال ارسال…",
+      "signup.otp.changeEmail": "استفاده از ایمیل دیگر",
+      "signup.otp.validation": "کد ۶ رقمی ایمیل خود را وارد کنید.",
       "signup.haveAccount": "قبلاً حساب دارید؟",
       "signup.signIn": "ورود",
       "signup.termsPrivacy":
@@ -11410,10 +11509,28 @@ const resources = {
       "forgotPassword.title": "بازنشانی رمز عبور",
       "forgotPassword.subtext":
         "اگر برای این ایمیل حسابی وجود داشته باشد، لینک بازنشانی ارسال می‌شود.",
+      "forgotPassword.resetTitle": "رمز عبور جدید بسازید",
+      "forgotPassword.resetSubtext":
+        "برای حساب خود رمز عبور جدید وارد کنید. این لینک پس از ۱۵ دقیقه منقضی می‌شود.",
+      "forgotPassword.emailPlaceholder": "you@school.edu",
+      "forgotPassword.newPassword": "رمز عبور جدید",
+      "forgotPassword.newPasswordPlaceholder": "یک رمز قوی وارد کنید",
+      "forgotPassword.confirmPassword": "تایید رمز عبور",
+      "forgotPassword.confirmPasswordPlaceholder": "رمز جدید را دوباره وارد کنید",
+      "forgotPassword.updatePassword": "به‌روزرسانی رمز",
+      "forgotPassword.updating": "در حال به‌روزرسانی…",
+      "forgotPassword.resetDoneTitle": "رمز عبور به‌روزرسانی شد",
+      "forgotPassword.resetDoneText":
+        "رمز عبور شما بازنشانی شد. اکنون می‌توانید با رمز جدید وارد شوید.",
       "forgotPassword.validation.emailRequired": "ایمیل الزامی است.",
+      "forgotPassword.validation.passwordRequired": "رمز عبور جدید الزامی است.",
+      "forgotPassword.validation.confirmPasswordRequired":
+        "تایید رمز عبور الزامی است.",
+      "forgotPassword.validation.passwordMismatch": "رمزها یکسان نیستند.",
       "forgotPassword.sending": "در حال ارسال…",
       "forgotPassword.toast.success":
         "در صورت ثبت بودن ایمیل، صندوق ورودی را بررسی کنید.",
+      "forgotPassword.toast.resetSuccess": "رمز عبور با موفقیت بازنشانی شد.",
     },
   },
 };

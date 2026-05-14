@@ -32,20 +32,23 @@ function displayOrDash(value, fallback = "—") {
   const text = String(value).trim();
   return text ? text : fallback;
 }
-const pinned = [
-  {
-    name: "student-portfolio",
-    visibility: "Public",
-    desc: "Portfolio and projects.",
-    stars: 12,
-  },
-  {
-    name: "course-notes",
-    visibility: "Private",
-    desc: "Personal course notes.",
-    stars: 3,
-  },
-];
+
+function normalizeListPayload(payload, ...keys) {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object") return [];
+  for (const key of keys) {
+    if (Array.isArray(payload[key])) return payload[key];
+  }
+  if (Array.isArray(payload.content)) return payload.content;
+  if (Array.isArray(payload.data)) return payload.data;
+  if (payload.data && typeof payload.data === "object") {
+    const nested = normalizeListPayload(payload.data, ...keys);
+    if (nested.length) return nested;
+  }
+  if (Array.isArray(payload.items)) return payload.items;
+  if (Array.isArray(payload.results)) return payload.results;
+  return [];
+}
 
 function formatDate(value, locale) {
   if (!value) return "";
@@ -82,6 +85,26 @@ function formatStatus(value) {
     .filter(Boolean)
     .map((part) => part[0].toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function repoName(repo, fallback) {
+  return (
+    repo?.name ||
+    repo?.repositoryName ||
+    repo?.repoName ||
+    repo?.full_name ||
+    repo?.fullName ||
+    fallback
+  );
+}
+
+function repoVisibility(repo, t) {
+  const raw = String(repo?.visibility ?? "").trim().toLowerCase();
+  if (repo?.private || raw === "private") {
+    return t("studentSelfProfile.visibility.private");
+  }
+  if (raw === "academic") return t("studentSelfProfile.visibility.academic");
+  return t("studentSelfProfile.visibility.public");
 }
 
 function StatPill({ value, label }) {
@@ -218,19 +241,31 @@ export default function Profile() {
       profileUser?.id ??
       "",
   ).trim();
+  const vcUsernameCandidates = useMemo(
+    () => [
+      profileUser?.username,
+      profileUser?.user_name,
+      profileUser?.preferred_username,
+      profileUser?.preferredUsername,
+      requestedUsername,
+      personRecord?.username,
+      personRecord?.userName,
+      personRecord?.user_name,
+    ],
+    [personRecord, profileUser, requestedUsername],
+  );
   const vcUsername = String(
-    personRecord?.username ??
-      profileUser?.username ??
-      profileUser?.user_name ??
-      requestedUsername ??
-      "",
+    vcUsernameCandidates.find((value) => String(value ?? "").trim()) ?? "",
   ).trim();
-  const { data: repos = [] } = useVcAccessibleRepositoriesForViewer(ownerKey, {
+  const { data: reposPayload } = useVcAccessibleRepositoriesForViewer(ownerKey, {
     enabled: Boolean(ownerKey || vcUsername),
     notifyOnError: false,
     activityUsernameFallback: vcUsername || undefined,
   });
-  const repositories = repos;
+  const repositories = useMemo(
+    () => normalizeListPayload(reposPayload, "repositories", "repos"),
+    [reposPayload],
+  );
   const joinedDate =
     formatDate(profileUser?.createdAt || profileUser?.created_at, locale) ||
     t("studentProfile.na");
@@ -243,9 +278,12 @@ export default function Profile() {
     .join(", ");
   const statusLabel =
     formatStatus(personRecord?.status) || t("studentProfile.na");
-  const semesterLabel = personRecord?.semester
-    ? t(`studentForm.options.semester${personRecord.semester}`)
-    : t("studentProfile.na");
+  const semesterLabel =
+    personRecord?.semesterDetails?.name ||
+    personRecord?.semesterDetails?.code ||
+    (personRecord?.semester
+      ? t(`studentForm.options.semester${personRecord.semester}`)
+      : t("studentProfile.na"));
   const headline = [
     personRecord?.department,
     role !== "teacher" && semesterLabel !== t("studentProfile.na")
@@ -255,10 +293,16 @@ export default function Profile() {
   ]
     .filter(Boolean)
     .join(" • ");
-  const { data: rawActivity = [] } = useVcUserActivity(vcUsername, {
-    enabled: Boolean(vcUsername),
+  const { data: rawActivityPayload } = useVcUserActivity(vcUsernameCandidates, {
+    enabled: vcUsernameCandidates.some((value) =>
+      Boolean(String(value ?? "").trim()),
+    ),
     notifyOnError: false,
   });
+  const rawActivity = useMemo(
+    () => normalizeListPayload(rawActivityPayload, "activities", "events"),
+    [rawActivityPayload],
+  );
 
   const { data: facultyProjects = [] } = useFacultyProjectsByStudent(
     student?.id,
@@ -283,8 +327,9 @@ export default function Profile() {
   const heatmap = useActivityHeatmap(rawActivity);
   const totalContributions = heatmap.total;
 
-  const visibilityColor = (visibility) => {
-    if (visibility === "Private") {
+  const visibilityColor = (repo) => {
+    const raw = String(repo?.visibility ?? "").trim().toLowerCase();
+    if (repo?.private || raw === "private") {
       return "bg-red-50 text-red-700 border-red-200";
     }
     return "bg-green-50 text-green-700 border-green-200";
@@ -301,8 +346,8 @@ export default function Profile() {
   };
 
   const pinnedItems = useMemo(() => {
-    if (repos.length > 0) {
-      return repos.slice(0, 2).map((repo, index) => ({
+    if (repositories.length > 0) {
+      return repositories.slice(0, 2).map((repo, index) => ({
         key: String(repo?.id ?? repo?.name ?? index),
         name:
           repo?.name ||
@@ -339,7 +384,7 @@ export default function Profile() {
         t("studentSelfProfile.pinned.projectDescriptionFallback"),
       stars: 0,
     }));
-  }, [profileProjects, repos, t]);
+  }, [profileProjects, repositories, t]);
 
   const allContributionRows = useMemo(
     () =>
@@ -417,7 +462,7 @@ export default function Profile() {
 
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
                   <StatPill
-                    value={String(repos.length)}
+                    value={String(repositories.length)}
                     label={t("studentSelfProfile.stats.repositories")}
                   />
                   <div className="text-secondary dark:text-dark-secondary">
@@ -591,15 +636,24 @@ export default function Profile() {
             </section>
             <div className="rounded-xl border border-[#e4e8ef] bg-white p-6 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
               <h3 className="text-lg font-semibold text-[#0a1224] dark:text-dark-text-primary">
-                Repositories
+                {t("studentSelfProfile.stats.repositories")}
               </h3>
 
               <div className="mt-4 space-y-3">
                 {repositories.map((repo) => {
                   const lang = languageColor(repo.language);
+                  const name = repoName(
+                    repo,
+                    t("studentSelfProfile.pinned.repositoryDescriptionFallback"),
+                  );
+                  const visibility = repoVisibility(repo, t);
+                  const updatedAt = formatDate(
+                    repo.updatedAt || repo.updated_at || repo.createdAt,
+                    locale,
+                  );
                   return (
                     <div
-                      key={repo.id}
+                      key={repo.id ?? repo.repositoryId ?? name}
                       className="rounded-lg border border-[#e4e8ef] bg-white p-4 transition-colors hover:border-[#cfd7e6] hover:bg-[#f7f8fa] dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-dark-app-tertiary"
                     >
                       <div className="flex items-start justify-between gap-4">
@@ -607,18 +661,21 @@ export default function Profile() {
                           {/* Repo Name & Visibility */}
                           <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="cursor-pointer text-sm font-semibold text-[#0a1224] hover:text-[#0066ff] dark:text-dark-text-primary dark:hover:text-(--color-chart-blue-secondary)">
-                              {repo.name}
+                              {name}
                             </h4>
                             <span
-                              className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${visibilityColor(repo.visibility)}`}
+                              className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${visibilityColor(repo)}`}
                             >
-                              {repo.visibility}
+                              {visibility}
                             </span>
                           </div>
 
                           {/* Description */}
                           <p className="mt-2 line-clamp-2 text-xs text-[#5f6f87] dark:text-dark-text-secondary">
-                            {repo.description}
+                            {repo.description ||
+                              t(
+                                "studentSelfProfile.pinned.repositoryDescriptionFallback",
+                              )}
                           </p>
 
                           {/* Footer: Language, Stars, Forks, Updated */}
@@ -635,17 +692,28 @@ export default function Profile() {
 
                             <div className="flex items-center gap-1">
                               <Star className="w-3 h-3" />
-                              <span>{repo.stars}</span>
+                              <span>
+                                {Number(
+                                  repo.stars ??
+                                    repo.stargazers_count ??
+                                    repo.stargazersCount ??
+                                    0,
+                                )}
+                              </span>
                             </div>
 
                             <div className="flex items-center gap-1">
                               <GitBranch className="w-3 h-3" />
-                              <span>{repo.forks}</span>
+                              <span>
+                                {Number(repo.forks ?? repo.forksCount ?? 0)}
+                              </span>
                             </div>
 
-                            <span className="text-[#98a2b3] dark:text-dark-text-muted">
-                              Updated {repo.updatedAt}
-                            </span>
+                            {updatedAt ? (
+                              <span className="text-[#98a2b3] dark:text-dark-text-muted">
+                                {updatedAt}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
 
@@ -667,43 +735,11 @@ export default function Profile() {
                     className="rounded-lg border border-[#e4e8ef] px-6 py-2 text-sm font-medium text-[#0066ff] transition-colors hover:bg-[#edf4ff] dark:border-(--color-dark-card-border) dark:text-(--color-chart-blue-secondary) dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-dark-app-tertiary"
                   >
                     {showMore
-                      ? "Show less repositories"
-                      : "Show more repositories"}
+                      ? t("studentSelfProfile.actions.showLess")
+                      : t("studentSelfProfile.actions.showMore")}
                   </button>
                 </div>
               )}
-            </div>
-            <div className="rounded-xl border border-[#e4e8ef] bg-white p-6 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
-              <h3 className="text-lg font-semibold text-[#0a1224] dark:text-dark-text-primary">
-                Contribution activity
-              </h3>
-
-              <div className="mt-6 space-y-6">
-                <div className="border-s-2 border-[#e4e8ef] ps-4 dark:border-dark-divider">
-                  <p className="text-sm font-semibold text-[#0a1224] dark:text-dark-text-primary">
-                    May 2026
-                  </p>
-                  <p className="mt-1 text-sm text-[#5f6f87] dark:text-dark-text-secondary">
-                    {totalContributions} contributions in the last year
-                  </p>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {pinned.map((p) => (
-                      <div
-                        key={p.name}
-                        className="rounded-lg border border-[#e4e8ef] bg-white p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)"
-                      >
-                        <p className="text-sm font-semibold text-[#0a1224] dark:text-dark-text-primary">
-                          {p.name}
-                        </p>
-                        <p className="mt-2 text-xs text-[#5f6f87] dark:text-dark-text-secondary">
-                          {p.desc}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
             </div>
           </main>
         </div>

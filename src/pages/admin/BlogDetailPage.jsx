@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
   ArrowLeft,
-  BadgeCheck,
   BookOpen,
   CalendarDays,
   CheckCheck,
@@ -23,12 +22,11 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import ArticleBlocksReader from "../../components/ArticleBlocksReader";
 import BlogDetailTabs from "../../components/BlogDetailTabs";
-import BlogMoreBlogsPanel from "../../components/BlogMoreBlogsPanel";
 import BlogOverviewPanel from "../../components/BlogOverviewPanel";
-import BlogReviewPanel from "../../components/BlogReviewPanel";
 import BlogWriterPanel from "../../components/BlogWriterPanel";
 import BlogWriterPostsPanel from "../../components/BlogWriterPostsPanel";
 import Button from "../../components/Button";
+import PersonAvatar from "../../components/PersonAvatar";
 import StatusPill from "../../components/StatusPill";
 import {
   derivePlainTextPreview,
@@ -37,7 +35,6 @@ import {
 import { cn } from "../../lib/utils";
 import {
   useArticle,
-  useArticles,
   useArticlesByAuthor,
   useDeleteArticle,
   usePublishArticle,
@@ -90,7 +87,13 @@ function ModerationToolbar({ blog, onPublish, onReject, onDraft, busy }) {
             <CheckCheck className="size-4" strokeWidth={2} />
             {t("blogAdmin.detail.actions.publishArticle")}
           </Button>
-          <Button type="button" variant="danger" disabled={busy} onClick={() => onReject()}>
+          <Button
+            type="button"
+            variant="danger"
+            className="gap-2"
+            disabled={busy}
+            onClick={() => onReject()}
+          >
             <XCircle className="size-4" strokeWidth={2} />
             {t("blogAdmin.detail.actions.rejectArticle")}
           </Button>
@@ -110,6 +113,7 @@ function ModerationToolbar({ blog, onPublish, onReject, onDraft, busy }) {
         <Button
           type="button"
           variant="primary"
+          className="gap-2"
           disabled={busy}
           onClick={() => onPublish()}
         >
@@ -136,11 +140,6 @@ export default function BlogDetailPage() {
   } = useArticle(articleId, {
     enabled: Boolean(articleId),
   });
-
-  const { data: listing } = useArticles(
-    { page: 0, pageSize: 12 },
-    { notifyOnError: false },
-  );
 
   const blog = useMemo(() => {
     if (!article) return null;
@@ -182,25 +181,6 @@ export default function BlogDetailPage() {
       pending: allAuthor.filter((x) => x.status === "pending").length,
     };
   }, [authorRows, blog]);
-
-  const relatedRaw = listing?.data ?? listing?.content ?? [];
-  const relatedBlogs = useMemo(() => {
-    return relatedRaw
-      .filter((item) => String(item.id) !== String(blog?.id))
-      .slice(0, 6)
-      .map((raw) => {
-        const mapped = mapArticleToAdminBlog(raw);
-        return {
-          id: mapped.id,
-          title: mapped.title,
-          category: mapped.category,
-          readTime:
-            typeof mapped.readTime === "number"
-              ? `${mapped.readTime} min`
-              : mapped.readTime,
-        };
-      });
-  }, [relatedRaw, blog?.id]);
 
   const publishMutation = usePublishArticle({
     onSuccess: () => {
@@ -248,12 +228,6 @@ export default function BlogDetailPage() {
       label: t("blogAdmin.detail.tabs.posts"),
       icon: NotebookText,
     },
-    {
-      id: "review",
-      label: t("blogAdmin.detail.tabs.review"),
-      icon: BadgeCheck,
-    },
-    { id: "more", label: t("blogAdmin.detail.tabs.more"), icon: BookOpen },
   ];
 
   if (isLoading) {
@@ -421,13 +395,6 @@ export default function BlogDetailPage() {
               />
             )}
 
-            {activeTab === "review" && (
-              <BlogReviewPanel blog={panelBlog} statusLabels={statusLabels} />
-            )}
-
-            {activeTab === "more" && (
-              <BlogMoreBlogsPanel relatedBlogs={relatedBlogs} />
-            )}
           </div>
         </section>
 
@@ -450,19 +417,16 @@ export default function BlogDetailPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-light-divider px-4 py-4 dark:border-dark-divider md:px-8">
             <div className="flex items-center gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-(--color-light-btn-primary-bg) text-sm font-semibold text-(--color-light-btn-primary-text) dark:bg-(--color-dark-btn-primary-bg) dark:text-(--color-dark-btn-primary-text)">
-                {(blog.author || "—")
-                  .split(" ")
-                  .map((p) => p[0])
-                  .join("")
-                  .slice(0, 2)}
-              </div>
+              <PersonAvatar
+                person={blog.authorProfile}
+                sizeClass="inline-flex size-11 shrink-0 overflow-hidden rounded-full"
+              />
               <div>
                 <p className="text-sm font-semibold text-primary dark:text-dark-primary">
                   {blog.author}
                 </p>
                 <p className="text-xs text-muted dark:text-dark-muted">
-                  {blog.authorRole}
+                  {blog.authorEmail || blog.authorUsername || blog.authorRole}
                 </p>
               </div>
             </div>
@@ -482,11 +446,15 @@ export default function BlogDetailPage() {
               </span>
               <span className="inline-flex items-center gap-2">
                 <Eye className="size-4" strokeWidth={2} aria-hidden />
-                {Number(blog.views ?? 0).toLocaleString()} views
+                {t("blogAdmin.detail.metrics.views", {
+                  count: Number(blog.views ?? 0).toLocaleString(),
+                })}
               </span>
               <span className="inline-flex items-center gap-2">
                 <BookOpen className="size-4" strokeWidth={2} aria-hidden />
-                {Number(blog.reads ?? 0).toLocaleString()} reads
+                {t("blogAdmin.detail.metrics.reads", {
+                  count: Number(blog.reads ?? 0).toLocaleString(),
+                })}
               </span>
               <button
                 type="button"

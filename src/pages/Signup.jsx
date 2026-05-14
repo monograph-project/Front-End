@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { gooeyToast } from "goey-toast";
 import {
   ArrowRight,
   CheckCircle2,
@@ -15,7 +16,12 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { postLoginPath } from "../lib/roles";
 import { useTheme } from "../context/themContext";
-import { useSignup } from "../services/useApi";
+import {
+  useLogin,
+  useResendVerificationEmail,
+  useSignup,
+  useVerifyEmail,
+} from "../services/useApi";
 import Field from "../components/Field";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import { hasGoogleOAuthClientId } from "../lib/googleOAuth";
@@ -75,6 +81,64 @@ function Requirement({ met, children }) {
   );
 }
 
+function OtpCodeInput({ value, onChange, disabled = false }) {
+  const inputsRef = useRef([]);
+  const digits = useMemo(() => {
+    const raw = String(value ?? "").replace(/\D/g, "").slice(0, 6);
+    return Array.from({ length: 6 }, (_, index) => raw[index] ?? "");
+  }, [value]);
+
+  const setDigit = (index, nextValue) => {
+    const clean = String(nextValue ?? "").replace(/\D/g, "");
+    if (clean.length > 1) {
+      const next = clean.slice(0, 6);
+      onChange(next);
+      inputsRef.current[Math.min(next.length, 5)]?.focus();
+      return;
+    }
+    const next = [...digits];
+    next[index] = clean;
+    onChange(next.join(""));
+    if (clean && index < 5) inputsRef.current[index + 1]?.focus();
+  };
+
+  return (
+    <div className="mt-3 grid grid-cols-6 gap-2 sm:gap-3" dir="ltr">
+      {digits.map((digit, index) => (
+        <input
+          key={index}
+          ref={(node) => {
+            inputsRef.current[index] = node;
+          }}
+          value={digit}
+          disabled={disabled}
+          onChange={(event) => setDigit(index, event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Backspace" && !digits[index] && index > 0) {
+              inputsRef.current[index - 1]?.focus();
+            }
+            if (event.key === "ArrowLeft" && index > 0) {
+              inputsRef.current[index - 1]?.focus();
+            }
+            if (event.key === "ArrowRight" && index < 5) {
+              inputsRef.current[index + 1]?.focus();
+            }
+          }}
+          onPaste={(event) => {
+            event.preventDefault();
+            const pasted = event.clipboardData.getData("text");
+            setDigit(index, pasted);
+          }}
+          inputMode="numeric"
+          autoComplete={index === 0 ? "one-time-code" : "off"}
+          aria-label={`Verification code digit ${index + 1}`}
+          className="aspect-square w-full rounded-2xl border border-(--color-light-input-border) bg-(--color-light-input-bg) text-center font-mono text-2xl font-semibold text-primary shadow-sm outline-none transition-all placeholder:text-(--color-light-input-placeholder) focus:border-sky-500 focus:ring-4 focus:ring-sky-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:focus:border-sky-400 dark:focus:ring-sky-400/15"
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function Signup() {
   const { theme, toggleTheme } = useTheme();
   const { t } = useTranslation();
@@ -95,8 +159,13 @@ export default function Signup() {
     },
   });
   const [done, setDone] = useState(false);
-  const [serverError, setServerError] = useState("");
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingPassword, setPendingPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const { mutate: signupMutate, isPending: signingUp } = useSignup();
+  const { mutate: verifyEmailMutate, isPending: verifyingOtp } = useVerifyEmail();
+  const { mutate: resendOtpMutate, isPending: resendingOtp } = useResendVerificationEmail();
+  const { mutate: loginMutate, isPending: loggingInAfterVerify } = useLogin();
   const { login, user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -116,28 +185,63 @@ export default function Signup() {
   }, [isAuthenticated, user, navigate]);
 
   const submit = (data) => {
-    setServerError("");
+    const normalizedEmail = String(data.email ?? "").trim().toLowerCase();
     signupMutate(
       {
         ...data,
         username: String(data.username ?? "").trim(),
-        email: String(data.email ?? "").trim(),
+        email: normalizedEmail,
         first_name: String(data.first_name ?? "").trim(),
         last_name: String(data.last_name ?? "").trim(),
         phone_number: String(data.phone_number ?? "").trim(),
       },
       {
-        onSuccess: (createdUser) => {
-          login(createdUser);
-          setDone(true);
-          const dest = postLoginPath(createdUser);
-          setTimeout(() => navigate(dest, { replace: true }), 1200);
-        },
-        onError: (err) => {
-          setServerError(err.message || "Could not create account.");
+        onSuccess: () => {
+          setPendingEmail(normalizedEmail);
+          setPendingPassword(data.password);
+          setOtp("");
         },
       },
     );
+  };
+
+  const submitOtp = (event) => {
+    event.preventDefault();
+    const code = otp.trim();
+    if (!pendingEmail || !/^\d{6}$/.test(code)) {
+      gooeyToast.error(t("signup.otp.validation"));
+      return;
+    }
+    verifyEmailMutate(
+      { email: pendingEmail, otp_code: code },
+      {
+        onSuccess: () => {
+          loginMutate(
+            {
+              email: pendingEmail,
+              password: pendingPassword,
+              remember_me: false,
+            },
+            {
+              onSuccess: (sessionUser) => {
+                login(sessionUser);
+                setDone(true);
+                const dest = postLoginPath(sessionUser);
+                setTimeout(() => navigate(dest, { replace: true }), 900);
+              },
+            },
+          );
+        },
+      },
+    );
+  };
+
+  const resendOtp = () => {
+    if (!pendingEmail) return;
+    setOtp("");
+    resendOtpMutate(pendingEmail, {
+      onSuccess: () => setOtp(""),
+    });
   };
 
   return (
@@ -250,6 +354,55 @@ export default function Signup() {
                     {t("signup.redirecting")}
                   </p>
                 </div>
+              ) : pendingEmail ? (
+                <form onSubmit={submitOtp} className="space-y-5">
+                  <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-200">
+                    <p className="font-semibold">{t("signup.otp.title")}</p>
+                    <p className="mt-1">
+                      {t("signup.otp.description", { email: pendingEmail })}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
+                      {t("signup.otp.label")}
+                    </label>
+                    <OtpCodeInput
+                      value={otp}
+                      onChange={setOtp}
+                      disabled={verifyingOtp || loggingInAfterVerify}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={verifyingOtp || loggingInAfterVerify}
+                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-light-btn-primary-bg px-4 text-sm font-semibold text-white transition-all hover:opacity-95 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55 dark:bg-dark-primary dark:text-dark-shell"
+                  >
+                    {verifyingOtp || loggingInAfterVerify
+                      ? t("signup.otp.verifying")
+                      : t("signup.otp.verify")}
+                    <SignupActionIcon loading={verifyingOtp || loggingInAfterVerify} />
+                  </button>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted dark:text-dark-muted">
+                    <button
+                      type="button"
+                      onClick={() => setPendingEmail("")}
+                      className="font-semibold text-secondary underline underline-offset-2 transition-colors hover:text-primary dark:text-dark-secondary dark:hover:text-dark-primary"
+                    >
+                      {t("signup.otp.changeEmail")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={resendingOtp}
+                      onClick={resendOtp}
+                      className="font-semibold text-secondary underline underline-offset-2 transition-colors hover:text-primary disabled:opacity-50 dark:text-dark-secondary dark:hover:text-dark-primary"
+                    >
+                      {resendingOtp ? t("signup.otp.sending") : t("signup.otp.resend")}
+                    </button>
+                  </div>
+                </form>
               ) : (
                 <>
                   {hasGoogleOAuthClientId() ? (
@@ -263,7 +416,11 @@ export default function Signup() {
                           const dest = postLoginPath(sessionUser);
                           setTimeout(() => navigate(dest, { replace: true }), 900);
                         }}
-                        onAuthFailure={(msg) => setServerError(msg)}
+                        onAuthFailure={(msg) => {
+                          const title =
+                            msg?.trim?.() || t("apiErrors.google_authentication_failed");
+                          gooeyToast.error(title);
+                        }}
                       />
                       <div className="my-5 flex items-center gap-3">
                         <div className="h-px flex-1 bg-light-divider dark:bg-dark-divider" />
@@ -273,15 +430,6 @@ export default function Signup() {
                         <div className="h-px flex-1 bg-light-divider dark:bg-dark-divider" />
                       </div>
                     </>
-                  ) : null}
-
-                  {serverError ? (
-                    <p
-                      className="mb-4 rounded-xl border border-(--color-light-error-border) bg-(--color-light-error-bg) px-3 py-2 text-xs font-medium text-(--color-light-error-text) dark:border-(--color-dark-error-border) dark:bg-(--color-dark-error-bg) dark:text-(--color-dark-error-text)"
-                      role="alert"
-                    >
-                      {serverError}
-                    </p>
                   ) : null}
 
                   <form

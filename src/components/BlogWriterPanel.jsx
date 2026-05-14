@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import PersonAvatar from "./PersonAvatar";
 
 export default function BlogWriterPanel({
   blog,
@@ -19,24 +20,26 @@ export default function BlogWriterPanel({
     blogs.filter(
       (item) => item.author === blog.author && item.status === "pending",
     ).length;
+  const authorProfile = blog.authorProfile ?? {};
 
   return (
     <div className="rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-5 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-(--color-light-btn-primary-bg) text-base font-semibold text-(--color-light-btn-primary-text) dark:bg-(--color-dark-btn-primary-bg) dark:text-(--color-dark-btn-primary-text)">
-            {blog.author
-              .split(" ")
-              .map((part) => part[0])
-              .join("")
-              .slice(0, 2)}
-          </div>
-          <div>
-            <p className="text-lg font-semibold text-primary dark:text-dark-primary">
+        <div className="flex min-w-0 items-center gap-4">
+          <PersonAvatar
+            person={authorProfile}
+            sizeClass="inline-flex size-16 shrink-0 overflow-hidden rounded-full"
+            className="ring-2 ring-light-divider dark:ring-dark-divider"
+          />
+          <div className="min-w-0">
+            <p className="truncate text-lg font-semibold text-primary dark:text-dark-primary">
               {blog.author}
             </p>
-            <p className="text-sm text-secondary dark:text-dark-secondary">
-              {blog.authorRole}
+            <p className="truncate text-sm text-secondary dark:text-dark-secondary">
+              {blog.authorEmail || t("blogAdmin.detail.writer.noEmail")}
+            </p>
+            <p className="mt-1 truncate text-xs font-medium text-muted dark:text-dark-muted">
+              {blog.authorUsername || blog.authorRole}
             </p>
           </div>
         </div>
@@ -67,9 +70,6 @@ export default function BlogWriterPanel({
           </div>
         </div>
       </div>
-      <p className="mt-5 text-sm leading-6 text-secondary dark:text-dark-secondary">
-        {t("blogAdmin.detail.writer.description")}
-      </p>
     </div>
   );
 }
