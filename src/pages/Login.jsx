@@ -23,7 +23,6 @@ import { useLogin } from "../services/useApi";
 import Field from "../components/Field";
 import Checkbox from "../components/Checkbox";
 import GoogleSignInButton from "../components/GoogleSignInButton";
-import { hasGoogleOAuthClientId } from "../lib/googleOAuth";
 
 const AUTH_BACKGROUND =
   "min-h-screen bg-linear-to-br from-sky-50 via-white to-emerald-50 text-primary dark:from-sky-500/12 dark:via-dark-card-bg dark:to-emerald-500/10 dark:text-dark-primary";
@@ -168,36 +167,32 @@ export default function Login() {
                 </div>
               ) : (
                 <>
-                  {hasGoogleOAuthClientId() ? (
-                    <>
-                      <GoogleSignInButton
-                        intent="signin"
-                        disabled={loading}
-                        onAuthSuccess={(sessionUser) => {
-                          gooeyToast.success(t("login.toast.signInSuccess"));
-                          login(sessionUser);
-                          setDone(true);
-                          const dest = postLoginPath(sessionUser);
-                          setTimeout(
-                            () => navigate(dest, { replace: true }),
-                            900,
-                          );
-                        }}
-                        onAuthFailure={(msg) => {
-                          const fallback = t("login.toast.signInFailed");
-                          const title = msg?.trim?.() ? msg.trim() : fallback;
-                          gooeyToast.error(title);
-                        }}
-                      />
-                      <div className="my-5 flex items-center gap-3">
-                        <div className="h-px flex-1 bg-light-divider dark:bg-dark-divider" />
-                        <span className="text-[11px] font-medium text-muted dark:text-dark-muted">
-                          {t("login.orContinueWithEmail")}
-                        </span>
-                        <div className="h-px flex-1 bg-light-divider dark:bg-dark-divider" />
-                      </div>
-                    </>
-                  ) : null}
+                  <GoogleSignInButton
+                    intent="signin"
+                    disabled={loading}
+                    onAuthSuccess={(sessionUser) => {
+                      gooeyToast.success(t("login.toast.signInSuccess"));
+                      login(sessionUser);
+                      setDone(true);
+                      const dest = postLoginPath(sessionUser);
+                      setTimeout(
+                        () => navigate(dest, { replace: true }),
+                        900,
+                      );
+                    }}
+                    onAuthFailure={(msg) => {
+                      const fallback = t("login.toast.signInFailed");
+                      const title = msg?.trim?.() ? msg.trim() : fallback;
+                      gooeyToast.error(title);
+                    }}
+                  />
+                  <div className="my-5 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-light-divider dark:bg-dark-divider" />
+                    <span className="text-[11px] font-medium text-muted dark:text-dark-muted">
+                      {t("login.orContinueWithEmail")}
+                    </span>
+                    <div className="h-px flex-1 bg-light-divider dark:bg-dark-divider" />
+                  </div>
 
                   <form
                     onSubmit={handleSubmit(submit)}

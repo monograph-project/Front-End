@@ -24,7 +24,6 @@ import {
 } from "../services/useApi";
 import Field from "../components/Field";
 import GoogleSignInButton from "../components/GoogleSignInButton";
-import { hasGoogleOAuthClientId } from "../lib/googleOAuth";
 
 const USERNAME_RE = /^[A-Za-z0-9]{3,50}$/;
 const PERSON_NAME_RE = /^[\p{L}]{2,50}$/u;
@@ -405,32 +404,28 @@ export default function Signup() {
                 </form>
               ) : (
                 <>
-                  {hasGoogleOAuthClientId() ? (
-                    <>
-                      <GoogleSignInButton
-                        intent="signup"
-                        disabled={signingUp}
-                        onAuthSuccess={(sessionUser) => {
-                          login(sessionUser);
-                          setDone(true);
-                          const dest = postLoginPath(sessionUser);
-                          setTimeout(() => navigate(dest, { replace: true }), 900);
-                        }}
-                        onAuthFailure={(msg) => {
-                          const title =
-                            msg?.trim?.() || t("apiErrors.google_authentication_failed");
-                          gooeyToast.error(title);
-                        }}
-                      />
-                      <div className="my-5 flex items-center gap-3">
-                        <div className="h-px flex-1 bg-light-divider dark:bg-dark-divider" />
-                        <span className="text-[11px] font-medium text-muted dark:text-dark-muted">
-                          {t("signup.orContinueWithEmail")}
-                        </span>
-                        <div className="h-px flex-1 bg-light-divider dark:bg-dark-divider" />
-                      </div>
-                    </>
-                  ) : null}
+                  <GoogleSignInButton
+                    intent="signup"
+                    disabled={signingUp}
+                    onAuthSuccess={(sessionUser) => {
+                      login(sessionUser);
+                      setDone(true);
+                      const dest = postLoginPath(sessionUser);
+                      setTimeout(() => navigate(dest, { replace: true }), 900);
+                    }}
+                    onAuthFailure={(msg) => {
+                      const title =
+                        msg?.trim?.() || t("apiErrors.google_authentication_failed");
+                      gooeyToast.error(title);
+                    }}
+                  />
+                  <div className="my-5 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-light-divider dark:bg-dark-divider" />
+                    <span className="text-[11px] font-medium text-muted dark:text-dark-muted">
+                      {t("signup.orContinueWithEmail")}
+                    </span>
+                    <div className="h-px flex-1 bg-light-divider dark:bg-dark-divider" />
+                  </div>
 
                   <form
                     onSubmit={handleSubmit(submit)}
