@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { saveAs } from "file-saver";
 import { renderAsync as renderDocxAsync } from "docx-preview";
+import { Download } from "lucide-react";
 import Button from "../Button";
 import DocumentViewerLoading from "../vcShared/DocumentViewerLoading";
+import DocumentNoteOverlay from "./DocumentNoteOverlay";
 import {
   extractDocxHtml,
   extractDocxPlainText,
@@ -27,6 +29,9 @@ function isZipMagic(bytes) {
  * @param {{ fileBytes: Uint8Array, filePath: string, fileType: string }} props
  */
 export default function OverviewMode({
+  owner,
+  repo,
+  branch = "main",
   fileBytes,
   filePath,
   fileType,
@@ -147,6 +152,9 @@ export default function OverviewMode({
   if (ext === "docx" || ext === "doc") {
     return (
       <ReadonlyDocxPreview
+        owner={owner}
+        repo={repo}
+        branch={branch}
         embedded={embedded}
         fileBytes={fileBytes}
         filePath={filePath}
@@ -179,15 +187,14 @@ export default function OverviewMode({
 
   if (isLikelyTextExtension(ext) && textMaybe != null) {
     return (
-      <pre
-        className={
-          embedded
-            ? "max-h-[560px] overflow-auto rounded-none bg-(--color-light-input-bg) p-4 text-xs text-(--color-light-text-primary) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)"
-            : "max-h-[560px] overflow-auto rounded-2xl border border-(--color-light-card-border) bg-(--color-light-input-bg) p-4 text-xs text-(--color-light-text-primary) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary)"
-        }
-      >
-        <code>{textMaybe}</code>
-      </pre>
+      <TextPreviewWithNotes
+        owner={owner}
+        repo={repo}
+        branch={branch}
+        filePath={filePath}
+        embedded={embedded}
+        text={textMaybe}
+      />
     );
   }
 
@@ -209,7 +216,41 @@ export default function OverviewMode({
   );
 }
 
+function TextPreviewWithNotes({ owner, repo, branch, filePath, embedded, text }) {
+  const shellRef = useRef(null);
+  const contentRef = useRef(null);
+
+  return (
+    <div
+      ref={shellRef}
+      className={
+        embedded
+          ? "relative max-h-[560px] overflow-auto rounded-none bg-white text-slate-900 dark:bg-white dark:text-slate-900"
+          : "relative max-h-[560px] overflow-auto rounded-2xl border border-(--color-light-card-border) bg-white text-slate-900 dark:border-(--color-dark-card-border) dark:bg-white dark:text-slate-900"
+      }
+    >
+      <pre
+        ref={contentRef}
+        className="m-0 min-h-full p-4 text-xs text-slate-900"
+      >
+        <code>{text}</code>
+      </pre>
+      <DocumentNoteOverlay
+        owner={owner}
+        repo={repo}
+        branch={branch}
+        filePath={filePath}
+        shellRef={shellRef}
+        contentRef={contentRef}
+      />
+    </div>
+  );
+}
+
 function ReadonlyDocxPreview({
+  owner,
+  repo,
+  branch,
   embedded,
   fileBytes,
   filePath,
@@ -219,6 +260,7 @@ function ReadonlyDocxPreview({
   fallbackText,
 }) {
   const { t } = useTranslation();
+  const scrollShellRef = useRef(null);
   const previewHostRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -298,7 +340,10 @@ function ReadonlyDocxPreview({
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" onClick={onDownload}>
-            Download docx
+            <span className="inline-flex items-center gap-2">
+              <Download size={15} />
+              Download docx
+            </span>
           </Button>
         </div>
       </div>
@@ -308,13 +353,24 @@ function ReadonlyDocxPreview({
       {!loadError ? (
         <div className="px-4 pb-4">
           <div
-            ref={previewHostRef}
+            ref={scrollShellRef}
             className={
               embedded
-                ? "docx-render-shell max-h-[560px] overflow-auto rounded-none bg-white p-4 "
-                : "docx-render-shell max-h-[720px] overflow-auto rounded-xl bg-white p-4 "
+                ? "docx-render-shell relative max-h-[560px] overflow-auto rounded-none border border-light-divider bg-white p-4 text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900"
+                : "docx-render-shell relative max-h-[720px] overflow-auto rounded-lg border border-light-divider bg-white p-4 text-slate-900 shadow-inner dark:border-dark-divider dark:bg-white dark:text-slate-900"
             }
-          />
+          >
+            <div ref={previewHostRef} />
+            <DocumentNoteOverlay
+              owner={owner}
+              repo={repo}
+              branch={branch}
+              filePath={filePath}
+              shellRef={scrollShellRef}
+              contentRef={previewHostRef}
+              enabled={!loading && !loadError}
+            />
+          </div>
         </div>
       ) : fallbackLoading ? (
         <DocumentViewerLoading />
@@ -326,14 +382,14 @@ function ReadonlyDocxPreview({
           <p className="mb-3 text-xs text-amber-700 dark:text-amber-300">
             {loadError}
           </p>
-          <div className="max-h-[520px] overflow-auto rounded-xl border border-light-divider bg-(--color-light-input-bg) p-3 dark:border-dark-divider dark:bg-(--color-dark-input-bg)">
+          <div className="max-h-[520px] overflow-auto rounded-xl border border-light-divider bg-white p-3 text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900">
             {fallbackHtml ? (
               <div
-                className="vc-docx-preview prose prose-sm max-w-none text-(--color-light-text-primary) dark:prose-invert dark:text-(--color-dark-text-primary) [&_p]:my-0 [&_p+P]:mt-3 [&_table]:mt-4 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-light-divider [&_td]:px-3 [&_td]:py-2 dark:[&_td]:border-dark-divider [&_.vc-docx-empty]:opacity-40 [&_.vc-docx-strike]:line-through [&_.vc-docx-underline]:underline"
+                className="vc-docx-preview prose prose-sm max-w-none text-slate-900 [&_p]:my-0 [&_p+P]:mt-3 [&_table]:mt-4 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-light-divider [&_td]:px-3 [&_td]:py-2 dark:[&_td]:border-dark-divider [&_.vc-docx-empty]:opacity-40 [&_.vc-docx-strike]:line-through [&_.vc-docx-underline]:underline"
                 dangerouslySetInnerHTML={{ __html: fallbackHtml }}
               />
             ) : (
-              <pre className="whitespace-pre-wrap text-xs text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+              <pre className="whitespace-pre-wrap text-xs text-slate-900">
                 {fallbackText || t("documentViewer.overview.emptyPreview")}
               </pre>
             )}

@@ -288,7 +288,7 @@ function DocumentSegmentBlameList({
                 {row.kind || "segment"}
                 {row.page != null ? ` • Page ${row.page}` : ""}
               </div>
-              <div className="overflow-hidden rounded-xl border border-light-divider dark:border-dark-divider">
+              <div className="overflow-hidden rounded-xl border border-light-divider bg-white text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900">
                 {row.lines.map((line) => (
                   <div
                     key={`${row.key}-${line.lineNumber}`}
@@ -297,7 +297,7 @@ function DocumentSegmentBlameList({
                     <div className="select-none px-2.5 text-right text-muted dark:text-dark-muted">
                       {line.lineNumber}
                     </div>
-                    <pre className="m-0 overflow-x-auto px-3 py-0 text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                    <pre className="m-0 overflow-x-auto px-3 py-0 text-slate-900">
                       <code>{line.code}</code>
                     </pre>
                   </div>
@@ -662,12 +662,12 @@ export default function BlameMode({
     if (ext === "docx") {
       const groups = buildDocumentCommitGroups(rows);
       return (
-        <div className="overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+        <div className="overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-white text-slate-900 dark:border-(--color-dark-card-border) dark:bg-white dark:text-slate-900">
           <header className="border-b border-light-divider px-5 py-4 dark:border-dark-divider">
-            <h3 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+            <h3 className="text-sm font-semibold text-slate-900">
               Document blame
             </h3>
-            <p className="mt-1 text-xs text-muted dark:text-dark-muted">
+            <p className="mt-1 text-xs text-slate-500">
               The original document layout is preserved and ownership is grouped beside matching document blocks like a blame gutter.
             </p>
           </header>
@@ -715,7 +715,7 @@ export default function BlameMode({
                 </aside>
               ) : null}
               <div
-                className="docx-render-shell vc-docx-blame-shell relative max-h-[720px] overflow-auto rounded-none bg-white p-4"
+                className="docx-render-shell vc-docx-blame-shell relative max-h-[720px] overflow-auto rounded-none bg-white p-4 text-slate-900 dark:bg-white dark:text-slate-900"
                 onScroll={() => {
                   setHoveredSegmentId(null);
                   setDocxPopup(null);
@@ -741,11 +741,11 @@ export default function BlameMode({
           )}
 
           {selectedCommit && resolvedMeta ? (
-            <footer className="border-t border-light-divider bg-(--color-light-input-bg) px-5 py-4 text-xs dark:border-dark-divider dark:bg-(--color-dark-input-bg)">
-              <h4 className="text-[11px] font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+            <footer className="border-t border-light-divider bg-white px-5 py-4 text-xs text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900">
+              <h4 className="text-[11px] font-semibold text-slate-900">
                 {t("documentViewer.blame.detailsTitle")}
               </h4>
-              <dl className="mt-2 space-y-1 text-muted dark:text-dark-muted">
+              <dl className="mt-2 space-y-1 text-slate-500">
                 <div className="flex justify-between gap-3">
                   <dt className="font-semibold text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
                     {t("documentViewer.blame.sha")}
@@ -790,12 +790,12 @@ export default function BlameMode({
 
     const groups = buildDocumentCommitGroups(rows);
     return (
-      <div className="overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+      <div className="overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-white text-slate-900 dark:border-(--color-dark-card-border) dark:bg-white dark:text-slate-900">
         <header className="border-b border-light-divider px-5 py-4 dark:border-dark-divider">
-          <h3 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+          <h3 className="text-sm font-semibold text-slate-900">
             Document blame
           </h3>
-          <p className="mt-1 text-xs text-muted dark:text-dark-muted">
+          <p className="mt-1 text-xs text-slate-500">
             Ownership is tracked per extracted document segment instead of raw text lines.
           </p>
         </header>
@@ -851,7 +851,7 @@ export default function BlameMode({
                     {row.kind || "segment"}
                     {row.page != null ? ` • Page ${row.page}` : ""}
                   </div>
-                  <div className="overflow-hidden rounded-xl border border-light-divider dark:border-dark-divider">
+                  <div className="overflow-hidden rounded-xl border border-light-divider bg-white text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900">
                     {row.lines.map((line) => (
                       <div
                         key={`${row.key}-${line.lineNumber}`}
@@ -860,7 +860,7 @@ export default function BlameMode({
                         <div className="select-none px-2.5 text-right text-muted dark:text-dark-muted">
                           {line.lineNumber}
                         </div>
-                        <pre className="m-0 overflow-x-auto px-3 py-0 text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                        <pre className="m-0 overflow-x-auto px-3 py-0 text-slate-900">
                           <code>{line.code}</code>
                         </pre>
                       </div>
@@ -878,17 +878,17 @@ export default function BlameMode({
   if (decoded == null) {
     if (ext === "docx" || ext === "pdf") {
       return (
-        <div className="overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+        <div className="overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-white text-slate-900 dark:border-(--color-dark-card-border) dark:bg-white dark:text-slate-900">
           <header className="border-b border-light-divider px-5 py-4 dark:border-dark-divider">
-            <h3 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+            <h3 className="text-sm font-semibold text-slate-900">
               Document blame
             </h3>
-            <p className="mt-1 text-xs text-muted dark:text-dark-muted">
+            <p className="mt-1 text-xs text-slate-500">
               Document blame metadata is unavailable for this revision, so the original document preview is shown instead.
             </p>
           </header>
           {fallbackMeta ? (
-            <div className="border-b border-light-divider bg-(--color-light-input-bg) px-5 py-4 text-xs dark:border-dark-divider dark:bg-(--color-dark-input-bg)">
+            <div className="border-b border-light-divider bg-white px-5 py-4 text-xs text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900">
               <div className="grid gap-3 md:grid-cols-4">
                 <div>
                   <p className="font-semibold text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
@@ -942,18 +942,18 @@ export default function BlameMode({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+    <div className="overflow-hidden rounded-2xl border border-(--color-light-card-border) bg-white text-slate-900 dark:border-(--color-dark-card-border) dark:bg-white dark:text-slate-900">
       <header className="border-b border-light-divider px-5 py-4 dark:border-dark-divider">
-        <h3 className="text-sm font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+        <h3 className="text-sm font-semibold text-slate-900">
           {t("documentViewer.blame.title")}
         </h3>
-        <p className="mt-1 text-xs text-muted dark:text-dark-muted">
+        <p className="mt-1 text-xs text-slate-500">
           {t("documentViewer.blame.hint")}
         </p>
       </header>
 
-      <div className="flex max-h-[560px] overflow-auto border-light-divider dark:border-dark-divider">
-        <div className="sticky left-0 z-[1] min-w-[148px] border-r border-light-divider bg-(--color-light-input-bg) dark:border-dark-divider dark:bg-(--color-dark-input-bg)">
+      <div className="flex max-h-[560px] overflow-auto border-light-divider bg-white text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900">
+        <div className="sticky left-0 z-[1] min-w-[148px] border-r border-light-divider bg-slate-50 dark:border-dark-divider dark:bg-slate-50">
           {lines.map((_, index) => {
             const blame = blameByLine[index];
             const commit = commitId(blame);
@@ -986,10 +986,10 @@ export default function BlameMode({
               >
                 {blame ?
                   <>
-                    <div className="font-semibold truncate text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                    <div className="truncate font-semibold text-slate-900">
                       {blame.author || blame.userName || t("documentViewer.na")}
                     </div>
-                    <div className="truncate font-mono text-[10px] text-muted dark:text-dark-muted">
+                    <div className="truncate font-mono text-[10px] text-slate-500">
                       {(commit ?? "").slice(0, 7)}
                     </div>
                   </>
@@ -999,12 +999,12 @@ export default function BlameMode({
           })}
         </div>
 
-        <div className="min-w-[56px] border-r border-light-divider bg-(--color-light-input-bg) text-right dark:border-dark-divider dark:bg-(--color-dark-input-bg)">
+        <div className="min-w-[56px] border-r border-light-divider bg-slate-50 text-right dark:border-dark-divider dark:bg-slate-50">
           {lines.map((_, index) => (
             <div
               key={`n-${index}`}
               role="presentation"
-              className="border-b border-light-divider px-2 py-1 font-mono text-[11px] text-muted tabular-nums dark:border-dark-divider dark:text-dark-muted"
+              className="border-b border-light-divider px-2 py-1 font-mono text-[11px] tabular-nums text-slate-500 dark:border-dark-divider"
               style={{ minHeight: 28 }}
               onMouseEnter={() => setHoveredLineIndex(index)}
               onMouseLeave={() => setHoveredLineIndex(null)}
@@ -1021,12 +1021,12 @@ export default function BlameMode({
               <div
                 key={`c-${index}`}
                 role="presentation"
-                className={`border-b border-light-divider px-4 py-1 dark:border-dark-divider ${hovered ? "bg-(--color-light-input-bg) dark:bg-(--color-dark-input-bg)" : ""}`}
+                className={`border-b border-light-divider px-4 py-1 dark:border-dark-divider ${hovered ? "bg-slate-50" : "bg-white"}`}
                 style={{ minHeight: 28 }}
                 onMouseEnter={() => setHoveredLineIndex(index)}
                 onMouseLeave={() => setHoveredLineIndex(null)}
               >
-                <pre className="m-0 whitespace-pre-wrap break-all font-mono text-[11px] text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+                <pre className="m-0 whitespace-pre-wrap break-all font-mono text-[11px] text-slate-900">
                   <code>{line || "\u00a0"}</code>
                 </pre>
               </div>
@@ -1036,11 +1036,11 @@ export default function BlameMode({
       </div>
 
       {selectedCommit && resolvedMeta ?
-        <footer className="border-t border-light-divider bg-(--color-light-input-bg) px-5 py-4 text-xs dark:border-dark-divider dark:bg-(--color-dark-input-bg)">
-          <h4 className="text-[11px] font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
+        <footer className="border-t border-light-divider bg-white px-5 py-4 text-xs text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900">
+          <h4 className="text-[11px] font-semibold text-slate-900">
             {t("documentViewer.blame.detailsTitle")}
           </h4>
-          <dl className="mt-2 space-y-1 text-muted dark:text-dark-muted">
+          <dl className="mt-2 space-y-1 text-slate-500">
             <div className="flex justify-between gap-3">
               <dt className="font-semibold text-(--color-light-text-secondary) dark:text-(--color-dark-text-secondary)">
                 {t("documentViewer.blame.sha")}

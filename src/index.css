@@ -1588,4 +1588,45 @@
   .gooey-wrapper {
     z-index: 2147483647 !important;
   }
+
+  .docx-render-shell {
+    background-color: #ffffff !important;
+    color-scheme: light;
+  }
+
+  .docx-render-shell .docx-preview-host {
+    background: #ffffff !important;
+  }
+
+  .docx-render-shell .docx-wrapper {
+    background: #ffffff !important;
+    padding: 0 !important;
+  }
+
+  .docx-render-shell .docx {
+    margin: 0 auto 1rem auto !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    
+  }
+
+  .dark .docx-render-shell {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    color-scheme: light;
+  }
+
+  .dark .docx-render-shell .docx-preview-host,
+  .dark .docx-render-shell .docx-wrapper {
+    background: #ffffff !important;
+  }
+
+  .dark .docx-render-shell .docx {
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42) !important;
+  }
+
+  .dark .vc-docx-blame-shell {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+  }
 }

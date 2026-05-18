@@ -167,6 +167,9 @@ export default function DocumentViewerContainer({
         : viewMode === "overview" ?
           bytes ?
             <OverviewMode
+              owner={owner}
+              repo={repo}
+              branch={branch}
               fileBytes={bytes}
               filePath={filePath}
               fileType={ext}
