@@ -93,6 +93,136 @@ function shortCommit(row) {
   return String(commitId(row) ?? "").slice(0, 8);
 }
 
+function changeType(row) {
+  return String(row?.changeType ?? row?.status ?? "unchanged").toLowerCase();
+}
+
+function changeLabel(row) {
+  const type = changeType(row);
+  if (type === "added") return "Added";
+  if (type === "modified") return "Modified";
+  return "Unchanged";
+}
+
+function changeBadgeClass(row) {
+  const type = changeType(row);
+  if (type === "added") {
+    return "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300";
+  }
+  if (type === "modified") {
+    return "bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-300";
+  }
+  return "bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-200";
+}
+
+function markerColor(row, selected = false) {
+  const type = changeType(row);
+  if (type === "added") return selected ? "rgb(5,150,105)" : "rgba(5,150,105,.74)";
+  if (type === "modified") return selected ? "rgb(217,119,6)" : "rgba(217,119,6,.78)";
+  return selected ? "rgb(234,88,12)" : "rgba(234,88,12,.72)";
+}
+
+function docxSegmentId(row, index) {
+  return row?.id || `doc-row-${index}`;
+}
+
+function docxPopupPayload(row, index, t) {
+  return {
+    id: docxSegmentId(row, index),
+    commit: commitId(row),
+    shortSha: shortCommit(row),
+    author: row?.author || row?.userName || t("documentViewer.na"),
+    timestamp: row?.timestamp ?? row?.date,
+    message:
+      row?.message ||
+      row?.commitMessage ||
+      row?.subject ||
+      t("documentViewer.na"),
+    kind: row?.kind || "segment",
+    changeType: changeType(row),
+    changeLabel: changeLabel(row),
+    previousText: row?.previousText || "",
+    page: row?.page ?? null,
+    top: 8,
+  };
+}
+
+function sameDocxBlameGroup(a, b) {
+  if (!sameCommitMeta(a?.row, b?.row)) return false;
+  const prevKind = String(a?.row?.kind ?? "");
+  const nextKind = String(b?.row?.kind ?? "");
+  if (prevKind === "table-row" || nextKind === "table-row") {
+    return prevKind === nextKind;
+  }
+  return changeType(a?.row) === changeType(b?.row);
+}
+
+function isSingleDocxBlameCommit(rows) {
+  const items = Array.isArray(rows) ? rows : [];
+  if (!items.length) return false;
+  const first = items[0];
+  return items.every((row) => sameCommitMeta(first, row));
+}
+
+function markerBounds(items) {
+  const first = items[0]?.anchor;
+  const last = items[items.length - 1]?.anchor || first;
+  const top = Math.max(0, first?.offsetTop ?? 0);
+  const bottom = Math.max(
+    top + 24,
+    (last?.offsetTop ?? top) + Math.max(24, last?.offsetHeight ?? 24),
+  );
+  return { top, height: Math.max(24, bottom - top) };
+}
+
+function blockText(block) {
+  return normalizeDocText(block?.textContent);
+}
+
+function compatibleDocBlock(block, row) {
+  const targetText = normalizeDocText(row?.text);
+  const renderedText = blockText(block);
+  if (!targetText || !renderedText) return false;
+  return (
+    renderedText === targetText ||
+    renderedText.includes(targetText) ||
+    targetText.includes(renderedText)
+  );
+}
+
+function anchorForDocBlock(block) {
+  if (!block) return null;
+  return block.tagName?.toLowerCase?.() === "tr"
+    ? block.querySelector("td, th") || block
+    : block;
+}
+
+function findDocxBlockForRow(row, blocks, searchFrom) {
+  const orderIndex = Number(row?.orderIndex);
+  if (Number.isInteger(orderIndex) && orderIndex >= 0) {
+    const orderedBlock = blocks[orderIndex];
+    if (compatibleDocBlock(orderedBlock, row)) {
+      return { block: orderedBlock, nextSearchFrom: orderIndex + 1 };
+    }
+  }
+
+  for (let i = searchFrom; i < blocks.length; i += 1) {
+    const block = blocks[i];
+    if (compatibleDocBlock(block, row)) {
+      return { block, nextSearchFrom: i + 1 };
+    }
+  }
+
+  for (let i = 0; i < blocks.length; i += 1) {
+    const block = blocks[i];
+    if (compatibleDocBlock(block, row)) {
+      return { block, nextSearchFrom: Math.max(searchFrom, i + 1) };
+    }
+  }
+
+  return { block: null, nextSearchFrom: searchFrom };
+}
+
 function DocumentSegmentBlameList({
   groups,
   selectedCommit,
@@ -133,8 +263,8 @@ function DocumentSegmentBlameList({
                 <span className="rounded-full border border-light-divider px-2 py-0.5 font-mono dark:border-dark-divider">
                   {(row.shortSha || commit || "").slice(0, 8)}
                 </span>
-                <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-500/12 dark:text-amber-300">
-                  {row.kind || "segment"}
+                <span className={`rounded-full px-2 py-0.5 font-medium ${changeBadgeClass(row)}`}>
+                  {changeLabel(row)}
                 </span>
               </div>
               <div className="mt-2 font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
@@ -146,6 +276,11 @@ function DocumentSegmentBlameList({
               <div className="mt-1 text-[11px] text-muted dark:text-dark-muted">
                 {row.message || t("documentViewer.na")}
               </div>
+              {row.previousText ? (
+                <div className="mt-2 line-clamp-2 text-[10px] text-muted dark:text-dark-muted">
+                  Before: {row.previousText}
+                </div>
+              ) : null}
             </div>
 
             <div className="px-4 py-3">
@@ -212,9 +347,11 @@ export default function BlameMode({
   const [hoveredLineIndex, setHoveredLineIndex] = useState(null);
   const [selectedCommit, setSelectedCommit] = useState(null);
   const [hoveredSegmentId, setHoveredSegmentId] = useState(null);
+  const [docxPopup, setDocxPopup] = useState(null);
   const [docRenderLoading, setDocRenderLoading] = useState(false);
   const [docRenderError, setDocRenderError] = useState("");
   const previewHostRef = useRef(null);
+  const markerLayerRef = useRef(null);
 
   const decoded = tryDecodeUtf8(fileBytes ?? new Uint8Array());
   const text = decoded ?? "";
@@ -269,11 +406,14 @@ export default function BlameMode({
       }
 
       const host = previewHostRef.current;
+      const markerLayer = markerLayerRef.current;
       if (!host) return;
 
       setDocRenderLoading(true);
       setDocRenderError("");
+      setDocxPopup(null);
       host.innerHTML = "";
+      if (markerLayer) markerLayer.innerHTML = "";
 
       try {
         if (!isZipMagic(fileBytes)) {
@@ -307,175 +447,189 @@ export default function BlameMode({
         );
         let searchFrom = 0;
         const rows = Array.isArray(blameData) ? blameData : [];
+        const matchedRows = [];
 
         rows.forEach((row, index) => {
-          const targetText = normalizeDocText(row?.text);
-          if (!targetText) return;
+          const match = findDocxBlockForRow(row, blocks, searchFrom);
+          searchFrom = match.nextSearchFrom;
 
-          let matched = null;
-          for (let i = searchFrom; i < blocks.length; i += 1) {
-            const block = blocks[i];
-            const blockText = normalizeDocText(block.textContent);
-            if (!blockText) continue;
-            if (
-              blockText === targetText ||
-              blockText.includes(targetText) ||
-              targetText.includes(blockText)
-            ) {
-              matched = block;
-              searchFrom = i + 1;
-              break;
-            }
-          }
+          const anchor = anchorForDocBlock(match.block);
+          if (!anchor) return;
 
-          if (!matched) return;
-
-          const anchor =
-            matched.tagName.toLowerCase() === "tr"
-              ? matched.querySelector("td, th") || matched
-              : matched;
-
-          anchor.style.position = "relative";
-          anchor.style.paddingInlineStart = "14rem";
-          anchor.style.minHeight = "2rem";
-          anchor.style.scrollMarginTop = "1rem";
-          anchor.setAttribute("data-blame-id", row?.id || `doc-row-${index}`);
+          anchor.setAttribute("data-blame-id", docxSegmentId(row, index));
           anchor.setAttribute("data-blame-commit", commitId(row));
+          anchor.style.scrollMarginTop = "1rem";
 
-          const isGroupStart = !sameCommitMeta(rows[index - 1], row);
-          const isGroupEnd = !sameCommitMeta(row, rows[index + 1]);
+          matchedRows.push({ row, index, anchor });
+        });
+
+        const markerGroups = [];
+        matchedRows.forEach((item) => {
+          const current = markerGroups[markerGroups.length - 1];
+          if (!current || !sameDocxBlameGroup(current[current.length - 1], item)) {
+            markerGroups.push([item]);
+          } else {
+            current.push(item);
+          }
+        });
+
+        if (markerLayer) {
+          markerLayer.style.height = `${Math.max(host.scrollHeight, host.offsetHeight)}px`;
+        }
+
+        if (markerLayer && isSingleDocxBlameCommit(rows)) {
+          const row = rows[0];
+          const activeCommit = commitId(row);
+          const selected = selectedCommit && activeCommit === selectedCommit;
+          const fullHeight = Math.max(96, host.scrollHeight || host.offsetHeight);
+          const bar = document.createElement("button");
+          bar.type = "button";
+          bar.setAttribute("aria-label", `Show commit ${shortCommit(row) || ""}`);
+          bar.style.position = "absolute";
+          bar.style.left = "0.75rem";
+          bar.style.top = "0";
+          bar.style.width = "0.5rem";
+          bar.style.height = `${fullHeight}px`;
+          bar.style.border = "0";
+          bar.style.borderRadius = "999px";
+          bar.style.background = markerColor(row, selected);
+          bar.style.cursor = "pointer";
+          bar.style.pointerEvents = "auto";
+          markerLayer.style.height = `${fullHeight}px`;
+
+          const popupPayload = {
+            ...docxPopupPayload(row, 0, t),
+            id: row?.id || "whole-document",
+            kind: row?.kind || "document",
+          };
+
+          bar.addEventListener("mouseenter", () => {
+            setHoveredSegmentId(popupPayload.id);
+            setDocxPopup({ ...popupPayload, top: 8 });
+          });
+          bar.addEventListener("mouseleave", () => {
+            setHoveredSegmentId(null);
+            setDocxPopup(null);
+          });
+          bar.addEventListener("focus", () => {
+            setHoveredSegmentId(popupPayload.id);
+            setDocxPopup({ ...popupPayload, top: 8 });
+          });
+          bar.addEventListener("blur", () => {
+            setHoveredSegmentId(null);
+            setDocxPopup(null);
+          });
+          bar.addEventListener("click", () => {
+            setSelectedCommit(activeCommit || null);
+          });
+
+          markerLayer.appendChild(bar);
+        } else {
+          markerGroups.forEach((group) => {
+          const { row, index } = group[0];
           const activeCommit = commitId(row);
           const selected = selectedCommit && activeCommit === selectedCommit;
 
-          anchor.style.borderInlineStart = isGroupStart
-            ? "2px solid rgba(148,163,184,.45)"
-            : "2px solid transparent";
-          anchor.style.background = selected
-            ? "rgba(241,245,249,.88)"
-            : "transparent";
-          anchor.style.paddingBlock = isGroupStart ? "0.4rem" : "0.18rem";
-          if (isGroupEnd) {
-            anchor.style.marginBottom = "0.25rem";
-          }
+          if (!markerLayer) return;
 
-          if (!isGroupStart) {
-            const connector = document.createElement("div");
-            connector.setAttribute("aria-hidden", "true");
-            connector.style.position = "absolute";
-            connector.style.left = "0.95rem";
-            connector.style.top = "0";
-            connector.style.bottom = "0";
-            connector.style.width = "11.75rem";
-            connector.style.borderLeft = "1px solid rgba(148,163,184,.35)";
-            connector.style.pointerEvents = "none";
-            anchor.prepend(connector);
-            return;
-          }
+          const { top, height } = markerBounds(group);
 
-          const panel = document.createElement("button");
-          panel.type = "button";
-          panel.title = `${row?.author || ""} ${row?.message ? "• " + row.message : ""}`.trim();
-          panel.style.position = "absolute";
-          panel.style.left = "0.75rem";
-          panel.style.top = "0.2rem";
-          panel.style.zIndex = "3";
-          panel.style.width = "12rem";
-          panel.style.maxWidth = "12rem";
-          panel.style.textAlign = "left";
-          panel.style.border = selected
-            ? "1px solid rgba(14,116,144,.55)"
-            : "1px solid rgba(148,163,184,.35)";
-          panel.style.borderRadius = "10px";
-          panel.style.padding = "0.45rem 0.55rem";
-          panel.style.background = selected
-            ? "rgba(240,249,255,.98)"
-            : "rgba(248,250,252,.96)";
-          panel.style.boxShadow = "0 1px 2px rgba(15,23,42,.06)";
-          panel.style.cursor = "pointer";
-          panel.style.overflow = "hidden";
+          const bar = document.createElement("button");
+          bar.type = "button";
+          bar.setAttribute("aria-label", `Show commit ${shortCommit(row) || ""}`);
+          bar.style.position = "absolute";
+          bar.style.left = "0.75rem";
+          bar.style.top = `${top}px`;
+          bar.style.width = "0.5rem";
+          bar.style.height = `${height}px`;
+          bar.style.border = "0";
+          bar.style.borderRadius = "999px";
+          bar.style.background = markerColor(row, selected);
+          bar.style.cursor = "pointer";
+          bar.style.pointerEvents = "auto";
 
-          const metaRow = document.createElement("div");
-          metaRow.style.display = "flex";
-          metaRow.style.alignItems = "center";
-          metaRow.style.justifyContent = "space-between";
-          metaRow.style.gap = "0.35rem";
-          metaRow.style.marginBottom = "0.28rem";
+          const popupPayload = docxPopupPayload(row, index, t);
 
-          const shaPill = document.createElement("span");
-          shaPill.textContent = shortCommit(row) || "—";
-          shaPill.style.display = "inline-flex";
-          shaPill.style.alignItems = "center";
-          shaPill.style.border = "1px solid rgba(148,163,184,.45)";
-          shaPill.style.borderRadius = "999px";
-          shaPill.style.padding = "0.15rem 0.45rem";
-          shaPill.style.fontSize = "10px";
-          shaPill.style.lineHeight = "1.2";
-          shaPill.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
-          shaPill.style.background = "rgba(255,251,235,.96)";
-          shaPill.style.color = "rgb(146,64,14)";
-
-          const timeText = document.createElement("span");
-          timeText.textContent = formatTs(row?.timestamp);
-          timeText.style.fontSize = "10px";
-          timeText.style.lineHeight = "1.2";
-          timeText.style.color = "rgb(100,116,139)";
-          timeText.style.maxWidth = "5rem";
-          timeText.style.whiteSpace = "nowrap";
-          timeText.style.overflow = "hidden";
-          timeText.style.textOverflow = "ellipsis";
-
-          metaRow.appendChild(shaPill);
-          metaRow.appendChild(timeText);
-
-          const authorText = document.createElement("div");
-          authorText.textContent = row?.author || t("documentViewer.na");
-          authorText.style.fontSize = "11px";
-          authorText.style.lineHeight = "1.25";
-          authorText.style.fontWeight = "600";
-          authorText.style.color = "rgb(15,23,42)";
-          authorText.style.marginBottom = "0.2rem";
-          authorText.style.whiteSpace = "nowrap";
-          authorText.style.overflow = "hidden";
-          authorText.style.textOverflow = "ellipsis";
-
-          const messageText = document.createElement("div");
-          messageText.textContent =
-            row?.message || row?.commitMessage || row?.subject || t("documentViewer.na");
-          messageText.style.fontSize = "10px";
-          messageText.style.lineHeight = "1.25";
-          messageText.style.color = "rgb(71,85,105)";
-          messageText.style.display = "-webkit-box";
-          messageText.style.webkitLineClamp = "2";
-          messageText.style.webkitBoxOrient = "vertical";
-          messageText.style.overflow = "hidden";
-
-          panel.appendChild(metaRow);
-          panel.appendChild(authorText);
-          panel.appendChild(messageText);
-
-          if (isGroupEnd) {
-            const tail = document.createElement("div");
-            tail.setAttribute("aria-hidden", "true");
-            tail.style.position = "absolute";
-            tail.style.left = "0.95rem";
-            tail.style.top = "calc(100% + 0.1rem)";
-            tail.style.height = "0.45rem";
-            tail.style.borderLeft = "1px solid rgba(148,163,184,.35)";
-            panel.appendChild(tail);
-          }
-
-          panel.addEventListener("mouseenter", () => {
-            setHoveredSegmentId(row?.id || `doc-row-${index}`);
+          bar.addEventListener("mouseenter", () => {
+            const shell = bar.closest(".vc-docx-blame-shell");
+            const visibleTop = top - (shell?.scrollTop ?? 0);
+            setHoveredSegmentId(popupPayload.id);
+            setDocxPopup({
+              ...popupPayload,
+              top: Math.max(8, Math.min(560, visibleTop + 4)),
+            });
           });
-          panel.addEventListener("mouseleave", () => {
+          bar.addEventListener("mouseleave", () => {
             setHoveredSegmentId(null);
+            setDocxPopup(null);
           });
-          panel.addEventListener("click", () => {
-            setSelectedCommit(commitId(row) || null);
+          bar.addEventListener("focus", () => {
+            const shell = bar.closest(".vc-docx-blame-shell");
+            const visibleTop = top - (shell?.scrollTop ?? 0);
+            setHoveredSegmentId(popupPayload.id);
+            setDocxPopup({
+              ...popupPayload,
+              top: Math.max(8, Math.min(560, visibleTop + 4)),
+            });
+          });
+          bar.addEventListener("blur", () => {
+            setHoveredSegmentId(null);
+            setDocxPopup(null);
+          });
+          bar.addEventListener("click", () => {
+            setSelectedCommit(activeCommit || null);
           });
 
-          anchor.prepend(panel);
+          markerLayer.appendChild(bar);
         });
+
+        if (markerLayer && markerGroups.length === 0 && rows.length) {
+          const row = rows[0];
+          const activeCommit = commitId(row);
+          const bar = document.createElement("button");
+          bar.type = "button";
+          bar.setAttribute("aria-label", `Show commit ${shortCommit(row) || ""}`);
+          bar.style.position = "absolute";
+          bar.style.left = "0.75rem";
+          bar.style.top = "0";
+          bar.style.width = "0.5rem";
+          bar.style.height = `${Math.max(96, host.scrollHeight || host.offsetHeight)}px`;
+          bar.style.border = "0";
+          bar.style.borderRadius = "999px";
+          bar.style.background = markerColor(row, false);
+          bar.style.cursor = "pointer";
+          bar.style.pointerEvents = "auto";
+          markerLayer.style.height = `${Math.max(96, host.scrollHeight || host.offsetHeight)}px`;
+
+          const popupPayload = {
+            ...docxPopupPayload(row, 0, t),
+            id: row?.id || "fallback-document",
+            kind: row?.kind || "document",
+          };
+
+          bar.addEventListener("mouseenter", () => {
+            setHoveredSegmentId(popupPayload.id);
+            setDocxPopup({ ...popupPayload, top: 8 });
+          });
+          bar.addEventListener("mouseleave", () => {
+            setHoveredSegmentId(null);
+            setDocxPopup(null);
+          });
+          bar.addEventListener("focus", () => {
+            setHoveredSegmentId(popupPayload.id);
+            setDocxPopup({ ...popupPayload, top: 8 });
+          });
+          bar.addEventListener("blur", () => {
+            setHoveredSegmentId(null);
+            setDocxPopup(null);
+          });
+          bar.addEventListener("click", () => {
+            setSelectedCommit(activeCommit || null);
+          });
+
+          markerLayer.appendChild(bar);
+        }
+        }
 
         setDocRenderLoading(false);
       } catch (error) {
@@ -497,8 +651,11 @@ export default function BlameMode({
       if (previewHostRef.current) {
         previewHostRef.current.innerHTML = "";
       }
+      if (markerLayerRef.current) {
+        markerLayerRef.current.innerHTML = "";
+      }
     };
-  }, [blameData, ext, fileBytes, isDocumentSegmentMode]);
+  }, [blameData, ext, fileBytes, isDocumentSegmentMode, selectedCommit, t]);
 
   if (isDocumentSegmentMode) {
     const rows = Array.isArray(blameData) ? blameData : [];
@@ -525,11 +682,51 @@ export default function BlameMode({
           ) : null}
 
           {!docRenderError ? (
-            <div className="px-4 pb-4">
+            <div className="relative px-4 pb-4">
+              {docxPopup ? (
+                <aside
+                  className="absolute left-10 z-20 w-80 max-w-[calc(100%-4rem)] rounded-xl border border-orange-200 bg-white/95 p-3 text-xs text-slate-700 shadow-lg backdrop-blur dark:border-orange-500/30 dark:bg-slate-950/95 dark:text-slate-200"
+                  style={{ top: docxPopup.top ?? 8 }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="rounded-full bg-orange-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-orange-700 dark:bg-orange-500/15 dark:text-orange-200">
+                      {docxPopup.shortSha || "—"}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${changeBadgeClass(docxPopup)}`}>
+                      {docxPopup.changeLabel}
+                      {docxPopup.page != null ? ` · Page ${docxPopup.page}` : ""}
+                    </span>
+                  </div>
+                  <p className="mt-2 font-semibold text-primary dark:text-dark-primary">
+                    {docxPopup.author || t("documentViewer.na")}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted dark:text-dark-muted">
+                    {formatTs(docxPopup.timestamp)}
+                  </p>
+                  <p className="mt-2 line-clamp-3 text-[11px]">
+                    {docxPopup.message || t("documentViewer.na")}
+                  </p>
+                  {docxPopup.previousText ? (
+                    <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                      <p className="mb-1 font-semibold">Previous block</p>
+                      <p className="line-clamp-4">{docxPopup.previousText}</p>
+                    </div>
+                  ) : null}
+                </aside>
+              ) : null}
               <div
-                ref={previewHostRef}
-                className="docx-render-shell vc-docx-blame-shell max-h-[720px] overflow-auto rounded-none bg-white p-4"
-              />
+                className="docx-render-shell vc-docx-blame-shell relative max-h-[720px] overflow-auto rounded-none bg-white p-4"
+                onScroll={() => {
+                  setHoveredSegmentId(null);
+                  setDocxPopup(null);
+                }}
+              >
+                <div
+                  ref={markerLayerRef}
+                  className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8"
+                />
+                <div ref={previewHostRef} />
+              </div>
             </div>
           ) : (
             <DocumentSegmentBlameList
@@ -629,8 +826,8 @@ export default function BlameMode({
                     <span className="rounded-full border border-light-divider px-2 py-0.5 font-mono dark:border-dark-divider">
                       {(row.shortSha || commit || "").slice(0, 8)}
                     </span>
-                    <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-500/12 dark:text-amber-300">
-                      {row.kind || "segment"}
+                    <span className={`rounded-full px-2 py-0.5 font-medium ${changeBadgeClass(row)}`}>
+                      {changeLabel(row)}
                     </span>
                   </div>
                   <div className="mt-2 font-semibold text-(--color-light-text-primary) dark:text-(--color-dark-text-primary)">
@@ -642,6 +839,11 @@ export default function BlameMode({
                   <div className="mt-1 text-[11px] text-muted dark:text-dark-muted">
                     {row.message || t("documentViewer.na")}
                   </div>
+                  {row.previousText ? (
+                    <div className="mt-2 line-clamp-2 text-[10px] text-muted dark:text-dark-muted">
+                      Before: {row.previousText}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="px-4 py-3">

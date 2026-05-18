@@ -607,40 +607,41 @@ export default function StudentRepoFileHistory() {
       try {
         if (file.binary) {
           if (isDocumentDiffFile(file.path)) {
-            if (!selectedCommit || (!selectedParentSha && !isAddedStatus(file.status))) {
+            if (!selectedCommit) {
               if (cancelled) return;
               setDiffCache((current) => ({
                 ...current,
                 [file.key]: {
                   loading: false,
                   rows: [],
-                  error: "No commit refs returned for document diff.",
+                  error: "No commit ref returned for document diff.",
                 },
               }));
               return;
             }
 
+            const beforeRef =
+              isAddedStatus(file.status) ? "" : selectedParentSha;
+            const afterRef =
+              isDeletedStatus(file.status) ? "" : selectedCommit;
+
             const [beforeText, afterText] = await Promise.all([
-              isAddedStatus(file.status)
-                ? Promise.resolve("")
-                : withTimeout(
-                    fetchDocumentTextAtRef(
-                      owner,
-                      repo,
-                      file.path,
-                      selectedParentSha,
-                    ),
+              beforeRef
+                ? withTimeout(
+                    fetchDocumentTextAtRef(owner, repo, file.path, beforeRef),
                     15000,
                     "Timed out extracting previous document version.",
-                  ),
-              isDeletedStatus(file.status)
-                ? Promise.resolve("")
-                : withTimeout(
-                    fetchDocumentTextAtRef(owner, repo, file.path, selectedCommit),
+                  )
+                : Promise.resolve(""),
+              afterRef
+                ? withTimeout(
+                    fetchDocumentTextAtRef(owner, repo, file.path, afterRef),
                     15000,
                     "Timed out extracting current document version.",
-                  ),
+                  )
+                : Promise.resolve(""),
             ]);
+
             if (cancelled) return;
             const rows = normalizeDiffRows(beforeText ?? "", afterText ?? "");
             setDiffCache((current) => ({
@@ -650,7 +651,7 @@ export default function StudentRepoFileHistory() {
                 rows,
                 error: rows.length
                   ? ""
-                  : "No extracted document text changes found for this file.",
+                  : "No extracted document block changes found for this file.",
               },
             }));
             return;
@@ -731,11 +732,8 @@ export default function StudentRepoFileHistory() {
       }
     }
     run();
-    return () => {
-      cancelled = true;
-    };
+    return () => {};
   }, [
-    diffCache,
     expandedFile,
     files,
     owner,
@@ -991,6 +989,7 @@ function BinaryHistoryPanel({ owner, repo, file }) {
     file?.status === "deleted" ? "base" : "head",
   );
   const [state, setState] = useState({ loading: false, bytes: null, error: "" });
+  const documentFile = isDocumentDiffFile(file?.path);
 
   const revisions = useMemo(
     () =>
@@ -1059,10 +1058,12 @@ function BinaryHistoryPanel({ owner, repo, file }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-primary dark:text-dark-primary">
-            Binary file change
+            {documentFile ? "Document file change" : "Binary file change"}
           </p>
           <p className="mt-1 text-xs text-muted dark:text-dark-muted">
-            Textual diff is not available for this file type. You can inspect and download each revision.
+            {documentFile
+              ? "Textual diff is not available for this document type. You can inspect and download each revision."
+              : "Textual diff is not available for this file type. You can inspect and download each revision."}
           </p>
         </div>
         <button

@@ -540,28 +540,6 @@ function buildDocumentOwnershipSegments(documentRows) {
   return result;
 }
 
-function buildSingleCommitDocumentOwnership(text, selectedCommit) {
-  const commit = selectedCommit ?? null;
-  const lines = String(text ?? "").split(/\r?\n/);
-  if (!lines.length) return [];
-
-  return [
-    {
-      key: `${commitRowSha(commit) || "document"}-1`,
-      sha: commitRowSha(commit),
-      author: commitRowAuthor(commit),
-      message: commitRowMessage(commit),
-      timestamp: commitRowTimestamp(commit),
-      page: null,
-      kind: "document",
-      lines: lines.map((line, index) => ({
-        lineNumber: index + 1,
-        code: line || " ",
-      })),
-    },
-  ];
-}
-
 function refsHeadBranch(payload) {
   const head =
     typeof payload?.HEAD === "string"
@@ -2500,10 +2478,6 @@ function RepositoryBinaryBlamePanel({
   const blameSegments = Array.isArray(documentBlame?.segments)
     ? documentBlame.segments
     : [];
-  const groupedDocumentOwnership = useMemo(
-    () => buildDocumentOwnershipSegments(blameSegments),
-    [blameSegments],
-  );
   const [fallbackDocumentText, setFallbackDocumentText] = useState("");
 
   useEffect(() => {
@@ -2526,13 +2500,9 @@ function RepositoryBinaryBlamePanel({
 
       try {
         const text = await extractDocxPlainText(bytes);
-        if (!cancelled) {
-          setFallbackDocumentText(String(text ?? ""));
-        }
+        if (!cancelled) setFallbackDocumentText(String(text ?? ""));
       } catch {
-        if (!cancelled) {
-          setFallbackDocumentText("");
-        }
+        if (!cancelled) setFallbackDocumentText("");
       }
     }
 
@@ -2548,10 +2518,6 @@ function RepositoryBinaryBlamePanel({
     previewQ.bytes,
   ]);
 
-  const fallbackOwnership = useMemo(
-    () => buildSingleCommitDocumentOwnership(fallbackDocumentText, selectedCommit),
-    [fallbackDocumentText, selectedCommit],
-  );
   const fallbackDocumentBlameRows = useMemo(() => {
     if (!fallbackDocumentText) return [];
     return [
@@ -2559,7 +2525,9 @@ function RepositoryBinaryBlamePanel({
         id: "fallback-document",
         kind: "document",
         text: fallbackDocumentText,
+        orderIndex: 0,
         commitSha: commitRowSha(selectedCommit),
+        shortSha: commitRowSha(selectedCommit).slice(0, 8),
         author: commitRowAuthor(selectedCommit),
         message: commitRowMessage(selectedCommit),
         timestamp: commitRowTimestamp(selectedCommit),
@@ -2606,7 +2574,7 @@ function RepositoryBinaryBlamePanel({
     );
   }
 
-  if (docBlameCapable && fallbackDocumentBlameRows.length) {
+  if (docBlameCapable && documentBlameUnavailable && fallbackDocumentBlameRows.length) {
     return (
       <div className="overflow-hidden border border-(--color-light-card-border) bg-(--color-light-card-bg) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
         <BlameMode
@@ -2624,6 +2592,29 @@ function RepositoryBinaryBlamePanel({
               : null
           }
         />
+      </div>
+    );
+  }
+
+  if (docBlameCapable && documentBlameUnavailable) {
+    return (
+      <div className="space-y-4 border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          Document blame data is unavailable for this revision, so the original
+          document is shown without converting it into extracted text.
+        </div>
+        {previewQ.bytes?.length || fileBytes?.length ? (
+          <OverviewMode
+            fileBytes={previewQ.bytes?.length ? previewQ.bytes : fileBytes}
+            filePath={filePath}
+            fileType=""
+            embedded
+          />
+        ) : (
+          <p className="text-sm text-muted dark:text-dark-muted">
+            No document preview returned for this revision.
+          </p>
+        )}
       </div>
     );
   }

@@ -1,6 +1,10 @@
 import apiClient from "../api/client";
 import { saveAs } from "file-saver";
-import { tryDecodeUtf8 } from "../utils/binaryFileHandlers";
+import {
+  getFileExtension,
+  isKnownBinaryExtension,
+  tryDecodeUtf8,
+} from "../utils/binaryFileHandlers";
 import { parseVicCompressedObject } from "../utils/vicObjectFormat";
 import { VC } from "./RouteConfig";
 import { extractApiError } from "./apiRoute";
@@ -25,6 +29,10 @@ async function fetchFileContentViaContents(owner, repo, filePath, ref = "main") 
   const { data } = await apiClient.get(
     VC.REPO_CONTENTS(owner, repo, filePath, { ref }),
   );
+  const blobSha = String(data?.sha ?? data?.blobSha ?? data?.hash ?? "").trim();
+  if (blobSha && isKnownBinaryExtension(getFileExtension(filePath))) {
+    return fetchRepositoryBlobPayload(owner, repo, blobSha);
+  }
   if (data?.encoding === "base64" && typeof data.content === "string") {
     return decodeBase64ToBytes(data.content);
   }
@@ -171,7 +179,7 @@ export async function fetchDocumentBlame(owner, repo, filePath, ref = "main") {
     const { data } = await apiClient.get(url);
     return data && typeof data === "object" ? data : {};
   } catch (err) {
-    if (err?.response?.status === 404 || err?.response?.status === 500) {
+    if (err?.response?.status === 404) {
       return null;
     }
     throw new Error(

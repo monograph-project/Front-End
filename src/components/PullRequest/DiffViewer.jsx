@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { saveAs } from "file-saver";
 import { html } from "diff2html/lib-esm/diff2html.js";
@@ -8,10 +8,25 @@ import {
   fetchRepositoryBlobPayload,
 } from "../../services/versionControlService";
 import { generateUnifiedDiff } from "../../services/diffService";
+import { extractDocxPlainText } from "../../services/documentRenderingService";
 import Button from "../Button";
 import OverviewMode from "../DocumentViewer/OverviewMode";
 import DocumentViewerLoading from "../vcShared/DocumentViewerLoading";
 import { getFileExtension, isKnownBinaryExtension } from "../../utils/binaryFileHandlers";
+
+function isDocumentDiffExtension(ext) {
+  return ext === "docx" || ext === "doc" || ext === "pdf";
+}
+
+async function extractDocumentTextFromBlob(owner, repo, sha, ext) {
+  const cleanSha = String(sha ?? "").trim();
+  if (!cleanSha) return "";
+  const bytes = await fetchRepositoryBlobPayload(owner, repo, cleanSha);
+  if ((ext === "docx" || ext === "doc") && bytes?.length) {
+    return extractDocxPlainText(bytes);
+  }
+  return "";
+}
 
 /**
  * @param {{
@@ -59,23 +74,22 @@ export default function DiffViewer({
         );
         const path =
           String(data.filePath ?? data.filename ?? filePath ?? "change.txt");
+        const ext = getFileExtension(path);
+        const baseSha = String(data?.baseSha ?? data?.oldSha ?? data?.fromSha ?? "").trim();
+        const headSha = String(data?.headSha ?? data?.newSha ?? data?.toSha ?? "").trim();
+        const hasTextPayload =
+          data.oldContent != null ||
+          data.baseContent != null ||
+          data.newContent != null ||
+          data.headContent != null;
+        const documentWithTextPayload =
+          isDocumentDiffExtension(ext) && hasTextPayload;
         const binary =
-          Boolean(data?.binary ?? data?.isBinary ?? data?.binaryFile) ||
-          isKnownBinaryExtension(getFileExtension(path));
+          !documentWithTextPayload &&
+          (isKnownBinaryExtension(ext) ||
+            Boolean(data?.binary ?? data?.isBinary ?? data?.binaryFile));
 
         const st = String(status ?? data.status ?? "").toLowerCase();
-
-        if (binary) {
-          if (!cancelled) {
-            setBinaryMeta({
-              path,
-              status: st,
-              baseSha: String(data?.baseSha ?? data?.oldSha ?? data?.fromSha ?? "").trim(),
-              headSha: String(data?.headSha ?? data?.newSha ?? data?.toSha ?? "").trim(),
-            });
-          }
-          return;
-        }
 
         let oldContent =
           data.oldContent != null ?
@@ -86,6 +100,33 @@ export default function DiffViewer({
           data.newContent != null ?
             String(data.newContent)
           : String(data.headContent ?? "");
+
+        if (isDocumentDiffExtension(ext) && (!oldContent.trim() || !newContent.trim())) {
+          const [fallbackOld, fallbackNew] = await Promise.all([
+            oldContent.trim() || ["added", "a", "create", "created", "create mode"].includes(st)
+              ? Promise.resolve(oldContent)
+              : extractDocumentTextFromBlob(owner, repo, baseSha, ext),
+            newContent.trim() || ["deleted", "d", "remove", "removed", "deleted file"].includes(st)
+              ? Promise.resolve(newContent)
+              : extractDocumentTextFromBlob(owner, repo, headSha, ext),
+          ]);
+          oldContent = fallbackOld ?? "";
+          newContent = fallbackNew ?? "";
+        }
+
+        if (binary && !oldContent.trim() && !newContent.trim()) {
+          if (!cancelled) {
+            setBinaryMeta({
+              path,
+              fileType: ext,
+              hasTextPayload,
+              status: st,
+              baseSha,
+              headSha,
+            });
+          }
+          return;
+        }
 
         if (
           ["added", "a", "create", "created", "create mode"].includes(st)
@@ -137,20 +178,24 @@ export default function DiffViewer({
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant={viewMode === "split" ? "primary" : "secondary"}
-            onClick={() => setViewMode("split")}
-          >
-            {t("pullRequests.diff.split")}
-          </Button>
-          <Button
-            type="button"
-            variant={viewMode === "unified" ? "primary" : "secondary"}
-            onClick={() => setViewMode("unified")}
-          >
-            {t("pullRequests.diff.unified")}
-          </Button>
+          {!binaryMeta ? (
+            <>
+              <Button
+                type="button"
+                variant={viewMode === "split" ? "primary" : "secondary"}
+                onClick={() => setViewMode("split")}
+              >
+                {t("pullRequests.diff.split")}
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === "unified" ? "primary" : "secondary"}
+                onClick={() => setViewMode("unified")}
+              >
+                {t("pullRequests.diff.unified")}
+              </Button>
+            </>
+          ) : null}
         </div>
       </div>
       <div className="p-2">
@@ -180,10 +225,16 @@ function BinaryDiffPanel({ owner, repo, meta }) {
   const [activeRevision, setActiveRevision] = useState(meta?.headSha ? "head" : "base");
   const [state, setState] = useState({ loading: false, bytes: null, error: "" });
 
-  const revisions = [
-    { key: "base", label: "Previous version", sha: String(meta?.baseSha ?? "").trim() },
-    { key: "head", label: "Current version", sha: String(meta?.headSha ?? "").trim() },
-  ].filter((item) => item.sha);
+  const fileType = getFileExtension(meta?.path ?? "") || meta?.fileType || "";
+  const isDocumentFile = fileType === "docx" || fileType === "doc" || fileType === "pdf";
+  const revisions = useMemo(
+    () =>
+      [
+        { key: "base", label: "Previous version", sha: String(meta?.baseSha ?? "").trim() },
+        { key: "head", label: "Current version", sha: String(meta?.headSha ?? "").trim() },
+      ].filter((item) => item.sha),
+    [meta?.baseSha, meta?.headSha],
+  );
 
   useEffect(() => {
     if (!revisions.some((item) => item.key === activeRevision)) {
@@ -234,7 +285,9 @@ function BinaryDiffPanel({ owner, repo, meta }) {
   return (
     <div className="space-y-3 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
       <p className="text-sm text-muted dark:text-dark-muted">
-        Binary file changed. Text diff is unavailable for this file type.
+        {isDocumentFile
+          ? "Document file changed. Text diff is unavailable, so each revision is shown as a preview."
+          : "Binary file changed. Text diff is unavailable for this file type."}
       </p>
       <div className="flex flex-wrap gap-2">
         {revisions.map((revision) => (
