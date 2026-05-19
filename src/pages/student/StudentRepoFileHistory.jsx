@@ -1102,6 +1102,9 @@ function BinaryHistoryPanel({ owner, repo, file }) {
         </p>
       ) : state.bytes?.length ? (
         <OverviewMode
+          owner={owner}
+          repo={repo}
+          branch={activeRevisionKey || "main"}
           embedded
           fileBytes={state.bytes}
           filePath={file?.path ?? ""}

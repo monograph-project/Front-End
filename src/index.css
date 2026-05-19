@@ -720,6 +720,28 @@
     color: var(--color-light-text-secondary);
   }
 
+  .blog-article-prose[dir="rtl"],
+  .blog-article-prose[dir="rtl"] h2,
+  .blog-article-prose[dir="rtl"] h3,
+  .blog-article-prose[dir="rtl"] p,
+  .blog-article-prose[dir="rtl"] li,
+  .blog-article-prose[dir="rtl"] blockquote,
+  .blog-article-prose[dir="rtl"] pre,
+  .blog-article-prose[dir="rtl"] code {
+    font-family: IRANYekanX, sans-serif;
+  }
+
+  .blog-article-prose[dir="rtl"] blockquote {
+    padding-left: 0;
+    padding-right: 1.25rem;
+    border-left: 0;
+    border-right: 3px solid var(--color-light-border-default);
+  }
+
+  .dark .blog-article-prose[dir="rtl"] blockquote {
+    border-right-color: var(--color-dark-border-default);
+  }
+
   .dark .blog-article-prose {
     color: var(--color-dark-text-secondary);
   }
@@ -1598,9 +1620,49 @@
     background: #ffffff !important;
   }
 
+  .vc-a4-page {
+    width: 210mm;
+    min-height: 297mm;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin-inline: auto;
+    background: #ffffff;
+    color: #111827;
+  }
+
+  .vc-a4-text-page {
+    padding: 18mm 16mm;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  }
+
+  .vc-a4-docx-shell .docx {
+    width: 210mm !important;
+    max-width: 100% !important;
+    min-height: 297mm;
+    box-sizing: border-box;
+  }
+
   .docx-render-shell .docx-wrapper {
     background: #ffffff !important;
     padding: 0 !important;
+  }
+
+  .vc-a4-docx-shell .docx-preview-host {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    background: #ffffff !important;
+  }
+
+  .vc-a4-docx-shell .docx-wrapper {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    overflow-x: auto;
+    background: #ffffff !important;
+    padding: 24px 16px !important;
   }
 
   .docx-render-shell .docx {
@@ -1621,6 +1683,11 @@
     background: #ffffff !important;
   }
 
+  .dark .vc-a4-docx-shell .docx-preview-host,
+  .dark .vc-a4-docx-shell .docx-wrapper {
+    background: #ffffff !important;
+  }
+
   .dark .docx-render-shell .docx {
     box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42) !important;
   }
@@ -1628,5 +1695,12 @@
   .dark .vc-docx-blame-shell {
     background-color: #ffffff !important;
     color: #111827 !important;
+  }
+
+  @media (max-width: 900px) {
+    .vc-a4-text-page {
+      min-height: auto;
+      padding: 1rem;
+    }
   }
 }

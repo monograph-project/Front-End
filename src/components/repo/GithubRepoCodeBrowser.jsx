@@ -1706,6 +1706,8 @@ export default function GithubRepoCodeBrowser({ owner, repo, repositoryMeta }) {
                       />
                     ) : (
                       <RepositoryCodePanel
+                        owner={o}
+                        repo={r}
                         filePath={selected.path}
                         fileBytes={selectedBytes}
                         fileText={selectedText}
@@ -1985,6 +1987,8 @@ function HistoryIcon() {
 }
 
 function RepositoryCodePanel({
+  owner,
+  repo,
   filePath,
   fileBytes,
   fileText,
@@ -1998,6 +2002,8 @@ function RepositoryCodePanel({
   if (isBinary) {
     return (
       <RepositoryBinaryCodePanel
+        owner={owner}
+        repo={repo}
         filePath={filePath}
         fileBytes={fileBytes}
         fileMeta={fileMeta}
@@ -2012,6 +2018,9 @@ function RepositoryCodePanel({
   if (fileBytes?.length) {
     return (
       <OverviewMode
+        owner={owner}
+        repo={repo}
+        branch={branch}
         fileBytes={fileBytes}
         filePath={filePath}
         fileType=""
@@ -2310,6 +2319,8 @@ function RepositoryBlamePanel({
 }
 
 function RepositoryBinaryCodePanel({
+  owner,
+  repo,
   filePath,
   fileBytes,
   fileMeta,
@@ -2369,6 +2380,9 @@ function RepositoryBinaryCodePanel({
       </div>
 
       <OverviewMode
+        owner={owner}
+        repo={repo}
+        branch={branch}
         fileBytes={fileBytes}
         filePath={filePath}
         fileType=""
@@ -2605,6 +2619,9 @@ function RepositoryBinaryBlamePanel({
         </div>
         {previewQ.bytes?.length || fileBytes?.length ? (
           <OverviewMode
+            owner={owner}
+            repo={repo}
+            branch={resolvedRef}
             fileBytes={previewQ.bytes?.length ? previewQ.bytes : fileBytes}
             filePath={filePath}
             fileType=""
@@ -2743,6 +2760,9 @@ function RepositoryBinaryBlamePanel({
             </div>
           ) : previewQ.bytes?.length ? (
             <OverviewMode
+              owner={owner}
+              repo={repo}
+              branch={resolvedRef}
               fileBytes={previewQ.bytes}
               filePath={filePath}
               fileType=""
@@ -2750,6 +2770,9 @@ function RepositoryBinaryBlamePanel({
             />
           ) : fileBytes?.length ? (
             <OverviewMode
+              owner={owner}
+              repo={repo}
+              branch={branch}
               fileBytes={fileBytes}
               filePath={filePath}
               fileType=""

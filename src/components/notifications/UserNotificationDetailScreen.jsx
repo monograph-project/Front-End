@@ -22,7 +22,6 @@ import {
 } from "../../utils/notificationDisplay";
 import {
   notificationChannelPillClasses,
-  notificationChannelStripeClass,
   notificationTypePillClasses,
 } from "../../utils/notificationVisuals";
 import { resolveNotificationRecipientId } from "../../lib/notificationRecipientId";
@@ -134,7 +133,10 @@ export default function UserNotificationDetailScreen({ basePath }) {
   const userId = resolveNotificationRecipientId(user);
   const queryClient = useQueryClient();
   const markedRef = useRef(false);
-  const [actionMessage, setActionMessage] = useState("");
+  const [actionMessage, setActionMessage] = useState({
+    id: "",
+    text: "",
+  });
 
   const { data, isLoading, isError, error } = useNotification(notificationId, {
     enabled: Boolean(notificationId),
@@ -157,7 +159,10 @@ export default function UserNotificationDetailScreen({ basePath }) {
     onSuccess: async (response) => {
       const nextStatus =
         response?.status ?? response?.data?.status ?? "ACCEPTED";
-      setActionMessage(`Invitation ${String(nextStatus).toLowerCase()}.`);
+      setActionMessage({
+        id: notificationId,
+        text: `Invitation ${String(nextStatus).toLowerCase()}.`,
+      });
       await queryClient.invalidateQueries({
         queryKey: ["notifications", "user", userId],
       });
@@ -171,7 +176,10 @@ export default function UserNotificationDetailScreen({ basePath }) {
     onSuccess: async (response) => {
       const nextStatus =
         response?.status ?? response?.data?.status ?? "REJECTED";
-      setActionMessage(`Invitation ${String(nextStatus).toLowerCase()}.`);
+      setActionMessage({
+        id: notificationId,
+        text: `Invitation ${String(nextStatus).toLowerCase()}.`,
+      });
       await queryClient.invalidateQueries({
         queryKey: ["notifications", "user", userId],
       });
@@ -192,10 +200,6 @@ export default function UserNotificationDetailScreen({ basePath }) {
     optimisticallyMarkNotificationRead(queryClient, userId, notificationId);
     markReadMutate(notificationId);
   }, [data, markReadMutate, notificationId, queryClient, userId]);
-
-  useEffect(() => {
-    setActionMessage("");
-  }, [notificationId]);
 
   const subject = notificationSubject(data ?? {});
   const body =
@@ -236,12 +240,14 @@ export default function UserNotificationDetailScreen({ basePath }) {
   );
   const invitationId =
     typeof metadata?.invitationId === "string" ? metadata.invitationId : "";
+  const currentActionMessage =
+    actionMessage.id === notificationId ? actionMessage.text : "";
   const showInvitationActions =
     String(data?.type ?? "") === "REPOSITORY_INVITATION_SENT" &&
     String(metadata?.actionType ?? "") === "REPOSITORY_INVITATION" &&
     invitationId &&
     userId &&
-    !actionMessage;
+    !currentActionMessage;
 
   const sentDisplay = formatDetailDate(
     data?.createdAt ?? data?.sentAt ?? data?.created_at,
@@ -313,15 +319,13 @@ export default function UserNotificationDetailScreen({ basePath }) {
     );
   }
 
-  // Determine accent color based on channel
-  const channelColorMap = {
-    "IN-APP": "from-blue-500 to-blue-600",
-    EMAIL: "from-purple-500 to-purple-600",
-    PUSH: "from-emerald-500 to-emerald-600",
-    SMS: "from-orange-500 to-orange-600",
-  };
-  const accentGradient =
-    channelColorMap[channelRaw] || "from-slate-400 to-slate-500";
+  const channelAccentClass =
+    {
+      IN_APP: "bg-sky-500",
+      EMAIL: "bg-violet-500",
+      PUSH: "bg-emerald-500",
+      SMS: "bg-amber-500",
+    }[channelRaw] || "bg-slate-400";
 
   const openRelatedItem = () => {
     if (!actionTarget?.value) return;
@@ -333,85 +337,53 @@ export default function UserNotificationDetailScreen({ basePath }) {
   };
 
   return (
-    <div className="flex w-full  flex-col gap-0 overflow-y-auto  bg-white  dark:bg-dark-card-bg md:p-6">
-      {/* Header Navigation */}
+    <div className="flex w-full flex-col overflow-y-auto bg-light-app-bg p-4 dark:bg-dark-shell md:p-6">
       <div className="mb-6 flex items-center justify-between">
         <button
           type="button"
           onClick={() => navigate(inboxPath)}
-          className="inline-flex w-fit items-center gap-2 rounded-xl border border-default bg-bg-shell px-3 py-2 text-xs font-semibold text-secondary transition-colors hover:bg-hover dark:border-dark-default dark:bg-dark-shell dark:text-dark-secondary dark:hover:bg-dark-hover"
+          className="inline-flex w-fit items-center gap-2 rounded-lg border border-default bg-white px-3 py-2 text-xs font-semibold text-secondary transition-colors hover:bg-hover dark:border-dark-default dark:bg-dark-card-bg dark:text-dark-secondary dark:hover:bg-dark-hover"
         >
           <Icon d={IC.chevLeft} className="size-3.5 stroke-[2]" />
           {t("notificationInbox.back")}
         </button>
       </div>
 
-      {/* Main Content Card with accent stripe */}
-      <div className="animate-slide-up mx-auto w-full max-w-6xl">
-        <article className="relative overflow-hidden rounded-2xl border border-light-card-border shadow-lg dark:border-dark-card-border dark:shadow-2xl">
-          {/* Decorative gradient accent bar */}
-          <div
-            className={`absolute top-0 left-0 h-1 w-full bg-gradient-to-r ${accentGradient}`}
-          />
-          {/* Header Section */}
-          <header className="relative bg-light-card-bg dark:bg-dark-card-bg px-6 py-8 md:px-8 md:py-10">
-            {/* Subtle background pattern */}
-            <div className="absolute inset-0 opacity-30 dark:opacity-10">
-              <svg
-                className="h-full w-full"
-                viewBox="0 0 100 100"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <defs>
-                  <pattern
-                    id="dot-pattern"
-                    x="0"
-                    y="0"
-                    width="20"
-                    height="20"
-                    patternUnits="userSpaceOnUse"
-                  >
-                    <circle cx="10" cy="10" r="0.5" fill="currentColor" />
-                  </pattern>
-                </defs>
-                <rect width="100" height="100" fill="url(#dot-pattern)" />
-              </svg>
-            </div>
-
+      <div className="mx-auto w-full max-w-5xl">
+        <article className="relative overflow-hidden rounded-xl border border-light-card-border bg-white shadow-sm dark:border-dark-card-border dark:bg-dark-card-bg">
+          <div className={`absolute left-0 top-0 h-1 w-full ${channelAccentClass}`} />
+          <header className="relative px-5 py-6 md:px-7 md:py-8">
             <div className="relative">
-              {/* Type, Channel, Direction Pills */}
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span
                   className={[
-                    "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all hover:shadow-sm",
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold",
                     notificationTypePillClasses(data?.type),
                   ].join(" ")}
                 >
-                  <span className="h-2 w-2 rounded-full opacity-60" />
+                  <span className="size-1.5 rounded-full bg-current opacity-60" />
                   {typeLabel}
                 </span>
                 {channelLabel ? (
                   <span
                     className={[
-                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all hover:shadow-sm",
+                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold",
                       notificationChannelPillClasses(channelRaw),
                     ].join(" ")}
                   >
-                    <span className="h-2 w-2 rounded-full opacity-60" />
+                    <span className="size-1.5 rounded-full bg-current opacity-60" />
                     {channelLabel}
                   </span>
                 ) : null}
                 <span
                   className={[
-                    "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all hover:shadow-sm",
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold",
                     incoming
                       ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
                       : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
                   ].join(" ")}
                 >
-                  <span
-                    className={`h-2 w-2 rounded-full ${incoming ? "bg-emerald-500" : "bg-slate-400"}`}
-                  />
+                  <span className={`size-1.5 rounded-full ${incoming ? "bg-emerald-500" : "bg-slate-400"}`} />
                   {incoming
                     ? t("notificationInbox.directionToYou")
                     : t("notificationInbox.directionOtherRecipient")}
@@ -426,12 +398,11 @@ export default function UserNotificationDetailScreen({ basePath }) {
                 ) : null}
               </div>
 
-              {/* Subject/Title */}
               <div className="mb-6">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+                <p className="mb-2 text-xs font-semibold uppercase text-light-text-muted dark:text-dark-text-muted">
                   {t("notificationInbox.messageLabel")}
                 </p>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-light-text-primary dark:text-dark-text-primary leading-tight">
+                <h1 className="text-2xl font-bold leading-tight text-light-text-primary dark:text-dark-text-primary md:text-3xl">
                   {subject || (
                     <span className="text-light-text-muted dark:text-dark-text-muted opacity-50">
                       {t("notificationInbox.noSubject")}
@@ -445,7 +416,7 @@ export default function UserNotificationDetailScreen({ basePath }) {
                 <div className="grid gap-4 border-t border-light-card-border pt-6 dark:border-dark-card-border sm:grid-cols-3">
                   {sentDisplay ? (
                     <div>
-                      <dt className="mb-1 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+                      <dt className="mb-1 text-xs font-semibold uppercase text-light-text-muted dark:text-dark-text-muted">
                         {t("notificationInbox.received")}
                       </dt>
                       <dd className="font-medium text-light-text-primary dark:text-dark-text-primary">
@@ -455,7 +426,7 @@ export default function UserNotificationDetailScreen({ basePath }) {
                   ) : null}
                   {channelLabel ? (
                     <div>
-                      <dt className="mb-1 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+                      <dt className="mb-1 text-xs font-semibold uppercase text-light-text-muted dark:text-dark-text-muted">
                         {t("notificationInbox.channel")}
                       </dt>
                       <dd className="font-medium text-light-text-primary dark:text-dark-text-primary">
@@ -465,7 +436,7 @@ export default function UserNotificationDetailScreen({ basePath }) {
                   ) : null}
                   {reference !== "" && reference != null ? (
                     <div className="sm:col-span-1">
-                      <dt className="mb-1 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+                      <dt className="mb-1 text-xs font-semibold uppercase text-light-text-muted dark:text-dark-text-muted">
                         {t("notificationInbox.reference")}
                       </dt>
                       <dd className="font-mono text-xs text-light-text-secondary dark:text-dark-text-secondary break-all">
@@ -548,24 +519,19 @@ export default function UserNotificationDetailScreen({ basePath }) {
                   </Button>
                 </div>
               ) : null}
-              {actionMessage ? (
+              {currentActionMessage ? (
                 <div className="mt-6 rounded-xl border border-(--color-light-success-border) bg-(--color-light-success-bg) px-4 py-3 text-sm text-(--color-light-success-text) dark:border-(--color-dark-success-border) dark:bg-(--color-dark-success-bg) dark:text-(--color-dark-success-text)">
-                  {actionMessage}
+                  {currentActionMessage}
                 </div>
               ) : null}
             </div>
           </header>
-          {/* Body Section */}
-          <div className="border-t border-light-card-border px-6 py-8 dark:border-dark-card-border md:px-8 md:py-10">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-light-text-muted dark:text-dark-text-muted opacity-70">
+          <div className="border-t border-light-card-border px-5 py-6 dark:border-dark-card-border md:px-7 md:py-8">
+            <p className="mb-3 text-xs font-semibold uppercase text-light-text-muted dark:text-dark-text-muted">
               {t("notificationInbox.body")}
             </p>
-            <div className="relative rounded-xl border border-light-card-border bg-light-app-secondary p-5 text-light-text-primary dark:border-dark-card-border dark:bg-dark-app-secondary dark:text-dark-text-primary">
-              {/* Subtle corners accent */}
-              <div className="absolute top-0 left-0 h-8 w-8 border-l-2 border-t-2 border-blue-200 rounded-tl-lg opacity-20 dark:border-blue-800" />
-              <div className="absolute bottom-0 right-0 h-8 w-8 border-r-2 border-b-2 border-blue-200 rounded-br-lg opacity-20 dark:border-blue-800" />
-
-              <p className="relative whitespace-pre-wrap text-sm leading-relaxed font-light">
+            <div className="rounded-lg border border-light-card-border bg-light-app-secondary p-5 text-light-text-primary dark:border-dark-card-border dark:bg-dark-app-secondary dark:text-dark-text-primary">
+              <p className="whitespace-pre-wrap text-sm leading-7">
                 {body ? (
                   body
                 ) : (

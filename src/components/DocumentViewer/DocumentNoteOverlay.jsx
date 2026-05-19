@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   ChevronDown,
@@ -11,6 +11,13 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import {
+  createRepositoryFileNote,
+  deleteRepositoryFileNote,
+  fetchRepositoryFileNotes,
+  updateRepositoryFileNote,
+} from "../../services/versionControlService";
 
 function textNodesUnder(root) {
   if (!root) return [];
@@ -89,6 +96,7 @@ function rectsForRange(range, shell) {
 function normalizeNote(note) {
   return {
     ...note,
+    authorId: note?.authorId ?? note?.author_id ?? "",
     startOffset: Number(note?.startOffset ?? note?.start_offset),
     endOffset: Number(note?.endOffset ?? note?.end_offset),
     selectedText: note?.selectedText ?? note?.selected_text ?? "",
@@ -99,6 +107,86 @@ function normalizeNote(note) {
     resolved: Boolean(note?.resolved),
     resolvedAt: note?.resolvedAt ?? note?.resolved_at ?? "",
   };
+}
+
+function noteAuthorName(user) {
+  const full = [
+    user?.firstName ?? user?.first_name,
+    user?.lastName ?? user?.last_name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return (
+    user?.fullName ||
+    user?.displayName ||
+    full ||
+    user?.username ||
+    user?.user_name ||
+    user?.preferred_username ||
+    user?.email ||
+    "Collaborator"
+  );
+}
+
+function noteAuthorProfile(user) {
+  return (
+    user?.profilePicture ||
+    user?.profile_picture ||
+    user?.photoUrl ||
+    user?.photo_url ||
+    user?.avatarUrl ||
+    user?.avatar_url ||
+    user?.image ||
+    ""
+  );
+}
+
+function noteAuthorId(user) {
+  return String(
+    user?.id ??
+      user?.sub ??
+      user?.keycloakId ??
+      user?.keycloak_id ??
+      user?.username ??
+      user?.user_name ??
+      user?.email ??
+      "",
+  );
+}
+
+function initials(value) {
+  const parts = String(value ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "C";
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase?.() ?? "")
+    .join("");
+}
+
+function NoteAvatar({ note, size = "sm" }) {
+  const name = note.authorName || "Collaborator";
+  const sizeClass = size === "xs" ? "h-5 w-5 text-[9px]" : "h-8 w-8 text-[11px]";
+  if (note.authorProfile) {
+    return (
+      <img
+        src={note.authorProfile}
+        alt={name}
+        className={`${sizeClass} shrink-0 rounded-full border border-white object-cover shadow-sm dark:border-dark-divider`}
+      />
+    );
+  }
+  return (
+    <span
+      className={`${sizeClass} grid shrink-0 place-items-center rounded-full border border-amber-200 bg-amber-100 font-bold text-amber-800 shadow-sm dark:border-amber-500/20 dark:bg-amber-500/15 dark:text-amber-200`}
+      title={name}
+    >
+      {initials(name)}
+    </span>
+  );
 }
 
 function notesStorageKey({ owner, repo, filePath, branch }) {
@@ -133,6 +221,7 @@ export default function DocumentNoteOverlay({
   contentRef,
   enabled = true,
 }) {
+  const { user } = useAuth();
   const [notes, setNotes] = useState([]);
   const [selection, setSelection] = useState(null);
   const [draft, setDraft] = useState("");
@@ -140,16 +229,53 @@ export default function DocumentNoteOverlay({
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editDraft, setEditDraft] = useState("");
   const [layoutTick, setLayoutTick] = useState(0);
+  const [syncError, setSyncError] = useState("");
+  const sharedNotesEnabled = Boolean(owner && repo && filePath);
 
   const storageKey = useMemo(
     () => notesStorageKey({ owner, repo, filePath, branch }),
     [branch, filePath, owner, repo],
   );
 
+  const refreshSharedNotes = useCallback(async () => {
+    if (!sharedNotesEnabled) return false;
+    try {
+      const remoteNotes = await fetchRepositoryFileNotes(owner, repo, filePath, {
+        ref: branch,
+      });
+      setNotes(remoteNotes.map(normalizeNote));
+      setSyncError("");
+      return true;
+    } catch {
+      setSyncError("Notes are not syncing. Only repository contributors can load shared notes.");
+      return false;
+    }
+  }, [branch, filePath, owner, repo, sharedNotesEnabled]);
+
   useEffect(() => {
     if (!enabled || !filePath) return;
-    setNotes(loadLocalNotes(storageKey));
-  }, [enabled, filePath, storageKey]);
+    let cancelled = false;
+    async function loadNotes() {
+      if (sharedNotesEnabled) {
+        const loaded = await refreshSharedNotes();
+        if (loaded || cancelled) return;
+      }
+      if (!cancelled && !sharedNotesEnabled) setNotes(loadLocalNotes(storageKey));
+    }
+    loadNotes();
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, filePath, refreshSharedNotes, sharedNotesEnabled, storageKey]);
+
+  useEffect(() => {
+    if (!enabled || !sharedNotesEnabled) return undefined;
+    const onFocus = () => {
+      refreshSharedNotes();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [enabled, refreshSharedNotes, sharedNotesEnabled]);
 
   useEffect(() => {
     const shell = shellRef?.current;
@@ -242,7 +368,7 @@ export default function DocumentNoteOverlay({
   const resolvedNoteCount = notes.length - openNoteCount;
   const navigatorTop = (shellRef.current?.scrollTop ?? 0) + 12;
 
-  const updateNotes = (updater) => {
+  const updateLocalNotes = (updater) => {
     setNotes((current) => {
       const next = updater(current);
       saveLocalNotes(storageKey, next);
@@ -265,7 +391,7 @@ export default function DocumentNoteOverlay({
     setDraft("");
   };
 
-  const saveNote = () => {
+  const saveNote = async () => {
     if (!selection || !draft.trim()) return;
     const note = normalizeNote({
       id: `note-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -273,12 +399,36 @@ export default function DocumentNoteOverlay({
       startOffset: selection.startOffset,
       endOffset: selection.endOffset,
       body: draft.trim(),
-      authorName: "Private note",
+      authorId: noteAuthorId(user),
+      authorName: noteAuthorName(user),
+      authorProfile: noteAuthorProfile(user),
       createdAt: new Date().toISOString(),
       resolved: false,
     });
-    updateNotes((current) => [...current, note]);
-    setActiveNoteId(note.id);
+
+    if (sharedNotesEnabled) {
+      try {
+        const saved = normalizeNote(
+          await createRepositoryFileNote(owner, repo, {
+            branch,
+            filePath,
+            selectedText: note.selectedText,
+            startOffset: note.startOffset,
+            endOffset: note.endOffset,
+            body: note.body,
+          }),
+        );
+        setNotes((current) => [...current, saved]);
+        setActiveNoteId(saved.id);
+        setSyncError("");
+      } catch {
+        setSyncError("Could not save this shared note. Please check that you are an accepted contributor.");
+        return;
+      }
+    } else {
+      updateLocalNotes((current) => [...current, note]);
+      setActiveNoteId(note.id);
+    }
     setSelection(null);
     setDraft("");
     window.getSelection()?.removeAllRanges();
@@ -301,19 +451,35 @@ export default function DocumentNoteOverlay({
     setEditDraft(note.body ?? "");
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editingNoteId || !editDraft.trim()) return;
-    updateNotes((current) =>
-      current.map((note) =>
-        note.id === editingNoteId
-          ? normalizeNote({
-              ...note,
-              body: editDraft.trim(),
-              updatedAt: new Date().toISOString(),
-            })
-          : note,
-      ),
-    );
+    if (sharedNotesEnabled) {
+      try {
+        const updated = normalizeNote(
+          await updateRepositoryFileNote(owner, repo, editingNoteId, {
+            body: editDraft.trim(),
+          }),
+        );
+        setNotes((current) =>
+          current.map((note) => (note.id === editingNoteId ? updated : note)),
+        );
+      } catch {
+        setSyncError("Could not update this shared note.");
+        return;
+      }
+    } else {
+      updateLocalNotes((current) =>
+        current.map((note) =>
+          note.id === editingNoteId
+            ? normalizeNote({
+                ...note,
+                body: editDraft.trim(),
+                updatedAt: new Date().toISOString(),
+              })
+            : note,
+        ),
+      );
+    }
     setEditingNoteId(null);
     setEditDraft("");
   };
@@ -335,8 +501,23 @@ export default function DocumentNoteOverlay({
     }
   };
 
-  const setResolved = (noteId, resolved) => {
-    updateNotes((current) =>
+  const setResolved = async (noteId, resolved) => {
+    if (sharedNotesEnabled) {
+      try {
+        const updated = normalizeNote(
+          await updateRepositoryFileNote(owner, repo, noteId, { resolved }),
+        );
+        setNotes((current) =>
+          current.map((note) => (note.id === noteId ? updated : note)),
+        );
+        setSyncError("");
+        return;
+      } catch {
+        setSyncError("Could not change this shared note status.");
+        return;
+      }
+    }
+    updateLocalNotes((current) =>
       current.map((note) =>
         note.id === noteId
           ? normalizeNote({
@@ -350,8 +531,18 @@ export default function DocumentNoteOverlay({
     );
   };
 
-  const deleteNote = (noteId) => {
-    updateNotes((current) => current.filter((note) => note.id !== noteId));
+  const deleteNote = async (noteId) => {
+    if (sharedNotesEnabled) {
+      try {
+        await deleteRepositoryFileNote(owner, repo, noteId);
+        setNotes((current) => current.filter((note) => note.id !== noteId));
+      } catch {
+        setSyncError("Could not delete this shared note.");
+        return;
+      }
+    } else {
+      updateLocalNotes((current) => current.filter((note) => note.id !== noteId));
+    }
     setActiveNoteId(null);
     setEditingNoteId(null);
     setEditDraft("");
@@ -420,6 +611,14 @@ export default function DocumentNoteOverlay({
         </div>
       ) : null}
 
+      {syncError ? (
+        <div
+          className="pointer-events-auto absolute left-3 right-3 top-3 z-30 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 shadow-lg dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
+        >
+          {syncError}
+        </div>
+      ) : null}
+
       {renderedNotes.flatMap(({ note, rects }) =>
         rects.map((rect, index) => (
           <div
@@ -441,7 +640,7 @@ export default function DocumentNoteOverlay({
         <button
           key={note.id}
           type="button"
-          className={`pointer-events-auto absolute grid h-7 w-7 place-items-center rounded-full border shadow-sm transition ${
+          className={`pointer-events-auto absolute grid h-8 w-8 place-items-center rounded-full border shadow-sm transition ${
             note.resolved
               ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
               : "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
@@ -454,10 +653,16 @@ export default function DocumentNoteOverlay({
           onMouseEnter={() => setActiveNoteId(note.id)}
           onFocus={() => setActiveNoteId(note.id)}
           onClick={() => setActiveNoteId((current) => current === note.id ? null : note.id)}
-          aria-label="Show private note"
+          aria-label="Show collaborator note"
           aria-pressed={activeNoteId === note.id}
+          title={`${note.authorName || "Collaborator"}'s note`}
         >
-          {note.resolved ? <CheckCircle2 size={15} /> : <StickyNote size={15} />}
+          <span className="relative">
+            <NoteAvatar note={note} size="xs" />
+            <span className="absolute -bottom-1 -right-1 grid h-3.5 w-3.5 place-items-center rounded-full border border-white bg-white dark:border-dark-divider dark:bg-(--color-dark-card-bg)">
+              {note.resolved ? <CheckCircle2 size={10} /> : <StickyNote size={10} />}
+            </span>
+          </span>
         </button>
       ))}
 
@@ -494,7 +699,7 @@ export default function DocumentNoteOverlay({
               onClick={() => setDraft((value) => value || " ")}
             >
               <MessageSquarePlus size={13} />
-              Private note
+              Add note
             </button>
           </div>
           {draft ? (
@@ -537,9 +742,11 @@ export default function DocumentNoteOverlay({
           onMouseEnter={() => setActiveNoteId(activeNote.note.id)}
         >
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0 flex flex-1 items-start gap-2">
+              <NoteAvatar note={activeNote.note} />
+              <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="font-semibold">{activeNote.note.authorName}</p>
+                <p className="truncate font-semibold">{activeNote.note.authorName}</p>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                     activeNote.note.resolved
@@ -550,9 +757,15 @@ export default function DocumentNoteOverlay({
                   {activeNote.note.resolved ? "Resolved" : "Open"}
                 </span>
               </div>
+              {activeNote.note.createdAt ? (
+                <p className="mt-0.5 text-[10px] text-muted dark:text-dark-muted">
+                  Created {new Date(activeNote.note.createdAt).toLocaleString()}
+                </p>
+              ) : null}
               <p className="mt-1 line-clamp-2 text-[11px] text-muted dark:text-dark-muted">
                 {activeNote.note.selectedText}
               </p>
+              </div>
             </div>
             <button
               type="button"

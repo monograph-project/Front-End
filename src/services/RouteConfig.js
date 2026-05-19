@@ -430,6 +430,17 @@ export const VC = {
     gw(
       `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contributors`,
     ),
+  REPO_FILE_NOTES: (owner, repo, params = {}) =>
+    gw(
+      withQuery(
+        `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/notes`,
+        params,
+      ),
+    ),
+  REPO_FILE_NOTE: (owner, repo, noteId) =>
+    gw(
+      `/api/v1/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/notes/${encodeURIComponent(noteId)}`,
+    ),
   /** Matches `FileViewController` `@RequestMapping("api/v1/repos/{owner}/{repo}")`. */
   REPO_TREE: (owner, repo, params = {}) =>
     gw(
@@ -667,6 +678,8 @@ export const FACULTY_PROJECT = {
     ),
   CREATE: gw("/api/project"),
   UPDATE: (id) => gw(`/api/project/${encodeURIComponent(id)}`),
+  PUBLIC_RESULT: (id) =>
+    gw(`/api/project/${encodeURIComponent(id)}/public-result`),
   COMPLETE: (id) => gw(`/api/project/${encodeURIComponent(id)}/complete`),
   PUBLISH: (id) => gw(`/api/project/${encodeURIComponent(id)}/publish`),
   UNPUBLISH: (id) => gw(`/api/project/${encodeURIComponent(id)}/unpublish`),

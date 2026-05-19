@@ -6,7 +6,7 @@ import { cn } from "../lib/utils";
  * Render blog article blocks from API safely (TEXT/HEADING/QUOTE/CODE/DIVIDER/IMAGE/VIDEO/EMBED…).
  * Aligns with blog-service `ArticleBlockType` (`ContentBlockResponse`).
  */
-export default function ArticleBlocksReader({ blocks, className }) {
+export default function ArticleBlocksReader({ blocks, className, dir }) {
   const ordered = [...(blocks ?? [])]
     .map((b) => normalizeArticleBlock(b))
     .filter(Boolean)
@@ -29,6 +29,7 @@ export default function ArticleBlocksReader({ blocks, className }) {
 
   return (
     <div
+      dir={dir}
       className={cn(
         "space-y-6 text-[17px] leading-8 text-primary dark:text-dark-primary",
         className,

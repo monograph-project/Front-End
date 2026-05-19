@@ -225,16 +225,18 @@ function TextPreviewWithNotes({ owner, repo, branch, filePath, embedded, text })
       ref={shellRef}
       className={
         embedded
-          ? "relative max-h-[560px] overflow-auto rounded-none bg-white text-slate-900 dark:bg-white dark:text-slate-900"
-          : "relative max-h-[560px] overflow-auto rounded-2xl border border-(--color-light-card-border) bg-white text-slate-900 dark:border-(--color-dark-card-border) dark:bg-white dark:text-slate-900"
+          ? "relative max-h-[560px] overflow-auto rounded-none bg-white p-4 text-slate-900 dark:bg-white dark:text-slate-900"
+          : "relative max-h-[560px] overflow-auto rounded-2xl border border-(--color-light-card-border) bg-white p-4 text-slate-900 dark:border-(--color-dark-card-border) dark:bg-white dark:text-slate-900"
       }
     >
-      <pre
+      <div
         ref={contentRef}
-        className="m-0 min-h-full p-4 text-xs text-slate-900"
+        className="vc-a4-page vc-a4-text-page"
       >
-        <code>{text}</code>
-      </pre>
+        <pre className="m-0 whitespace-pre-wrap break-words text-xs leading-6 text-slate-900">
+          <code>{text}</code>
+        </pre>
+      </div>
       <DocumentNoteOverlay
         owner={owner}
         repo={repo}
@@ -356,8 +358,8 @@ function ReadonlyDocxPreview({
             ref={scrollShellRef}
             className={
               embedded
-                ? "docx-render-shell relative max-h-[560px] overflow-auto rounded-none border border-light-divider bg-white p-4 text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900"
-                : "docx-render-shell relative max-h-[720px] overflow-auto rounded-lg border border-light-divider bg-white p-4 text-slate-900 shadow-inner dark:border-dark-divider dark:bg-white dark:text-slate-900"
+                ? "docx-render-shell vc-a4-docx-shell relative max-h-[560px] overflow-auto rounded-none border border-light-divider bg-white p-4 text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900"
+                : "docx-render-shell vc-a4-docx-shell relative max-h-[720px] overflow-auto rounded-lg border border-light-divider bg-white p-4 text-slate-900 shadow-inner dark:border-dark-divider dark:bg-white dark:text-slate-900"
             }
           >
             <div ref={previewHostRef} />

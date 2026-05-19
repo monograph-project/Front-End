@@ -77,6 +77,31 @@ function compactUserId(value) {
   return text.length > 12 ? `${text.slice(0, 8)}...` : text;
 }
 
+function stripHtml(value) {
+  return String(value ?? "").replace(/<[^>]*>/g, " ");
+}
+
+function blockPlainText(blocks = []) {
+  return blocks
+    .map((block) => {
+      const data = block?.data ?? {};
+      return [
+        data.text,
+        data.caption,
+        data.alt,
+        data.code,
+        typeof data === "string" ? data : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    })
+    .join(" ");
+}
+
+function textDirection(value) {
+  return /[\u0600-\u06FF]/.test(String(value ?? "")) ? "rtl" : "ltr";
+}
+
 function authorDisplayName(author, { preferHandle = false } = {}) {
   const username = author?.userName || author?.username;
   if (preferHandle && username) return `@${String(username).replace(/^@/, "")}`;
@@ -614,6 +639,17 @@ export default function StoryDetailPage() {
     ? format(new Date(story.created_date), "MMM d, yyyy")
     : "";
   const readTime = story.reading_time || 6;
+  const contentText = story.blocks?.length
+    ? blockPlainText(story.blocks)
+    : stripHtml(story.content);
+  const titleDir = textDirection(story.title);
+  const subtitleDir = textDirection(story.subtitle);
+  const contentDir = textDirection(
+    [story.title, story.subtitle, contentText].filter(Boolean).join(" "),
+  );
+  const titleIsRtl = titleDir === "rtl";
+  const subtitleIsRtl = subtitleDir === "rtl";
+  const contentIsRtl = contentDir === "rtl";
   const authorName = story.author_name || "Anonymous";
   const author = {
     id: story.author_id,
@@ -658,11 +694,21 @@ export default function StoryDetailPage() {
               ) : null}
             </div>
 
-            <h1 className="font-blog-display mt-5 text-3xl font-bold leading-tight tracking-tight text-primary sm:text-4xl dark:text-dark-primary">
+            <h1
+              className={`mt-5 text-3xl font-bold leading-tight text-primary sm:text-4xl dark:text-dark-primary ${
+                titleIsRtl ? "font-persian text-right" : "font-blog-display tracking-tight"
+              }`}
+              dir={titleDir}
+            >
               {story.title}
             </h1>
             {story.subtitle ? (
-              <p className="mt-4 text-base leading-7 text-secondary sm:text-lg dark:text-dark-secondary">
+              <p
+                className={`mt-4 text-base leading-7 text-secondary sm:text-lg dark:text-dark-secondary ${
+                  subtitleIsRtl ? "font-persian text-right" : ""
+                }`}
+                dir={subtitleDir}
+              >
                 {story.subtitle}
               </p>
             ) : null}
@@ -749,11 +795,17 @@ export default function StoryDetailPage() {
             {story.blocks?.length ? (
               <ArticleBlocksReader
                 blocks={story.blocks}
-                className="mx-auto max-w-3xl text-[15px] leading-7"
+                dir={contentDir}
+                className={`mx-auto max-w-3xl text-[15px] leading-7 ${
+                  contentIsRtl ? "font-persian text-right" : ""
+                }`}
               />
             ) : story.content ? (
               <div
-                className="blog-article-prose mx-auto max-w-3xl text-[15px] leading-7 [&>*:first-child]:mt-0"
+                className={`blog-article-prose mx-auto max-w-3xl text-[15px] leading-7 [&>*:first-child]:mt-0 ${
+                  contentIsRtl ? "font-persian text-right" : ""
+                }`}
+                dir={contentDir}
                 dangerouslySetInnerHTML={{ __html: story.content }}
               />
             ) : (

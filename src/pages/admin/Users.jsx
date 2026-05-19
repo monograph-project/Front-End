@@ -105,19 +105,8 @@ function normalizeUserRow(raw) {
   const roles = Array.isArray(raw?.roles)
     ? raw.roles.map((role) => String(role))
     : EMPTY;
-  const firstRegistered =
-    raw?.createdAt ??
-    raw?.created_at ??
-    raw?.registered ??
-    raw?.registered_at ??
-    raw?.joined ??
-    raw?.updatedAt ??
-    raw?.updated_at ??
-    "";
-  const status =
-    String(raw?.status ?? "ACTIVE")
-      .trim()
-      .toLowerCase() || "active";
+  const firstRegistered = normalizeRegisteredDate(raw);
+  const status = normalizeAccountStatus(raw?.status);
 
   return {
     ...raw,
@@ -144,8 +133,95 @@ function normalizeUserRow(raw) {
   };
 }
 
+function firstAttributeValue(attributes, ...keys) {
+  if (!attributes || typeof attributes !== "object") return "";
+  for (const key of keys) {
+    const value = attributes[key];
+    if (Array.isArray(value) && value.length) {
+      const first = String(value[0] ?? "").trim();
+      if (first) return first;
+    }
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function normalizeDateValue(value) {
+  if (value == null || value === "") return "";
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const millis = value < 10_000_000_000 ? value * 1000 : value;
+    return new Date(millis).toISOString();
+  }
+  const text = String(value).trim();
+  if (!text) return "";
+  if (/^\d+$/.test(text)) {
+    const numeric = Number(text);
+    if (Number.isFinite(numeric)) {
+      const millis = numeric < 10_000_000_000 ? numeric * 1000 : numeric;
+      return new Date(millis).toISOString();
+    }
+  }
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
+function normalizeRegisteredDate(raw) {
+  const fromAttributes = firstAttributeValue(
+    raw?.attributes,
+    "registered_at",
+    "registeredAt",
+    "created_at",
+    "createdAt",
+  );
+  return (
+    normalizeDateValue(raw?.createdAt) ||
+    normalizeDateValue(raw?.created_at) ||
+    normalizeDateValue(raw?.createdTimestamp) ||
+    normalizeDateValue(raw?.created_timestamp) ||
+    normalizeDateValue(raw?.registered) ||
+    normalizeDateValue(raw?.registered_at) ||
+    normalizeDateValue(fromAttributes) ||
+    normalizeDateValue(raw?.joined) ||
+    normalizeDateValue(raw?.updatedAt) ||
+    normalizeDateValue(raw?.updated_at)
+  );
+}
+
+function formatRegisteredDate(value, locale) {
+  const normalized = normalizeDateValue(value);
+  if (!normalized) return "—";
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function normalizeAccountStatus(status) {
+  const normalized =
+    String(status ?? "ACTIVE")
+      .trim()
+      .toLowerCase() || "active";
+  if (["enabled", "active"].includes(normalized)) return "active";
+  if (["disabled", "disable"].includes(normalized)) return "disabled";
+  if (["suspended", "suspend"].includes(normalized)) return "suspended";
+  return normalized;
+}
+
 function userIsSuspended(user) {
-  return String(user?.status ?? "").toLowerCase() === "suspended";
+  return ["disabled", "suspended"].includes(
+    normalizeAccountStatus(user?.status),
+  );
+}
+
+function userStatusLabel(t, status) {
+  const normalized = normalizeAccountStatus(status);
+  return t(`adminShared.status.${normalized}`, {
+    defaultValue:
+      normalized.charAt(0).toUpperCase() + normalized.slice(1),
+  });
 }
 
 function userEmailIsVerified(user) {
@@ -599,6 +675,7 @@ export default function Users() {
   const statusOptions = [
     { value: "all", label: t("adminShared.filters.allStatus") },
     { value: "active", label: t("adminShared.status.active") },
+    { value: "disabled", label: t("adminShared.status.disabled") },
     { value: "pending", label: t("adminShared.status.pending") },
     { value: "rejected", label: t("adminShared.status.rejected") },
     { value: "suspended", label: t("adminShared.status.suspended") },
@@ -990,20 +1067,14 @@ export default function Users() {
                 {isColumnVisible("status") ? (
                 <TableColumn>
                   <StatusPill variant={statusToPillVariant(user.status)}>
-                    {t(`adminShared.status.${user.status}`)}
+                    {userStatusLabel(t, user.status)}
                   </StatusPill>
                 </TableColumn>
                 ) : null}
 
                 {isColumnVisible("registered") ? (
                 <TableColumn className="whitespace-nowrap text-xs">
-                  {user.registered
-                    ? new Date(user.registered).toLocaleDateString(locale, {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })
-                    : "—"}
+                  {formatRegisteredDate(user.registered, locale)}
                 </TableColumn>
                 ) : null}
 
@@ -1052,16 +1123,14 @@ export default function Users() {
               renderSubtitle={(user) => user.email || user.username || user.user_name || "—"}
               renderStatus={(user) => (
                 <StatusPill variant={statusToPillVariant(user.status)}>
-                  {t(`adminShared.status.${user.status}`)}
+                  {userStatusLabel(t, user.status)}
                 </StatusPill>
               )}
               renderMeta={(user) => (
                 <>
                   <span>{t(`adminShared.roles.${user.roleKey}`)}</span>
                   <span>
-                    {user.registered
-                      ? new Date(user.registered).toLocaleDateString(locale)
-                      : "—"}
+                    {formatRegisteredDate(user.registered, locale)}
                   </span>
                 </>
               )}

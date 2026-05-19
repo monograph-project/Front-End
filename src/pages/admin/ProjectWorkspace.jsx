@@ -1,5 +1,6 @@
-import { createElement, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { gooeyToast } from "goey-toast";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Activity,
@@ -45,12 +46,20 @@ import {
   useStudentsPage,
   useUnpublishFacultyProject,
   useUpdateFacultyProject,
+  useUpdateFacultyProjectPublicResult,
   useVcRepoContributors,
   useVcRepoMilestones,
   useVcRepoStatistics,
   useVcRepoTasks,
   useVcUserActivity,
 } from "../../services/useApi";
+import { VC } from "../../services/RouteConfig";
+import { extractDocxPlainText } from "../../services/documentRenderingService";
+import {
+  fetchFileContent,
+  fetchRepositoryTree,
+} from "../../services/versionControlService";
+import { getFileExtension, tryDecodeUtf8 } from "../../utils/binaryFileHandlers";
 
 const SURFACE_CARD =
   "rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-xs dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)";
@@ -225,10 +234,17 @@ function repositorySelectedFallbackOption(project, formRepoId, repoOptions = [])
 }
 
 function buildProjectUpdatePayload(project, extra = {}) {
+  const repositoryId =
+    project?.projectRepository?.id ??
+    project?.projectRepository?.repositoryId ??
+    project?.repository?.id ??
+    project?.repository ??
+    "";
   return {
     projectName: project?.projectName ?? "",
     group: String(project?.group?.id ?? project?.group ?? ""),
     teacher: String(project?.teacher?.id ?? project?.teacher ?? ""),
+    projectRepository: String(repositoryId),
     ...extra,
   };
 }
@@ -287,6 +303,172 @@ function taskStatus(value) {
   if (raw.includes("progress")) return "progress";
   if (raw.includes("cancel")) return "cancelled";
   return "open";
+}
+
+const ABSTRACT_HEADINGS = [
+  "abstract",
+  "abstruct",
+  "لنډیز",
+  "لنډيز",
+  "لندیز",
+  "لنديز",
+  "زيډنل",
+  "زیدنل",
+  "چکیده",
+  "چکيده",
+  "خلاصه",
+];
+
+const ABSTRACT_END_HEADINGS = [
+  "keywords",
+  "key words",
+  "introduction",
+  "chapter",
+  "contents",
+  "table of contents",
+  "کلیدي کلمې",
+  "کلیدي کلمي",
+  "کلیدی کلمات",
+  "کلمات کلیدی",
+  "واژگان کلیدی",
+  "سریزه",
+  "مقدمه",
+  "فهرست",
+  "لومړی څپرکی",
+  "لمړی څپرکی",
+  "فصل اول",
+];
+
+function normalizeLanguageText(value) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+    .replace(/[إأآٱ]/g, "ا")
+    .replace(/[يى]/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/ۀ/g, "ه")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ی")
+    .replace(/‌/g, " ")
+    .replace(/[“”"'.،,:;؛!؟?()[\]{}<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function compactAbstractText(value) {
+  return String(value ?? "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findHeadingIndex(normalizedText, headings, from = 0) {
+  let best = -1;
+  headings.forEach((heading) => {
+    const normalizedHeading = normalizeLanguageText(heading);
+    if (!normalizedHeading) return;
+    const pattern = new RegExp(
+      `(?:^|\\n|\\s)${escapeRegExp(normalizedHeading)}(?:\\s|$)`,
+      "i",
+    );
+    const slice = normalizedText.slice(from);
+    const match = pattern.exec(slice);
+    if (!match) return;
+    const index = from + match.index + match[0].indexOf(normalizedHeading);
+    if (best === -1 || index < best) best = index;
+  });
+  return best;
+}
+
+function extractProjectAbstract(value) {
+  const raw = compactAbstractText(value);
+  if (!raw) return "";
+  const normalizedRaw = normalizeLanguageText(raw);
+  const start = findHeadingIndex(normalizedRaw, ABSTRACT_HEADINGS);
+  if (start < 0) return raw;
+  const heading = ABSTRACT_HEADINGS.find((item) =>
+    normalizedRaw.slice(start).startsWith(normalizeLanguageText(item)),
+  );
+  const bodyStart = heading
+    ? start + normalizeLanguageText(heading).length
+    : start;
+  const end = findHeadingIndex(normalizedRaw, ABSTRACT_END_HEADINGS, bodyStart);
+  return compactAbstractText(normalizedRaw.slice(bodyStart, end >= 0 ? end : undefined));
+}
+
+function treeNodeLabel(entry) {
+  return (
+    entry?.name ??
+    entry?.path?.split?.("/")?.pop?.() ??
+    entry?.fileName ??
+    entry?.filename ??
+    entry?.key ??
+    ""
+  );
+}
+
+function treeNodePath(entry, parentPath = "") {
+  const direct = String(entry?.path ?? entry?.fullPath ?? "").replace(/^\/+/, "");
+  if (direct) return direct;
+  const parent = String(parentPath ?? "").replace(/^\/+|\/+$/g, "");
+  const label = String(treeNodeLabel(entry) ?? "").replace(/^\/+/, "");
+  return [parent, label].filter(Boolean).join("/");
+}
+
+function isTreeDirectory(entry) {
+  return Boolean(
+    entry?.type === "directory" ||
+      entry?.type === "dir" ||
+      entry?.type === "tree" ||
+      entry?.isDirectory,
+  );
+}
+
+function isPublishableFinalFile(path) {
+  return ["docx", "doc", "txt", "text", "md"].includes(getFileExtension(path));
+}
+
+function finalFileScore(path) {
+  const clean = String(path ?? "").replace(/\\/g, "/").toLowerCase();
+  const base = clean.split("/").pop() ?? clean;
+  const stem = base.replace(/\.[^.]+$/, "");
+  if (base === "project.docx") return 1000;
+  if (base === "project.txt" || base === "project.text") return 990;
+  if (base === "project.md") return 980;
+  if (stem === "project") return 950;
+  if (base.includes("final") && base.endsWith(".docx")) return 860;
+  if (base.includes("monograph") && base.endsWith(".docx")) return 840;
+  if (base.includes("thesis") && base.endsWith(".docx")) return 830;
+  if (base.includes("project") && base.endsWith(".docx")) return 820;
+  if (base.includes("final")) return 700;
+  if (base.includes("project")) return 650;
+  return 100;
+}
+
+function isFacultyProjectCompleted(project) {
+  const rawStatus = String(
+    project?.status ??
+      project?.projectStatus ??
+      project?.workflowStatus ??
+      project?.state ??
+      "",
+  )
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  if (rawStatus === "completed" || rawStatus === "complete" || rawStatus === "done") {
+    return true;
+  }
+  if (project?.completed === true || project?.isCompleted === true) {
+    return true;
+  }
+  return numberValue(project?.completion ?? project?.progress) >= 100;
 }
 
 function peopleFromStats(rows) {
@@ -723,6 +905,12 @@ export default function ProjectWorkspace() {
     });
   };
 
+  const updatePublicResult = useUpdateFacultyProjectPublicResult({
+    toastSuccess: "Public project result saved",
+    toastError: "apiErrors.failed_to_update_faculty_project",
+    onSuccess: refreshProjectQueries,
+  });
+
   const completeProject = useCompleteFacultyProject({
     toastSuccess: "Project marked as completed",
     toastError: "apiErrors.failed_to_update_faculty_project",
@@ -949,9 +1137,30 @@ export default function ProjectWorkspace() {
   const projectDescription =
     project?.description ||
     t("adminProjectWorkspace.defaultDescription");
-  const projectStatus = String(project?.status ?? "").toUpperCase();
-  const isProjectCompleted = projectStatus === "COMPLETED";
+  const [abstractDraft, setAbstractDraft] = useState("");
+  const isProjectCompleted = isFacultyProjectCompleted(project);
   const isProjectPublished = Boolean(project?.published);
+  const finalFileName = String(project?.finalFileName ?? "").trim();
+  const savedFinalFileDownloadUrl = String(project?.finalFileDownloadUrl ?? "").trim();
+  const generatedFinalFileDownloadUrl =
+    !savedFinalFileDownloadUrl && displayOwner && displayRepo && finalFileName
+      ? VC.REPO_FILE_AT_REF(displayOwner, displayRepo, "main", finalFileName)
+      : "";
+  const finalFileDownloadUrl =
+    savedFinalFileDownloadUrl || generatedFinalFileDownloadUrl;
+  const publicAbstract = String(project?.abstractText ?? "").trim();
+  const draftPublicAbstract = String(abstractDraft ?? "").trim();
+  const effectivePublicAbstract = publicAbstract || draftPublicAbstract;
+  const publishReady = Boolean(
+    isProjectCompleted &&
+      finalFileName &&
+      finalFileDownloadUrl &&
+      effectivePublicAbstract,
+  );
+
+  useEffect(() => {
+    setAbstractDraft(project?.abstractText ?? "");
+  }, [project?.id, project?.abstractText]);
 
   const taskFlow = [
     { label: "Open", value: Math.max(0, tasks.length - completedTasks - progressTasks - reviewTasks) },
@@ -1006,14 +1215,145 @@ export default function ProjectWorkspace() {
     completeProject.mutate({ id });
   };
 
-  const publishProjectSubmit = () => {
-    if (!id || publishProject.isPending || !isProjectCompleted) return;
+  const findAutomaticFinalFile = async () => {
+    if (!displayOwner || !displayRepo) return null;
+    const ref = "main";
+    const found = [];
+    const visit = async (path = "", depth = 0) => {
+      if (depth > 5) return;
+      const rows = await fetchRepositoryTree(displayOwner, displayRepo, {
+        ref,
+        path,
+      });
+      await Promise.all(
+        rows.map(async (entry) => {
+          const fullPath = treeNodePath(entry, path);
+          if (!fullPath) return;
+          if (isTreeDirectory(entry)) {
+            await visit(fullPath, depth + 1);
+            return;
+          }
+          if (isPublishableFinalFile(fullPath)) {
+            found.push(fullPath);
+          }
+        }),
+      );
+    };
+    try {
+      await visit("");
+    } catch {
+      return null;
+    }
+    if (!found.length) return null;
+    found.sort((a, b) => finalFileScore(b) - finalFileScore(a) || a.localeCompare(b));
+    return { path: found[0], ref };
+  };
+
+  const extractAbstractFromFinalFile = async (fileName = finalFileName) => {
+    const targetFileName = String(fileName ?? "").trim();
+    if (!displayOwner || !displayRepo || !targetFileName) return "";
+    try {
+      const bytes = await fetchFileContent(
+        displayOwner,
+        displayRepo,
+        targetFileName,
+        "main",
+      );
+      const ext = getFileExtension(targetFileName);
+      const plainText =
+        ext === "docx" || ext === "doc"
+          ? await extractDocxPlainText(bytes)
+          : tryDecodeUtf8(bytes);
+      return extractProjectAbstract(plainText);
+    } catch {
+      return "";
+    }
+  };
+
+  const publishProjectSubmit = async () => {
+    if (!id || publishProject.isPending || updatePublicResult.isPending) return;
+    if (!isProjectCompleted) {
+      gooeyToast.error("Project must be completed by the teacher before publishing.");
+      return;
+    }
+    let nextFinalFileName = finalFileName;
+    let nextFinalFileDownloadUrl = finalFileDownloadUrl;
+    if (!nextFinalFileName || !nextFinalFileDownloadUrl) {
+      const autoFinal = await findAutomaticFinalFile();
+      if (autoFinal?.path) {
+        nextFinalFileName = autoFinal.path;
+        nextFinalFileDownloadUrl = VC.REPO_FILE_AT_REF(
+          displayOwner,
+          displayRepo,
+          autoFinal.ref,
+          autoFinal.path,
+        );
+      }
+    }
+    if (!nextFinalFileName || !nextFinalFileDownloadUrl) {
+      gooeyToast.error("Choose one final result file before publishing.");
+      return;
+    }
+    let nextAbstract = effectivePublicAbstract;
+    if (!nextAbstract) {
+      nextAbstract = await extractAbstractFromFinalFile(nextFinalFileName);
+      if (nextAbstract) {
+        setAbstractDraft(nextAbstract);
+      }
+    }
+    if (!nextAbstract) {
+      gooeyToast.error("Add the public abstract before publishing.");
+      return;
+    }
+    const needsMetadataSave =
+      project &&
+      (nextFinalFileName !== finalFileName ||
+        nextFinalFileDownloadUrl !== savedFinalFileDownloadUrl ||
+        nextAbstract !== publicAbstract);
+    if (needsMetadataSave) {
+      try {
+        await updatePublicResult.mutateAsync({
+          id,
+          abstractText: nextAbstract,
+          finalFileName: nextFinalFileName,
+          finalFileDownloadUrl: nextFinalFileDownloadUrl,
+        });
+      } catch {
+        return;
+      }
+    }
     publishProject.mutate({ id });
   };
 
   const unpublishProjectSubmit = () => {
     if (!id || unpublishProject.isPending) return;
     unpublishProject.mutate({ id });
+  };
+
+  const savePublicResultMetadata = () => {
+    if (!id || !project || updatePublicResult.isPending) return;
+    updatePublicResult.mutate({
+      id,
+      abstractText: abstractDraft,
+      finalFileName: project?.finalFileName ?? "",
+      finalFileDownloadUrl: finalFileDownloadUrl || project?.finalFileDownloadUrl || "",
+    });
+  };
+
+  const setPublicResultFile = ({ path, ref: fileRef }) => {
+    if (!id || !project || !displayOwner || !displayRepo || !path) return;
+    const selectedRef = String(fileRef || "main").trim();
+    updatePublicResult.mutate({
+      id,
+      abstractText: abstractDraft || project?.abstractText || "",
+      finalFileName: path,
+      finalFileDownloadUrl: VC.REPO_FILE_AT_REF(
+        displayOwner,
+        displayRepo,
+        selectedRef,
+        path,
+      ),
+    });
   };
 
   if (id && activeProjectLoading) {
@@ -1150,7 +1490,7 @@ export default function ProjectWorkspace() {
                       disabled={
                         publishProject.isPending ||
                         unpublishProject.isPending ||
-                        (!isProjectPublished && !isProjectCompleted)
+                        updatePublicResult.isPending
                       }
                       onClick={
                         isProjectPublished
@@ -1165,9 +1505,15 @@ export default function ProjectWorkspace() {
                     </Button>
                   ) : null}
                 </div>
-                {isAdminShell && !isProjectCompleted ? (
+                {isAdminShell && !publishReady && !isProjectPublished ? (
                   <p className="text-xs text-muted dark:text-dark-muted">
-                    {t("adminProjectWorkspace.publishRequiresCompletion")}
+                    {!isProjectCompleted
+                      ? t("adminProjectWorkspace.publishRequiresCompletion")
+                      : !effectivePublicAbstract
+                        ? "Add the public abstract before publishing."
+                        : !finalFileName || !finalFileDownloadUrl
+                          ? "Choose one final result file before publishing."
+                          : "Project is ready to publish."}
                   </p>
                 ) : null}
               </div>
@@ -1417,9 +1763,55 @@ export default function ProjectWorkspace() {
                     </Link>
                   </div>
                 </div>
+                <div className={`${SURFACE_INSET} mb-4 p-4`}>
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                        Public project result
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-secondary dark:text-dark-secondary">
+                        Select one final repository file for the public download. The public page shows this abstract first and does not expose the rest of the repository files.
+                      </p>
+                      <div className="mt-3 rounded-xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-3 py-2 text-xs dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
+                        <span className="font-semibold text-primary dark:text-dark-primary">
+                          Current final file:
+                        </span>{" "}
+                        <span className="font-mono text-secondary dark:text-dark-secondary">
+                          {finalFileName || "Not selected"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full lg:w-[26rem]">
+                      <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted dark:text-dark-muted">
+                        Public abstract
+                      </label>
+                      <textarea
+                        value={abstractDraft}
+                        onChange={(event) => setAbstractDraft(event.target.value)}
+                        rows={5}
+                        placeholder="Paste the abstract that readers should see before downloading the final file."
+                        className="mt-2 w-full resize-y rounded-xl border border-(--color-light-input-border) bg-(--color-light-input-bg) px-3 py-2 text-sm leading-6 text-(--color-light-text-primary) outline-none placeholder:text-(--color-light-input-placeholder) focus:border-(--color-light-input-border-focus) focus:ring-2 focus:ring-blue-500/15 dark:border-dark-input-border dark:bg-(--color-dark-input-bg) dark:text-(--color-dark-text-primary) dark:placeholder:text-(--color-dark-input-placeholder) dark:focus:border-(--color-dark-input-border-focus)"
+                      />
+                      <div className="mt-2 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="h-9"
+                          disabled={updatePublicResult.isPending}
+                          onClick={savePublicResultMetadata}
+                        >
+                          Save public abstract
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <ProjectRepositoryDocsPanel
                   owner={displayOwner}
                   repo={displayRepo}
+                  finalFileName={finalFileName}
+                  onUseAsFinalFile={setPublicResultFile}
+                  savingFinalFile={updatePublicResult.isPending}
                 />
               </div>
             ) : (

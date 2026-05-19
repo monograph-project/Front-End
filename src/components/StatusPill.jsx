@@ -30,6 +30,6 @@ export function statusToPillVariant(status) {
   const s = (status ?? "").toLowerCase();
   if (s === "active") return "success";
   if (s === "pending") return "warning";
-  if (s === "suspended" || s === "rejected") return "error";
+  if (s === "disabled" || s === "suspended" || s === "rejected") return "error";
   return "neutral";
 }

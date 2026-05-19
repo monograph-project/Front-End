@@ -51,6 +51,10 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState("Stories");
 
   const requestedUser = params.get("user");
+  const requestedName = params.get("name") || "";
+  const requestedEmail = params.get("email") || "";
+  const requestedRole = params.get("role") || "";
+  const requestedBio = params.get("bio") || "";
   const authorId =
     requestedUser ||
     sessionUser?.id ||
@@ -82,17 +86,26 @@ export default function Profile() {
     profileValue(profile, "userName") ||
     profileValue(profile, "username") ||
     profileValue(profile, "name") ||
+    requestedName ||
     sessionUser?.display_name ||
     sessionUser?.user_name ||
     "Writer";
-  const email = profileValue(profile, "email", sessionUser?.email ?? "");
+  const email = profileValue(
+    profile,
+    "email",
+    requestedEmail || sessionUser?.email || "",
+  );
   const avatar =
     profileValue(profile, "profileImageUrl") ||
     profileValue(profile, "profile") ||
     profileValue(profile, "avatarUrl") ||
     sessionUser?.profilePicture ||
     "";
-  const bio = profileValue(profile, "bio") || "No biography has been added yet.";
+  const bio =
+    profileValue(profile, "bio") ||
+    requestedBio ||
+    requestedRole ||
+    "No biography has been added yet.";
   const totalArticles = Number(
     profileValue(profile, "totalArticles", stories.length) ?? stories.length,
   );
@@ -120,11 +133,16 @@ export default function Profile() {
               />
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-muted dark:text-dark-muted">
-                  {email || "Author profile"}
+                  {email || requestedRole || "Author profile"}
                 </p>
                 <h1 className="font-blog-display mt-2 text-3xl font-bold tracking-tight text-primary md:text-4xl dark:text-dark-primary">
                   {name}
                 </h1>
+                {requestedRole ? (
+                  <p className="mt-2 inline-flex rounded-full border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-1 text-xs font-semibold text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+                    {requestedRole}
+                  </p>
+                ) : null}
                 <p className="mt-4 max-w-2xl text-sm leading-6 text-secondary dark:text-dark-secondary sm:text-base">
                   {bio}
                 </p>

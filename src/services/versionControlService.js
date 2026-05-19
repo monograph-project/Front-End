@@ -188,6 +188,82 @@ export async function fetchDocumentBlame(owner, repo, filePath, ref = "main") {
   }
 }
 
+export function normalizeRepositoryTree(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (!raw || typeof raw !== "object") return [];
+  const rows =
+    raw.tree ??
+    raw.nodes ??
+    raw.entries ??
+    raw.children ??
+    raw.items ??
+    raw.data ??
+    raw.content ??
+    [];
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function fetchRepositoryTree(owner, repo, params = {}) {
+  try {
+    const { data } = await apiClient.get(VC.REPO_TREE(owner, repo, params));
+    return normalizeRepositoryTree(data);
+  } catch (err) {
+    try {
+      const { data } = await apiClient.get(VC.REPO_TREE_LEGACY(owner, repo, params));
+      return normalizeRepositoryTree(data);
+    } catch {
+      throw new Error(extractApiError(err, "Failed to load repository tree."));
+    }
+  }
+}
+
+export async function fetchRepositoryFileNotes(
+  owner,
+  repo,
+  filePath,
+  { ref = "main" } = {},
+) {
+  try {
+    const { data } = await apiClient.get(
+      VC.REPO_FILE_NOTES(owner, repo, { path: filePath, ref, branch: ref }),
+    );
+    if (Array.isArray(data)) return data;
+    return data?.notes ?? data?.data ?? [];
+  } catch (err) {
+    throw new Error(extractApiError(err, "Failed to load file notes."));
+  }
+}
+
+export async function createRepositoryFileNote(owner, repo, body) {
+  try {
+    const { data } = await apiClient.post(VC.REPO_FILE_NOTES(owner, repo), body);
+    return data ?? {};
+  } catch (err) {
+    throw new Error(extractApiError(err, "Failed to save file note."));
+  }
+}
+
+export async function updateRepositoryFileNote(owner, repo, noteId, body) {
+  try {
+    const { data } = await apiClient.patch(
+      VC.REPO_FILE_NOTE(owner, repo, noteId),
+      body,
+    );
+    return data ?? {};
+  } catch (err) {
+    throw new Error(extractApiError(err, "Failed to update file note."));
+  }
+}
+
+export async function deleteRepositoryFileNote(owner, repo, noteId) {
+  try {
+    await apiClient.delete(VC.REPO_FILE_NOTE(owner, repo, noteId));
+    return true;
+  } catch (err) {
+    throw new Error(extractApiError(err, "Failed to delete file note."));
+  }
+}
+
 export async function fetchPullRequestFiles(owner, repo, prNumber) {
   try {
     const { data } = await apiClient.get(VC.PULL_REQUEST_FILES(owner, repo, prNumber));

@@ -311,7 +311,15 @@ function BinaryDiffPanel({ owner, repo, meta }) {
           {state.error}
         </div>
       ) : state.bytes?.length ? (
-        <OverviewMode embedded fileBytes={state.bytes} filePath={meta?.path ?? ""} fileType="" />
+        <OverviewMode
+          owner={owner}
+          repo={repo}
+          branch={activeRevision}
+          embedded
+          fileBytes={state.bytes}
+          filePath={meta?.path ?? ""}
+          fileType=""
+        />
       ) : (
         <div className="text-sm text-muted dark:text-dark-muted">No binary preview available.</div>
       )}

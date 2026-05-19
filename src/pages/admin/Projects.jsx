@@ -495,6 +495,7 @@ export default function Projects() {
   });
   const [deleteGroup, setDeleteGroup] = useState(null);
   const [archiveProject, setArchiveProject] = useState(null);
+  const [deleteProject, setDeleteProject] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   useEffect(() => {
@@ -666,6 +667,15 @@ export default function Projects() {
   const openProjectArchive = (project) => {
     if (!project?.id) return;
     setArchiveProject({
+      id: project.id,
+      name: project.repositoryName?.replace(/-/g, " ") || project.id,
+      meta: `${project.ownerUsername || "—"}/${project.repositoryName || "—"}`,
+    });
+  };
+
+  const openProjectDelete = (project) => {
+    if (!project?.id) return;
+    setDeleteProject({
       id: project.id,
       name: project.repositoryName?.replace(/-/g, " ") || project.id,
       meta: `${project.ownerUsername || "—"}/${project.repositoryName || "—"}`,
@@ -898,6 +908,25 @@ export default function Projects() {
       setArchiveProject(null);
     } catch (e) {
       gooeyToast.error(e?.message || t("adminProjects.archive.error"));
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!deleteProject || deleteSubmitting) return;
+    setDeleteSubmitting(true);
+    try {
+      await deleteFacultyProject.mutateAsync(deleteProject.id);
+      await queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          query.queryKey[0] === "faculty-projects",
+      });
+      gooeyToast.success(t("adminProjects.delete.success"));
+      setDeleteProject(null);
+    } catch (e) {
+      gooeyToast.error(e?.message || t("adminProjects.delete.error"));
     } finally {
       setDeleteSubmitting(false);
     }
@@ -1205,6 +1234,12 @@ export default function Projects() {
                               onClick={() => openProjectArchive(project)}
                             >
                               {t("adminShared.actions.archive")}
+                            </DropdownItem>
+                            <DropdownItem
+                              variant="danger"
+                              onClick={() => openProjectDelete(project)}
+                            >
+                              {t("adminShared.actions.delete")}
                             </DropdownItem>
                           </DropdownContent>
                         </DropdownMenuRoot>
@@ -1644,6 +1679,34 @@ export default function Projects() {
               : t("adminShared.actions.archive")
           }
           onConfirm={confirmArchiveProject}
+          submitting={deleteSubmitting}
+        />
+      ) : null}
+
+      {deleteProject ? (
+        <SensitiveActionModal
+          open={true}
+          setOpen={(open) => {
+            if (!open && !deleteSubmitting) setDeleteProject(null);
+          }}
+          title={t("adminProjects.delete.title")}
+          subtitle={t("adminProjects.delete.description", {
+            name: deleteProject.name,
+          })}
+          summaryItems={[
+            {
+              label: t("adminProjects.delete.meta"),
+              value: deleteProject.meta || "—",
+              mono: true,
+            },
+          ]}
+          warning={t("adminProjects.delete.warning")}
+          confirmLabel={
+            deleteSubmitting
+              ? t("adminProjects.form.group.actions.submitting")
+              : t("adminShared.actions.delete")
+          }
+          onConfirm={confirmDeleteProject}
           submitting={deleteSubmitting}
         />
       ) : null}

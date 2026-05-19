@@ -1061,6 +1061,16 @@ export function useUpdateFacultyProject(options) {
   });
 }
 
+export function useUpdateFacultyProjectPublicResult(options) {
+  return useApiMutation({
+    mutationFn: ({ id, ...body }) =>
+      Api.updateFacultyProjectPublicResult(id, body),
+    mutationKey: ["faculty-projects", "public-result"],
+    toastSuccess: "Project public result saved",
+    ...options,
+  });
+}
+
 export function useCompleteFacultyProject(options) {
   return useApiMutation({
     mutationFn: ({ id }) => Api.completeFacultyProject(id),

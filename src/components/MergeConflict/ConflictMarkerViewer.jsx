@@ -300,6 +300,9 @@ function BinaryConflictViewer({
           </p>
         ) : preview.bytes?.length ? (
           <OverviewMode
+            owner={owner}
+            repo={repo}
+            branch={activeSide}
             embedded
             fileBytes={preview.bytes}
             filePath={conflict?.path ?? ""}

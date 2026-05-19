@@ -2678,6 +2678,22 @@ export async function updateFacultyProject(id, body) {
   }
 }
 
+export async function updateFacultyProjectPublicResult(id, body) {
+  try {
+    const { data } = await axiosInstance.patch(
+      FACULTY_PROJECT.PUBLIC_RESULT(id),
+      body,
+    );
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to update project public result.",
+      "apiErrors.failed_to_update_faculty_project",
+    );
+  }
+}
+
 export async function completeFacultyProject(id) {
   try {
     const { data } = await axiosInstance.patch(FACULTY_PROJECT.COMPLETE(id));

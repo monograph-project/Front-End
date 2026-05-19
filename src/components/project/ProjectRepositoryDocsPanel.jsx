@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { html } from "diff2html/lib-esm/diff2html.js";
 import {
   ChevronRight,
+  CheckCircle2,
   File,
+  FileCheck2,
   Folder,
   GitCompare,
   History,
@@ -219,9 +221,15 @@ function RepositoryCompareDiff({
  *
  * Uses Syncfusion Rich Text Editor read-only surface for readable text/markdown previews.
  *
- * @param {{ owner?: string; repo?: string }} props
+ * @param {{ owner?: string; repo?: string; finalFileName?: string; onUseAsFinalFile?: (payload: { path: string; ref: string }) => void; savingFinalFile?: boolean }} props
  */
-export default function ProjectRepositoryDocsPanel({ owner, repo }) {
+export default function ProjectRepositoryDocsPanel({
+  owner,
+  repo,
+  finalFileName = "",
+  onUseAsFinalFile,
+  savingFinalFile = false,
+}) {
   const { t } = useTranslation();
 
   const { data: repoMeta } = useVcRepository(owner, repo, {
@@ -422,6 +430,8 @@ export default function ProjectRepositoryDocsPanel({ owner, repo }) {
 
   const readerHtml =
     readerMode && readerPlain ? plainToReaderHtml(readerPlain) : "";
+  const selectedIsFinalFile =
+    Boolean(selectedFilePath) && selectedFilePath === finalFileName;
 
   function runCompareSubmit() {
     const b = compareBase.trim();
@@ -568,6 +578,29 @@ export default function ProjectRepositoryDocsPanel({ owner, repo }) {
                   {t("adminProjectWorkspace.documents.modeSyncfusionReader")}
                 </Button>
               </div>
+              {onUseAsFinalFile ? (
+                <Button
+                  type="button"
+                  variant={selectedIsFinalFile ? "secondary" : "primary"}
+                  className="h-8 gap-2 px-3 text-xs"
+                  disabled={savingFinalFile || selectedIsFinalFile}
+                  icon={
+                    selectedIsFinalFile ? (
+                      <CheckCircle2 className="size-3.5" aria-hidden />
+                    ) : (
+                      <FileCheck2 className="size-3.5" aria-hidden />
+                    )
+                  }
+                  onClick={() =>
+                    onUseAsFinalFile({
+                      path: selectedFilePath,
+                      ref,
+                    })
+                  }
+                >
+                  {selectedIsFinalFile ? "Final result file" : "Set as final result"}
+                </Button>
+              ) : null}
             </div>
           : null}
         </div>
