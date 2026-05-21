@@ -6,16 +6,41 @@ import "diff2html/bundles/css/diff2html.min.css";
 import {
   fetchPullRequestFileDiff,
   fetchRepositoryBlobPayload,
+  fetchRepositoryFileUtf8ForDiff,
 } from "../../services/versionControlService";
 import { generateUnifiedDiff } from "../../services/diffService";
 import { extractDocxPlainText } from "../../services/documentRenderingService";
 import Button from "../Button";
 import OverviewMode from "../DocumentViewer/OverviewMode";
 import DocumentViewerLoading from "../vcShared/DocumentViewerLoading";
-import { getFileExtension, isKnownBinaryExtension } from "../../utils/binaryFileHandlers";
+import {
+  getFileExtension,
+  isKnownBinaryExtension,
+  tryDecodeUtf8,
+} from "../../utils/binaryFileHandlers";
 
 function isDocumentDiffExtension(ext) {
   return ext === "docx" || ext === "doc" || ext === "pdf";
+}
+
+function firstString(...values) {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+function isAddedStatus(value) {
+  return ["added", "a", "create", "created", "create mode"].includes(
+    String(value ?? "").trim().toLowerCase(),
+  );
+}
+
+function isDeletedStatus(value) {
+  return ["deleted", "d", "remove", "removed", "deleted file"].includes(
+    String(value ?? "").trim().toLowerCase(),
+  );
 }
 
 async function extractDocumentTextFromBlob(owner, repo, sha, ext) {
@@ -36,6 +61,9 @@ async function extractDocumentTextFromBlob(owner, repo, sha, ext) {
  *   fileIndex: number,
  *   filePath?: string,
  *   status?: string,
+ *   fallbackMeta?: Record<string, unknown>,
+ *   fallbackBaseRef?: string,
+ *   fallbackHeadRef?: string,
  * }} props
  */
 export default function DiffViewer({
@@ -45,6 +73,9 @@ export default function DiffViewer({
   fileIndex,
   filePath,
   status,
+  fallbackMeta,
+  fallbackBaseRef,
+  fallbackHeadRef,
 }) {
   const { t } = useTranslation();
   const hostRef = useRef(null);
@@ -59,6 +90,103 @@ export default function DiffViewer({
 
   useEffect(() => {
     let cancelled = false;
+
+    async function buildFallbackDiff() {
+      const path = firstString(
+        fallbackMeta?.filename,
+        fallbackMeta?.path,
+        fallbackMeta?.file?.path,
+        fallbackMeta?.filePath,
+        filePath,
+        "change.txt",
+      );
+      const ext = getFileExtension(path);
+      const st = String(
+        status ?? fallbackMeta?.status ?? fallbackMeta?.changeType ?? "",
+      ).toLowerCase();
+      const oldBlobSha = firstString(
+        fallbackMeta?.baseSha,
+        fallbackMeta?.oldSha,
+        fallbackMeta?.fromSha,
+        fallbackMeta?.previousBlobSha,
+        fallbackMeta?.oldBlobSha,
+        fallbackMeta?.baseBlobSha,
+      );
+      const newBlobSha = firstString(
+        fallbackMeta?.headSha,
+        fallbackMeta?.newSha,
+        fallbackMeta?.toSha,
+        fallbackMeta?.blobSha,
+        fallbackMeta?.newBlobSha,
+        fallbackMeta?.headBlobSha,
+      );
+
+      const documentFile = isDocumentDiffExtension(ext);
+      const binary = !documentFile && isKnownBinaryExtension(ext);
+      const hasFallbackSource = Boolean(
+        oldBlobSha ||
+          newBlobSha ||
+          (fallbackBaseRef && !isAddedStatus(st)) ||
+          (fallbackHeadRef && !isDeletedStatus(st)),
+      );
+      if (!hasFallbackSource) return false;
+
+      if (binary) {
+        setBinaryMeta({
+          path,
+          fileType: ext,
+          hasTextPayload: false,
+          status: st,
+          baseSha: oldBlobSha,
+          headSha: newBlobSha,
+        });
+        return true;
+      }
+
+      let oldContent = "";
+      let newContent = "";
+
+      if (!isAddedStatus(st)) {
+        oldContent =
+          oldBlobSha && documentFile ?
+            await extractDocumentTextFromBlob(owner, repo, oldBlobSha, ext)
+          : oldBlobSha ?
+            tryDecodeUtf8(
+              await fetchRepositoryBlobPayload(owner, repo, oldBlobSha),
+            )
+          : fallbackBaseRef ?
+            await fetchRepositoryFileUtf8ForDiff(owner, repo, path, fallbackBaseRef)
+          : "";
+      }
+
+      if (!isDeletedStatus(st)) {
+        newContent =
+          newBlobSha && documentFile ?
+            await extractDocumentTextFromBlob(owner, repo, newBlobSha, ext)
+          : newBlobSha ?
+            tryDecodeUtf8(
+              await fetchRepositoryBlobPayload(owner, repo, newBlobSha),
+            )
+          : fallbackHeadRef ?
+            await fetchRepositoryFileUtf8ForDiff(owner, repo, path, fallbackHeadRef)
+          : "";
+      }
+
+      if (oldContent == null || newContent == null) {
+        setBinaryMeta({
+          path,
+          fileType: ext,
+          hasTextPayload: false,
+          status: st,
+          baseSha: oldBlobSha,
+          headSha: newBlobSha,
+        });
+        return true;
+      }
+
+      setUnified(generateUnifiedDiff(oldContent, newContent, path) ?? "");
+      return true;
+    }
 
     async function run() {
       setLoading(true);
@@ -128,20 +256,21 @@ export default function DiffViewer({
           return;
         }
 
-        if (
-          ["added", "a", "create", "created", "create mode"].includes(st)
-        ) {
+        if (isAddedStatus(st)) {
           oldContent = "";
-        } else if (
-          ["deleted", "d", "remove", "removed", "deleted file"].includes(st)
-        ) {
+        } else if (isDeletedStatus(st)) {
           newContent = "";
         }
 
         const patch = generateUnifiedDiff(oldContent, newContent, path);
         if (!cancelled) setUnified(patch ?? "");
       } catch {
-        if (!cancelled) setErrorKey("pullRequests.diff.failed");
+        try {
+          const recovered = await buildFallbackDiff();
+          if (!recovered && !cancelled) setErrorKey("pullRequests.diff.failed");
+        } catch {
+          if (!cancelled) setErrorKey("pullRequests.diff.failed");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -151,7 +280,17 @@ export default function DiffViewer({
     return () => {
       cancelled = true;
     };
-  }, [owner, repo, prNumber, fileIndex, filePath, status]);
+  }, [
+    owner,
+    repo,
+    prNumber,
+    fileIndex,
+    filePath,
+    status,
+    fallbackMeta,
+    fallbackBaseRef,
+    fallbackHeadRef,
+  ]);
 
   useEffect(() => {
     if (!hostRef.current || !unified) return;
@@ -235,22 +374,20 @@ function BinaryDiffPanel({ owner, repo, meta }) {
       ].filter((item) => item.sha),
     [meta?.baseSha, meta?.headSha],
   );
-
-  useEffect(() => {
-    if (!revisions.some((item) => item.key === activeRevision)) {
-      setActiveRevision(revisions[0]?.key ?? "head");
-    }
-  }, [activeRevision, revisions]);
+  const activeRevisionKey = revisions.some((item) => item.key === activeRevision)
+    ? activeRevision
+    : revisions[0]?.key ?? "head";
 
   useEffect(() => {
     let cancelled = false;
-    const current = revisions.find((item) => item.key === activeRevision);
+    const current = revisions.find((item) => item.key === activeRevisionKey);
     if (!owner || !repo || !current?.sha) {
-      setState({ loading: false, bytes: null, error: "" });
       return undefined;
     }
 
-    setState({ loading: true, bytes: null, error: "" });
+    window.queueMicrotask(() => {
+      if (!cancelled) setState({ loading: true, bytes: null, error: "" });
+    });
     (async () => {
       try {
         const bytes = await fetchRepositoryBlobPayload(owner, repo, current.sha);
@@ -269,13 +406,13 @@ function BinaryDiffPanel({ owner, repo, meta }) {
     return () => {
       cancelled = true;
     };
-  }, [activeRevision, owner, repo, revisions]);
+  }, [activeRevisionKey, owner, repo, revisions]);
 
   function downloadCurrent() {
     if (!state.bytes?.length) return;
     const ext = getFileExtension(meta?.path ?? "");
     const stem = String(meta?.path ?? "download").split("/").pop() || "download";
-    const suffix = activeRevision === "base" ? "previous" : "current";
+    const suffix = activeRevisionKey === "base" ? "previous" : "current";
     const name = ext
       ? stem.replace(new RegExp(`\\.${ext}$`, "i"), `-${suffix}.${ext}`)
       : `${stem}-${suffix}`;
@@ -294,7 +431,7 @@ function BinaryDiffPanel({ owner, repo, meta }) {
           <Button
             key={revision.key}
             type="button"
-            variant={activeRevision === revision.key ? "primary" : "secondary"}
+            variant={activeRevisionKey === revision.key ? "primary" : "secondary"}
             onClick={() => setActiveRevision(revision.key)}
           >
             {revision.label}
@@ -314,7 +451,7 @@ function BinaryDiffPanel({ owner, repo, meta }) {
         <OverviewMode
           owner={owner}
           repo={repo}
-          branch={activeRevision}
+          branch={activeRevisionKey}
           embedded
           fileBytes={state.bytes}
           filePath={meta?.path ?? ""}

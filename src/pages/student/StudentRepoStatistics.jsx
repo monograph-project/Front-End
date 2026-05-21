@@ -72,7 +72,23 @@ function simplifyTaskStatus(value) {
   if (!raw) return "open";
   if (raw === "in_progress" || raw === "in-progress") return "progress";
   if (raw === "in_review" || raw === "in-review") return "review";
-  return raw.includes("completed") ? "completed" : raw.includes("cancel") ? "cancelled" : raw;
+  if (
+    raw === "complete" ||
+    raw === "completed" ||
+    raw === "done" ||
+    raw === "closed" ||
+    raw.includes("complete")
+  )
+    return "completed";
+  return raw.includes("cancel") ? "cancelled" : raw;
+}
+
+function simplifyMilestoneStatus(value) {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (raw.includes("complete") || raw === "done" || raw === "closed") {
+    return "completed";
+  }
+  return raw || "open";
 }
 
 function ChartTooltipBody({ active, payload, label }) {
@@ -122,51 +138,137 @@ function optionalNumber(raw) {
   return Number.isFinite(n) ? n : null;
 }
 
+function objectNumberValue(source, ...keys) {
+  const wanted = new Set(
+    keys.map((key) =>
+      String(key)
+        .replace(/[^a-z0-9]/gi, "")
+        .toLowerCase(),
+    ),
+  );
+  for (const key of keys) {
+    const n = optionalNumber(source?.[key]);
+    if (n != null) return n;
+  }
+  if (source && typeof source === "object") {
+    for (const [key, value] of Object.entries(source)) {
+      const normalized = String(key)
+        .replace(/[^a-z0-9]/gi, "")
+        .toLowerCase();
+      if (wanted.has(normalized)) {
+        const n = optionalNumber(value);
+        if (n != null) return n;
+      }
+    }
+  }
+  return null;
+}
+
 function boundedPercent(raw) {
   return Math.max(0, Math.min(100, numberValue(raw)));
 }
 
+function embeddedMilestoneTasks(milestone) {
+  const value =
+    milestone?.tasks ??
+    milestone?.issues ??
+    milestone?.taskList ??
+    milestone?.task_list ??
+    milestone?.milestoneTasks ??
+    milestone?.milestone_tasks;
+  return Array.isArray(value) ? value : [];
+}
+
 function taskMilestoneNumber(task) {
+  const milestone = task?.milestone;
   return optionalNumber(
     task?.milestoneNumber ??
       task?.milestone_number ??
-      task?.milestone?.number ??
-      task?.milestoneNo,
+      task?.milestoneNo ??
+      task?.milestone_no ??
+      (milestone && typeof milestone === "object"
+        ? milestone.milestoneNumber ??
+          milestone.milestone_number ??
+          milestone.number ??
+          milestone.no
+        : milestone),
   );
 }
 
 function taskMilestoneId(task) {
+  const milestone = task?.milestone;
   const raw =
     task?.milestoneId ??
     task?.milestone_id ??
-    task?.milestone?.id ??
-    task?.milestone?.milestoneId ??
+    (milestone && typeof milestone === "object"
+      ? milestone.id ?? milestone.milestoneId ?? milestone.milestone_id
+      : !optionalNumber(milestone)
+        ? milestone
+        : "") ??
     "";
   return raw != null && raw !== "" ? String(raw) : "";
 }
 
 function taskMatchesMilestone(task, milestone) {
-  const milestoneNumber = optionalNumber(milestone?.number);
+  const milestoneNumber = optionalNumber(
+    milestone?.number ??
+      milestone?.milestoneNumber ??
+      milestone?.milestone_number ??
+      milestone?.milestoneNo,
+  );
   const taskNumber = taskMilestoneNumber(task);
   if (milestoneNumber != null && taskNumber != null) {
     return taskNumber === milestoneNumber;
   }
 
   const milestoneId =
-    milestone?.id != null && milestone?.id !== "" ? String(milestone.id) : "";
-  return Boolean(milestoneId && taskMilestoneId(task) === milestoneId);
+    milestone?.id ??
+    milestone?.milestoneId ??
+    milestone?.milestone_id ??
+    "";
+  if (milestoneId != null && milestoneId !== "" && taskMilestoneId(task)) {
+    return taskMilestoneId(task) === String(milestoneId);
+  }
+
+  const milestoneTitle = String(
+    milestone?.title ?? milestone?.name ?? milestone?.milestoneTitle ?? "",
+  )
+    .trim()
+    .toLowerCase();
+  const taskMilestoneTitle = String(
+    task?.milestoneTitle ??
+      task?.milestone_title ??
+      task?.milestoneName ??
+      task?.milestone_name ??
+      task?.milestone?.title ??
+      task?.milestone?.name ??
+      "",
+  )
+    .trim()
+    .toLowerCase();
+  return Boolean(milestoneTitle && taskMilestoneTitle === milestoneTitle);
 }
 
 function milestoneTaskCounts(tasks, milestone) {
+  const sourceTasks = embeddedMilestoneTasks(milestone);
+  const taskList = sourceTasks.length
+    ? sourceTasks
+    : tasks.filter((task) => taskMatchesMilestone(task, milestone));
   const counts = {
     total: 0,
     completed: 0,
   };
 
-  tasks.forEach((task) => {
-    if (!taskMatchesMilestone(task, milestone)) return;
+  taskList.forEach((task) => {
     counts.total += 1;
-    if (simplifyTaskStatus(task?.status) === "completed") {
+    if (
+      task?.completed === true ||
+      task?.isCompleted === true ||
+      task?.completedAt ||
+      task?.completed_at ||
+      simplifyTaskStatus(task?.status ?? task?.state ?? task?.taskStatus) ===
+        "completed"
+    ) {
       counts.completed += 1;
     }
   });
@@ -175,32 +277,115 @@ function milestoneTaskCounts(tasks, milestone) {
 }
 
 function milestoneCompletion(milestone, tasks) {
+  if (simplifyMilestoneStatus(milestone?.status) === "completed") {
+    return 100;
+  }
+
   const counts = milestoneTaskCounts(tasks, milestone);
-  const apiCompleted = optionalNumber(
-    milestone?.completedTasks ?? milestone?.completed_tasks,
+  const apiCompletion = objectNumberValue(
+    milestone,
+    "completionPercentage",
+    "completion_percentage",
+    "progressPercentage",
+    "progress_percentage",
+    "percentComplete",
+    "percent_complete",
+    "completion",
+    "progress",
   );
-  const apiTotal = optionalNumber(
-    milestone?.totalTasks ?? milestone?.total_tasks ?? milestone?.tasksCount,
+  const apiCompleted = objectNumberValue(
+    milestone,
+    "completedTasks",
+    "completed_tasks",
+    "completedTaskCount",
+    "completed_task_count",
+    "completedIssues",
+    "completed_issues",
+    "closedTasks",
+    "closed_tasks",
+    "doneTasks",
+    "done_tasks",
+    "finishedTasks",
+    "finished_tasks",
+    "completedCount",
+    "completed_count",
+    "doneCount",
+    "done_count",
+  );
+  const apiTotal = objectNumberValue(
+    milestone,
+    "totalTasks",
+    "total_tasks",
+    "tasksCount",
+    "taskCount",
+    "issuesCount",
+    "issueCount",
+    "totalIssues",
+    "total_issues",
+    "totalCount",
+    "total_count",
+    "count",
+  );
+  const apiOpen = objectNumberValue(
+    milestone,
+    "openTasks",
+    "open_tasks",
+    "openCount",
+    "open_count",
+  );
+  const apiProgress = objectNumberValue(
+    milestone,
+    "inProgressTasks",
+    "in_progress_tasks",
+    "progressTasks",
+    "progress_tasks",
+    "progressCount",
+    "progress_count",
+    "inProgressCount",
+    "in_progress_count",
+  );
+  const apiReview = objectNumberValue(
+    milestone,
+    "inReviewTasks",
+    "in_review_tasks",
+    "reviewTasks",
+    "review_tasks",
+    "reviewCount",
+    "review_count",
+    "inReviewCount",
+    "in_review_count",
+  );
+  const apiCancelled = objectNumberValue(
+    milestone,
+    "cancelledTasks",
+    "cancelled_tasks",
+    "canceledTasks",
+    "canceled_tasks",
   );
   const requiredTasks = optionalNumber(
     milestone?.requiredTasks ?? milestone?.required_tasks,
   );
-  const completed =
-    counts.total > 0 ? counts.completed : (apiCompleted ?? 0);
+  const completed = Math.max(apiCompleted ?? 0, counts.completed);
+  const derivedApiTotal =
+    (apiCompleted ?? 0) +
+    (apiOpen ?? 0) +
+    (apiProgress ?? 0) +
+    (apiReview ?? 0) +
+    (apiCancelled ?? 0);
   const target =
     requiredTasks != null && requiredTasks > 0
       ? requiredTasks
-      : counts.total > 0
-        ? counts.total
-        : (apiTotal ?? 0);
+      : Math.max(apiTotal ?? 0, derivedApiTotal, counts.total);
+
+  if (apiCompletion != null && apiCompletion > 0) {
+    return boundedPercent(apiCompletion);
+  }
 
   if (target > 0) {
     return Math.round((Math.min(completed, target) / target) * 100);
   }
 
-  return boundedPercent(
-    milestone?.completionPercentage ?? milestone?.completion_percentage,
-  );
+  return apiCompletion != null ? boundedPercent(apiCompletion) : 0;
 }
 
 function metricCardDefinitions(milestoneCount, issueCount, overview) {
@@ -363,7 +548,7 @@ export default function StudentRepoStatistics() {
     const sorted = [...milestones].sort(
       (a, b) => numberValue(a?.number) - numberValue(b?.number),
     );
-    return sorted.slice(-12).map((m) => {
+    return sorted.map((m) => {
       const num = m?.number ?? "—";
       const title =
         truncateLabel(m?.title ?? t("studentRepo.tasks.milestones.untitled"), 20)

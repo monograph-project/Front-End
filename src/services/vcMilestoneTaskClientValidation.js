@@ -120,10 +120,10 @@ export function normalizeVcMilestoneBodyForCreate(raw) {
     if (
       !Number.isFinite(n) ||
       !Number.isInteger(n) ||
-      n < 0 ||
+      n < 1 ||
       n > MAX_REQUIRED_TASKS
     ) {
-      throwVcValidation("Invalid required tasks count.", "apiErrors.validation.vc.milestoneRequiredTasksInvalid");
+      throwVcValidation("Required tasks must be at least 1.", "apiErrors.validation.vc.milestoneRequiredTasksInvalid");
     }
     requiredTasks = n;
   }

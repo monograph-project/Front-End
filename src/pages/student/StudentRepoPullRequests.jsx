@@ -20,15 +20,25 @@ import {
 import { gooeyToast } from "goey-toast";
 import Button from "../../components/Button";
 import ConflictResolver from "../../components/MergeConflict/ConflictResolver";
+import MergedPullRequestHistoryDiff from "../../components/PullRequest/MergedPullRequestHistoryDiff";
 import PRFilesDiff from "../../components/PullRequest/PRFilesDiff";
+import RepoOverviewStatCard from "../../components/repo/RepoOverviewStatCard";
+import { REPO_OVERVIEW_STAT_PALETTES } from "../../components/repo/repoOverviewStatPalettes";
 import Select from "../../components/Select";
 import SettingsSectionCard from "../../components/SettingsSectionCard";
+import { useAuth } from "../../context/AuthContext";
 import { cn } from "../../lib/utils";
+import {
+  repoViewerUsername,
+  taskVcSubmissionPullNumber,
+  usernamesLikelySame,
+} from "../../lib/vcAcademicVisibility";
 import {
   useVcMergePullRequest,
   useVcMergeConflicts,
   useVcCreatePullRequest,
   useVcRepoPullRequests,
+  useVcRepoTasks,
   useVcRepositoryRefs,
   useSessionProfile,
 } from "../../services/useApi";
@@ -58,6 +68,19 @@ function prAuthorId(pr) {
   return String(pr?.author?.id ?? pr?.authorId ?? "").trim();
 }
 
+function pullRequestIdentityValues(pr) {
+  return [
+    pr?.id,
+    pr?.number,
+    pr?.pullRequestId,
+    pr?.pull_request_id,
+    pr?.hash,
+    pr?.uuid,
+  ]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+}
+
 function prCreatedAt(pr) {
   return String(pr?.created_at ?? pr?.createdAt ?? "").trim();
 }
@@ -74,20 +97,23 @@ function wait(ms) {
   });
 }
 
-function prSourceBranch(pr) {
-  return String(pr?.source_branch ?? pr?.sourceBranch ?? "").trim();
-}
-
-function prTargetBranch(pr) {
-  return String(pr?.target_branch ?? pr?.targetBranch ?? "").trim();
-}
-
 function prSourceHash(pr) {
   return String(pr?.source_hash ?? pr?.sourceHash ?? "").trim();
 }
 
 function prTargetHash(pr) {
   return String(pr?.target_hash ?? pr?.targetHash ?? "").trim();
+}
+
+function prMergeHash(pr) {
+  return String(
+    pr?.merge_hash ??
+      pr?.mergeHash ??
+      pr?.merge_commit_sha ??
+      pr?.mergeCommitSha ??
+      pr?.mergeCommit ??
+      "",
+  ).trim();
 }
 
 function isLikelySha(value) {
@@ -347,50 +373,45 @@ function pullRequestSearchText(pr) {
     .toLowerCase();
 }
 
-function PullRequestSummaryCard({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  tone = "neutral",
-}) {
-  const toneClasses = {
-    neutral:
-      "border-(--color-light-card-border) bg-light-app-tertiary text-primary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-primary",
-    open: "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/12 dark:text-emerald-100",
-    conflicting:
-      "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/12 dark:text-amber-100",
-    merged:
-      "border-purple-200 bg-purple-50 text-purple-900 dark:border-purple-500/20 dark:bg-purple-500/12 dark:text-purple-100",
-    closed:
-      "border-slate-200 bg-slate-50 text-slate-900 dark:border-slate-500/20 dark:bg-slate-500/12 dark:text-slate-100",
-  };
+function isMergedStatus(status) {
+  return status === "MERGED" || status === "MERGE";
+}
 
+function taskAssignerUsername(task) {
+  const assignedBy =
+    task?.assignedBy ??
+    task?.assigned_by ??
+    task?.assigner ??
+    task?.createdBy ??
+    task?.created_by;
+  if (assignedBy && typeof assignedBy === "object") {
+    return String(
+      assignedBy.userName ??
+        assignedBy.username ??
+        assignedBy.user_name ??
+        assignedBy.login ??
+        "",
+    ).trim();
+  }
+  return String(assignedBy ?? "").trim();
+}
+
+function profileUsername(profile) {
   return (
-    <div
-      className={cn(
-        "rounded-2xl border px-4 py-3 shadow-sm transition-colors",
-        toneClasses[tone] ?? toneClasses.neutral,
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-75">
-            {label}
-          </p>
-          <p className="mt-2 text-2xl font-semibold leading-none">{value}</p>
-        </div>
-        {Icon ? (
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-current/12 bg-white/60 dark:bg-white/5">
-            <Icon className="h-4.5 w-4.5" strokeWidth={1.8} />
-          </span>
-        ) : null}
-      </div>
-      {hint ? (
-        <p className="mt-3 text-xs leading-relaxed opacity-80">{hint}</p>
-      ) : null}
-    </div>
+    repoViewerUsername(profile) ||
+    String(profile?.userName ?? profile?.username ?? profile?.login ?? "").trim()
   );
+}
+
+function buildSubmittedTaskByPullRequestId(tasks) {
+  const map = new Map();
+  (Array.isArray(tasks) ? tasks : []).forEach((task) => {
+    const prNumber = taskVcSubmissionPullNumber(task);
+    if (prNumber != null) {
+      map.set(String(prNumber).trim(), task);
+    }
+  });
+  return map;
 }
 
 function refsHeadBranch(payload) {
@@ -495,6 +516,7 @@ function PullRequestCard({
   setActivePrId,
   mergePr,
   mergingPrId,
+  canMerge,
   onMerge,
   refetch,
 }) {
@@ -507,6 +529,7 @@ function PullRequestCard({
   const createdAt = prCreatedAt(pr);
   const sourceHash = prSourceHash(pr);
   const targetHash = prTargetHash(pr);
+  const mergeHash = prMergeHash(pr);
   const baseStatus = prStatusValue(pr);
   const isOpenish = ["OPENED", "READY_FOR_REVIEW"].includes(baseStatus);
   const { data: liveConflicts = [], isLoading: conflictsLoading } =
@@ -531,11 +554,13 @@ function PullRequestCard({
   const description = pr.description ?? pr.summary ?? pr.body ?? "";
   const isConflicting = ["CONFLICTING", "CONFLICTED"].includes(effectiveStatus);
   const mergeBusy = mergingPrId === prId;
+  const mergedResultHash =
+    isMergedStatus(effectiveStatus) && mergeHash ? mergeHash : sourceHash;
 
   return (
     <article
       key={prId}
-      className="rounded-md border border-(--color-light-card-border) bg-(--color-light-card-bg) px-4 py-4 shadow-sm transition-colors hover:border-(--color-light-input-border-focus) dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:border-(--color-dark-input-border-focus)"
+      className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) px-4 py-4 text-left transition-all hover:border-(--color-light-input-border-focus) hover:bg-white dark:border-(--color-dark-card-border) dark:bg-dark-card-bg dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-dark-card-hover"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -612,7 +637,7 @@ function PullRequestCard({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {isOpenish && !isConflicting ? (
+        {canMerge && isOpenish && !isConflicting ? (
           <Button
             type="button"
             loading={mergeBusy && mergePr.isPending}
@@ -625,7 +650,7 @@ function PullRequestCard({
             {t("studentRepo.pulls.card.merge")}
           </Button>
         ) : null}
-        {isConflicting ? (
+        {canMerge && isConflicting ? (
           <Button
             type="button"
             variant="secondary"
@@ -634,7 +659,7 @@ function PullRequestCard({
             {t("studentRepo.pulls.card.resolveConflicts")}
           </Button>
         ) : null}
-        {isOpenish && !isConflicting ? (
+        {canMerge && isOpenish && !isConflicting ? (
           <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
             {t("studentRepo.pulls.card.readyToMerge")}
           </span>
@@ -681,7 +706,7 @@ function PullRequestCard({
             <span>{t("studentRepo.pulls.card.targetHash", { sha: shortSha(targetHash) || "—" })}</span>
           </div>
 
-          {isConflicting || hasLiveConflicts ? (
+          {canMerge && (isConflicting || hasLiveConflicts) ? (
             <PullRequestConflictPanel
               owner={owner}
               repo={repo}
@@ -693,7 +718,30 @@ function PullRequestCard({
             />
           ) : null}
 
-          {mergePreviewOpen && isOpenish && !isConflicting ? (
+          {!mergePreviewOpen ? (
+            <div className="space-y-3 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+              <p className="text-sm font-semibold text-primary dark:text-dark-primary">
+                {t("studentRepo.pulls.card.changedFiles", "Changed files")}
+              </p>
+              {isMergedStatus(effectiveStatus) ? (
+                <MergedPullRequestHistoryDiff
+                  owner={owner}
+                  repo={repo}
+                  sourceHash={mergedResultHash}
+                  targetHash={targetHash}
+                />
+              ) : (
+                <PRFilesDiff
+                  owner={owner}
+                  repo={repo}
+                  prNumber={prId}
+                  pullRequest={derivedPr}
+                />
+              )}
+            </div>
+          ) : null}
+
+          {canMerge && mergePreviewOpen && isOpenish && !isConflicting ? (
             <div className="space-y-3 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary p-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -717,13 +765,18 @@ function PullRequestCard({
                     type="button"
                     loading={mergeBusy && mergePr.isPending}
                     disabled={mergePr.isPending && !mergeBusy}
-                    onClick={() => onMerge(prId)}
+                    onClick={() => onMerge(pr)}
                   >
                     {t("studentRepo.pulls.mergePreview.confirm")}
                   </Button>
                 </div>
               </div>
-              <PRFilesDiff owner={owner} repo={repo} prNumber={prId} />
+              <PRFilesDiff
+                owner={owner}
+                repo={repo}
+                prNumber={prId}
+                pullRequest={derivedPr}
+              />
             </div>
           ) : null}
         </div>
@@ -735,6 +788,7 @@ function PullRequestCard({
 export default function StudentRepoPullRequests() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { user, isStudent } = useAuth();
   const { owner, repo, repoBase, repositoryMeta } = useOutletContext() ?? {};
   const locale = i18n.language || undefined;
   const [params, setParams] = useSearchParams();
@@ -755,6 +809,14 @@ export default function StudentRepoPullRequests() {
   const { data: sessionUser } = useSessionProfile({
     notifyOnError: false,
   });
+  const { data: tasks = [] } = useVcRepoTasks(
+    owner,
+    repo,
+    {},
+    {
+      notifyOnError: false,
+    },
+  );
   const { data: refsPayload } = useVcRepositoryRefs(owner, repo, {
     notifyOnError: false,
     enabled: Boolean(owner && repo),
@@ -791,6 +853,15 @@ export default function StudentRepoPullRequests() {
         label: t(option.labelKey),
       })),
     [t],
+  );
+  const currentUsername = profileUsername(user);
+  const sessionUsername = profileUsername(sessionUser);
+  const viewerUsername = currentUsername || sessionUsername;
+  const isStudentUser =
+    typeof isStudent === "function" ? isStudent() : false;
+  const submittedTaskByPullRequestId = useMemo(
+    () => buildSubmittedTaskByPullRequestId(tasks),
+    [tasks],
   );
 
   useEffect(() => {
@@ -843,6 +914,52 @@ export default function StudentRepoPullRequests() {
     );
   }, [data]);
 
+  const summaryTiles = useMemo(
+    () => [
+      {
+        key: "total",
+        icon: GitPullRequest,
+        label: t("studentRepo.pulls.cards.total"),
+        value: prSummary.total,
+        hint: t("studentRepo.pulls.cards.totalHint"),
+        paletteIndex: 0,
+      },
+      {
+        key: "open",
+        icon: CheckCircle2,
+        label: t("studentRepo.pulls.cards.open"),
+        value: prSummary.open,
+        hint: t("studentRepo.pulls.cards.openHint"),
+        paletteIndex: 1,
+      },
+      {
+        key: "conflicting",
+        icon: AlertTriangle,
+        label: t("studentRepo.pulls.cards.conflicting"),
+        value: prSummary.conflicting,
+        hint: t("studentRepo.pulls.cards.conflictingHint"),
+        paletteIndex: 2,
+      },
+      {
+        key: "merged",
+        icon: GitMerge,
+        label: t("studentRepo.pulls.cards.merged"),
+        value: prSummary.merged,
+        hint: t("studentRepo.pulls.cards.mergedHint"),
+        paletteIndex: 3,
+      },
+      {
+        key: "closedDraft",
+        icon: CircleDot,
+        label: t("studentRepo.pulls.cards.closedDraft"),
+        value: prSummary.closed + prSummary.draft,
+        hint: t("studentRepo.pulls.cards.closedDraftHint"),
+        paletteIndex: 0,
+      },
+    ],
+    [prSummary, t],
+  );
+
   const visiblePullRequests = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
     return (data ?? []).filter((pr) => {
@@ -854,6 +971,7 @@ export default function StudentRepoPullRequests() {
 
   const canSubmit =
     createMode &&
+    isStudentUser &&
     owner &&
     repo &&
     baseRef &&
@@ -862,6 +980,25 @@ export default function StudentRepoPullRequests() {
     title.trim().length > 0 &&
     String(sessionUser?.id ?? "").trim().length > 0 &&
     !createPr.isPending;
+
+  function submittedTaskForPullRequest(prOrId) {
+    const ids =
+      prOrId && typeof prOrId === "object"
+        ? pullRequestIdentityValues(prOrId)
+        : [String(prOrId ?? "").trim()].filter(Boolean);
+    for (const id of ids) {
+      const task = submittedTaskByPullRequestId.get(id);
+      if (task) return task;
+    }
+    return null;
+  }
+
+  function canMergePullRequest(prOrId) {
+    if (!viewerUsername) return false;
+    const task = submittedTaskForPullRequest(prOrId);
+    if (!task) return false;
+    return usernamesLikelySame(viewerUsername, taskAssignerUsername(task));
+  }
 
   async function findCreatedPullRequest() {
     const expectedTitle = title.trim();
@@ -941,9 +1078,14 @@ export default function StudentRepoPullRequests() {
     }
   }
 
-  async function onMerge(prId) {
+  async function onMerge(prOrId) {
+    const prId =
+      prOrId && typeof prOrId === "object"
+        ? String(prOrId.id ?? prOrId.number ?? prOrId.uuid ?? "")
+        : String(prOrId ?? "");
     if (!owner || !repo || !prId) return;
-    setMergingPrId(String(prId));
+    if (!canMergePullRequest(prOrId)) return;
+    setMergingPrId(prId);
     try {
       await mergePr.mutateAsync({
         owner,
@@ -975,7 +1117,7 @@ export default function StudentRepoPullRequests() {
             >
               {t("studentRepo.pulls.actions.cancel")}
             </Button>
-          ) : (
+          ) : isStudentUser ? (
             <Button
               type="button"
               onClick={() =>
@@ -988,7 +1130,7 @@ export default function StudentRepoPullRequests() {
             >
               {t("studentRepo.pulls.actions.new")}
             </Button>
-          )
+          ) : null
         }
       >
         {createMode ? (
@@ -1084,40 +1226,20 @@ export default function StudentRepoPullRequests() {
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <PullRequestSummaryCard
-                label={t("studentRepo.pulls.cards.total")}
-                value={prSummary.total}
-                hint={t("studentRepo.pulls.cards.totalHint")}
-                icon={GitPullRequest}
-              />
-              <PullRequestSummaryCard
-                label={t("studentRepo.pulls.cards.open")}
-                value={prSummary.open}
-                hint={t("studentRepo.pulls.cards.openHint")}
-                icon={CheckCircle2}
-                tone="open"
-              />
-              <PullRequestSummaryCard
-                label={t("studentRepo.pulls.cards.conflicting")}
-                value={prSummary.conflicting}
-                hint={t("studentRepo.pulls.cards.conflictingHint")}
-                icon={AlertTriangle}
-                tone="conflicting"
-              />
-              <PullRequestSummaryCard
-                label={t("studentRepo.pulls.cards.merged")}
-                value={prSummary.merged}
-                hint={t("studentRepo.pulls.cards.mergedHint")}
-                icon={GitMerge}
-                tone="merged"
-              />
-              <PullRequestSummaryCard
-                label={t("studentRepo.pulls.cards.closedDraft")}
-                value={prSummary.closed + prSummary.draft}
-                hint={t("studentRepo.pulls.cards.closedDraftHint")}
-                icon={CircleDot}
-                tone="closed"
-              />
+              {summaryTiles.map((card) => (
+                <RepoOverviewStatCard
+                  key={card.key}
+                  icon={card.icon}
+                  label={card.label}
+                  value={card.value}
+                  hint={card.hint}
+                  palette={
+                    REPO_OVERVIEW_STAT_PALETTES[
+                      card.paletteIndex % REPO_OVERVIEW_STAT_PALETTES.length
+                    ]
+                  }
+                />
+              ))}
             </div>
 
             {isLoading ? (
@@ -1187,6 +1309,7 @@ export default function StudentRepoPullRequests() {
                         setActivePrId={setActivePrId}
                         mergePr={mergePr}
                         mergingPrId={mergingPrId}
+                        canMerge={canMergePullRequest(pr)}
                         onMerge={onMerge}
                         refetch={refetch}
                       />

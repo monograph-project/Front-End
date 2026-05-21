@@ -258,59 +258,6 @@ export default function Teachers() {
     });
   };
 
-  const exportToCSV = () => {
-    const headers = [
-      "ID",
-      "First Name",
-      "Last Name",
-      "Email",
-      "Username",
-      "Department",
-      "Status",
-      "Joined",
-    ];
-    const csvContent = [
-      headers.join(","),
-      ...teachers.map((teacher) =>
-        [
-          teacher.id,
-          teacher.firstName,
-          teacher.lastName,
-          teacher.email,
-          teacher.username ?? "",
-          teacher.department,
-          teacher.status,
-          teacher.joined,
-        ]
-          .map((field) => `"${field}"`)
-          .join(","),
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "teachers.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleAction = (action) => {
-    switch (action) {
-      case "export":
-        exportToCSV();
-        break;
-      case "import":
-        window.GooeyToaster?.info?.("Import functionality coming soon");
-        break;
-      default:
-        break;
-    }
-  };
-
   const handleViewProfile = (teacher) => {
     navigate(`/admin/teacher/${teacher.id}`);
   };

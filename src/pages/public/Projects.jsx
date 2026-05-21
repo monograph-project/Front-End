@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  CalendarDays,
   Download,
   ExternalLink,
   FolderKanban,
@@ -34,8 +35,89 @@ function displayName(person, fallback = "-") {
   return full || person?.name || person?.email || fallback;
 }
 
+const DOCUMENT_TITLE_HEADINGS = [
+  "title",
+  "project title",
+  "research title",
+  "د موضوع عنوان",
+  "موضوع عنوان",
+  "عنوان موضوع",
+  "عنوان",
+];
+
+function projectDocumentSource(project) {
+  return String(
+    project?.documentText ??
+      project?.contentText ??
+      project?.fullText ??
+      project?.extractedText ??
+      project?.abstractText ??
+      project?.abstract ??
+      project?.summary ??
+      "",
+  ).trim();
+}
+
+function cleanDocumentLine(value) {
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s:：\-–—]+|[\s:：\-–—]+$/g, "")
+    .trim();
+}
+
+function extractDocumentTitle(project) {
+  const direct = cleanDocumentLine(
+    project?.documentTitle ??
+      project?.monographTitle ??
+      project?.researchTitle ??
+      project?.publicTitle,
+  );
+  if (direct) return direct;
+
+  const lines = projectDocumentSource(project)
+    .split(/\r?\n/)
+    .map(cleanDocumentLine)
+    .filter(Boolean);
+  if (!lines.length) return "";
+
+  const normalizedHeadings = DOCUMENT_TITLE_HEADINGS.map((heading) =>
+    normalizeLanguageText(heading),
+  );
+  const headingIndex = lines.findIndex((line) =>
+    normalizedHeadings.includes(normalizeLanguageText(line)),
+  );
+  if (headingIndex >= 0) {
+    const next = lines.slice(headingIndex + 1).find((line) => {
+      const normalized = normalizeLanguageText(line);
+      return (
+        line.length > 6 &&
+        !normalizedHeadings.includes(normalized) &&
+        !ABSTRACT_HEADINGS.some((heading) => normalized === normalizeLanguageText(heading))
+      );
+    });
+    if (next) return next;
+  }
+
+  const abstractIndex = lines.findIndex((line) =>
+    ABSTRACT_HEADINGS.some((heading) => normalizeLanguageText(line) === normalizeLanguageText(heading)),
+  );
+  const beforeAbstract = lines.slice(0, abstractIndex > 0 ? abstractIndex : 24);
+  return (
+    beforeAbstract.find((line) => {
+      const normalized = normalizeLanguageText(line);
+      return (
+        line.length >= 12 &&
+        line.length <= 180 &&
+        !/^(completed|monograph|abstract|abstruct)$/i.test(line) &&
+        !normalizedHeadings.includes(normalized)
+      );
+    }) || ""
+  );
+}
+
 function projectTitle(project) {
   return (
+    extractDocumentTitle(project) ||
     project?.projectName ||
     project?.name ||
     project?.title ||
@@ -498,13 +580,11 @@ function supervisorName(project) {
   return supervisor ? displayName(supervisor.person, "Supervisor") : "No supervisor listed";
 }
 
-function projectInfoItems(project, abstractText) {
+function projectFactItems(project, abstractText) {
   const repository = project?.projectRepository ?? {};
-  const contributors = projectContributors(project);
-  const supervisor = contributors.find((item) => item.kind === "supervisor");
   return [
     {
-      label: "Completion year",
+      label: "Year",
       value: completionYearLabel(project) || "Not specified",
     },
     {
@@ -525,11 +605,7 @@ function projectInfoItems(project, abstractText) {
       value: projectLanguageLabel(abstractText),
     },
     {
-      label: "Supervisor",
-      value: supervisor ? displayName(supervisor.person, "Supervisor") : "Not specified",
-    },
-    {
-      label: "Final result",
+      label: "Final file",
       value:
         project?.finalFileName ||
         repository.repositoryName ||
@@ -539,15 +615,37 @@ function projectInfoItems(project, abstractText) {
       label: "Repository",
       value: repository.repositoryName || "Project repository",
     },
-    {
-      label: "Contributors",
-      value: `${contributors.length} project member${contributors.length === 1 ? "" : "s"}`,
-    },
-    {
-      label: "Public content",
-      value: "Abstract preview with full file download",
-    },
   ];
+}
+
+function ContributorAvatarStack({ items, max = 4 }) {
+  if (!items?.length) return null;
+  const shown = items.slice(0, max);
+  return (
+    <div className="flex -space-x-2">
+      {shown.map((item, index) => {
+        const name = displayName(item.person, "Contributor");
+        return (
+          <Link
+            key={`${personId(item.person, item.role)}-${index}`}
+            to={profilePathForContributor(item)}
+            title={`Open ${name} profile`}
+            className="inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-full border-2 border-(--color-light-card-bg) bg-accent/15 text-[10px] font-semibold text-primary shadow-sm transition-transform hover:-translate-y-0.5 hover:z-10 dark:border-(--color-dark-card-bg) dark:bg-[rgba(0,102,255,0.22)] dark:text-dark-primary"
+          >
+            <PersonAvatar
+              person={item.person}
+              sizeClass="inline-flex size-full items-center justify-center overflow-hidden rounded-full"
+            />
+          </Link>
+        );
+      })}
+      {items.length > shown.length ? (
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-(--color-light-card-bg) bg-light-app-tertiary text-[10px] font-semibold text-secondary shadow-sm dark:border-(--color-dark-card-bg) dark:bg-dark-app-tertiary dark:text-dark-secondary">
+          +{items.length - shown.length}
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 function ContributorChip({ item, compact = false }) {
@@ -705,16 +803,18 @@ export default function PublicProjects() {
 
   if (projectId) {
     const project = detailQuery.data;
-    const repository = project?.projectRepository;
     const fullAbstract = projectFullAbstract(
       project,
       t("publicProjects.noDescription"),
     );
+    const displayTitle = projectTitle(project);
     const abstractDir = textDirection(fullAbstract);
-    const titleDir = textDirection(projectTitle(project));
+    const titleDir = textDirection(displayTitle);
     const contributors = projectContributors(project);
+    const supervisor = contributors.find((item) => item.kind === "supervisor");
+    const students = contributors.filter((item) => item.kind === "student");
     const paragraphs = abstractParagraphs(fullAbstract);
-    const infoItems = projectInfoItems(project, fullAbstract);
+    const factItems = projectFactItems(project, fullAbstract);
     return (
       <BlogShell variant="article">
         <div className="py-10 sm:py-14 lg:pb-24">
@@ -738,7 +838,7 @@ export default function PublicProjects() {
               </p>
             </div>
           ) : (
-            <article className="mx-auto mt-6 max-w-4xl pb-6">
+            <article className="mx-auto mt-6 max-w-6xl pb-6">
               <header className="rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) sm:p-6 lg:p-8">
                 <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted dark:text-dark-muted">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-light-app-tertiary px-3 py-1 dark:bg-dark-app-tertiary">
@@ -756,45 +856,66 @@ export default function PublicProjects() {
                   }`}
                   dir={titleDir}
                 >
-                  {projectTitle(project)}
+                  {displayTitle}
                 </h1>
 
-                <dl className="mt-6 grid gap-x-8 gap-y-0 border-y border-light-divider py-2 text-sm dark:border-dark-divider sm:grid-cols-2">
-                  {infoItems.map((item) => (
-                    <div
-                      key={item.label}
-                      className="grid gap-1 border-b border-light-divider py-3 last:border-b-0 dark:border-dark-divider sm:grid-cols-[9rem_minmax(0,1fr)] sm:items-baseline sm:[&:nth-last-child(2)]:border-b-0"
-                    >
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted dark:text-dark-muted">
-                        {item.label}
-                      </dt>
-                      <dd className="min-w-0 text-sm font-semibold text-primary dark:text-dark-primary">
-                        {item.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-
-                <div className="mt-7 border-t border-light-divider pt-5 dark:border-dark-divider">
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="mb-3 text-sm font-semibold text-primary dark:text-dark-primary">
-                        Project team
-                      </p>
-                      {contributors.length ? (
-                        <ProjectContributors project={project} compact />
-                      ) : (
-                        <span className="text-sm text-muted dark:text-dark-muted">
-                          {repository?.repositoryName ||
-                            t("publicProjects.repositoryFallback")}
+                <div className="mt-7 flex flex-col gap-5 border-t border-light-divider pt-5 dark:border-dark-divider lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 flex-wrap items-center gap-5">
+                    {supervisor ? (
+                      <Link
+                        to={profilePathForContributor(supervisor)}
+                        className="flex min-w-0 items-center gap-3 rounded-full"
+                        title={`Open ${displayName(supervisor.person, "Supervisor")} profile`}
+                      >
+                        <PersonAvatar
+                          person={supervisor.person}
+                          sizeClass="inline-flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                          className="bg-light-app-tertiary text-xs font-bold text-primary ring-1 ring-light-divider dark:bg-dark-app-tertiary dark:text-dark-primary dark:ring-dark-divider"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-primary underline-offset-4 hover:underline dark:text-dark-primary">
+                            {displayName(supervisor.person, "Supervisor")}
+                          </span>
+                          <span className="block text-xs text-muted dark:text-dark-muted">
+                            Supervisor
+                          </span>
                         </span>
-                      )}
+                      </Link>
+                    ) : null}
+
+                    <div className="flex min-w-0 items-center gap-3">
+                      <ContributorAvatarStack items={students} max={6} />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-primary dark:text-dark-primary">
+                          {students.length} writer{students.length === 1 ? "" : "s"}
+                        </span>
+                        <span className="block text-xs text-muted dark:text-dark-muted">
+                          Select a profile to view the writer
+                        </span>
+                      </span>
                     </div>
                   </div>
+
+                  <dl className="flex flex-wrap gap-2 lg:justify-end">
+                    {factItems.map((item) => (
+                      <div
+                        key={item.label}
+                        className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-xl border border-(--color-light-card-border) px-3 py-1.5 text-sm font-semibold text-secondary transition-colors dark:border-(--color-dark-card-border) dark:text-dark-secondary"
+                        title={`${item.label}: ${item.value}`}
+                      >
+                        <dt className="shrink-0 text-[11px] uppercase tracking-wide text-muted dark:text-dark-muted">
+                          {item.label}
+                        </dt>
+                        <dd className="min-w-0 max-w-[12rem] truncate text-primary dark:text-dark-primary">
+                          {item.value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
                 </div>
               </header>
 
-              <section className="mt-10 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) sm:p-6 lg:p-8">
+              <section className="mt-8 rounded-2xl border border-(--color-light-card-border) bg-(--color-light-card-bg) p-4 shadow-sm dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) sm:p-6 lg:p-8">
                 <div
                   className={`blog-article-prose mx-auto max-w-3xl text-[15px] leading-8 [&>*:first-child]:mt-0 ${
                     abstractDir === "rtl" ? "font-persian text-right" : ""

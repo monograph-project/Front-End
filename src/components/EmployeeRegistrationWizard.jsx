@@ -28,6 +28,7 @@ import {
   useEmployee,
   useFaculties,
   useUpdateEmployee,
+  useUser,
 } from "../services/useApi";
 
 const MotionDiv = motion.div;
@@ -38,7 +39,7 @@ const PASSWORD_PATTERN =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
 /** Backend EmployeeRequest phone pattern */
 const EMPLOYEE_PHONE_PATTERN = /^07\d{8}$/;
-const PERSON_NAME_PATTERN = /^[\p{L}]{2,50}$/u;
+const PERSON_NAME_PATTERN = /^[\p{L}](?:[\p{L} .'-]{0,48}[\p{L}])$/u;
 const TEXT_PATTERN = /^[\p{L}][\p{L}\s.'-]{1,79}$/u;
 const ADDRESS_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N}\s,.-]{4,149}$/u;
 const POSTAL_CODE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 -]{2,19}$/;
@@ -60,6 +61,36 @@ function isAtLeastAge(value, years) {
   latestAllowed.setHours(0, 0, 0, 0);
   date.setHours(0, 0, 0, 0);
   return date <= latestAllowed;
+}
+
+function toDateInputValue(value) {
+  if (!value) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  const raw = String(value).trim();
+  const dateOnly = /^(\d{4}-\d{2}-\d{2})/.exec(raw);
+  if (dateOnly) return dateOnly[1];
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
+}
+
+function usernameFromAccount(account) {
+  return (
+    account?.username ??
+    account?.userName ??
+    account?.user_name ??
+    account?.preferred_username ??
+    ""
+  );
+}
+
+function firstNonBlank(...values) {
+  for (const value of values) {
+    const text = value == null ? "" : String(value).trim();
+    if (text) return text;
+  }
+  return "";
 }
 
 const EDUCATION_RANK_VALUES = [
@@ -107,19 +138,20 @@ const tintIconBox = {
 };
 
 function FormSectionCard({
-  icon: Glyph,
+  icon,
   tint = "violet",
   title,
   subtitle,
   children,
 }) {
+  const IconGlyph = icon;
   return (
     <div className="rounded-xl border border-default bg-light-card-bg p-5 shadow-sm backdrop-blur-sm dark:border-dark-card-border dark:bg-dark-card-bg dark:shadow-none sm:p-6">
       <div className="mb-5 flex gap-4">
         <div
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tintIconBox[tint]}`}
         >
-          <Glyph className="size-5" strokeWidth={1.75} />
+          <IconGlyph className="size-5" strokeWidth={1.75} />
         </div>
         <div className="min-w-0">
           <h3 className="text-sm font-semibold tracking-tight text-primary dark:text-dark-primary">
@@ -201,6 +233,15 @@ export default function EmployeeRegistrationWizard({
     isError: employeeFetchError,
   } = useEmployee(employeeId, {
     enabled: isEdit,
+    notifyOnError: false,
+  });
+
+  const authUserId =
+    existingEmployee?.keycloakId ||
+    existingEmployee?.linkedApplicationUserId ||
+    "";
+  const { data: authUser, isLoading: authUserLoading } = useUser(authUserId, {
+    enabled: isEdit && Boolean(authUserId),
     notifyOnError: false,
   });
 
@@ -303,6 +344,16 @@ export default function EmployeeRegistrationWizard({
   useEffect(() => {
     if (!isEdit || !employeeId) return;
     if (employeeLoading || !existingEmployee) return;
+    if (
+      !(
+        existingEmployee.username ||
+        existingEmployee.userName ||
+        existingEmployee.user_name
+      ) &&
+      authUserId &&
+      authUserLoading
+    )
+      return;
     if (hydratedRef.current === employeeId) return;
     hydratedRef.current = employeeId;
 
@@ -318,17 +369,19 @@ export default function EmployeeRegistrationWizard({
 
     reset({
       username:
-        existingEmployee.username ??
-        existingEmployee.userName ??
-        existingEmployee.user_name ??
-        "",
+        firstNonBlank(
+          existingEmployee.username,
+          existingEmployee.userName,
+          existingEmployee.user_name,
+          usernameFromAccount(authUser),
+        ),
       password: "",
       role: existingEmployee.role ?? "EMPLOYEE_USER",
       firstName: existingEmployee.firstName ?? "",
       lastName: existingEmployee.lastName ?? "",
       fatherName: existingEmployee.fatherName ?? "",
       grandFatherName: existingEmployee.grandFatherName ?? "",
-      dateOfBirth: existingEmployee.dateOfBirth ?? "",
+      dateOfBirth: toDateInputValue(existingEmployee.dateOfBirth),
       email: existingEmployee.email ?? "",
       phone: existingEmployee.phone ?? "",
       addressStreet: existingEmployee.addressStreet ?? "",
@@ -344,13 +397,17 @@ export default function EmployeeRegistrationWizard({
           : "BACHELOR",
       facultyPosition: posOk,
       hireDate:
-        existingEmployee.hireDate || new Date().toISOString().slice(0, 10),
+        toDateInputValue(existingEmployee.hireDate) ||
+        new Date().toISOString().slice(0, 10),
     });
   }, [
     isEdit,
     employeeId,
     employeeLoading,
     existingEmployee,
+    authUser,
+    authUserId,
+    authUserLoading,
     facultyOptions,
     reset,
   ]);
@@ -361,7 +418,13 @@ export default function EmployeeRegistrationWizard({
   const mapToApiBody = useCallback(
     (values) => {
       const body = {
-        userName: values.username.trim(),
+        userName: firstNonBlank(
+          values.username,
+          existingEmployee?.username,
+          existingEmployee?.userName,
+          existingEmployee?.user_name,
+          usernameFromAccount(authUser),
+        ),
         role: (values.role && values.role.trim()) || "EMPLOYEE_USER",
         faculty: values.faculty.trim(),
         firstName: values.firstName.trim(),
@@ -377,7 +440,7 @@ export default function EmployeeRegistrationWizard({
         address: {
           street: values.addressStreet.trim(),
           city: values.addressCity.trim(),
-          postalCode: values.addressPostalCode.trim(),
+          zip: values.addressPostalCode.trim(),
           province: (values.addressProvince ?? "").trim() || undefined,
         },
       };
@@ -388,7 +451,7 @@ export default function EmployeeRegistrationWizard({
       }
       return body;
     },
-    [isEdit],
+    [authUser, existingEmployee, isEdit],
   );
 
   const createMutation = useCreateEmployee({
@@ -493,17 +556,7 @@ export default function EmployeeRegistrationWizard({
       facultyLabel,
       educationLabel,
       positionReadable,
-      watched?.username,
-      watched?.firstName,
-      watched?.lastName,
-      watched?.fatherName,
-      watched?.grandFatherName,
-      watched?.dateOfBirth,
-      watched?.email,
-      watched?.phone,
-      watched?.addressCity,
-      watched?.addressPostalCode,
-      watched?.hireDate,
+      watched,
     ],
   );
 
@@ -538,13 +591,16 @@ export default function EmployeeRegistrationWizard({
               }
             >
               {isEdit ? (
-                <Field
-                  iconD={IC.contact}
-                  label={t("studentForm.fields.username.label")}
-                  autoComplete="username"
-                  disabled
-                  value={watched?.username ?? ""}
-                />
+                <>
+                  <input type="hidden" {...register("username")} />
+                  <Field
+                    iconD={IC.contact}
+                    label={t("studentForm.fields.username.label")}
+                    autoComplete="username"
+                    disabled
+                    value={watched?.username ?? ""}
+                  />
+                </>
               ) : (
                 <Field
                   iconD={IC.contact}
@@ -731,24 +787,37 @@ export default function EmployeeRegistrationWizard({
               title={t("studentForm.section.identity")}
               subtitle={t("studentForm.section.identitySub")}
             >
-              <Field
-                iconD={IC.calendar}
-                label={`${t("studentForm.fields.dateOfBirth.label")} *`}
-                type="date"
-                readOnly={isEdit}
-                register={register("dateOfBirth", {
-                  required: t("studentForm.validation.dateOfBirthRequired"),
-                  validate: (v) => {
-                    if (!v) return true;
-                    return isAtLeastAge(v, MIN_BIRTH_AGE_YEARS)
-                      ? true
-                      : t("studentForm.validation.dateOfBirthMinimumAge", {
-                          years: MIN_BIRTH_AGE_YEARS,
-                        });
-                  },
-                })}
-                error={errors.dateOfBirth?.message}
-              />
+              {isEdit ? (
+                <>
+                  <input type="hidden" {...register("dateOfBirth")} />
+                  <Field
+                    iconD={IC.calendar}
+                    label={`${t("studentForm.fields.dateOfBirth.label")} *`}
+                    type="date"
+                    disabled
+                    value={watched?.dateOfBirth ?? ""}
+                    error={errors.dateOfBirth?.message}
+                  />
+                </>
+              ) : (
+                <Field
+                  iconD={IC.calendar}
+                  label={`${t("studentForm.fields.dateOfBirth.label")} *`}
+                  type="date"
+                  register={register("dateOfBirth", {
+                    required: t("studentForm.validation.dateOfBirthRequired"),
+                    validate: (v) => {
+                      if (!v) return true;
+                      return isAtLeastAge(v, MIN_BIRTH_AGE_YEARS)
+                        ? true
+                        : t("studentForm.validation.dateOfBirthMinimumAge", {
+                            years: MIN_BIRTH_AGE_YEARS,
+                          });
+                    },
+                  })}
+                  error={errors.dateOfBirth?.message}
+                />
+              )}
             </FormSectionCard>
           </MotionDiv>
         );
@@ -823,7 +892,6 @@ export default function EmployeeRegistrationWizard({
                 iconD={IC.contact}
                 label={`${t("studentForm.fields.addressStreet.label")} *`}
                 placeholder={t("studentForm.fields.addressStreet.placeholder")}
-                readOnly={isEdit}
                 register={register("addressStreet", {
                   required: t("studentForm.validation.addressStreetRequired"),
                   minLength: {
@@ -846,7 +914,6 @@ export default function EmployeeRegistrationWizard({
                   iconD={IC.globe}
                   label={`${t("studentForm.fields.addressCity.label")} *`}
                   placeholder={t("studentForm.fields.addressCity.placeholder")}
-                  readOnly={isEdit}
                   register={register("addressCity", {
                     required: t("studentForm.validation.addressCityRequired"),
                     minLength: {
@@ -869,7 +936,6 @@ export default function EmployeeRegistrationWizard({
                   placeholder={t(
                     "studentForm.fields.addressPostalCode.placeholder",
                   )}
-                  readOnly={isEdit}
                   register={register("addressPostalCode", {
                     required: t("studentForm.validation.addressPostalRequired"),
                     pattern: {
@@ -885,7 +951,6 @@ export default function EmployeeRegistrationWizard({
                 placeholder={t(
                   "teacherForm.fields.addressProvince.placeholder",
                 )}
-                readOnly={isEdit}
                 register={register("addressProvince", {
                   validate: (value) => {
                     const v = String(value ?? "").trim();

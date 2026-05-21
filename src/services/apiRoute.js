@@ -383,8 +383,13 @@ function normalizeStudentRecord(raw) {
     addressPostalCode:
       addr.postalCode ??
       addr.postal_code ??
+      addr.zipCode ??
+      addr.zip_code ??
       addr.zip ??
       raw.addressPostalCode ??
+      raw.postalCode ??
+      raw.zipCode ??
+      raw.zip ??
       "",
     addressProvince: addr.province ?? raw.addressProvince ?? "",
   };
@@ -1547,8 +1552,13 @@ function normalizeTeacherRecord(raw) {
     addressPostalCode:
       addr.postalCode ??
       addr.postal_code ??
+      addr.zipCode ??
+      addr.zip_code ??
       addr.zip ??
       raw.addressPostalCode ??
+      raw.postalCode ??
+      raw.zipCode ??
+      raw.zip ??
       "",
     addressProvince:
       addr.province ?? raw.addressProvince ?? raw.address_province ?? "",
@@ -1799,13 +1809,40 @@ function normalizeEmployeeRecord(raw) {
     educationRank: raw.educationRank ?? raw.education_rank ?? "",
     facultyPosition: raw.facultyPosition ?? raw.faculty_position ?? "",
     hireDate: toDateInputValue(raw.hireDate ?? raw.hire_date),
+    keycloakId:
+      raw.keycloakId ??
+      raw.keycloak_id ??
+      raw.keycloakUserId ??
+      raw.keycloak_user_id ??
+      raw.keycloakSubject ??
+      raw.keycloak_subject ??
+      raw.keycloak ??
+      raw.realmUserId ??
+      raw.realm_user_id ??
+      "",
+    linkedApplicationUserId: (() => {
+      const u =
+        raw.applicationUserId ??
+        raw.application_user_id ??
+        raw.gatewayUserId ??
+        raw.gateway_user_id;
+      if (u != null && String(u).trim() !== "") return String(u).trim();
+      if (typeof raw.user === "object" && raw.user?.id != null)
+        return String(raw.user.id);
+      return "";
+    })(),
     addressStreet: addr.street ?? raw.addressStreet ?? raw.address_street ?? "",
     addressCity: addr.city ?? raw.addressCity ?? "",
     addressPostalCode:
       addr.postalCode ??
       addr.postal_code ??
+      addr.zipCode ??
+      addr.zip_code ??
       addr.zip ??
       raw.addressPostalCode ??
+      raw.postalCode ??
+      raw.zipCode ??
+      raw.zip ??
       "",
     addressProvince:
       addr.province ?? raw.addressProvince ?? raw.address_province ?? "",

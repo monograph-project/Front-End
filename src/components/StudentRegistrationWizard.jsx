@@ -30,6 +30,7 @@ import {
   useSemestersByAcademicYear,
   useStudent,
   useUpdateStudent,
+  useUser,
 } from "../services/useApi";
 
 const MotionDiv = motion.div;
@@ -39,7 +40,7 @@ const USERNAME_PATTERN =
 const PASSWORD_PATTERN =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
 const PHONE_PATTERN = /^07\d{8}$/;
-const PERSON_NAME_PATTERN = /^[\p{L}]{2,50}$/u;
+const PERSON_NAME_PATTERN = /^[\p{L}](?:[\p{L} .'-]{0,48}[\p{L}])$/u;
 const TEXT_PATTERN = /^[\p{L}][\p{L}\s.'-]{1,79}$/u;
 const ADDRESS_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N}\s,.-]{4,149}$/u;
 const POSTAL_CODE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 -]{2,19}$/;
@@ -52,6 +53,36 @@ function parseDateOnly(value) {
   if (!match) return null;
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function toDateInputValue(value) {
+  if (!value) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  const raw = String(value).trim();
+  const dateOnly = /^(\d{4}-\d{2}-\d{2})/.exec(raw);
+  if (dateOnly) return dateOnly[1];
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
+}
+
+function usernameFromAccount(account) {
+  return (
+    account?.username ??
+    account?.userName ??
+    account?.user_name ??
+    account?.preferred_username ??
+    ""
+  );
+}
+
+function firstNonBlank(...values) {
+  for (const value of values) {
+    const text = value == null ? "" : String(value).trim();
+    if (text) return text;
+  }
+  return "";
 }
 
 function isAtLeastAge(value, years) {
@@ -196,19 +227,20 @@ const tintIconBox = {
 };
 
 function FormSectionCard({
-  icon: Glyph,
+  icon,
   tint = "violet",
   title,
   subtitle,
   children,
 }) {
+  const IconGlyph = icon;
   return (
     <div className="rounded-xl border bg-light-card-bg p-5 shadow-sm backdrop-blur-sm dark:border-dark-card-border border-default dark:bg-dark-card-bg dark:shadow-none sm:p-6">
       <div className="mb-5 flex gap-4">
         <div
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tintIconBox[tint]}`}
         >
-          <Glyph className="size-5" strokeWidth={1.75} />
+          <IconGlyph className="size-5" strokeWidth={1.75} />
         </div>
         <div className="min-w-0">
           <h3 className="text-sm font-semibold tracking-tight text-primary dark:text-dark-primary">
@@ -265,6 +297,13 @@ export default function StudentRegistrationWizard({
     isError: studentFetchError,
   } = useStudent(studentId ?? "", {
     enabled: isEdit,
+    notifyOnError: false,
+  });
+
+  const authUserId =
+    existingStudent?.keycloakId || existingStudent?.linkedApplicationUserId || "";
+  const { data: authUser, isLoading: authUserLoading } = useUser(authUserId, {
+    enabled: isEdit && Boolean(authUserId),
     notifyOnError: false,
   });
 
@@ -428,6 +467,16 @@ export default function StudentRegistrationWizard({
   useEffect(() => {
     if (!isEdit || !studentId) return;
     if (studentLoading || !existingStudent) return;
+    if (
+      !(
+        existingStudent.username ||
+        existingStudent.userName ||
+        existingStudent.user_name
+      ) &&
+      authUserId &&
+      authUserLoading
+    )
+      return;
     if (departmentsLoading || batchesLoading) return;
     if (hydratedStudentIdRef.current === studentId) return;
     hydratedStudentIdRef.current = studentId;
@@ -440,10 +489,12 @@ export default function StudentRegistrationWizard({
 
     reset({
       username:
-        existingStudent.username ??
-        existingStudent.userName ??
-        existingStudent.user_name ??
-        "",
+        firstNonBlank(
+          existingStudent.username,
+          existingStudent.userName,
+          existingStudent.user_name,
+          usernameFromAccount(authUser),
+        ),
       password: "",
       role: existingStudent.role ?? "STUDENT_USER",
       firstName: existingStudent.firstName ?? "",
@@ -452,7 +503,7 @@ export default function StudentRegistrationWizard({
       grandFatherName: existingStudent.grandFatherName ?? "",
       nationality: existingStudent.nationality ?? "",
       gender: existingStudent.gender ?? "",
-      dateOfBirth: existingStudent.dateOfBirth ?? "",
+      dateOfBirth: toDateInputValue(existingStudent.dateOfBirth),
       email: existingStudent.email ?? "",
       phone: existingStudent.phone ?? "",
       addressStreet: existingStudent.addressStreet ?? "",
@@ -464,7 +515,8 @@ export default function StudentRegistrationWizard({
         ? String(existingStudent.academicYearId)
         : "",
       enrollmentDate:
-        existingStudent.enrollmentDate || new Date().toISOString().slice(0, 10),
+        toDateInputValue(existingStudent.enrollmentDate) ||
+        new Date().toISOString().slice(0, 10),
       kankorId: existingStudent.kankorId ?? "",
       semester:
         existingStudent.semester != null &&
@@ -489,6 +541,9 @@ export default function StudentRegistrationWizard({
     batchesLoading,
     departmentOptions,
     batchOptions,
+    authUser,
+    authUserId,
+    authUserLoading,
     reset,
   ]);
 
@@ -579,7 +634,7 @@ export default function StudentRegistrationWizard({
         address: {
           street: values.addressStreet.trim(),
           city: values.addressCity.trim(),
-          postalCode: values.addressPostalCode.trim(),
+          zip: values.addressPostalCode.trim(),
         },
       };
 
@@ -693,12 +748,7 @@ export default function StudentRegistrationWizard({
       academicYearName,
       semName,
       batchName,
-      watched?.username,
-      watched?.firstName,
-      watched?.lastName,
-      watched?.email,
-      watched?.addressCity,
-      watched?.addressPostalCode,
+      watched,
     ],
   );
 
@@ -729,13 +779,16 @@ export default function StudentRegistrationWizard({
               }
             >
               {isEdit ? (
-                <Field
-                  iconD={IC.contact}
-                  label={t("studentForm.fields.username.label")}
-                  autoComplete="username"
-                  disabled
-                  value={watched?.username ?? ""}
-                />
+                <>
+                  <input type="hidden" {...register("username")} />
+                  <Field
+                    iconD={IC.contact}
+                    label={t("studentForm.fields.username.label")}
+                    autoComplete="username"
+                    disabled
+                    value={watched?.username ?? ""}
+                  />
+                </>
               ) : (
                 <Field
                   iconD={IC.contact}
@@ -961,24 +1014,37 @@ export default function StudentRegistrationWizard({
                     />
                   )}
                 />
-                <Field
-                  iconD={IC.calendar}
-                  label={`${t("studentForm.fields.dateOfBirth.label")} *`}
-                  type="date"
-                  readOnly={isEdit}
-                  register={register("dateOfBirth", {
-                    required: t("studentForm.validation.dateOfBirthRequired"),
-                    validate: (v) => {
-                      if (!v) return true;
-                      return isAtLeastAge(v, MIN_BIRTH_AGE_YEARS)
-                        ? true
-                        : t("studentForm.validation.dateOfBirthMinimumAge", {
-                            years: MIN_BIRTH_AGE_YEARS,
-                          });
-                    },
-                  })}
-                  error={errors.dateOfBirth?.message}
-                />
+                {isEdit ? (
+                  <>
+                    <input type="hidden" {...register("dateOfBirth")} />
+                    <Field
+                      iconD={IC.calendar}
+                      label={`${t("studentForm.fields.dateOfBirth.label")} *`}
+                      type="date"
+                      disabled
+                      value={watched?.dateOfBirth ?? ""}
+                      error={errors.dateOfBirth?.message}
+                    />
+                  </>
+                ) : (
+                  <Field
+                    iconD={IC.calendar}
+                    label={`${t("studentForm.fields.dateOfBirth.label")} *`}
+                    type="date"
+                    register={register("dateOfBirth", {
+                      required: t("studentForm.validation.dateOfBirthRequired"),
+                      validate: (v) => {
+                        if (!v) return true;
+                        return isAtLeastAge(v, MIN_BIRTH_AGE_YEARS)
+                          ? true
+                          : t("studentForm.validation.dateOfBirthMinimumAge", {
+                              years: MIN_BIRTH_AGE_YEARS,
+                            });
+                      },
+                    })}
+                    error={errors.dateOfBirth?.message}
+                  />
+                )}
               </div>
               {errors.gender ? (
                 <p className="text-[11px] font-medium text-error">
@@ -1061,7 +1127,6 @@ export default function StudentRegistrationWizard({
                 iconD={IC.contact}
                 label={`${t("studentForm.fields.addressStreet.label")} *`}
                 placeholder={t("studentForm.fields.addressStreet.placeholder")}
-                readOnly={isEdit}
                 register={register("addressStreet", {
                   required: t("studentForm.validation.addressStreetRequired"),
                   minLength: {
@@ -1084,7 +1149,6 @@ export default function StudentRegistrationWizard({
                   iconD={IC.globe}
                   label={`${t("studentForm.fields.addressCity.label")} *`}
                   placeholder={t("studentForm.fields.addressCity.placeholder")}
-                  readOnly={isEdit}
                   register={register("addressCity", {
                     required: t("studentForm.validation.addressCityRequired"),
                     minLength: {

@@ -5,7 +5,20 @@ import DocumentViewerLoading from "../vcShared/DocumentViewerLoading";
 import DocumentViewerFileTypeIcon from "../vcShared/DocumentViewerFileTypeIcon";
 import FileDiffPanel from "./FileDiffPanel";
 
-function PRFilesDiffBody({ owner, repo, prNumber }) {
+function prRefValue(pr, keys) {
+  for (const key of keys) {
+    const raw = pr?.[key];
+    const value =
+      raw != null && typeof raw === "object"
+        ? raw.sha ?? raw.hash ?? raw.commitSha ?? raw.name
+        : raw;
+    const text = String(value ?? "").trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+function PRFilesDiffBody({ owner, repo, prNumber, pullRequest }) {
   const { t } = useTranslation();
   const { data, isLoading, isError, refetch } = useDiffData(
     owner,
@@ -96,6 +109,21 @@ function PRFilesDiffBody({ owner, repo, prNumber }) {
         prNumber={prNumber}
         fileIndex={safeIndex}
         status={activeMeta?.status ?? activeMeta?.changeType}
+        fallbackMeta={activeMeta}
+        fallbackBaseRef={prRefValue(pullRequest, [
+          "target_hash",
+          "targetHash",
+          "baseSha",
+          "baseCommit",
+          "base",
+        ])}
+        fallbackHeadRef={prRefValue(pullRequest, [
+          "source_hash",
+          "sourceHash",
+          "headSha",
+          "headCommit",
+          "head",
+        ])}
         filePath={
           activeMeta?.filename ??
           activeMeta?.path ??

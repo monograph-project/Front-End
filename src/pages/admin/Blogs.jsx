@@ -15,8 +15,6 @@ import { useTranslation } from "react-i18next";
 import BlogModerationCard from "../../components/BlogModerationCard";
 import Select from "../../components/Select";
 import Button from "../../components/Button";
-import RepoOverviewStatCard from "../../components/repo/RepoOverviewStatCard";
-import { REPO_OVERVIEW_STAT_PALETTES } from "../../components/repo/repoOverviewStatPalettes";
 import { cn } from "../../lib/utils";
 import { mapArticleToAdminBlog } from "../../lib/adminArticleMap";
 import {
@@ -31,27 +29,67 @@ const SURFACE_CARD =
 const SURFACE_INSET =
   "rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary";
 
-function SummaryStat({ label, value, hint, icon, active = false, onClick, paletteIndex = 0 }) {
+const STAT_ACCENTS = [
+  {
+    shell: "border-sky-200 bg-sky-50/70 text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300",
+    dot: "bg-sky-500",
+  },
+  {
+    shell: "border-amber-200 bg-amber-50/70 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300",
+    dot: "bg-amber-500",
+  },
+  {
+    shell: "border-emerald-200 bg-emerald-50/70 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+  },
+  {
+    shell: "border-violet-200 bg-violet-50/70 text-violet-700 dark:border-violet-500/25 dark:bg-violet-500/10 dark:text-violet-300",
+    dot: "bg-violet-500",
+  },
+];
+
+function SummaryStat({
+  label,
+  value,
+  hint,
+  icon,
+  onClick,
+  paletteIndex = 0,
+}) {
+  const accent = STAT_ACCENTS[paletteIndex % STAT_ACCENTS.length];
   return (
     <button
       type="button"
       className={cn(
-        "block w-full rounded-3xl text-left outline-none transition-transform focus-visible:ring-2 focus-visible:ring-(--color-light-input-border-focus) dark:focus-visible:ring-(--color-dark-input-border-focus)",
-        active && "ring-2 ring-blue-500/20 dark:ring-blue-400/20",
+        "group block w-full rounded-lg border bg-white p-4 text-left shadow-sm outline-none transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-(--color-light-input-border-focus) dark:bg-dark-card-bg dark:focus-visible:ring-(--color-dark-input-border-focus)",
+        "border-(--color-light-card-border) dark:border-(--color-dark-card-border)",
       )}
       onClick={onClick}
     >
-      <RepoOverviewStatCard
-        icon={icon}
-        label={label}
-        value={value}
-        hint={hint}
-        palette={
-          REPO_OVERVIEW_STAT_PALETTES[
-            paletteIndex % REPO_OVERVIEW_STAT_PALETTES.length
-          ]
-        }
-      />
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase text-muted dark:text-dark-muted">
+            <span className={cn("size-1.5 rounded-full", accent.dot)} />
+            {label}
+          </span>
+          <p className="mt-3 text-3xl font-semibold tabular-nums text-primary dark:text-dark-primary">
+            {value}
+          </p>
+        </div>
+        <div
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-lg border",
+            accent.shell,
+          )}
+        >
+          {React.createElement(icon, { className: "size-5", strokeWidth: 1.8 })}
+        </div>
+      </div>
+      {hint ? (
+        <p className="mt-3 line-clamp-2 text-xs leading-5 text-secondary dark:text-dark-secondary">
+          {hint}
+        </p>
+      ) : null}
     </button>
   );
 }
@@ -270,7 +308,7 @@ function Blogs() {
             </div>
           </div>
 
-          <div className="grid gap-4 px-4 py-6 md:grid-cols-2 md:px-6 xl:grid-cols-4">
+          <div className="grid gap-3 px-4 py-5 md:grid-cols-2 md:px-6 xl:grid-cols-4">
             {topSummaryCards.map((card) => (
               <SummaryStat key={card.label} {...card} />
             ))}

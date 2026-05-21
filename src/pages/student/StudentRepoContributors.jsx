@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Clock,
-  Mail,
   Send,
   ShieldCheck,
   UserPlus,
@@ -11,7 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation, useOutletContext } from "react-router-dom";
+import { useLocation, useOutletContext } from "react-router-dom";
 import Avatar from "../../components/Avatar";
 import Button from "../../components/Button";
 import GlobalModal from "../../components/GlobalModal";
@@ -362,99 +361,6 @@ export default function StudentRepoContributors() {
         </div>
 
         <div className="mt-5 space-y-4">
-          {!collaboratorCards.length ? (
-            <p className="text-sm text-muted dark:text-dark-muted">
-              {t("studentRepo.contributors.empty")}
-            </p>
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              {collaboratorCards.map((person, idx) => (
-                <article
-                  key={person.key}
-                  className="group relative overflow-hidden rounded-3xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-xs transition-all duration-200 hover:border-(--color-light-input-border-focus) hover:shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:hover:border-(--color-dark-input-border-focus)"
-                  style={{
-                    animationDelay: `${Math.min(idx, 8) * 40}ms`,
-                  }}
-                >
-                  <div
-                    className={`pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-linear-to-r opacity-95 ${
-                      idx % 3 === 0
-                        ? "from-(--color-chart-blue-primary) to-(--color-chart-blue-secondary)"
-                        : idx % 3 === 1
-                          ? "from-chart-success/90 to-teal-600/70 dark:to-teal-500/55"
-                          : "from-(--color-chart-blue-secondary)/85 to-(--color-chart-blue-primary)/70"
-                    }`}
-                  />
-                  <div className="relative bg-linear-to-br from-(--color-light-card-bg) via-white to-light-app-tertiary p-px dark:via-(--color-dark-card-bg) dark:to-dark-app-tertiary">
-                    <div className="rounded-[calc(1.5rem-1px)] bg-(--color-light-card-bg) p-4 dark:bg-(--color-dark-card-bg)">
-                      <div className="flex items-start gap-4">
-                        <div className="relative shrink-0">
-                          <div className="absolute -inset-0.5 rounded-full bg-linear-to-br from-(--color-chart-blue-primary)/25 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:from-(--color-chart-blue-secondary)/20" />
-                          {person.profilePath ? (
-                            <Link to={person.profilePath}>
-                              <Avatar
-                                src={person.avatarUrl}
-                                alt={person.name}
-                                initials={person.initials}
-                                className="relative rounded-full ring-2 ring-(--color-light-card-border) ring-offset-2 ring-offset-(--color-light-card-bg) dark:ring-(--color-dark-card-border) dark:ring-offset-dark-card-bg"
-                                sizeClass="inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
-                              />
-                            </Link>
-                          ) : (
-                            <Avatar
-                              src={person.avatarUrl}
-                              alt={person.name}
-                              initials={person.initials}
-                              className="relative rounded-full ring-2 ring-(--color-light-card-border) ring-offset-2 ring-offset-(--color-light-card-bg) dark:ring-(--color-dark-card-border) dark:ring-offset-dark-card-bg"
-                              sizeClass="inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-(--color-light-card-border) dark:border-(--color-dark-card-border)"
-                            />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {person.profilePath ? (
-                              <Link
-                                to={person.profilePath}
-                                className="truncate text-[15px] font-semibold tracking-tight text-primary underline-offset-4 hover:underline dark:text-dark-primary"
-                              >
-                                {person.name}
-                              </Link>
-                            ) : (
-                              <p className="truncate text-[15px] font-semibold tracking-tight text-primary dark:text-dark-primary">
-                                {person.name}
-                              </p>
-                            )}
-                            <span className="rounded-full border border-(--color-light-input-border) bg-light-app-tertiary px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-secondary dark:border-dark-input-border dark:bg-dark-app-tertiary dark:text-dark-secondary">
-                              {person.role}
-                            </span>
-                          </div>
-                          {person.username ? (
-                            <p className="mt-1.5 text-xs font-mono text-(--color-chart-blue-primary) dark:text-(--color-chart-blue-secondary)">
-                              @{person.username}
-                            </p>
-                          ) : null}
-                          {person.email ? (
-                            <div className="mt-2 flex items-center gap-2 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-2.5 py-2 text-xs text-secondary dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary dark:text-dark-secondary">
-                              <Mail
-                                className="h-3.5 w-3.5 shrink-0 text-muted dark:text-dark-muted"
-                                strokeWidth={1.8}
-                              />
-                              <span className="min-w-0 truncate">{person.email}</span>
-                            </div>
-                          ) : null}
-                          <div className="mt-3 h-px w-full bg-linear-to-r from-transparent via-light-divider to-transparent dark:via-dark-divider" />
-                          <p className="mt-3 text-[11px] font-medium text-muted dark:text-dark-muted">
-                            {t("studentRepo.contributors.cards.activeMember")}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-
           {invitationRows.length ? (
             <section className="overflow-hidden rounded-3xl border border-(--color-light-card-border) bg-(--color-light-card-bg) shadow-md dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg)">
               <div className="border-b border-light-divider bg-linear-to-r from-light-app-tertiary to-(--color-light-card-bg) px-5 py-4 dark:border-dark-divider dark:from-dark-app-tertiary dark:to-(--color-dark-card-bg)">

@@ -12,6 +12,9 @@ export default function FileDiffPanel({
   fileIndex,
   filePath,
   status,
+  fallbackMeta,
+  fallbackBaseRef,
+  fallbackHeadRef,
 }) {
   const { t } = useTranslation();
 
@@ -27,6 +30,9 @@ export default function FileDiffPanel({
         fileIndex={fileIndex}
         filePath={filePath}
         status={status}
+        fallbackMeta={fallbackMeta}
+        fallbackBaseRef={fallbackBaseRef}
+        fallbackHeadRef={fallbackHeadRef}
       />
     </div>
   );

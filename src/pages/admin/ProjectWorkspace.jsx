@@ -29,6 +29,8 @@ import Button from "../../components/Button";
 import GlobalModal from "../../components/GlobalModal";
 import PersonAvatar from "../../components/PersonAvatar";
 import ProjectRepositoryDocsPanel from "../../components/project/ProjectRepositoryDocsPanel";
+import RepoOverviewStatCard from "../../components/repo/RepoOverviewStatCard";
+import { REPO_OVERVIEW_STAT_PALETTES } from "../../components/repo/repoOverviewStatPalettes";
 import SearchableSelect from "../../components/SearchableSelect";
 import { useAuth } from "../../context/AuthContext";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
@@ -485,61 +487,6 @@ function peopleFromStats(rows) {
       score: safePercent(row?.marksPercentage ?? row?.activityScore),
     };
   });
-}
-
-function StatCard({ icon, label, value, hint, tone = "sky" }) {
-  const tones = {
-    sky: {
-      shell:
-        "border-sky-200/80 bg-linear-to-br from-sky-50 via-white to-cyan-50 dark:border-sky-500/20 dark:from-sky-500/12 dark:via-dark-card-bg dark:to-cyan-500/10",
-      icon: "border-sky-200 bg-white text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300",
-    },
-    emerald: {
-      shell:
-        "border-emerald-200/80 bg-linear-to-br from-emerald-50 via-white to-teal-50 dark:border-emerald-500/20 dark:from-emerald-500/12 dark:via-dark-card-bg dark:to-teal-500/10",
-      icon: "border-emerald-200 bg-white text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300",
-    },
-    violet: {
-      shell:
-        "border-violet-200/80 bg-linear-to-br from-violet-50 via-white to-fuchsia-50 dark:border-violet-500/20 dark:from-violet-500/12 dark:via-dark-card-bg dark:to-fuchsia-500/10",
-      icon: "border-violet-200 bg-white text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300",
-    },
-    amber: {
-      shell:
-        "border-amber-200/80 bg-linear-to-br from-amber-50 via-white to-orange-50 dark:border-amber-500/20 dark:from-amber-500/12 dark:via-dark-card-bg dark:to-orange-500/10",
-      icon: "border-amber-200 bg-white text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300",
-    },
-  };
-  const palette = tones[tone] ?? tones.sky;
-  return (
-    <div
-      className={`group relative overflow-hidden rounded-3xl border p-4 shadow-xs transition-transform duration-300 hover:-translate-y-0.5 hover:shadow-md ${palette.shell}`}
-    >
-      <div className="absolute inset-x-0 top-0 h-1 bg-current opacity-10" />
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted dark:text-dark-muted">
-            {label}
-          </p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums text-primary dark:text-dark-primary">
-            {value}
-          </p>
-          <p className="mt-1 text-xs leading-5 text-secondary dark:text-dark-secondary">
-            {hint}
-          </p>
-        </div>
-        <span
-          className={`flex size-11 shrink-0 items-center justify-center rounded-full border shadow-sm ${palette.icon}`}
-        >
-          {createElement(icon, {
-            className: "size-5",
-            strokeWidth: 1.8,
-            "aria-hidden": true,
-          })}
-        </span>
-      </div>
-    </div>
-  );
 }
 
 function SectionHeader({ icon, eyebrow, title, description, action }) {
@@ -1074,6 +1021,51 @@ export default function ProjectWorkspace() {
     return [supervisor, ...students];
   }, [project?.group, project?.teacher, projectMembers, rawContributors]);
 
+  const overviewStatTiles = useMemo(
+    () => [
+      {
+        key: "people",
+        icon: Users,
+        label: "People",
+        value: people.length,
+        hint: "Supervisor plus project contributors.",
+        paletteIndex: 0,
+      },
+      {
+        key: "tasks",
+        icon: ListChecks,
+        label: "Tasks",
+        value: tasks.length,
+        hint: `${completedTasks} completed, ${reviewTasks} in review.`,
+        paletteIndex: 1,
+      },
+      {
+        key: "milestones",
+        icon: Milestone,
+        label: "Milestones",
+        value: milestones.length,
+        hint: "Project delivery checkpoints.",
+        paletteIndex: 2,
+      },
+      {
+        key: "commits",
+        icon: GitCommitHorizontal,
+        label: "Commits",
+        value: totalCommits,
+        hint: "Repository activity signal.",
+        paletteIndex: 3,
+      },
+    ],
+    [
+      completedTasks,
+      milestones.length,
+      people.length,
+      reviewTasks,
+      tasks.length,
+      totalCommits,
+    ],
+  );
+
   const selectedPerson =
     people.find((person) => person.id === selectedPersonId) ?? people[0];
 
@@ -1556,34 +1548,20 @@ export default function ProjectWorkspace() {
         </nav>
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            icon={Users}
-            label="People"
-            value={people.length}
-            hint="Supervisor plus project contributors."
-            tone="sky"
-          />
-          <StatCard
-            icon={ListChecks}
-            label="Tasks"
-            value={tasks.length}
-            hint={`${completedTasks} completed, ${reviewTasks} in review.`}
-            tone="emerald"
-          />
-          <StatCard
-            icon={Milestone}
-            label="Milestones"
-            value={milestones.length}
-            hint="Project delivery checkpoints."
-            tone="violet"
-          />
-          <StatCard
-            icon={GitCommitHorizontal}
-            label="Commits"
-            value={totalCommits}
-            hint="Repository activity signal."
-            tone="amber"
-          />
+          {overviewStatTiles.map((card) => (
+            <RepoOverviewStatCard
+              key={card.key}
+              icon={card.icon}
+              label={card.label}
+              value={card.value}
+              hint={card.hint}
+              palette={
+                REPO_OVERVIEW_STAT_PALETTES[
+                  card.paletteIndex % REPO_OVERVIEW_STAT_PALETTES.length
+                ]
+              }
+            />
+          ))}
         </section>
 
         {activePanel === "overview" ? (

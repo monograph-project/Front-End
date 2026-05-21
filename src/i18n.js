@@ -2404,7 +2404,7 @@ const resources = {
       "studentForm.validation.lastNameRequired": "Last name is required",
       "studentForm.validation.nameLength": "2–50 characters",
       "studentForm.validation.namePattern":
-        "Use letters only. Numbers, spaces, and symbols are not allowed",
+        "Use letters, spaces, apostrophes, dots, or hyphens only",
       "studentForm.validation.textLength": "2–80 characters",
       "studentForm.validation.textPattern":
         "Use letters, spaces, apostrophes, dots, or hyphens only",
@@ -3688,15 +3688,15 @@ const resources = {
         "Only accepted or published posts have passed moderation.",
       "blogAdmin.summary.totalBlogs": "Total blogs",
       "blogAdmin.summary.totalBlogsHint":
-        "ټولې مسودې، په تمه، منل شوې او خپرې شوې مقالې.",
+        "All draft, waiting, accepted, and published articles.",
       "blogAdmin.summary.waitingReview": "Waiting review",
       "blogAdmin.summary.waitingReviewHint":
-        "هغه سپارښتنې چې لا هم د مدیر پرېکړې ته اړتیا لري.",
+        "Submissions that still need an admin decision.",
       "blogAdmin.summary.accepted": "Accepted",
       "blogAdmin.summary.acceptedHint":
         "Approved and ready for scheduling or publish.",
       "blogAdmin.summary.published": "Published",
-      "blogAdmin.summary.publishedHint": "همدا اوس کاروونکو ته ښکاره دي.",
+      "blogAdmin.summary.publishedHint": "Visible to readers right now.",
       "blogAdmin.collection.eyebrow": "Collection",
       "blogAdmin.collection.title": "Blog collection",
       "blogAdmin.collection.description":
@@ -6239,7 +6239,7 @@ const resources = {
       "studentForm.validation.lastNameRequired": "تخلص ضروري دی",
       "studentForm.validation.nameLength": "۲–۵۰ توری",
       "studentForm.validation.namePattern":
-        "یوازې توري وکاروئ. شمېرې، تشې او نښې مه کاروئ",
+        "یوازې توري، تشې، اپاستروف، نقطه یا هایفن وکاروئ",
       "studentForm.validation.textLength": "۲–۸۰ توري",
       "studentForm.validation.textPattern":
         "یوازې توري، تشې، اپاستروف، نقطه یا هایفن وکاروئ",
@@ -10066,7 +10066,7 @@ const resources = {
       "studentForm.validation.lastNameRequired": "تخلص ضروری است",
       "studentForm.validation.nameLength": "۲ تا ۵۰ نویسه",
       "studentForm.validation.namePattern":
-        "فقط حروف مجاز است. عدد، فاصله و نشانه مجاز نیست",
+        "فقط حروف، فاصله، اپاستروف، نقطه یا خط فاصله وارد کنید",
       "studentForm.validation.textLength": "۲ تا ۸۰ نویسه",
       "studentForm.validation.textPattern":
         "فقط حروف، فاصله، اپاستروف، نقطه یا خط فاصله وارد کنید",

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:force": "vite --force",
-    "dev:reset": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$cache = Join-Path ($env:LOCALAPPDATA ? $env:LOCALAPPDATA : (Join-Path (Get-Location) '.local-cache')) 'finalproject-vite-cache'; Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; if (Test-Path 'node_modules/.vite') { Remove-Item -Recurse -Force 'node_modules/.vite' }; if (Test-Path '.vite-cache') { Remove-Item -Recurse -Force '.vite-cache' }; if (Test-Path $cache) { Remove-Item -Recurse -Force $cache }; npm run dev:force\"",
+    "dev:reset": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$cacheRoot = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { Join-Path (Get-Location) '.local-cache' }; $cache = Join-Path $cacheRoot 'finalproject-vite-cache'; Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; if (Test-Path 'node_modules/.vite') { Remove-Item -Recurse -Force 'node_modules/.vite' }; if (Test-Path '.vite-cache') { Remove-Item -Recurse -Force '.vite-cache' }; if (Test-Path $cache) { Remove-Item -Recurse -Force $cache }; npm run dev:force\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

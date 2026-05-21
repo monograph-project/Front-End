@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import Button from "../../components/Button";
 import Field from "../../components/Field";
 import GlobalModal from "../../components/GlobalModal";
+import MergedPullRequestHistoryDiff from "../../components/PullRequest/MergedPullRequestHistoryDiff";
 import PRFilesDiff from "../../components/PullRequest/PRFilesDiff";
 import SearchableSelect from "../../components/SearchableSelect";
 import { useAuth } from "../../context/AuthContext";
@@ -26,7 +27,6 @@ import {
   canSubmitAssignedVcTaskWork,
   canViewRepoIssueGradingContext,
   repoViewerUsername,
-  taskVcHasSubmissionSignals,
   taskVcSubmissionPullNumber,
   usernamesLikelySame,
 } from "../../lib/vcAcademicVisibility";
@@ -35,6 +35,7 @@ import {
   useVcEligibleRepoTaskPullRequests,
   useVcRepoContributors,
   useVcRepoMilestones,
+  useVcRepoPullRequests,
   useVcRepoTaskByNumber,
   useVcReviewRepoTask,
   useVcSubmitRepoTask,
@@ -66,6 +67,44 @@ function formatDate(value, locale) {
     month: "short",
     day: "numeric",
   }).format(date);
+}
+
+function dueDateMs(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.getTime();
+}
+
+function formatTimeRemaining(targetMs, nowMs, t) {
+  if (!targetMs) return t("studentRepo.tasks.detail.none");
+  const diff = targetMs - nowMs;
+  if (diff <= 0) {
+    return t("studentRepo.tasks.taskDetail.timerExpired", "Due now");
+  }
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const days = Math.floor(diff / day);
+  const hours = Math.floor((diff % day) / hour);
+  const minutes = Math.floor((diff % hour) / minute);
+  if (days > 0) {
+    return t("studentRepo.tasks.taskDetail.timerDays", {
+      defaultValue: "{{days}}d {{hours}}h left",
+      days,
+      hours,
+    });
+  }
+  if (hours > 0) {
+    return t("studentRepo.tasks.taskDetail.timerHours", {
+      defaultValue: "{{hours}}h {{minutes}}m left",
+      hours,
+      minutes,
+    });
+  }
+  return t("studentRepo.tasks.taskDetail.timerMinutes", {
+    defaultValue: "{{minutes}}m left",
+    minutes: Math.max(1, minutes),
+  });
 }
 
 function normalizeTaskStatus(value) {
@@ -145,6 +184,79 @@ function pullRequestOptionLabel(pr, t) {
     t("studentRepo.pulls.card.untitled");
   const sourceBranch = String(pr?.sourceBranch ?? "").trim();
   return sourceBranch ? `${title} (${sourceBranch})` : title;
+}
+
+function pullRequestIdentityValues(pr) {
+  return [
+    pr?.id,
+    pr?.number,
+    pr?.pullRequestId,
+    pr?.pull_request_id,
+    pr?.hash,
+    pr?.uuid,
+  ]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+}
+
+function pullRequestStatusValue(pr) {
+  return String(pr?.status ?? pr?.state ?? "OPENED")
+    .trim()
+    .toUpperCase();
+}
+
+function isMergedPullRequest(pr) {
+  const status = pullRequestStatusValue(pr);
+  return status === "MERGED" || status === "MERGE";
+}
+
+function pullRequestSourceHash(pr) {
+  return String(pr?.source_hash ?? pr?.sourceHash ?? "").trim();
+}
+
+function pullRequestTargetHash(pr) {
+  return String(pr?.target_hash ?? pr?.targetHash ?? "").trim();
+}
+
+function pullRequestMergeHash(pr) {
+  return String(
+    pr?.merge_hash ??
+      pr?.mergeHash ??
+      pr?.merge_commit_sha ??
+      pr?.mergeCommitSha ??
+      pr?.mergeCommit ??
+      "",
+  ).trim();
+}
+
+function reviewEntriesFromTask(task) {
+  const candidates = [
+    task?.reviews,
+    task?.reviewHistory,
+    task?.review_history,
+    task?.reviewCommentsHistory,
+    task?.review_comments_history,
+  ];
+  const list = candidates.find(Array.isArray) ?? [];
+  return list
+    .map((item, index) => {
+      if (typeof item === "string") {
+        return { id: index, comments: item };
+      }
+      return {
+        id: item?.id ?? item?.reviewId ?? index,
+        reviewer: item?.reviewedBy ?? item?.reviewer ?? item?.createdBy,
+        comments:
+          item?.reviewComments ??
+          item?.comments ??
+          item?.feedback ??
+          item?.message ??
+          "",
+        score: item?.score ?? item?.earnedScore,
+        createdAt: item?.createdAt ?? item?.reviewedAt ?? item?.completedAt,
+      };
+    })
+    .filter((item) => String(item.comments ?? "").trim());
 }
 
 /**
@@ -264,7 +376,8 @@ export default function StudentRepoTaskDetail() {
   const [submitOpen, setSubmitOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewChangesOpen, setReviewChangesOpen] = useState(false);
-  const [changesReviewed, setChangesReviewed] = useState(false);
+  const [changesReviewedKey, setChangesReviewedKey] = useState(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [submitDraft, setSubmitDraft] = useState({
     pullRequestId: "",
     description: "",
@@ -275,6 +388,11 @@ export default function StudentRepoTaskDetail() {
     approved: false,
     checkedRequirements: "",
   });
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const taskNumber = taskNumberParam;
   const {
@@ -292,6 +410,11 @@ export default function StudentRepoTaskDetail() {
     { state: "all" },
     { notifyOnError: false },
   );
+
+  const { data: pullRequests = [] } = useVcRepoPullRequests(owner, repo, {
+    enabled: Boolean(owner && repo),
+    notifyOnError: false,
+  });
 
   const milestoneMap = useMemo(() => {
     const map = new Map();
@@ -361,6 +484,8 @@ export default function StudentRepoTaskDetail() {
   const detailStatus = normalizeTaskStatus(task?.status);
   const detailPriority = normalizePriority(task?.priority);
   const dueDate = formatDate(task?.dueDate, i18n.language);
+  const dueMs = dueDateMs(task?.dueDate);
+  const timeRemaining = formatTimeRemaining(dueMs, nowMs, t);
   const completedDate = formatDate(task?.completedAt, i18n.language);
   const checklist = asArray(task?.requirementsChecklist);
   const labels = asArray(task?.labels);
@@ -424,11 +549,24 @@ export default function StudentRepoTaskDetail() {
 
   const assigneeTrim = String(assigneeName ?? "").trim();
   const storedPrNumber = task ? taskVcSubmissionPullNumber(task) : null;
-
-  useEffect(() => {
-    setChangesReviewed(false);
-    setReviewChangesOpen(false);
-  }, [storedPrNumber, taskNumber]);
+  const submittedChangesKey = `${String(taskNumber ?? "")}:${String(storedPrNumber ?? "")}`;
+  const changesReviewed = changesReviewedKey === submittedChangesKey;
+  const submittedPullRequest = useMemo(() => {
+    if (storedPrNumber == null) return null;
+    const wanted = String(storedPrNumber).trim();
+    return (
+      pullRequests.find((pr) =>
+        pullRequestIdentityValues(pr).some((value) => value === wanted),
+      ) ?? null
+    );
+  }, [pullRequests, storedPrNumber]);
+  const submittedPrMerged = isMergedPullRequest(submittedPullRequest);
+  const submittedPrTargetHash = pullRequestTargetHash(submittedPullRequest);
+  const submittedPrResultHash =
+    submittedPrMerged && pullRequestMergeHash(submittedPullRequest)
+      ? pullRequestMergeHash(submittedPullRequest)
+      : pullRequestSourceHash(submittedPullRequest);
+  const reviewEntries = useMemo(() => reviewEntriesFromTask(task), [task]);
 
   const canManageAssign =
     Boolean(task) &&
@@ -526,6 +664,7 @@ export default function StudentRepoTaskDetail() {
         : "";
 
   async function runSubmit() {
+    if (!canSubmitWork) return;
     await submitMutation.mutateAsync({
       owner,
       repo,
@@ -655,8 +794,12 @@ export default function StudentRepoTaskDetail() {
                 value={
                   detailMilestone ? (
                     <Link
-                      to={`../milestone/${encodeURIComponent(String(task.milestoneNumber))}`}
-                      relative="path"
+                      to={
+                        repoBase
+                          ? `${repoBase}/tasks/milestone/${encodeURIComponent(String(task.milestoneNumber))}`
+                          : `../../milestone/${encodeURIComponent(String(task.milestoneNumber))}`
+                      }
+                      relative={repoBase ? undefined : "path"}
                       className="font-medium text-(--color-chart-blue-primary) underline-offset-2 hover:underline dark:text-(--color-chart-blue-secondary)"
                     >
                       {detailMilestone.title ||
@@ -671,6 +814,18 @@ export default function StudentRepoTaskDetail() {
                 icon={CalendarDays}
                 label={t("studentRepo.tasks.detail.dueLabel")}
                 value={dueDate || t("studentRepo.tasks.detail.none")}
+              />
+              <DetailRow
+                icon={CalendarDays}
+                label={t(
+                  "studentRepo.tasks.taskDetail.timeRemaining",
+                  "Time remaining",
+                )}
+                value={
+                  detailStatus === "completed"
+                    ? t("studentRepo.tasks.status.completed")
+                    : timeRemaining
+                }
               />
               <DetailRow
                 icon={Flag}
@@ -826,6 +981,60 @@ export default function StudentRepoTaskDetail() {
                     label={t("studentRepo.tasks.detail.reviewCommentsLabel")}
                     value={task.reviewComments}
                   />
+                ) : null}
+                {canViewGrading && reviewEntries.length ? (
+                  <div className="md:col-span-2 rounded-xl border border-(--color-light-card-border) bg-light-app-tertiary px-3 py-3 dark:border-(--color-dark-card-border) dark:bg-dark-app-tertiary">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 text-muted dark:text-dark-muted">
+                        <ClipboardList className="h-4 w-4" strokeWidth={1.8} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted dark:text-dark-muted">
+                          {t(
+                            "studentRepo.tasks.detail.reviewHistoryLabel",
+                            "Review comments",
+                          )}
+                        </p>
+                        <div className="mt-2 space-y-2">
+                          {reviewEntries.map((entry) => (
+                            <div
+                              key={entry.id}
+                              className="rounded-lg border border-(--color-light-card-border) bg-(--color-light-card-bg) p-3 text-sm text-primary dark:border-(--color-dark-card-border) dark:bg-(--color-dark-card-bg) dark:text-dark-primary"
+                            >
+                              <p className="wrap-break-word">
+                                {entry.comments}
+                              </p>
+                              <p className="mt-2 text-[11px] text-muted dark:text-dark-muted">
+                                {[
+                                  entry.reviewer
+                                    ? t(
+                                        "studentRepo.tasks.detail.reviewedByValue",
+                                        {
+                                          defaultValue: "Reviewed by {{user}}",
+                                          user: entry.reviewer,
+                                        },
+                                      )
+                                    : null,
+                                  entry.score != null
+                                    ? t(
+                                        "studentRepo.tasks.detail.reviewScoreValue",
+                                        {
+                                          defaultValue: "Score {{score}}",
+                                          score: entry.score,
+                                        },
+                                      )
+                                    : null,
+                                  formatDate(entry.createdAt, i18n.language),
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 ) : null}
                 {task.submissionBranch ? (
                   <DetailRow
@@ -984,7 +1193,7 @@ export default function StudentRepoTaskDetail() {
       )}
 
       <GlobalModal
-        open={submitOpen}
+        open={submitOpen && canSubmitWork}
         setOpen={setSubmitOpen}
         isClose
         title={t("studentRepo.tasks.taskDetail.submitModalTitle")}
@@ -1001,7 +1210,11 @@ export default function StudentRepoTaskDetail() {
             <Button
               onClick={runSubmit}
               loading={submitMutation.isPending}
-              disabled={submitMutation.isPending || !submitHasMinimalPayload}
+              disabled={
+                submitMutation.isPending ||
+                !submitHasMinimalPayload ||
+                !canSubmitWork
+              }
             >
               {t("studentRepo.tasks.taskDetail.submitConfirm")}
             </Button>
@@ -1110,7 +1323,7 @@ export default function StudentRepoTaskDetail() {
             </Button>
             <Button
               onClick={() => {
-                setChangesReviewed(true);
+                setChangesReviewedKey(submittedChangesKey);
                 setReviewChangesOpen(false);
                 setReviewOpen(true);
               }}
@@ -1126,7 +1339,21 @@ export default function StudentRepoTaskDetail() {
         className="max-w-6xl"
       >
         {storedPrNumber != null ? (
-          <PRFilesDiff owner={owner} repo={repo} prNumber={storedPrNumber} />
+          submittedPrMerged ? (
+            <MergedPullRequestHistoryDiff
+              owner={owner}
+              repo={repo}
+              sourceHash={submittedPrResultHash}
+              targetHash={submittedPrTargetHash}
+            />
+          ) : (
+            <PRFilesDiff
+              owner={owner}
+              repo={repo}
+              prNumber={storedPrNumber}
+              pullRequest={submittedPullRequest}
+            />
+          )
         ) : (
           <p className="text-sm text-muted dark:text-dark-muted">
             {t("studentRepo.tasks.taskDetail.reviewModalSubtitleNoPr")}

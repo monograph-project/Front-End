@@ -257,59 +257,6 @@ export default function Employee() {
     });
   };
 
-  const exportToCSV = () => {
-    const headers = [
-      "ID",
-      "First Name",
-      "Last Name",
-      "Email",
-      "Username",
-      "Department",
-      "Status",
-      "Joined",
-    ];
-    const csvContent = [
-      headers.join(","),
-      ...employees.map((employee) =>
-        [
-          employee.id,
-          employee.firstName,
-          employee.lastName,
-          employee.email,
-          employee.username ?? "",
-          employee.department,
-          employee.status,
-          employee.joined,
-        ]
-          .map((field) => `"${field}"`)
-          .join(","),
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "employees.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleAction = (action) => {
-    switch (action) {
-      case "export":
-        exportToCSV();
-        break;
-      case "import":
-        window.GooeyToaster?.info?.("Import functionality coming soon");
-        break;
-      default:
-        break;
-    }
-  };
-
   const handleViewProfile = (employee) => {
     navigate(`/admin/employee/${employee.id}`);
   };
@@ -524,7 +471,7 @@ export default function Employee() {
                 {isColumnVisible("department") ? (
                 <TableColumn nowrap={false}>
                   <span className="inline-flex max-w-[14rem] rounded-full border border-default bg-light-app-tertiary px-2.5 py-1 text-[11px] font-semibold capitalize text-secondary dark:border-dark-default dark:bg-dark-app-tertiary dark:text-dark-secondary">
-                    {employee.department}
+                    {employee.department || employee.faculty || "—"}
                   </span>
                 </TableColumn>
                 ) : null}
@@ -638,7 +585,7 @@ export default function Employee() {
               )}
               renderMeta={(employee) => (
                 <>
-                  <span>{employee.department || "—"}</span>
+                  <span>{employee.department || employee.faculty || "—"}</span>
                   <span>
                     {employee.joined
                       ? new Date(employee.joined).toLocaleDateString(locale)

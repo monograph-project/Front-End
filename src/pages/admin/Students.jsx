@@ -261,46 +261,6 @@ export default function Students() {
     });
   };
 
-  const exportToCSV = () => {
-    const headers = [
-      "ID",
-      "First Name",
-      "Last Name",
-      "Email",
-      "Username",
-      "Department",
-      "Status",
-      "Enrollment Date",
-    ];
-    const csvContent = [
-      headers.join(","),
-      ...students.map((student) =>
-        [
-          student.id,
-          student.firstName ?? "",
-          student.lastName ?? "",
-          student.email ?? "",
-          student.username ?? "",
-          student.department ?? "",
-          student.status ?? "",
-          student.enrollmentDate ?? "",
-        ]
-          .map((field) => `"${field}"`)
-          .join(","),
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "students.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const handleViewProfile = (student) => {
     navigate(`/admin/student/${student.id}`);
   };

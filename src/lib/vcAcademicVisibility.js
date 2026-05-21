@@ -97,6 +97,8 @@ export function taskVcHasSubmissionSignals(task) {
 /** Assigned implementer submits work via PR details; creators may not self-submit via this UI. */
 export function canSubmitAssignedVcTaskWork(user, task) {
   if (!task || typeof task !== "object") return false;
+  const status = String(task.status ?? "").trim().toLowerCase();
+  if (status === "completed" || status === "done") return false;
   const me = repoViewerUsername(user);
   const assignee = taskAssigneeUsername(task);
   if (!me || !assignee || !usernamesLikelySame(me, assignee)) return false;

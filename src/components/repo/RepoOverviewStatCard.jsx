@@ -1,7 +1,7 @@
 import { createElement } from "react";
 
 /**
- * Repository metric tile — matches `StudentRepoStatistics` overview metrics.
+ * Compact metric tile used by dashboards and settings panels.
  * Pass `children` to replace the default value + hint block (e.g. contributors “access” tile).
  */
 export default function RepoOverviewStatCard({
@@ -14,37 +14,35 @@ export default function RepoOverviewStatCard({
 }) {
   return (
     <div
-      className={`group relative overflow-hidden rounded-3xl border p-4 shadow-xs transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-md ${palette.shell}`}
+      className={`group rounded-lg border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:bg-dark-card-bg ${palette.shell}`}
     >
-      <div
-        className={`absolute inset-x-0 top-0 h-1.5 origin-left scale-x-0 opacity-95 transition-transform duration-500 ease-out group-hover:scale-x-100 ${palette.accent}`}
-      />
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted dark:text-dark-muted">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase text-muted dark:text-dark-muted">
+            <span className={`size-1.5 rounded-full ${palette.accent}`} />
             {label}
           </p>
           {children != null ? (
             <div className="mt-3">{children}</div>
           ) : (
             <>
-              <p className="mt-3 text-3xl font-semibold tabular-nums tracking-tight text-primary dark:text-dark-primary">
+              <p className="mt-3 text-3xl font-semibold tabular-nums text-primary dark:text-dark-primary">
                 {value}
               </p>
-              {hint ? (
-                <p className="mt-1 text-xs leading-5 text-secondary dark:text-dark-secondary">
-                  {hint}
-                </p>
-              ) : null}
             </>
           )}
         </div>
         <div
-          className={`flex size-12 shrink-0 items-center justify-center rounded-full border backdrop-blur-sm transition-transform duration-300 ease-out group-hover:scale-105 ${palette.icon}`}
+          className={`flex size-10 shrink-0 items-center justify-center rounded-lg border ${palette.icon}`}
         >
           {createElement(icon, { className: "size-5", strokeWidth: 1.75 })}
         </div>
       </div>
+      {children == null && hint ? (
+        <p className="mt-3 line-clamp-2 text-xs leading-5 text-secondary dark:text-dark-secondary">
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }

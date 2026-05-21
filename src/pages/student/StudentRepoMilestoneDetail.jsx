@@ -1,4 +1,11 @@
-import { createElement, useMemo, useState, useEffect } from "react";
+import {
+  createElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Link,
   Navigate,
@@ -64,33 +71,104 @@ function asNumber(raw) {
   return Number.isFinite(n) ? n : null;
 }
 
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function progressValue(value) {
   const n = Number(value ?? 0);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(100, n));
 }
 
-function taskAssigneeUsername(task) {
-  const assigned = task?.assignedTo ?? task?.assigned_to ?? task?.assignee;
-  if (assigned && typeof assigned === "object") {
-    return String(
-      assigned.userName ??
-        assigned.username ??
-        assigned.user_name ??
-        assigned.login ??
-        "",
-    ).trim();
+function milestoneNumberValue(milestone, ...keys) {
+  const wanted = new Set(
+    keys.map((key) =>
+      String(key)
+        .replace(/[^a-z0-9]/gi, "")
+        .toLowerCase(),
+    ),
+  );
+  for (const key of keys) {
+    const n = asNumber(milestone?.[key]);
+    if (n != null) return n;
   }
-  return String(
-    assigned ?? task?.assigneeUsername ?? task?.assignedToUsername ?? "",
-  ).trim();
+  if (milestone && typeof milestone === "object") {
+    for (const [key, value] of Object.entries(milestone)) {
+      const normalized = String(key)
+        .replace(/[^a-z0-9]/gi, "")
+        .toLowerCase();
+      if (wanted.has(normalized)) {
+        const n = asNumber(value);
+        if (n != null) return n;
+      }
+    }
+  }
+  return null;
 }
 
-function taskBelongsToUser(task, username) {
-  return (
-    usernamesLikelySame(taskAssigneeUsername(task), username) ||
-    usernamesLikelySame(task?.createdBy, username)
+function embeddedMilestoneTasks(milestone) {
+  return asArray(
+    milestone?.tasks ??
+      milestone?.issues ??
+      milestone?.taskList ??
+      milestone?.task_list ??
+      milestone?.milestoneTasks ??
+      milestone?.milestone_tasks,
   );
+}
+
+function normalizedText(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function milestoneIsComplete(milestone) {
+  const status = normalizedText(milestone?.status ?? milestone?.state);
+  return (
+    status === "closed" ||
+    status === "done" ||
+    status === "complete" ||
+    status === "completed" ||
+    status.includes("complete")
+  );
+}
+
+function taskMilestoneNumber(task) {
+  const milestone = task?.milestone;
+  return asNumber(
+    task?.milestoneNumber ??
+      task?.milestone_number ??
+      task?.milestoneNo ??
+      task?.milestone_no ??
+      (milestone && typeof milestone === "object"
+        ? milestone.milestoneNumber ??
+          milestone.milestone_number ??
+          milestone.number ??
+          milestone.no
+        : milestone),
+  );
+}
+
+function taskMilestoneId(task) {
+  const milestone = task?.milestone;
+  const raw =
+    task?.milestoneId ??
+    task?.milestone_id ??
+    (milestone && typeof milestone === "object"
+      ? milestone.id ?? milestone.milestoneId ?? milestone.milestone_id
+      : !asNumber(milestone)
+        ? milestone
+        : "") ??
+    "";
+  return raw != null && raw !== "" ? String(raw) : "";
+}
+
+function taskMatchesMilestone(task, milestoneNumber, milestoneId) {
+  const milestoneNum = asNumber(milestoneNumber);
+  const taskNum = taskMilestoneNumber(task);
+  if (milestoneNum != null && taskNum != null) return taskNum === milestoneNum;
+  if (milestoneId && taskMilestoneId(task) === String(milestoneId)) return true;
+  return false;
 }
 
 function formatDate(value, locale) {
@@ -102,6 +180,44 @@ function formatDate(value, locale) {
     month: "short",
     day: "numeric",
   }).format(date);
+}
+
+function dueDateMs(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.getTime();
+}
+
+function formatTimeRemaining(targetMs, nowMs, t) {
+  if (!targetMs) return t("studentRepo.tasks.detail.none");
+  const diff = targetMs - nowMs;
+  if (diff <= 0) {
+    return t("studentRepo.tasks.milestoneDetail.timerExpired", "Due now");
+  }
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const days = Math.floor(diff / day);
+  const hours = Math.floor((diff % day) / hour);
+  const minutes = Math.floor((diff % hour) / minute);
+  if (days > 0) {
+    return t("studentRepo.tasks.milestoneDetail.timerDays", {
+      defaultValue: "{{days}}d {{hours}}h left",
+      days,
+      hours,
+    });
+  }
+  if (hours > 0) {
+    return t("studentRepo.tasks.milestoneDetail.timerHours", {
+      defaultValue: "{{hours}}h {{minutes}}m left",
+      hours,
+      minutes,
+    });
+  }
+  return t("studentRepo.tasks.milestoneDetail.timerMinutes", {
+    defaultValue: "{{minutes}}m left",
+    minutes: Math.max(1, minutes),
+  });
 }
 
 function dateInputFromIso(value) {
@@ -140,6 +256,15 @@ function normalizeTaskStatus(value) {
   if (!raw) return "open";
   if (raw === "in_progress" || raw === "in-progress") return "progress";
   if (raw === "in_review" || raw === "in-review") return "review";
+  if (
+    raw === "complete" ||
+    raw === "completed" ||
+    raw === "done" ||
+    raw === "closed" ||
+    raw.includes("complete")
+  )
+    return "completed";
+  if (raw.includes("cancel")) return "cancelled";
   return raw;
 }
 
@@ -152,7 +277,13 @@ function countTasksByStatus(list) {
     completed: 0,
   };
   list.forEach((task) => {
-    const status = normalizeTaskStatus(task?.status);
+    const status =
+      task?.completed === true ||
+      task?.isCompleted === true ||
+      task?.completedAt ||
+      task?.completed_at
+        ? "completed"
+        : normalizeTaskStatus(task?.status ?? task?.state ?? task?.taskStatus);
     if (Object.prototype.hasOwnProperty.call(counts, status)) {
       counts[status] += 1;
     }
@@ -234,6 +365,8 @@ export default function StudentRepoMilestoneDetail() {
     requiredTasks: "",
     rubric: "",
   });
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const autoCloseKeyRef = useRef("");
 
   const milestoneNumber = milestoneNumberParam;
   const {
@@ -255,6 +388,11 @@ export default function StudentRepoMilestoneDetail() {
   );
 
   const [completingCounts, setCompletingCounts] = useState(() => new Map());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     function recompute(set) {
@@ -301,22 +439,29 @@ export default function StudentRepoMilestoneDetail() {
     (Boolean(milestone?.createdBy) &&
       usernamesLikelySame(currentUsername, milestone.createdBy));
 
-  const tasks = useMemo(() => {
+  const milestoneTitle = normalizedText(
+    milestone?.title ?? milestone?.name ?? milestone?.milestoneTitle,
+  );
+
+  const matchesCurrentMilestone = useCallback((task) => {
+    if (taskMatchesMilestone(task, msKey, milestoneIdStr)) return true;
+    const taskMilestoneTitle = normalizedText(
+      task?.milestoneTitle ??
+        task?.milestone_title ??
+        task?.milestoneName ??
+        task?.milestone_name ??
+        task?.milestone?.title ??
+        task?.milestone?.name,
+    );
+    return Boolean(milestoneTitle && taskMilestoneTitle === milestoneTitle);
+  }, [milestoneIdStr, milestoneTitle, msKey]);
+
+  const allMilestoneTasks = useMemo(() => {
+    const embeddedTasks = embeddedMilestoneTasks(milestone);
+    if (embeddedTasks.length) return embeddedTasks;
     if (msKey == null) return [];
-    const mNum = Number(msKey);
-    return repoTasks.filter((task) => {
-      if (!canViewAllTasks && currentUsername) {
-        if (!taskBelongsToUser(task, currentUsername)) return false;
-      }
-      if (Number.isFinite(mNum) && task?.milestoneNumber != null) {
-        return Number(task.milestoneNumber) === mNum;
-      }
-      if (milestoneIdStr && task?.milestoneId != null) {
-        return String(task.milestoneId) === milestoneIdStr;
-      }
-      return false;
-    });
-  }, [canViewAllTasks, currentUsername, repoTasks, milestoneIdStr, msKey]);
+    return repoTasks.filter((task) => matchesCurrentMilestone(task));
+  }, [milestone, repoTasks, msKey, matchesCurrentMilestone]);
 
   const invalidateScope = async () => {
     await Promise.all([
@@ -361,25 +506,151 @@ export default function StudentRepoMilestoneDetail() {
   const status = String(milestone?.status ?? "open").toLowerCase();
   const completingCountForThis = completingCounts.get(Number(msKey)) || 0;
   let completion = 0;
-  const taskCounts = countTasksByStatus(tasks);
-  const totalTasks = taskCounts.total;
-  const completedTasks = taskCounts.completed;
-  const requiredTasks = asNumber(milestone?.requiredTasks);
+  const taskCounts = countTasksByStatus(allMilestoneTasks);
+  const aggregateTotalTasks = milestoneNumberValue(
+    milestone,
+    "totalTasks",
+    "total_tasks",
+    "tasksCount",
+    "taskCount",
+    "issuesCount",
+    "issueCount",
+    "totalIssues",
+    "total_issues",
+    "totalCount",
+    "total_count",
+    "count",
+  );
+  const totalTasks = Math.max(aggregateTotalTasks ?? 0, taskCounts.total);
+  const aggregateCompletedTasks =
+    milestoneNumberValue(
+      milestone,
+      "completedTasks",
+      "completed_tasks",
+      "completedTaskCount",
+      "completed_task_count",
+      "completedIssues",
+      "completed_issues",
+      "closedTasks",
+      "closed_tasks",
+      "doneTasks",
+      "done_tasks",
+      "finishedTasks",
+      "finished_tasks",
+      "completedCount",
+      "completed_count",
+      "doneCount",
+      "done_count",
+    );
+  const completedTasks = Math.max(
+    aggregateCompletedTasks ?? 0,
+    taskCounts.completed,
+  );
+  const openTasks =
+    milestoneNumberValue(
+      milestone,
+      "openTasks",
+      "open_tasks",
+      "openCount",
+      "open_count",
+    ) ??
+    taskCounts.open;
+  const inProgressTasks =
+    milestoneNumberValue(
+      milestone,
+      "inProgressTasks",
+      "in_progress_tasks",
+      "progressTasks",
+      "progress_tasks",
+      "progressCount",
+      "progress_count",
+      "inProgressCount",
+      "in_progress_count",
+    ) ?? taskCounts.progress;
+  const inReviewTasks =
+    milestoneNumberValue(
+      milestone,
+      "inReviewTasks",
+      "in_review_tasks",
+      "reviewTasks",
+      "review_tasks",
+      "reviewCount",
+      "review_count",
+      "inReviewCount",
+      "in_review_count",
+    ) ?? taskCounts.review;
+  const derivedTotalTasks =
+    totalTasks > 0
+      ? totalTasks
+      : completedTasks + openTasks + inProgressTasks + inReviewTasks;
+  const requiredTasks = milestoneNumberValue(
+    milestone,
+    "requiredTasks",
+    "required_tasks",
+  );
+  const apiCompletion = milestoneNumberValue(
+    milestone,
+    "completionPercentage",
+    "completion_percentage",
+    "progressPercentage",
+    "progress_percentage",
+    "percentComplete",
+    "percent_complete",
+    "completion",
+    "progress",
+  );
   const completionTarget =
-    requiredTasks != null && requiredTasks > 0 ? requiredTasks : totalTasks;
+    requiredTasks != null && requiredTasks > 0
+      ? requiredTasks
+      : derivedTotalTasks;
   let effectiveCompleted = completedTasks;
-  if (completionTarget > 0) {
+  if (milestoneIsComplete(milestone)) {
+    completion = 100;
+    effectiveCompleted =
+      completionTarget > 0 ? completionTarget : Math.max(completedTasks, 1);
+  } else if (apiCompletion != null && apiCompletion > 0) {
+    completion = progressValue(apiCompletion);
+  } else if (completionTarget > 0) {
     effectiveCompleted = Math.min(
       completionTarget,
       completedTasks + Number(completingCountForThis || 0),
     );
     completion = Math.round((effectiveCompleted / completionTarget) * 100);
+  } else if (apiCompletion != null) {
+    completion = progressValue(apiCompletion);
   } else {
-    completion = progressValue(milestone?.completionPercentage);
+    completion = 0;
   }
   const dueDate = formatDate(milestone?.dueDate, i18n.language);
+  const dueMs = dueDateMs(milestone?.dueDate);
+  const timeRemaining = formatTimeRemaining(dueMs, nowMs, t);
+  const allTaskCounts = countTasksByStatus(allMilestoneTasks);
+  const allTasksCompleted =
+    allTaskCounts.total > 0 && allTaskCounts.completed >= allTaskCounts.total;
+  const progressComplete = completion >= 100;
   const mutatingLifecycle =
     closeMilestoneMut.isPending || reopenMilestoneMut.isPending;
+
+  useEffect(() => {
+    if (!milestone || status === "closed" || !canManageMilestone) return;
+    if (mutatingLifecycle) return;
+    if (!allTasksCompleted || !progressComplete) return;
+    const key = `${owner}/${repo}/${milestoneNumber}:tasks-complete`;
+    if (autoCloseKeyRef.current === key) return;
+    autoCloseKeyRef.current = key;
+    closeMilestoneMut.mutate({ owner, repo, milestoneNumber });
+  }, [
+    allTasksCompleted,
+    canManageMilestone,
+    closeMilestoneMut,
+    milestone,
+    milestoneNumber,
+    mutatingLifecycle,
+    owner,
+    progressComplete,
+    repo,
+    status,
+  ]);
 
   function openEditModal() {
     if (!milestone) return;
@@ -559,7 +830,7 @@ export default function StudentRepoMilestoneDetail() {
               <RepoOverviewStatCard
                 icon={ListChecks}
                 label={t("studentRepo.tasks.milestoneDetail.stats.total")}
-                value={String(totalTasks)}
+                value={String(derivedTotalTasks)}
                 palette={REPO_OVERVIEW_STAT_PALETTES[0]}
               />
               <RepoOverviewStatCard
@@ -587,6 +858,18 @@ export default function StudentRepoMilestoneDetail() {
                 icon={CalendarDays}
                 label={t("studentRepo.tasks.detail.dueLabel")}
                 value={dueDate || t("studentRepo.tasks.detail.none")}
+              />
+              <DetailRow
+                icon={Gauge}
+                label={t(
+                  "studentRepo.tasks.milestoneDetail.timeRemaining",
+                  "Time remaining",
+                )}
+                value={
+                  status === "closed"
+                    ? t("studentRepo.tasks.milestones.closed")
+                    : timeRemaining
+                }
               />
               {canViewGrading ? (
                 <>
@@ -621,14 +904,22 @@ export default function StudentRepoMilestoneDetail() {
             description={t("studentRepo.tasks.issues.subtitle")}
             contentClassName="space-y-3"
           >
-            {!tasks.length ? (
+            {!allMilestoneTasks.length ? (
               <p className="text-sm text-muted dark:text-dark-muted">
                 {t("studentRepo.tasks.empty")}
               </p>
             ) : (
               <ul className="space-y-2">
-                {tasks.map((task) => {
-                  const st = normalizeTaskStatus(task?.status);
+                {allMilestoneTasks.map((task) => {
+                  const st =
+                    task?.completed === true ||
+                    task?.isCompleted === true ||
+                    task?.completedAt ||
+                    task?.completed_at
+                      ? "completed"
+                      : normalizeTaskStatus(
+                          task?.status ?? task?.state ?? task?.taskStatus,
+                        );
                   return (
                     <li key={task.id ?? task.number}>
                       <Link
