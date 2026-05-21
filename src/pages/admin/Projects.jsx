@@ -9,6 +9,7 @@ import {
   LayoutList,
   ListChecks,
   UserPlus,
+  UserMinus,
   UserCircle2,
   Users,
   UsersRound,
@@ -52,6 +53,7 @@ import {
   useFacultyGroups,
   useLinkedTeacherRecord,
   useStudentsPage,
+  useRemoveFacultyGroupMember,
   useUpdateFacultyGroup,
   useUpdateFacultyGroupLeader,
 } from "../../services/useApi";
@@ -471,6 +473,10 @@ export default function Projects() {
     showSuccessToast: false,
     showErrorToast: false,
   });
+  const removeFacultyGroupMember = useRemoveFacultyGroupMember({
+    showSuccessToast: false,
+    showErrorToast: false,
+  });
   const deleteFacultyGroup = useDeleteFacultyGroup({
     showSuccessToast: false,
     showErrorToast: false,
@@ -560,6 +566,13 @@ export default function Projects() {
       .filter(Boolean);
     return memberOptions.length ? memberOptions : studentOptions;
   }, [groupOperation, studentOptions]);
+  const groupRemoveMemberOptions = useMemo(() => {
+    const leader = groupLeaderId(groupOperation?.record);
+    return groupMembersList(groupOperation?.record)
+      .filter((member) => studentIdValue(member) !== leader)
+      .map(studentToOption)
+      .filter(Boolean);
+  }, [groupOperation]);
 
   const projects = useMemo(() => {
     const rows = Array.isArray(facultyProjects) ? facultyProjects : [];
@@ -828,7 +841,8 @@ export default function Projects() {
     if (
       !groupOperation?.record ||
       updateFacultyGroup.isPending ||
-      updateFacultyGroupLeader.isPending
+      updateFacultyGroupLeader.isPending ||
+      removeFacultyGroupMember.isPending
     )
       return;
     const selectedStudentId = String(groupOperationDraft.studentId ?? "").trim();
@@ -856,6 +870,11 @@ export default function Projects() {
           id: groupId,
           leaderId: nextLeader,
         });
+      } else if (groupOperation.mode === "remove-member") {
+        await removeFacultyGroupMember.mutateAsync({
+          id: groupId,
+          studentId: selectedStudentId,
+        });
       } else {
         await updateFacultyGroup.mutateAsync({
           id: groupId,
@@ -869,7 +888,9 @@ export default function Projects() {
       gooeyToast.success(
         groupOperation.mode === "add-member"
           ? t("adminProjects.groups.operations.addMemberSuccess")
-          : t("adminProjects.groups.operations.changeLeaderSuccess"),
+          : groupOperation.mode === "remove-member"
+            ? t("adminProjects.groups.operations.removeMemberSuccess")
+            : t("adminProjects.groups.operations.changeLeaderSuccess"),
       );
       closeGroupOperation();
     } catch (e) {
@@ -949,6 +970,12 @@ export default function Projects() {
           onClick={() => openGroupOperation("add-member", group)}
         >
           <span>{t("adminProjects.groups.operations.addMember")}</span>
+        </DropdownItem>
+        <DropdownItem
+          icon={<UserMinus className="size-3.5" />}
+          onClick={() => openGroupOperation("remove-member", group)}
+        >
+          <span>{t("adminProjects.groups.operations.removeMember")}</span>
         </DropdownItem>
         <DropdownItem
           icon={<BadgeCheck className="size-3.5" />}
@@ -1521,7 +1548,8 @@ export default function Projects() {
             if (
               !open &&
               !updateFacultyGroup.isPending &&
-              !updateFacultyGroupLeader.isPending
+              !updateFacultyGroupLeader.isPending &&
+              !removeFacultyGroupMember.isPending
             )
               closeGroupOperation();
           }}
@@ -1529,6 +1557,8 @@ export default function Projects() {
           title={
             groupOperation.mode === "add-member"
               ? t("adminProjects.groups.operations.addMemberTitle")
+              : groupOperation.mode === "remove-member"
+                ? t("adminProjects.groups.operations.removeMemberTitle")
               : t("adminProjects.groups.operations.changeLeaderTitle")
           }
           subtitle={t("adminProjects.groups.operations.subtitle", {
@@ -1542,7 +1572,8 @@ export default function Projects() {
                 onClick={closeGroupOperation}
                 disabled={
                   updateFacultyGroup.isPending ||
-                  updateFacultyGroupLeader.isPending
+                  updateFacultyGroupLeader.isPending ||
+                  removeFacultyGroupMember.isPending
                 }
               >
                 {t("adminProjects.form.group.actions.cancel")}
@@ -1552,20 +1583,25 @@ export default function Projects() {
                 onClick={() => void submitGroupOperation()}
                 loading={
                   updateFacultyGroup.isPending ||
-                  updateFacultyGroupLeader.isPending
+                  updateFacultyGroupLeader.isPending ||
+                  removeFacultyGroupMember.isPending
                 }
                 disabled={
                   updateFacultyGroup.isPending ||
                   updateFacultyGroupLeader.isPending ||
+                  removeFacultyGroupMember.isPending ||
                   !String(groupOperationDraft.studentId ?? "").trim()
                 }
               >
                 {updateFacultyGroup.isPending ||
-                updateFacultyGroupLeader.isPending
+                updateFacultyGroupLeader.isPending ||
+                removeFacultyGroupMember.isPending
                   ? t("adminProjects.form.group.actions.submitting")
                   : groupOperation.mode === "add-member"
                     ? t("adminProjects.groups.operations.addMember")
-                    : t("adminProjects.groups.operations.changeLeader")}
+                    : groupOperation.mode === "remove-member"
+                      ? t("adminProjects.groups.operations.removeMember")
+                      : t("adminProjects.groups.operations.changeLeader")}
               </Button>
             </>
           }
@@ -1587,6 +1623,8 @@ export default function Projects() {
               <span className="text-[11px] font-semibold text-primary dark:text-dark-primary">
                 {groupOperation.mode === "add-member"
                   ? t("adminProjects.groups.operations.memberLabel")
+                  : groupOperation.mode === "remove-member"
+                    ? t("adminProjects.groups.operations.removeMemberLabel")
                   : t("adminProjects.groups.operations.leaderLabel")}
               </span>
               <SearchableSelect
@@ -1597,11 +1635,15 @@ export default function Projects() {
                 options={
                   groupOperation.mode === "add-member"
                     ? groupAddMemberOptions
+                    : groupOperation.mode === "remove-member"
+                      ? groupRemoveMemberOptions
                     : groupLeaderOptions
                 }
                 placeholder={
                   groupOperation.mode === "add-member"
                     ? t("adminProjects.groups.operations.memberPlaceholder")
+                    : groupOperation.mode === "remove-member"
+                      ? t("adminProjects.groups.operations.removeMemberPlaceholder")
                     : t("adminProjects.groups.operations.leaderPlaceholder")
                 }
                 searchPlaceholder={t(
@@ -1610,14 +1652,23 @@ export default function Projects() {
                 disabled={
                   updateFacultyGroup.isPending ||
                   updateFacultyGroupLeader.isPending ||
+                  removeFacultyGroupMember.isPending ||
                   (groupOperation.mode === "add-member" &&
-                    groupAddMemberOptions.length === 0)
+                    groupAddMemberOptions.length === 0) ||
+                  (groupOperation.mode === "remove-member" &&
+                    groupRemoveMemberOptions.length === 0)
                 }
               />
               {groupOperation.mode === "add-member" &&
               groupAddMemberOptions.length === 0 ? (
                 <p className="text-[11px] text-muted dark:text-dark-muted">
                   {t("adminProjects.groups.operations.noAvailableStudents")}
+                </p>
+              ) : null}
+              {groupOperation.mode === "remove-member" &&
+              groupRemoveMemberOptions.length === 0 ? (
+                <p className="text-[11px] text-muted dark:text-dark-muted">
+                  {t("adminProjects.groups.operations.noRemovableMembers")}
                 </p>
               ) : null}
             </div>

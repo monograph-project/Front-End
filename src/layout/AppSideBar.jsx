@@ -373,11 +373,47 @@ export default function AppSidebar() {
       ? [...(roleNavItems.author || [])]
       : [...primaryNav, ...authorAddonNav];
 
-  const isActive = (path) => {
-    if (path === "/") {
-      return location.pathname === "/";
+  const pathMatches = (path, candidate) => {
+    if (candidate === "/") return path === "/";
+    return path === candidate || path.startsWith(`${candidate}/`);
+  };
+
+  const activePathAliases = (item) => {
+    const aliases = [item.path];
+    const shell = pathnameShell || basePath;
+
+    if (item.key === "workspace" && shell === "/student") {
+      aliases.push(`${shell}/repository`);
     }
-    return location.pathname.startsWith(path);
+
+    if (item.key === "repositories" && shell === "/teacher") {
+      aliases.push(`${shell}/repository`, `${shell}/workspace`);
+    }
+
+    if (item.key === "projects" && (shell === "/admin" || shell === "/teacher")) {
+      aliases.push(`${shell}/projects/register`, `${shell}/projects/workspace`);
+      if (shell === "/admin") aliases.push(`${shell}/repository`);
+    }
+
+    if (item.key === "student" && shell === "/admin") {
+      aliases.push(`${shell}/student/new`);
+    }
+
+    if (item.key === "teacher" && shell === "/admin") {
+      aliases.push(`${shell}/teacher/new`);
+    }
+
+    if (item.key === "employee" && shell === "/admin") {
+      aliases.push(`${shell}/employee/new`);
+    }
+
+    return aliases;
+  };
+
+  const isActive = (item) => {
+    return activePathAliases(item).some((path) =>
+      pathMatches(location.pathname, path),
+    );
   };
 
   const photoSrc = resolveProfilePhotoUrl(user ?? {});
@@ -411,7 +447,7 @@ export default function AppSidebar() {
         className="flex-1 overflow-y-auto overflow-x-hidden"
       >
         {navItems.map((item) => {
-          const active = isActive(item.path);
+          const active = isActive(item);
           const label = item.labelKey.includes(".")
             ? t(item.labelKey)
             : item.labelKey;

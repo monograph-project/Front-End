@@ -3319,23 +3319,31 @@ const resources = {
       "adminProjects.registry.projectMeta": "Repository: {{repository}}",
       "adminProjects.registry.memberCount": "{{count}} members",
       "adminProjects.groups.operations.addMember": "Add member",
+      "adminProjects.groups.operations.removeMember": "Remove member",
       "adminProjects.groups.operations.changeLeader": "Change leader",
       "adminProjects.groups.operations.manageRoster": "Manage roster",
       "adminProjects.groups.operations.addMemberTitle": "Add group member",
+      "adminProjects.groups.operations.removeMemberTitle": "Remove group member",
       "adminProjects.groups.operations.changeLeaderTitle": "Change group leader",
       "adminProjects.groups.operations.subtitle": "{{group}}",
       "adminProjects.groups.operations.currentSummary":
         "Leader: {{leader}} · {{count}} members",
       "adminProjects.groups.operations.memberLabel": "Student",
+      "adminProjects.groups.operations.removeMemberLabel": "Member to remove",
       "adminProjects.groups.operations.leaderLabel": "New leader",
       "adminProjects.groups.operations.memberPlaceholder": "Choose a student",
+      "adminProjects.groups.operations.removeMemberPlaceholder": "Choose a member",
       "adminProjects.groups.operations.leaderPlaceholder": "Choose a leader",
       "adminProjects.groups.operations.noAvailableStudents":
         "Every loaded student is already in this group.",
+      "adminProjects.groups.operations.noRemovableMembers":
+        "There are no non-leader members to remove.",
       "adminProjects.groups.operations.validation.student":
         "Choose a student first.",
       "adminProjects.groups.operations.addMemberSuccess":
         "Member added successfully.",
+      "adminProjects.groups.operations.removeMemberSuccess":
+        "Member removed successfully.",
       "adminProjects.groups.operations.changeLeaderSuccess":
         "Leader changed successfully.",
       "adminProjects.groups.operations.updateError":
@@ -7131,23 +7139,31 @@ const resources = {
       "adminProjects.registry.projectMeta": "مخزن: {{repository}}",
       "adminProjects.registry.memberCount": "{{count}} غړي",
       "adminProjects.groups.operations.addMember": "غړی اضافه کړئ",
+      "adminProjects.groups.operations.removeMember": "غړی لرې کړئ",
       "adminProjects.groups.operations.changeLeader": "مشر بدل کړئ",
       "adminProjects.groups.operations.manageRoster": "د غړو لېست تنظیم کړئ",
       "adminProjects.groups.operations.addMemberTitle": "د ګروپ غړی اضافه کړئ",
+      "adminProjects.groups.operations.removeMemberTitle": "د ګروپ غړی لرې کړئ",
       "adminProjects.groups.operations.changeLeaderTitle": "د ګروپ مشر بدل کړئ",
       "adminProjects.groups.operations.subtitle": "{{group}}",
       "adminProjects.groups.operations.currentSummary":
         "مشر: {{leader}} · {{count}} غړي",
       "adminProjects.groups.operations.memberLabel": "محصل",
+      "adminProjects.groups.operations.removeMemberLabel": "د لرې کولو غړی",
       "adminProjects.groups.operations.leaderLabel": "نوی مشر",
       "adminProjects.groups.operations.memberPlaceholder": "محصل وټاکئ",
+      "adminProjects.groups.operations.removeMemberPlaceholder": "غړی وټاکئ",
       "adminProjects.groups.operations.leaderPlaceholder": "مشر وټاکئ",
       "adminProjects.groups.operations.noAvailableStudents":
         "ټول بار شوي محصلان لا دمخه په دې ګروپ کې دي.",
+      "adminProjects.groups.operations.noRemovableMembers":
+        "د مشر پرته بل د لرې کولو غړی نشته.",
       "adminProjects.groups.operations.validation.student":
         "لومړی یو محصل وټاکئ.",
       "adminProjects.groups.operations.addMemberSuccess":
         "غړی په بریالیتوب اضافه شو.",
+      "adminProjects.groups.operations.removeMemberSuccess":
+        "غړی په بریالیتوب لرې شو.",
       "adminProjects.groups.operations.changeLeaderSuccess":
         "مشر په بریالیتوب بدل شو.",
       "adminProjects.groups.operations.updateError":
@@ -10963,23 +10979,31 @@ const resources = {
       "adminProjects.registry.projectMeta": "مخزن: {{repository}}",
       "adminProjects.registry.memberCount": "{{count}} عضو",
       "adminProjects.groups.operations.addMember": "افزودن عضو",
+      "adminProjects.groups.operations.removeMember": "حذف عضو",
       "adminProjects.groups.operations.changeLeader": "تغییر سرگروه",
       "adminProjects.groups.operations.manageRoster": "مدیریت فهرست اعضا",
       "adminProjects.groups.operations.addMemberTitle": "افزودن عضو گروه",
+      "adminProjects.groups.operations.removeMemberTitle": "حذف عضو گروه",
       "adminProjects.groups.operations.changeLeaderTitle": "تغییر سرگروه",
       "adminProjects.groups.operations.subtitle": "{{group}}",
       "adminProjects.groups.operations.currentSummary":
         "سرگروه: {{leader}} · {{count}} عضو",
       "adminProjects.groups.operations.memberLabel": "محصل",
+      "adminProjects.groups.operations.removeMemberLabel": "عضو برای حذف",
       "adminProjects.groups.operations.leaderLabel": "سرگروه جدید",
       "adminProjects.groups.operations.memberPlaceholder": "یک محصل انتخاب کنید",
+      "adminProjects.groups.operations.removeMemberPlaceholder": "یک عضو انتخاب کنید",
       "adminProjects.groups.operations.leaderPlaceholder": "سرگروه را انتخاب کنید",
       "adminProjects.groups.operations.noAvailableStudents":
         "همه محصلان بارگذاری‌شده از قبل در این گروه هستند.",
+      "adminProjects.groups.operations.noRemovableMembers":
+        "هیچ عضو غیر از سرگروه برای حذف وجود ندارد.",
       "adminProjects.groups.operations.validation.student":
         "ابتدا یک محصل انتخاب کنید.",
       "adminProjects.groups.operations.addMemberSuccess":
         "عضو با موفقیت اضافه شد.",
+      "adminProjects.groups.operations.removeMemberSuccess":
+        "عضو با موفقیت حذف شد.",
       "adminProjects.groups.operations.changeLeaderSuccess":
         "سرگروه با موفقیت تغییر کرد.",
       "adminProjects.groups.operations.updateError":

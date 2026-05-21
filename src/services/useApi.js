@@ -1167,6 +1167,15 @@ export function useUpdateFacultyGroupLeader(options) {
   });
 }
 
+export function useRemoveFacultyGroupMember(options) {
+  return useApiMutation({
+    mutationFn: ({ id, studentId }) => Api.removeFacultyGroupMember(id, studentId),
+    mutationKey: ["faculty-groups", "remove-member"],
+    toastSuccess: "Group member removed",
+    ...options,
+  });
+}
+
 export function useDeleteFacultyGroup(options) {
   return useApiMutation({
     mutationFn: Api.deleteFacultyGroup,

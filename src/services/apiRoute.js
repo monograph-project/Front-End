@@ -751,15 +751,48 @@ function repoSlugsFromActivityEvents(events) {
   const out = [];
   if (!Array.isArray(events)) return out;
   const seen = new Set();
-  for (const ev of events) {
-    const slug = typeof ev.repo === "string" ? ev.repo.trim() : "";
-    if (!slug || slug.includes("//")) continue;
-    const parts = slug.split("/").filter(Boolean);
-    if (parts.length !== 2) continue;
-    const key = `${parts[0]}/${parts[1]}`;
-    if (seen.has(key)) continue;
+  const pushSlug = (owner, repo) => {
+    const ownerText = String(owner ?? "").trim();
+    const repoText = String(repo ?? "").trim();
+    if (!ownerText || !repoText) return;
+    const key = `${ownerText}/${repoText}`;
+    if (seen.has(key)) return;
     seen.add(key);
-    out.push({ ownerUsername: parts[0], repositoryName: parts[1] });
+    out.push({ ownerUsername: ownerText, repositoryName: repoText });
+  };
+  for (const rawEvent of events) {
+    const ev =
+      rawEvent?.json && typeof rawEvent.json === "object"
+        ? { ...rawEvent, ...rawEvent.json }
+        : rawEvent;
+    if (!ev || typeof ev !== "object") continue;
+    const slug = typeof ev.repo === "string" ? ev.repo.trim() : "";
+    if (slug && !slug.includes("//")) {
+      const parts = slug.split("/").filter(Boolean);
+      if (parts.length === 2) pushSlug(parts[0], parts[1]);
+    }
+    const owner =
+      ev?.ownerUsername ??
+      ev?.owner_username ??
+      ev?.repoOwnerUsername ??
+      ev?.repo_owner_username ??
+      ev?.ownerName ??
+      ev?.owner ??
+      "";
+    const repo =
+      ev?.repoName ??
+      ev?.repo_name ??
+      ev?.repositoryName ??
+      ev?.repository_name ??
+      "";
+    pushSlug(owner, repo);
+    const urlText = String(
+      ev?.repositoryUrl ?? ev?.repository_url ?? ev?.pullRequestUrl ?? "",
+    );
+    const match = urlText.match(/\/repos\/([^/?#]+)\/([^/?#]+)/i);
+    if (match) {
+      pushSlug(decodeURIComponent(match[1]), decodeURIComponent(match[2]));
+    }
   }
   return out;
 }
@@ -1016,11 +1049,32 @@ export async function vcGetUserActivityForCandidates(usernames, params = {}) {
         .filter(Boolean),
     ),
   ];
+  const seen = new Set();
+  const allRows = [];
   for (const username of candidates) {
     const rows = await vcGetUserActivity(username, params);
-    if (rows.length) return rows;
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      const key =
+        row && typeof row === "object"
+          ? [
+              row.eventId,
+              row.event_id,
+              row.id,
+              row.uuid,
+              row.eventType ?? row.type,
+              row.repositoryId ?? row.repositoryName ?? row.repo,
+              row.occurredAt ?? row.timestamp ?? row.createdAt,
+            ]
+              .map((part) => String(part ?? "").trim())
+              .join("|")
+          : `${username}|${i}|${String(row)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      allRows.push(row);
+    }
   }
-  return [];
+  return allRows;
 }
 
 export async function vcGetRepoTaskDashboard(owner, repo) {
@@ -2864,6 +2918,21 @@ export async function updateFacultyGroupLeader(id, leaderId) {
     throwApiError(
       err,
       "Failed to update group leader.",
+      "apiErrors.failed_to_update_faculty_group",
+    );
+  }
+}
+
+export async function removeFacultyGroupMember(id, studentId) {
+  try {
+    const { data } = await axiosInstance.delete(
+      FACULTY_GROUP.REMOVE_MEMBER(id, studentId),
+    );
+    return data;
+  } catch (err) {
+    throwApiError(
+      err,
+      "Failed to remove group member.",
       "apiErrors.failed_to_update_faculty_group",
     );
   }

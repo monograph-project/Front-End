@@ -1,12 +1,35 @@
 /** @param {unknown} v */
+function activityEvent(v) {
+  if (v == null || typeof v !== "object") return v;
+  const nested = v.json ?? v.payload ?? v.data;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    return { ...v, ...nested };
+  }
+  if (typeof nested === "string") {
+    try {
+      const parsed = JSON.parse(nested);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return { ...v, ...parsed };
+      }
+    } catch {
+      return v;
+    }
+  }
+  return v;
+}
+
+/** @param {unknown} v */
 function tsFromEvent(v) {
-  if (v == null || typeof v !== "object") return 0;
+  const ev = activityEvent(v);
+  if (ev == null || typeof ev !== "object") return 0;
   const raw =
-    v.timestamp ??
-    v.time ??
-    v.createdAt ??
-    v.created_at ??
-    v.date ??
+    ev.timestamp ??
+    ev.time ??
+    ev.createdAt ??
+    ev.created_at ??
+    ev.date ??
+    ev.occurredAt ??
+    ev.occurred_at ??
     "";
   if (typeof raw === "number") return raw;
   const d = new Date(raw);
@@ -15,9 +38,16 @@ function tsFromEvent(v) {
 }
 
 /** @param {unknown} v */
+function positiveNumber(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** @param {unknown} v */
 function repoFromEvent(v) {
-  if (v == null || typeof v !== "object") return "";
-  const r = v.repo ?? v.repository ?? v.repositoryName ?? v.repository_name;
+  const ev = activityEvent(v);
+  if (ev == null || typeof ev !== "object") return "";
+  const r = ev.repo ?? ev.repository ?? ev.repositoryName ?? ev.repository_name;
   if (typeof r === "string") return r.trim();
   if (r && typeof r === "object") {
     const full = r.full_name ?? r.fullName;
@@ -29,14 +59,16 @@ function repoFromEvent(v) {
     if (owner && name) return `${owner}/${String(name).trim()}`;
   }
   const owner =
-    v.ownerUsername ??
-    v.owner_username ??
-    v.repoOwnerUsername ??
-    v.repo_owner_username ??
-    v.repoOwner ??
-    v.owner ??
+    ev.ownerUsername ??
+    ev.owner_username ??
+    ev.repoOwnerUsername ??
+    ev.repo_owner_username ??
+    ev.repoOwner ??
+    ev.ownerName ??
+    ev.owner ??
     "";
-  const name = v.repoName ?? v.repo_name ?? v.repositoryName ?? "";
+  const name =
+    ev.repoName ?? ev.repo_name ?? ev.repositoryName ?? ev.repository_name ?? "";
   if (
     typeof owner === "string" &&
     typeof name === "string" &&
@@ -75,7 +107,8 @@ export function bucketVcActivityEvents(events) {
   }
 
   let i = 0;
-  for (const ev of events) {
+  for (const rawEvent of events) {
+    const ev = activityEvent(rawEvent);
     if (ev == null || typeof ev !== "object") continue;
     const repo = repoFromEvent(ev);
     const at = tsFromEvent(ev);
@@ -87,17 +120,30 @@ export function bucketVcActivityEvents(events) {
     ).toLowerCase();
     const branch = String(ev.branch ?? ev.ref ?? ev.branchName ?? "").toLowerCase();
     const title = String(
-      ev.title ?? ev.message ?? ev.summary ?? ev.description ?? "",
+      ev.title ??
+        ev.pullRequestTitle ??
+        ev.pull_request_title ??
+        ev.commitMessage ??
+        ev.commit_message ??
+        ev.message ??
+        ev.summary ??
+        ev.description ??
+        ev.metadata?.message ??
+        "",
     );
     const hay = `${typeRaw} ${actionRaw} ${branch} ${title} ${JSON.stringify(ev)}`.toLowerCase();
+    const commitCount = positiveNumber(
+      ev.commitCount ?? ev.commit_count ?? ev.commitsCount ?? ev.commits_count,
+    );
 
     const label =
       title.trim() ||
+      (commitCount > 1 ? `${commitCount} commits pushed` : "") ||
       (repo ? repo : String(ev.id ?? `event-${i}`)) ||
       String(ev.id ?? `event-${i}`);
 
     const id = String(
-      [ev.id, ev.uuid, `${repo}-${at}-${i}`].find(
+      [ev.eventId, ev.event_id, ev.id, ev.uuid, `${repo}-${at}-${i}`].find(
         (v) => v != null && String(v).trim() !== "",
       ) ?? `row-${i}`,
     );
@@ -112,14 +158,18 @@ export function bucketVcActivityEvents(events) {
       hay.includes("merge pull") ||
       hay.includes("pr merged");
     const isPull =
+      typeRaw.includes("pull_request") ||
       typeRaw.includes("pull") ||
       hay.includes("pull request") ||
       hay.includes("/pulls/") ||
       hay.includes("opened pr") ||
       hay.includes("opened pull");
     const isPush =
+      typeRaw.includes("repository_pushed") ||
       typeRaw.includes("push") ||
       typeRaw.includes("commit") ||
+      commitCount > 0 ||
+      Boolean(ev.commitId ?? ev.commit_id) ||
       hay.includes(" pushed ") ||
       hay.includes("commits to");
 

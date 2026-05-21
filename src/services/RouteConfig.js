@@ -696,6 +696,10 @@ export const FACULTY_GROUP = {
     gw(
       `/api/group/${encodeURIComponent(id)}/leader/${encodeURIComponent(leaderId)}`,
     ),
+  REMOVE_MEMBER: (id, studentId) =>
+    gw(
+      `/api/group/${encodeURIComponent(id)}/members/${encodeURIComponent(studentId)}`,
+    ),
   DELETE: (id) => gw(`/api/group/${encodeURIComponent(id)}`),
 };
 

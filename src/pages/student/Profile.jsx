@@ -98,6 +98,108 @@ function repoName(repo, fallback) {
   );
 }
 
+function normalizeRepoKey(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^\/+|\/+$/g, "");
+}
+
+function addRepoKey(set, value) {
+  const key = normalizeRepoKey(value);
+  if (!key) return;
+  set.add(key);
+  const parts = key.split("/").filter(Boolean);
+  if (parts.length > 1) set.add(parts[parts.length - 1]);
+}
+
+function activityEvent(event) {
+  if (!event || typeof event !== "object") return event;
+  const nested = event.json ?? event.payload ?? event.data;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    return { ...event, ...nested };
+  }
+  if (typeof nested === "string") {
+    try {
+      const parsed = JSON.parse(nested);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return { ...event, ...parsed };
+      }
+    } catch {
+      return event;
+    }
+  }
+  return event;
+}
+
+function repoKeysFromRepository(repo) {
+  const keys = new Set();
+  if (!repo || typeof repo !== "object") return keys;
+  const owner =
+    repo.ownerUsername ??
+    repo.owner_username ??
+    repo.owner?.username ??
+    repo.owner?.login ??
+    repo.owner ??
+    "";
+  const name =
+    repo.name ??
+    repo.repositoryName ??
+    repo.repository_name ??
+    repo.repoName ??
+    repo.repo_name ??
+    "";
+  addRepoKey(keys, repo.full_name ?? repo.fullName);
+  addRepoKey(keys, name);
+  if (owner && name) addRepoKey(keys, `${owner}/${name}`);
+  return keys;
+}
+
+function repoKeysFromActivity(event) {
+  const ev = activityEvent(event);
+  const keys = new Set();
+  if (!ev || typeof ev !== "object") return keys;
+  const repo =
+    ev.repo ?? ev.repository ?? ev.repositoryName ?? ev.repository_name;
+  if (typeof repo === "string") addRepoKey(keys, repo);
+  if (repo && typeof repo === "object") {
+    for (const key of repoKeysFromRepository(repo)) keys.add(key);
+  }
+  const owner =
+    ev.ownerUsername ??
+    ev.owner_username ??
+    ev.repoOwnerUsername ??
+    ev.repo_owner_username ??
+    ev.repoOwner ??
+    ev.ownerName ??
+    ev.owner ??
+    "";
+  const name =
+    ev.repoName ??
+    ev.repo_name ??
+    ev.repositoryName ??
+    ev.repository_name ??
+    "";
+  addRepoKey(keys, name);
+  if (owner && name) addRepoKey(keys, `${owner}/${name}`);
+
+  const urlText = String(
+    ev.repositoryUrl ?? ev.repository_url ?? ev.pullRequestUrl ?? "",
+  );
+  const match = urlText.match(/\/repos\/([^/?#]+)\/([^/?#]+)/i);
+  if (match) {
+    addRepoKey(
+      keys,
+      `${decodeURIComponent(match[1])}/${decodeURIComponent(match[2])}`,
+    );
+  }
+  return keys;
+}
+
+function hasRepositorySignal(event) {
+  return repoKeysFromActivity(event).size > 0;
+}
+
 function repoVisibility(repo, t) {
   const raw = String(repo?.visibility ?? "").trim().toLowerCase();
   if (repo?.private || raw === "private") {
@@ -303,6 +405,25 @@ export default function Profile() {
     () => normalizeListPayload(rawActivityPayload, "activities", "events"),
     [rawActivityPayload],
   );
+  const accessibleRepoKeys = useMemo(() => {
+    const keys = new Set();
+    for (const repo of repositories) {
+      for (const key of repoKeysFromRepository(repo)) keys.add(key);
+    }
+    return keys;
+  }, [repositories]);
+  const repositoryActivity = useMemo(() => {
+    const repoEvents = rawActivity.filter(hasRepositorySignal);
+    if (!accessibleRepoKeys.size) return repoEvents;
+    const matched = repoEvents.filter((event) => {
+      const eventKeys = repoKeysFromActivity(event);
+      for (const key of eventKeys) {
+        if (accessibleRepoKeys.has(key)) return true;
+      }
+      return false;
+    });
+    return matched.length ? matched : repoEvents;
+  }, [accessibleRepoKeys, rawActivity]);
 
   const { data: facultyProjects = [] } = useFacultyProjectsByStudent(
     student?.id,
@@ -321,10 +442,10 @@ export default function Profile() {
   const profileProjects = role === "teacher" ? teacherProjects : facultyProjects;
 
   const buckets = useMemo(
-    () => bucketVcActivityEvents(rawActivity),
-    [rawActivity],
+    () => bucketVcActivityEvents(repositoryActivity),
+    [repositoryActivity],
   );
-  const heatmap = useActivityHeatmap(rawActivity);
+  const heatmap = useActivityHeatmap(repositoryActivity);
   const totalContributions = heatmap.total;
 
   const visibilityColor = (repo) => {
@@ -388,7 +509,12 @@ export default function Profile() {
 
   const allContributionRows = useMemo(
     () =>
-      [...buckets.pushes, ...buckets.pulls, ...buckets.merges].sort(
+      [
+        ...buckets.pushes,
+        ...buckets.pulls,
+        ...buckets.merges,
+        ...buckets.other,
+      ].sort(
         (a, b) => (b.at || 0) - (a.at || 0),
       ),
     [buckets],
