@@ -45,6 +45,7 @@ function buildDocumentCommitGroups(rows) {
     const message = row?.message ?? row?.commitMessage ?? row?.subject ?? "";
     const timestamp = row?.timestamp ?? row?.date ?? "";
     const kind = row?.kind ?? "segment";
+    const location = row?.location ?? "";
     const text = typeof row?.text === "string" ? row.text : "";
     const lines = text.split(/\r?\n/);
     if (!lines.length) lines.push("");
@@ -64,6 +65,7 @@ function buildDocumentCommitGroups(rows) {
         message,
         timestamp,
         kind,
+        location,
         page: row?.page ?? null,
         lines: [],
       };
@@ -139,6 +141,7 @@ function docxPopupPayload(row, index, t) {
       row?.subject ||
       t("documentViewer.na"),
     kind: row?.kind || "segment",
+    location: row?.location || "",
     changeType: changeType(row),
     changeLabel: changeLabel(row),
     previousText: row?.previousText || "",
@@ -287,6 +290,7 @@ function DocumentSegmentBlameList({
               <div className="mb-2 text-[10px] uppercase tracking-[0.14em] text-muted dark:text-dark-muted">
                 {row.kind || "segment"}
                 {row.page != null ? ` • Page ${row.page}` : ""}
+                {row.location ? ` • ${row.location}` : ""}
               </div>
               <div className="overflow-hidden rounded-xl border border-light-divider bg-white text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900">
                 {row.lines.map((line) => (
@@ -398,6 +402,8 @@ export default function BlameMode({
 
   useEffect(() => {
     let cancelled = false;
+    const cleanupHost = previewHostRef.current;
+    const cleanupMarkerLayer = markerLayerRef.current;
     async function renderDocxBlame() {
       if (!isDocumentSegmentMode || ext !== "docx" || !fileBytes?.length) {
         setDocRenderError("");
@@ -648,11 +654,11 @@ export default function BlameMode({
     renderDocxBlame();
     return () => {
       cancelled = true;
-      if (previewHostRef.current) {
-        previewHostRef.current.innerHTML = "";
+      if (cleanupHost) {
+        cleanupHost.innerHTML = "";
       }
-      if (markerLayerRef.current) {
-        markerLayerRef.current.innerHTML = "";
+      if (cleanupMarkerLayer) {
+        cleanupMarkerLayer.innerHTML = "";
       }
     };
   }, [blameData, ext, fileBytes, isDocumentSegmentMode, selectedCommit, t]);
@@ -697,6 +703,11 @@ export default function BlameMode({
                       {docxPopup.page != null ? ` · Page ${docxPopup.page}` : ""}
                     </span>
                   </div>
+                  {docxPopup.location ? (
+                    <p className="mt-2 font-mono text-[10px] text-muted dark:text-dark-muted">
+                      {docxPopup.location}
+                    </p>
+                  ) : null}
                   <p className="mt-2 font-semibold text-primary dark:text-dark-primary">
                     {docxPopup.author || t("documentViewer.na")}
                   </p>
@@ -850,6 +861,7 @@ export default function BlameMode({
                   <div className="mb-2 text-[10px] uppercase tracking-[0.14em] text-muted dark:text-dark-muted">
                     {row.kind || "segment"}
                     {row.page != null ? ` • Page ${row.page}` : ""}
+                    {row.location ? ` • ${row.location}` : ""}
                   </div>
                   <div className="overflow-hidden rounded-xl border border-light-divider bg-white text-slate-900 dark:border-dark-divider dark:bg-white dark:text-slate-900">
                     {row.lines.map((line) => (
