@@ -1,4 +1,0 @@
-- [ ] Update TeacherProfile.jsx to match StudentProfile.jsx layout/style and ensure i18n keys remain valid
-- [ ] Update EmployeeProfile.jsx to match StudentProfile.jsx layout/style and ensure i18n keys remain valid
-- [ ] Verify compilation (no missing imports / unused variables)
-- [ ] Critical-path manual test: open /admin/teacher/:id and /admin/employee/:id and confirm render + navigation buttons work
