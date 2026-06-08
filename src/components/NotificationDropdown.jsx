@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import Dropdown from "./Dropdown";
 import Avatar from "./Avatar";
-import { useClickOutSide } from "../hooks/useClickOutside";
+import { useClickOutSide } from "../hooks/useClickOutSide";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import {
