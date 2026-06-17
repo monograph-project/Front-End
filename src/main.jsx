@@ -29,7 +29,7 @@ createRoot(document.getElementById("root")).render(
         <LanguageProvider>
           <AppRoot />
         </LanguageProvider>
-        <ReactQueryDevtools />
+        
       </QueryClientProvider>
     </Theme>
   </StrictMode>,
