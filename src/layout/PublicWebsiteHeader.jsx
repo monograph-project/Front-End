@@ -350,7 +350,7 @@ export default function PublicWebsiteHeader() {
                     to="/login"
                     state={{ from: location }}
                     onClick={closeMobile}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-(--color-light-input-border) bg-(--color-light-card-bg) px-4 text-sm font-semibold text-primary shadow-sm transition-colors hover:border-(--color-light-input-border-focus) hover:bg-light-app-tertiary dark:border-(--color-dark-input-border) dark:bg-(--color-dark-input-bg) dark:text-dark-primary dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-dark-app-tertiary"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-(--color-light-input-border) bg-(--color-light-card-bg) px-4 text-sm font-semibold text-primary shadow-sm transition-colors hover:border-(--color-light-input-border-focus) hover:bg-light-app-tertiary dark:border-(--color-dark-input-border) dark:bg-(--color-dark-input-bg) dark:text-dark-primary dark:hover:border-(--color-dark-input-border-focus) dark:hover:bg-dark-app-tertiary"
                   >
                     <LogIn className="size-4" strokeWidth={1.8} />
                     {t("publicHeader.logIn")}
@@ -358,7 +358,7 @@ export default function PublicWebsiteHeader() {
                   <Link
                     to="/signup"
                     onClick={closeMobile}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-(--color-light-btn-primary-bg) px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-(--color-light-btn-primary-hover) dark:bg-blue-400 dark:text-blue-950 dark:hover:bg-blue-300"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-(--color-light-btn-primary-bg) px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-(--color-light-btn-primary-hover) dark:bg-blue-400 dark:text-blue-950 dark:hover:bg-blue-300"
                   >
                     <UserPlus className="size-4" strokeWidth={1.8} />
                     {t("publicHeader.signUp")}
